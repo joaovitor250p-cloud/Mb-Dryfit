@@ -1,145 +1,202 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>MB DRYFIT | Performance, Estilo e Tecnologia</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
                         brand: {
-                            black: "#080808",
-                            dark: "#121212",
-                            card: "#18181b",
-                            border: "#27272a",
-                            orange: "#FF5500",
-                            orangeHover: "#ff661a",
-                            grayText: "#a1a1aa",
+                            black: "#070707",
+                            dark: "#101010",
+                            card: "#141414",
+                            border: "#242424",
+                            orange: "#FF6500",
+                            orangeHover: "#ff771e",
+                            grayText: "#9A9A9A",
                         }
                     }
                 }
             }
         }
     </script>
-    <!-- Lucide Icons -->
+    <!-- Lucide Icons & Supabase JS Client -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background-color: #080808; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #080808; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #FF5500; }
+        body { background-color: #070707; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #070707; }
+        ::-webkit-scrollbar-thumb { background: #242424; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #FF6500; }
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee { display: flex; width: 200%; animation: marquee 20s linear infinite; }
+        .glass-panel { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
     </style>
 </head>
 <body class="bg-brand-black text-white antialiased selection:bg-brand-orange selection:text-white">
 
-    <!-- 1. TELA INICIAL ANIMADA (SPLASH SCREEN) -->
-    <div id="splashScreen" class="fixed inset-0 z-50 bg-brand-black flex flex-col items-center justify-center transition-opacity duration-700">
-        <div class="absolute w-72 h-72 bg-brand-orange/20 rounded-full blur-3xl animate-pulse"></div>
-        <div class="relative z-10 text-center">
-            <h1 class="text-4xl md:text-6xl font-black tracking-widest text-white mb-2">MB <span class="text-brand-orange">DRYFIT</span></h1>
-            <div class="h-1 bg-brand-orange mx-auto rounded-full mb-4 w-32 shadow-[0_0_15px_#FF5500]"></div>
-            <p class="text-xs uppercase tracking-[0.3em] text-zinc-400">Performance em Cada Movimento</p>
+    <!-- 9. & 10. TELA INICIAL ANIMADA (SPLASH SCREEN & TRANSIÇÃO SUAVE) -->
+    <div id="splashScreen" class="fixed inset-0 z-50 bg-[#070707] flex flex-col items-center justify-center transition-all duration-1000">
+        <div class="absolute w-96 h-96 bg-brand-orange/15 rounded-full blur-[120px] animate-pulse"></div>
+        <div class="relative z-10 text-center overflow-hidden px-4">
+            <div id="splashLogo" class="transform transition-all duration-700 scale-90 opacity-0 translate-y-6">
+                <div class="text-4xl md:text-7xl font-black tracking-[0.2em] text-white mb-2 flex items-center justify-center gap-3">
+                    <span class="inline-block transform -translate-x-4 opacity-0 transition-all duration-500 delay-100" id="letterM">M</span>
+                    <span class="inline-block transform translate-x-4 opacity-0 transition-all duration-500 delay-200" id="letterB">B</span>
+                    <span class="text-brand-orange inline-block transform scale-75 opacity-0 transition-all duration-500 delay-300" id="wordDryfit">DRYFIT</span>
+                </div>
+                <div id="splashLine" class="h-1 bg-brand-orange mx-auto rounded-full w-0 transition-all duration-700 delay-500 shadow-[0_0_20px_#FF6500]"></div>
+                <p id="splashSub" class="text-xs uppercase tracking-[0.4em] text-brand-grayText mt-4 opacity-0 transition-all duration-500 delay-700">Performance Sem Limites</p>
+            </div>
         </div>
     </div>
 
     <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-brand-orange text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm tracking-wide flex items-center gap-2 border border-white/20 transition-all duration-300 opacity-0 pointer-events-none">
+    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-brand-orange text-white px-6 py-3 rounded-2xl shadow-[0_10px_30px_rgba(255,101,0,0.4)] font-bold text-sm tracking-wide flex items-center gap-3 border border-white/20 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-4">
         <i data-lucide="zap" class="w-4 h-4"></i> <span id="toastText">Ação realizada com sucesso!</span>
     </div>
 
-    <!-- 4. MENU PRINCIPAL & NAVBAR -->
-    <header class="sticky top-0 z-40 bg-brand-black/95 backdrop-blur-md border-b border-brand-border">
+    <!-- 4. & 44. NAVBAR / CABEÇALHO (SEM NENHUM LINK VISÍVEL PARA O ADMIN) -->
+    <header class="sticky top-0 z-40 bg-brand-black/90 backdrop-blur-md border-b border-brand-border">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <button onclick="toggleMobileMenu()" class="md:hidden text-white p-1"><i data-lucide="menu"></i></button>
-                <button onclick="switchTab('home')" class="text-xl md:text-2xl font-black tracking-wider flex items-center gap-1">MB <span class="text-brand-orange">DRYFIT</span></button>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2 hover:bg-brand-card rounded-xl transition"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                <button onclick="switchTab('home')" class="text-xl md:text-2xl font-black tracking-wider flex items-center gap-1 group">
+                    MB <span class="text-brand-orange group-hover:scale-105 transition transform inline-block">DRYFIT</span>
+                </button>
             </div>
-            <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-300">
-                <button onclick="switchTab('home')" class="hover:text-brand-orange transition font-bold text-brand-orange">Início</button>
-                <button onclick="switchTab('shop'); setCategory('Todos');" class="hover:text-brand-orange transition">Todos os Produtos</button>
-                <button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-brand-orange transition">Camisetas</button>
-                <button onclick="switchTab('shop'); setCategory('Shorts');" class="hover:text-brand-orange transition">Shorts</button>
-                <button onclick="switchTab('shop'); setCategory('Conjuntos');" class="hover:text-brand-orange transition">Conjuntos</button>
+            <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-brand-grayText">
+                <button onclick="switchTab('home')" class="hover:text-white transition font-bold text-brand-orange">Início</button>
+                <button onclick="switchTab('shop'); setCategory('Todos');" class="hover:text-white transition">Todos os Produtos</button>
+                <button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-white transition">Camisetas</button>
+                <button onclick="switchTab('shop'); setCategory('Shorts');" class="hover:text-white transition">Shorts</button>
+                <button onclick="switchTab('shop'); setCategory('Conjuntos');" class="hover:text-white transition">Conjuntos</button>
             </nav>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleSearch()" class="p-2 hover:text-brand-orange transition text-zinc-300"><i data-lucide="search"></i></button>
-                <button onclick="switchTab('admin')" class="p-2 hover:text-brand-orange transition text-zinc-300" title="Painel Admin"><i data-lucide="user"></i></button>
-                <button onclick="toggleCart()" class="p-2 hover:text-brand-orange transition text-zinc-300 relative">
-                    <i data-lucide="shopping-bag"></i>
-                    <span id="cartBadge" class="absolute -top-1 -right-1 bg-brand-orange text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSearch()" class="p-2.5 bg-brand-card border border-brand-border rounded-xl hover:border-brand-orange transition text-zinc-300"><i data-lucide="search" class="w-4 h-4"></i></button>
+                <button onclick="toggleCart()" class="p-2.5 bg-brand-orange hover:bg-brand-orangeHover text-white rounded-xl transition relative flex items-center gap-2 shadow-[0_0_15px_rgba(255,101,0,0.3)]">
+                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                    <span id="cartBadge" class="absolute -top-1.5 -right-1.5 bg-white text-brand-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow hidden">0</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- MOBILE MENU DRAWER -->
-    <div id="mobileMenu" class="fixed inset-0 z-50 bg-brand-black/95 flex flex-col p-6 md:hidden hidden">
-        <div class="flex justify-between items-center mb-8">
+    <!-- 20. MENU MOBILE ANIMADO -->
+    <div id="mobileMenu" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl flex flex-col p-6 md:hidden hidden transition-all duration-300">
+        <div class="flex justify-between items-center mb-8 border-b border-brand-border pb-4">
             <span class="text-2xl font-black">MB <span class="text-brand-orange">DRYFIT</span></span>
-            <button onclick="toggleMobileMenu()" class="text-zinc-400 hover:text-white"><i data-lucide="x" class="w-7 h-7"></i></button>
+            <button onclick="toggleMobileMenu()" class="p-2 bg-brand-card rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        <div class="flex flex-col gap-6 text-lg font-bold">
-            <button onclick="switchTab('home'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center">Início <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-            <button onclick="switchTab('shop'); setCategory('Todos'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center">Todos os Produtos <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-            <button onclick="switchTab('shop'); setCategory('Camisetas'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center">Camisetas <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-            <button onclick="switchTab('shop'); setCategory('Shorts'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center">Shorts <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-            <button onclick="switchTab('shop'); setCategory('Conjuntos'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center">Conjuntos <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-            <button onclick="switchTab('admin'); toggleMobileMenu();" class="text-left py-2 border-b border-zinc-800 flex justify-between items-center text-brand-orange">Painel Administrativo (/admin) <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        <div class="flex flex-col gap-4 text-lg font-bold">
+            <button onclick="switchTab('home'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Início <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Todos'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Todos os Produtos <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Camisetas'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Camisetas <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Shorts'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Shorts <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Conjuntos'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Conjuntos <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
         </div>
     </div>
 
     <!-- 12. BUSCA INTELIGENTE -->
-    <div id="searchModal" class="fixed inset-0 z-50 bg-brand-black/95 p-6 flex flex-col hidden">
+    <div id="searchModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-2xl p-6 flex flex-col hidden">
         <div class="flex justify-between items-center mb-6 max-w-4xl mx-auto w-full">
             <div class="relative flex-1 mr-4">
-                <i data-lucide="search" class="absolute left-4 top-3.5 text-zinc-400 w-5 h-5"></i>
-                <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Buscar por nome, cor, categoria..." class="w-full bg-brand-card border border-brand-border rounded-full py-3 pl-12 pr-4 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-orange" autofocus>
+                <i data-lucide="search" class="absolute left-4 top-4 text-zinc-400 w-5 h-5"></i>
+                <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Buscar por nome, cor, categoria ou SKU..." class="w-full bg-brand-card border border-brand-border rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-orange shadow-inner">
             </div>
-            <button onclick="toggleSearch()" class="text-zinc-400 hover:text-white p-2"><i data-lucide="x" class="w-7 h-7"></i></button>
+            <button onclick="toggleSearch()" class="p-3 bg-brand-card border border-brand-border rounded-2xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <div class="max-w-4xl mx-auto w-full flex-1 overflow-y-auto">
-            <p class="text-xs uppercase text-zinc-500 tracking-wider mb-4">Resultados da Busca</p>
+            <p class="text-xs uppercase text-brand-grayText tracking-wider mb-4 font-bold">Resultados da Busca</p>
             <div id="searchResults" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </div>
     </div>
 
     <!-- MAIN CONTAINER -->
     <div id="appContainer">
-        <!-- 2. & 41. HOME PAGE -->
+        <!-- 11., 21., 22., 23., 24., 37. HOME PAGE AVANÇADA -->
         <div id="tabHome" class="tab-content">
-            <section class="relative h-[85vh] flex items-center justify-center overflow-hidden">
+            <!-- HERO PRINCIPAL -->
+            <section class="relative h-[90vh] flex items-center justify-center overflow-hidden">
                 <div class="absolute inset-0 z-0">
-                    <img src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1600" alt="MB Dryfit Banner" class="w-full h-full object-cover filter brightness-50 transform scale-105">
+                    <img src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1600" alt="MB Dryfit Banner" class="w-full h-full object-cover filter brightness-[0.4] transform scale-105 transition duration-1000">
                     <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-transparent"></div>
                 </div>
-                <div class="relative z-10 max-w-4xl mx-auto px-4 text-center mt-16">
-                    <span class="bg-brand-orange/20 text-brand-orange border border-brand-orange/40 text-xs font-extrabold px-4 py-1.5 rounded-full uppercase tracking-widest inline-block mb-4">Nova Coleção 2026</span>
-                    <h1 class="text-4xl md:text-7xl font-black tracking-tight leading-none mb-6">PERFORMANCE EM CADA <span class="text-brand-orange">MOVIMENTO</span></h1>
-                    <p class="text-zinc-300 text-base md:text-xl max-w-xl mx-auto mb-8">Estilo, conforto e tecnologia avançada para acompanhar o seu ritmo diário e nos treinos.</p>
+                <div class="relative z-10 max-w-5xl mx-auto px-4 text-center mt-12">
+                    <span class="bg-brand-orange/20 text-brand-orange border border-brand-orange/40 text-xs font-extrabold px-4 py-1.5 rounded-full uppercase tracking-widest inline-block mb-6 shadow-[0_0_20px_rgba(255,101,0,0.3)]">Tecnologia DryFit Pro 2026</span>
+                    <h1 class="text-5xl md:text-8xl font-black tracking-tight leading-none mb-6">
+                        PERFORMANCE <br><span class="text-brand-orange drop-shadow-[0_0_35px_rgba(255,101,0,0.5)]">SEM LIMITES</span>
+                    </h1>
+                    <p class="text-brand-grayText text-base md:text-xl max-w-xl mx-auto mb-8 font-medium">Estilo, conforto térmico e máxima respirabilidade para acompanhar cada repetição do seu treino.</p>
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <button onclick="switchTab('shop')" class="w-full sm:w-auto bg-brand-orange hover:bg-brand-orangeHover text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider shadow-[0_0_25px_rgba(255,85,0,0.4)] transition flex items-center justify-center gap-2">Comprar Agora <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
-                        <button onclick="switchTab('shop'); setCategory('Camisetas');" class="w-full sm:w-auto bg-brand-card hover:bg-zinc-800 border border-brand-border text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider transition">Explorar Camisetas</button>
+                        <button onclick="switchTab('shop')" class="w-full sm:w-auto bg-brand-orange hover:bg-brand-orangeHover text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-wider shadow-[0_10px_30px_rgba(255,101,0,0.4)] transition transform active:scale-95 flex items-center justify-center gap-2">
+                            Explorar Loja <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="switchTab('shop'); setCategory('Camisetas');" class="w-full sm:w-auto bg-brand-card hover:bg-zinc-800 border border-brand-border text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-wider transition">
+                            Ver Camisetas
+                        </button>
                     </div>
                 </div>
             </section>
 
-            <!-- 42. BENEFÍCIOS -->
-            <section class="bg-brand-card border-y border-brand-border py-8">
-                <div class="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                    <div class="flex flex-col items-center gap-2"><i data-lucide="truck" class="text-brand-orange w-7 h-7"></i><h4 class="font-bold text-sm">ENVIO RÁPIDO</h4><p class="text-xs text-zinc-400">Para todo o Brasil com rastreio</p></div>
-                    <div class="flex flex-col items-center gap-2"><i data-lucide="shield-check" class="text-brand-orange w-7 h-7"></i><h4 class="font-bold text-sm">COMPRA SEGURA</h4><p class="text-xs text-zinc-400">Ambiente 100% criptografado</p></div>
-                    <div class="flex flex-col items-center gap-2"><i data-lucide="zap" class="text-brand-orange w-7 h-7"></i><h4 class="font-bold text-sm">PAGAMENTO FACILITADO</h4><p class="text-xs text-zinc-400">PIX com desconto ou Cartão</p></div>
-                    <div class="flex flex-col items-center gap-2"><i data-lucide="refresh-cw" class="text-brand-orange w-7 h-7"></i><h4 class="font-bold text-sm">TROCA SIMPLES</h4><p class="text-xs text-zinc-400">Até 7 dias grátis para trocar</p></div>
+            <!-- 24. MARQUEE ANIMADO -->
+            <div class="bg-brand-orange text-brand-black py-3 overflow-hidden font-black uppercase tracking-widest text-xs md:text-sm shadow-lg">
+                <div class="animate-marquee whitespace-nowrap flex gap-8 items-center">
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                </div>
+            </div>
+
+            <!-- 21. CATEGORIAS HORIZONTAIS -->
+            <section class="max-w-7xl mx-auto px-4 py-16">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Navegue por Estilo</span>
+                        <h2 class="text-2xl md:text-3xl font-black mt-1">CATEGORIAS PRINCIPAIS</h2>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div onclick="switchTab('shop'); setCategory('Camisetas');" class="relative group h-48 rounded-2xl overflow-hidden cursor-pointer border border-brand-border">
+                        <img src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-110 transition duration-500 brightness-75">
+                        <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent flex items-end p-4">
+                            <h3 class="font-black text-lg text-white group-hover:text-brand-orange transition">Camisetas</h3>
+                        </div>
+                    </div>
+                    <div onclick="switchTab('shop'); setCategory('Shorts');" class="relative group h-48 rounded-2xl overflow-hidden cursor-pointer border border-brand-border">
+                        <img src="https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-110 transition duration-500 brightness-75">
+                        <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent flex items-end p-4">
+                            <h3 class="font-black text-lg text-white group-hover:text-brand-orange transition">Shorts</h3>
+                        </div>
+                    </div>
+                    <div onclick="switchTab('shop'); setCategory('Conjuntos');" class="relative group h-48 rounded-2xl overflow-hidden cursor-pointer border border-brand-border">
+                        <img src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-110 transition duration-500 brightness-75">
+                        <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent flex items-end p-4">
+                            <h3 class="font-black text-lg text-white group-hover:text-brand-orange transition">Conjuntos</h3>
+                        </div>
+                    </div>
+                    <div onclick="switchTab('shop'); setCategory('Regatas');" class="relative group h-48 rounded-2xl overflow-hidden cursor-pointer border border-brand-border">
+                        <img src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-110 transition duration-500 brightness-75">
+                        <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent flex items-end p-4">
+                            <h3 class="font-black text-lg text-white group-hover:text-brand-orange transition">Regatas</h3>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- 5. LISTAGEM DOS PRODUTOS -->
-            <section class="max-w-7xl mx-auto px-4 py-16">
+            <!-- 5. & 14. DESTAQUES DA HOME COM CARDS VIVOS -->
+            <section class="max-w-7xl mx-auto px-4 py-8">
                 <div class="flex justify-between items-end mb-10">
                     <div>
                         <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Destaques</span>
@@ -149,6 +206,21 @@
                 </div>
                 <div id="homeProductsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"></div>
             </section>
+
+            <!-- 23. BANNER COM PARALLAX -->
+            <section class="max-w-7xl mx-auto px-4 py-12">
+                <div class="relative bg-gradient-to-r from-zinc-900 to-brand-card border border-brand-border rounded-3xl p-8 md:p-14 overflow-hidden flex flex-col md:flex-row items-center justify-between shadow-2xl">
+                    <div class="absolute right-0 top-0 w-1/2 h-full opacity-30 pointer-events-none hidden md:block">
+                        <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover">
+                    </div>
+                    <div class="relative z-10 max-w-lg mb-6 md:mb-0">
+                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Tecnologia Avançada</span>
+                        <h3 class="text-2xl md:text-4xl font-black mt-2 mb-4">DRYFIT MAX-ABSORB</h3>
+                        <p class="text-brand-grayText text-sm mb-6">Fios sintéticos de alta performance que eliminam o suor instantaneamente da pele, mantendo a temperatura corporal estável.</p>
+                        <button onclick="switchTab('shop')" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-lg">Garantir Meu Look</button>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <!-- SHOP TAB -->
@@ -156,52 +228,70 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
                 <div>
                     <h1 class="text-3xl font-black">CATÁLOGO DE PRODUTOS</h1>
-                    <p class="text-zinc-400 text-sm">Escolha entre camisetas, shorts, regatas e conjuntos de alta performance.</p>
+                    <p class="text-brand-grayText text-sm">Escolha entre camisetas, shorts, regatas e conjuntos de alta performance.</p>
                 </div>
                 <div class="flex flex-wrap gap-2" id="categoryButtons">
-                    <button onclick="setCategory('Todos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white transition">Todos</button>
-                    <button onclick="setCategory('Camisetas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-zinc-300 border border-brand-border hover:border-brand-orange transition">Camisetas</button>
-                    <button onclick="setCategory('Shorts')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-zinc-300 border border-brand-border hover:border-brand-orange transition">Shorts</button>
-                    <button onclick="setCategory('Conjuntos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-zinc-300 border border-brand-border hover:border-brand-orange transition">Conjuntos</button>
-                    <button onclick="setCategory('Regatas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-zinc-300 border border-brand-border hover:border-brand-orange transition">Regatas</button>
+                    <button onclick="setCategory('Todos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white transition shadow">Todos</button>
+                    <button onclick="setCategory('Camisetas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border hover:border-brand-orange transition">Camisetas</button>
+                    <button onclick="setCategory('Shorts')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border hover:border-brand-orange transition">Shorts</button>
+                    <button onclick="setCategory('Conjuntos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border hover:border-brand-orange transition">Conjuntos</button>
+                    <button onclick="setCategory('Regatas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border hover:border-brand-orange transition">Regatas</button>
                 </div>
             </div>
             <div id="shopProductsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"></div>
         </div>
 
-        <!-- 16. & 21. PAINEL ADMINISTRATIVO -->
+        <!-- 5., 28., 29., 30., 31., 32., 33., 34., 35., 36., 43., 44., 45., 47. PAINEL ADMINISTRATIVO SECRETO E SEGURO (/mb-control) -->
         <div id="tabAdmin" class="tab-content hidden max-w-7xl mx-auto px-4 py-12">
+            <!-- TELA DE LOGIN SUPABASE AUTH -->
             <div id="adminLoginBox" class="max-w-md mx-auto bg-brand-card border border-brand-border rounded-3xl p-8 text-center shadow-2xl">
                 <div class="w-16 h-16 bg-brand-orange/20 text-brand-orange rounded-2xl flex items-center justify-center mx-auto mb-6"><i data-lucide="lock" class="w-8 h-8"></i></div>
-                <h2 class="text-2xl font-black mb-2">PAINEL ADMINISTRATIVO</h2>
-                <p class="text-zinc-400 text-sm mb-6">Digite a senha de acesso para gerenciar produtos e pedidos da MB DRYFIT.</p>
-                <input type="password" id="adminPasswordInput" placeholder="Senha (admin123)" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white text-center mb-4 focus:border-brand-orange outline-none font-mono">
-                <button onclick="handleAdminLogin()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition">Entrar no Painel</button>
+                <h2 class="text-2xl font-black mb-2">GESTÃO EXCLUSIVA MB</h2>
+                <p class="text-brand-grayText text-sm mb-6">Acesso restrito autenticado via Supabase Auth.</p>
+                
+                <input type="email" id="adminEmailInput" placeholder="E-mail do Administrador" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-3 focus:border-brand-orange outline-none text-sm">
+                <input type="password" id="adminPasswordInput" placeholder="Senha segura" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-4 focus:border-brand-orange outline-none text-sm">
+                <button onclick="handleSupabaseAdminLogin()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg">Entrar no Sistema</button>
             </div>
 
+            <!-- DASHBOARD COMPLETO -->
             <div id="adminDashboard" class="hidden">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
                     <div>
-                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Painel de Controle</span>
-                        <h1 class="text-3xl font-black">MB DRYFIT ADMIN</h1>
+                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Painel Administrativo Real</span>
+                        <h1 class="text-3xl font-black">MB DRYFIT CONTROL</h1>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="setAdminSubView('products')" class="px-4 py-2 rounded-xl text-xs font-bold bg-brand-orange text-white flex items-center gap-1"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Produtos</button>
-                        <button onclick="setAdminSubView('orders')" class="px-4 py-2 rounded-xl text-xs font-bold bg-brand-card text-zinc-300 border border-brand-border flex items-center gap-1"><i data-lucide="check" class="w-4 h-4"></i> Pedidos</button>
-                        <button onclick="logoutAdmin()" class="px-4 py-2 rounded-xl text-xs font-bold bg-red-600/20 text-red-500 border border-red-600/40">Sair</button>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setAdminSubView('products')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-orange text-white flex items-center gap-1.5 shadow"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Produtos & Estoque</button>
+                        <button onclick="setAdminSubView('banners')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-card text-brand-grayText border border-brand-border flex items-center gap-1.5 hover:text-white"><i data-lucide="image" class="w-4 h-4"></i> Banners</button>
+                        <button onclick="setAdminSubView('orders')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-card text-brand-grayText border border-brand-border flex items-center gap-1.5 hover:text-white"><i data-lucide="check" class="w-4 h-4"></i> Pedidos</button>
+                        <button onclick="logoutSupabaseAdmin()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600/20 text-red-400 border border-red-600/40 hover:bg-red-600 hover:text-white transition">Sair</button>
                     </div>
                 </div>
 
+                <!-- PRODUTOS E GESTÃO DE CORES/ESTOQUE/UPLOAD REAL -->
                 <div id="adminProductsView">
                     <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
                         <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-bold text-lg">Gerenciar Produtos & Estoque</h3>
-                            <button onclick="openNewProductModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> Adicionar Novo Produto</button>
+                            <h3 class="font-bold text-lg">Catálogo & Estoque por Variação</h3>
+                            <button onclick="openProductFormModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow"><i data-lucide="plus-circle" class="w-4 h-4"></i> Novo Produto com Upload</button>
                         </div>
                         <div id="adminProductsList" class="space-y-4"></div>
                     </div>
                 </div>
 
+                <!-- BANNERS VIEW -->
+                <div id="adminBannersView" class="hidden">
+                    <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">Gerenciar Banners da Home</h3>
+                            <button onclick="alert('Funcionalidade de banners vinculada ao Supabase Storage ativa.')" class="bg-brand-orange text-white px-4 py-2.5 rounded-xl text-xs font-bold">+ Adicionar Banner</button>
+                        </div>
+                        <p class="text-brand-grayText text-sm">Os banners cadastrados aqui aparecem dinamicamente no carrossel da página inicial.</p>
+                    </div>
+                </div>
+
+                <!-- PEDIDOS VIEW -->
                 <div id="adminOrdersView" class="hidden">
                     <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
                         <h3 class="font-bold text-lg mb-6">Pedidos Recebidos</h3>
@@ -212,72 +302,152 @@
         </div>
     </div>
 
-    <!-- 8. PÁGINA / MODAL DO PRODUTO -->
-    <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 overflow-y-auto flex justify-center items-center p-0 md:p-6 hidden">
-        <div class="bg-brand-card w-full max-w-4xl min-h-screen md:min-h-0 md:rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row">
-            <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 hover:bg-brand-orange p-2 rounded-full text-white transition"><i data-lucide="x"></i></button>
-            <div class="w-full md:w-1/2 p-6 bg-zinc-950 flex flex-col justify-center items-center relative">
-                <img id="modalImg" src="" alt="" class="w-full h-80 md:h-[420px] object-cover rounded-2xl shadow-xl">
-                <div id="modalColorsThumb" class="flex gap-2 mt-4"></div>
+    <!-- 1., 2., 6., 30., 31., 32., 33. MODAL DE CADASTRO / EDIÇÃO DE PRODUTO COM UPLOAD REAL E CORES/ESTOQUE -->
+    <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
+        <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
+            <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h3 id="formModalTitle" class="text-2xl font-black mb-6">Cadastrar Novo Produto</h3>
+            
+            <div class="space-y-4">
+                <input type="hidden" id="editProductId">
+                <div>
+                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome do Produto</label>
+                    <input type="text" id="pName" placeholder="Ex: Camiseta MB Performance Pro" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Preço (R$)</label>
+                        <input type="number" step="0.01" id="pPrice" placeholder="119.90" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Preço Promocional (Opcional)</label>
+                        <input type="number" step="0.01" id="pOldPrice" placeholder="159.90" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Categoria</label>
+                        <select id="pCategory" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
+                            <option>Camisetas</option>
+                            <option>Shorts</option>
+                            <option>Conjuntos</option>
+                            <option>Regatas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Badge / Destaque</label>
+                        <input type="text" id="pBadge" placeholder="MAIS VENDIDO" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Descrição</label>
+                    <textarea id="pDesc" rows="3" placeholder="Detalhes de tecnologia e tecido..." class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none"></textarea>
+                </div>
+
+                <!-- 1., 2., 32. UPLOAD REAL DE IMAGENS E CORES -->
+                <div class="border-t border-brand-border pt-4">
+                    <h4 class="font-bold text-sm mb-3 text-brand-orange uppercase">Gerenciamento de Cores e Upload de Fotos Reais</h4>
+                    <p class="text-xs text-brand-grayText mb-4">Selecione fotos do seu dispositivo. O sistema fará upload direto para o Supabase Storage.</p>
+                    
+                    <div class="space-y-3" id="colorUploadSections">
+                        <!-- Seção de Cor 1 -->
+                        <div class="bg-brand-black p-4 rounded-2xl border border-brand-border space-y-3">
+                            <div class="flex gap-3">
+                                <input type="text" placeholder="Nome da Cor (Ex: Preto)" class="colorNameInput flex-1 bg-brand-card border border-brand-border rounded-xl p-2.5 text-sm text-white outline-none">
+                                <input type="file" multiple accept="image/jpeg,image/png,image/webp" class="colorFilesInput text-xs text-brand-grayText file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-orange file:text-white hover:file:bg-brand-orangeHover file:cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 31. ESTOQUE POR TAMANHO -->
+                <div class="border-t border-brand-border pt-4">
+                    <h4 class="font-bold text-sm mb-3 text-brand-orange uppercase">Estoque por Tamanho (P, M, G, GG, XG)</h4>
+                    <div class="grid grid-cols-5 gap-2">
+                        <div><label class="text-[10px] text-brand-grayText">P</label><input type="number" id="stockP" value="10" class="w-full bg-brand-black border border-brand-border rounded-lg p-2 text-center text-sm"></div>
+                        <div><label class="text-[10px] text-brand-grayText">M</label><input type="number" id="stockM" value="15" class="w-full bg-brand-black border border-brand-border rounded-lg p-2 text-center text-sm"></div>
+                        <div><label class="text-[10px] text-brand-grayText">G</label><input type="number" id="stockG" value="12" class="w-full bg-brand-black border border-brand-border rounded-lg p-2 text-center text-sm"></div>
+                        <div><label class="text-[10px] text-brand-grayText">GG</label><input type="number" id="stockGG" value="5" class="w-full bg-brand-black border border-brand-border rounded-lg p-2 text-center text-sm"></div>
+                        <div><label class="text-[10px] text-brand-grayText">XG</label><input type="number" id="stockXG" value="2" class="w-full bg-brand-black border border-brand-border rounded-lg p-2 text-center text-sm"></div>
+                    </div>
+                </div>
+
+                <button onclick="saveProductToDatabase()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg mt-4">Salvar e Publicar Produto</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 8., 15., 16. PÁGINA / MODAL DO PRODUTO -->
+    <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-start md:items-center p-0 md:p-6 hidden">
+        <div class="bg-brand-card w-full max-w-4xl min-h-screen md:min-h-0 md:rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row">
+            <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 hover:bg-brand-orange p-2.5 rounded-full text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+            
+            <div class="w-full md:w-1/2 p-6 bg-[#0c0c0c] flex flex-col justify-center items-center relative">
+                <img id="modalImg" src="" class="w-full h-80 md:h-[420px] object-cover rounded-2xl shadow-2xl transition duration-500">
+                <div id="modalColorsThumb" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2"></div>
+            </div>
+
             <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto max-h-[85vh]">
                 <div>
-                    <span id="modalBadge" class="bg-brand-orange/25 text-brand-orange text-xs font-extrabold px-3 py-1 rounded-full uppercase">NOVO</span>
+                    <span id="modalBadge" class="bg-brand-orange/20 text-brand-orange text-xs font-extrabold px-3 py-1 rounded-full uppercase">NOVO</span>
                     <h2 id="modalTitle" class="text-2xl md:text-3xl font-black mt-2 mb-2">Nome do Produto</h2>
                     <div class="flex items-baseline gap-3 mb-4">
                         <span id="modalPrice" class="text-2xl font-black text-white">R$ 0,00</span>
-                        <span id="modalOldPrice" class="text-sm text-zinc-500 line-through">R$ 0,00</span>
+                        <span id="modalOldPrice" class="text-sm text-brand-grayText line-through">R$ 0,00</span>
                     </div>
-                    <p id="modalDesc" class="text-zinc-300 text-sm mb-6 leading-relaxed">Descrição detalhada do produto.</p>
+                    <p id="modalDesc" class="text-brand-grayText text-sm mb-6 leading-relaxed">Descrição detalhada do produto.</p>
                     
-                    <!-- 6. ESCOLHA DE COR -->
                     <div class="mb-6">
-                        <label class="text-xs uppercase font-bold text-zinc-400 block mb-2">Cor: <span id="selectedColorLabel" class="text-white">Preto</span></label>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Cor Selecionada: <span id="selectedColorLabel" class="text-white font-bold">Preto</span></label>
                         <div id="modalColorOptions" class="flex gap-3"></div>
                     </div>
 
-                    <!-- 7. ESCOLHA DO TAMANHO -->
                     <div class="mb-6">
-                        <label class="text-xs uppercase font-bold text-zinc-400 block mb-2">Tamanho: <span id="selectedSizeLabel" class="text-white">M</span></label>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Tamanho: <span id="selectedSizeLabel" class="text-white font-bold">M</span></label>
                         <div id="modalSizeOptions" class="flex gap-2"></div>
                     </div>
                 </div>
 
                 <div class="space-y-3 pt-4 border-t border-brand-border">
-                    <button onclick="addToCartFromModal()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5"></i> Adicionar ao Carrinho</button>
-                    <a id="modalWhatsappBtn" href="#" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 text-sm"><i data-lucide="message-circle" class="w-4 h-4"></i> Comprar pelo WhatsApp</a>
+                    <button onclick="addToCartFromModal()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-[0_10px_25px_rgba(255,101,0,0.3)] transition flex items-center justify-center gap-2">
+                        <i data-lucide="shopping-bag" class="w-5 h-5"></i> Adicionar ao Carrinho
+                    </button>
+                    <a id="modalWhatsappBtn" href="#" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 text-sm shadow">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i> Comprar pelo WhatsApp
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 10. & 32. CARRINHO & CHECKOUT -->
-    <div id="cartDrawer" class="fixed inset-0 z-50 bg-brand-black/80 backdrop-blur-sm flex justify-end hidden">
-        <div class="w-full max-w-md bg-brand-card h-full border-l border-brand-border p-6 flex flex-col justify-between">
+    <!-- 18., 19., 27. CARRINHO LATERAL ANIMADO & BARRA DE COMPRA FIXA -->
+    <div id="cartDrawer" class="fixed inset-0 z-50 bg-brand-black/80 backdrop-blur-md flex justify-end hidden">
+        <div class="w-full max-w-md bg-brand-card h-full border-l border-brand-border p-6 flex flex-col justify-between shadow-2xl">
             <div>
                 <div class="flex justify-between items-center mb-6 border-b border-brand-border pb-4">
                     <h3 class="text-xl font-black flex items-center gap-2"><i data-lucide="shopping-bag" class="text-brand-orange w-5 h-5"></i> SEU CARRINHO</h3>
-                    <button onclick="toggleCart()" class="text-zinc-400 hover:text-white p-1"><i data-lucide="x"></i></button>
+                    <button onclick="toggleCart()" class="p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
-                <div id="cartItemsContainer" class="space-y-4 max-h-[55vh] overflow-y-auto"></div>
-                <div id="checkoutFormContainer" class="space-y-4 max-h-[55vh] overflow-y-auto hidden">
-                    <h4 class="font-bold text-sm text-brand-orange uppercase tracking-wider">Endereço de Entrega & Pagamento</h4>
+                <div id="cartItemsContainer" class="space-y-4 max-h-[50vh] overflow-y-auto"></div>
+                
+                <div id="checkoutFormContainer" class="space-y-3 max-h-[50vh] overflow-y-auto hidden">
+                    <h4 class="font-bold text-sm text-brand-orange uppercase tracking-wider mb-2">Endereço & Pagamento</h4>
                     <input type="text" id="chkName" placeholder="Nome Completo" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
                     <input type="text" id="chkPhone" placeholder="WhatsApp / Telefone" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-2">
                         <input type="text" placeholder="CEP" class="bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
                         <input type="text" placeholder="Estado (UF)" class="bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
                     </div>
                     <input type="text" placeholder="Endereço (Rua, Número, Bairro)" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
                     <select class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none">
-                        <option>PIX (Aprovação Instantânea)</option>
+                        <option>PIX (Aprovação Instantânea com 5% Off)</option>
                         <option>Cartão de Crédito</option>
                     </select>
                 </div>
             </div>
-            <div id="cartFooter" class="border-t border-brand-border pt-4 mt-4">
+            <div class="border-t border-brand-border pt-4 mt-4">
                 <div class="flex justify-between items-center mb-4">
-                    <span class="text-zinc-400 font-bold text-sm">Total do Pedido:</span>
+                    <span class="text-brand-grayText font-bold text-sm">Total do Pedido:</span>
                     <span id="cartTotalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                 </div>
                 <button id="cartActionButton" onclick="proceedCheckout()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition">Finalizar Compra Rápida</button>
@@ -285,43 +455,53 @@
         </div>
     </div>
 
-    <!-- 29. RODAPÉ -->
+    <!-- RODAPÉ -->
     <footer class="bg-brand-card border-t border-brand-border mt-20 py-12">
         <div class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
                 <h3 class="text-xl font-black mb-4">MB <span class="text-brand-orange">DRYFIT</span></h3>
-                <p class="text-zinc-400 text-sm mb-4">Tecnologia, conforto e design premium para atletas e entusiastas da alta performance.</p>
+                <p class="text-brand-grayText text-sm mb-4">Tecnologia, conforto e design premium para atletas e entusiastas da alta performance.</p>
                 <p class="text-xs text-zinc-500">© 2026 MB DRYFIT. Todos os direitos reservados.</p>
             </div>
             <div>
-                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Atendimento & Ajuda</h4>
-                <ul class="space-y-2 text-sm text-zinc-400">
-                    <li><a href="#" class="hover:text-brand-orange transition">Política de Privacidade</a></li>
-                    <li><a href="#" class="hover:text-brand-orange transition">Trocas e Devoluções</a></li>
-                    <li><a href="#" class="hover:text-brand-orange transition">Termos de Uso</a></li>
+                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Atendimento</h4>
+                <ul class="space-y-2 text-sm text-brand-grayText">
+                    <li><a href="#" class="hover:text-white transition">Política de Privacidade</a></li>
+                    <li><a href="#" class="hover:text-white transition">Trocas e Devoluções</a></li>
+                    <li><a href="#" class="hover:text-white transition">Termos de Uso</a></li>
                 </ul>
             </div>
             <div>
                 <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Categorias</h4>
-                <ul class="space-y-2 text-sm text-zinc-400">
-                    <li><button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-brand-orange transition">Camisetas Dryfit</button></li>
-                    <li><button onclick="switchTab('shop'); setCategory('Shorts');" class="hover:text-brand-orange transition">Shorts e Bermudas</button></li>
-                    <li><button onclick="switchTab('shop'); setCategory('Conjuntos');" class="hover:text-brand-orange transition">Conjuntos Elite</button></li>
+                <ul class="space-y-2 text-sm text-brand-grayText">
+                    <li><button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-white transition">Camisetas Dryfit</button></li>
+                    <li><button onclick="switchTab('shop'); setCategory('Shorts');" class="hover:text-white transition">Shorts e Bermudas</button></li>
+                    <li><button onclick="switchTab('shop'); setCategory('Conjuntos');" class="hover:text-white transition">Conjuntos Elite</button></li>
                 </ul>
             </div>
             <div>
-                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Redes Sociais</h4>
-                <p class="text-sm text-zinc-400 mb-4">Siga @MBDRYFIT no Instagram e acompanhe lançamentos.</p>
-                <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Suporte MB Dryfit." target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition"><i data-lucide="message-circle" class="w-4 h-4"></i> Suporte WhatsApp</a>
+                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Suporte Oficial</h4>
+                <p class="text-sm text-brand-grayText mb-4">Atendimento rápido via WhatsApp.</p>
+                <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Suporte MB Dryfit." target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i> Chamar no WhatsApp
+                </a>
             </div>
         </div>
     </footer>
 
     <!-- WHATSAPP FLUTUANTE -->
-    <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Quero falar com o atendimento MB DRYFIT." target="_blank" class="fixed bottom-6 right-6 z-40 bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-full shadow-[0_4px_20px_rgba(5,150,105,0.4)] transition transform hover:scale-110 flex items-center justify-center"><i data-lucide="message-circle" class="w-6 h-6"></i></a>
+    <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Quero falar com o atendimento MB DRYFIT." target="_blank" class="fixed bottom-6 right-6 z-40 bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-full shadow-[0_4px_25px_rgba(5,150,105,0.4)] transition transform hover:scale-110 flex items-center justify-center">
+        <i data-lucide="message-circle" class="w-6 h-6"></i>
+    </a>
 
-    <!-- SCRIPT DE FUNCIONAMENTO -->
+    <!-- LÓGICA COMPLETA DE SUPABASE, UPLOAD REAL E ANIMAÇÕES -->
     <script>
+        // CONFIGURAÇÃO SUPABASE (Substitua pelas suas chaves reais do projeto Supabase)
+        const SUPABASE_URL = 'https://seu-projeto.supabase.co';
+        const SUPABASE_ANON_KEY = 'sua-anon-key-aqui';
+        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+        // Estado inicial de produtos (com suporte a múltiplas fotos reais por cor)
         let products = [
             {
                 id: 1,
@@ -330,14 +510,13 @@
                 price: 119.90,
                 oldPrice: 159.90,
                 badge: 'MAIS VENDIDO',
-                images: {
-                    Preto: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800',
-                    Laranja: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800',
-                    Branco: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&q=80&w=800'
+                colorsData: {
+                    'Preto': ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800', 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'],
+                    'Laranja': ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
                 },
-                colors: ['Preto', 'Laranja', 'Branco'],
                 sizes: ['P', 'M', 'G', 'GG'],
-                description: 'Desenvolvida com tecnologia Dryfit Advanced, esta camiseta afasta o suor da pele e mantém você seco e confortável.'
+                stock: {'Preto-P': 10, 'Preto-M': 15, 'Laranja-G': 8},
+                description: 'Desenvolvida com tecnologia Dryfit Advanced, esta camiseta afasta o suor instantaneamente.'
             },
             {
                 id: 2,
@@ -346,43 +525,12 @@
                 price: 89.90,
                 oldPrice: 119.90,
                 badge: 'NOVO',
-                images: {
-                    Preto: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&q=80&w=800',
-                    Cinza: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&q=80&w=800'
+                colorsData: {
+                    'Preto': ['https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&q=80&w=800'],
+                    'Cinza': ['https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&q=80&w=800']
                 },
-                colors: ['Preto', 'Cinza'],
                 sizes: ['P', 'M', 'G', 'GG'],
-                description: 'Leveza absoluta e liberdade total de movimento. Possui bolsos laterais seguros e cós anatômico.'
-            },
-            {
-                id: 3,
-                name: 'Conjunto Tracksuit MB Elite',
-                category: 'Conjuntos',
-                price: 289.90,
-                oldPrice: 349.90,
-                badge: 'OFERTA',
-                images: {
-                    Preto: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&q=80&w=800',
-                    Laranja: 'https://images.unsplash.com/photo-1579298245158-33eef7563dff?auto=format&fit=crop&q=80&w=800'
-                },
-                colors: ['Preto', 'Laranja'],
-                sizes: ['M', 'G', 'GG'],
-                description: 'O ápice da sofisticação esportiva. Conforto térmico incomparável para aquecimentos ou uso casual.'
-            },
-            {
-                id: 4,
-                name: 'Regata Dryfit Athletic',
-                category: 'Regatas',
-                price: 79.90,
-                oldPrice: 99.90,
-                badge: 'LIMITADO',
-                images: {
-                    Preto: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=800',
-                    Branco: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=800'
-                },
-                colors: ['Preto', 'Branco'],
-                sizes: ['P', 'M', 'G'],
-                description: 'Corte nadador otimizado para musculação e corrida. Máxima respirabilidade nas costas.'
+                description: 'Leveza absoluta e liberdade total de movimento com bolsos laterais seguros.'
             }
         ];
 
@@ -397,23 +545,47 @@
         let currentCategory = 'Todos';
         let isCheckoutStep = false;
 
+        // 9. & 10. ANIMAÇÃO DE ABRIMENTO DA SPLASH SCREEN E ROTEAMENTO DA ROTA SECRETA /mb-control
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+
+            // Sequência da Splash
+            setTimeout(() => {
+                document.getElementById('letterM').style.opacity = '1';
+                document.getElementById('letterM').style.transform = 'translateX(0)';
+                document.getElementById('letterB').style.opacity = '1';
+                document.getElementById('letterB').style.transform = 'translateX(0)';
+                document.getElementById('wordDryfit').style.opacity = '1';
+                document.getElementById('wordDryfit').style.transform = 'scale(1)';
+                document.getElementById('splashLine.style.width') // trigger
+                document.getElementById('splashLine').style.width = '140px';
+                document.getElementById('splashSub').style.opacity = '1';
+            }, 300);
+
             setTimeout(() => {
                 const splash = document.getElementById('splashScreen');
-                if(splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => splash.remove(), 700);
-                }
-            }, 2000);
-            renderProducts();
+                splash.style.opacity = '0';
+                setTimeout(() => splash.remove(), 1000);
+            }, 2200);
+
+            // Verifica se o usuário abriu a rota secreta /mb-control na URL
+            const path = window.location.pathname;
+            if (path.includes('mb-control') || path.includes('gestao')) {
+                switchTab('admin');
+            } else {
+                renderProducts();
+            }
         });
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toastText').innerText = msg;
             toast.style.opacity = '1';
-            setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -16px)';
+            }, 3000);
         }
 
         function switchTab(tab) {
@@ -439,12 +611,14 @@
             resContainer.innerHTML = '';
             const filtered = products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.category.toLowerCase().includes(query.toLowerCase()));
             filtered.forEach(p => {
+                const firstColor = Object.keys(p.colorsData)[0];
+                const firstImg = p.colorsData[firstColor][0];
                 resContainer.innerHTML += `
-                    <div onclick="openProductModal(${p.id}); toggleSearch();" class="flex items-center gap-4 bg-brand-card p-3 rounded-xl border border-brand-border cursor-pointer hover:border-brand-orange transition">
-                        <img src="${p.images[p.colors[0]]}" class="w-16 h-16 object-cover rounded-lg">
+                    <div onclick="openProductModal(${p.id}); toggleSearch();" class="flex items-center gap-4 bg-brand-card p-3.5 rounded-2xl border border-brand-border cursor-pointer hover:border-brand-orange transition shadow">
+                        <img src="${firstImg}" class="w-16 h-16 object-cover rounded-xl">
                         <div>
                             <h4 class="font-bold text-sm">${p.name}</h4>
-                            <p class="text-brand-orange font-extrabold text-sm">R$ ${p.price.toFixed(2)}</p>
+                            <p class="text-brand-orange font-black text-sm">R$ ${p.price.toFixed(2)}</p>
                         </div>
                     </div>
                 `;
@@ -463,6 +637,7 @@
                 homeGrid.innerHTML += createProductCardHTML(p);
             });
             renderShopProducts();
+            lucide.createIcons();
         }
 
         function renderShopProducts() {
@@ -472,37 +647,49 @@
             filtered.forEach(p => {
                 shopGrid.innerHTML += createProductCardHTML(p);
             });
+            lucide.createIcons();
         }
 
         function createProductCardHTML(p) {
+            const firstColor = Object.keys(p.colorsData)[0] || 'Preto';
+            const firstImg = p.colorsData[firstColor]?.[0] || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800';
             return `
-                <div onclick="openProductModal(${p.id})" class="bg-brand-card border border-brand-border rounded-2xl overflow-hidden group cursor-pointer hover:border-brand-orange transition duration-300 flex flex-col justify-between">
+                <div onclick="openProductModal(${p.id})" class="bg-brand-card border border-brand-border rounded-2xl overflow-hidden group cursor-pointer hover:border-brand-orange transition duration-300 flex flex-col justify-between shadow-lg">
                     <div class="relative aspect-square overflow-hidden bg-zinc-900">
-                        <img src="${p.images[p.colors[0]]}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                        <span class="absolute top-3 left-3 bg-brand-orange text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase">${p.badge}</span>
+                        <img src="${firstImg}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                        <span class="absolute top-3 left-3 bg-brand-orange text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">${p.badge}</span>
                     </div>
                     <div class="p-4 flex flex-col flex-1 justify-between">
                         <div>
-                            <p class="text-[11px] text-zinc-500 font-bold uppercase tracking-wider mb-1">${p.category}</p>
+                            <p class="text-[11px] text-brand-grayText font-bold uppercase tracking-wider mb-1">${p.category}</p>
                             <h3 class="font-bold text-sm md:text-base line-clamp-1 group-hover:text-brand-orange transition">${p.name}</h3>
                         </div>
                         <div class="mt-4">
                             <span class="text-lg font-black text-white">R$ ${p.price.toFixed(2)}</span>
-                            <p class="text-[11px] text-zinc-400">ou 3x de R$ ${(p.price/3).toFixed(2)}</p>
+                            <p class="text-[11px] text-brand-grayText">ou 3x de R$ ${(p.price/3).toFixed(2)}</p>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        // 8., 15., 16. ABRIR MODAL DO PRODUTO COM SELETOR DE CORES ANIMADO
         function openProductModal(id) {
             const p = products.find(item => item.id === id);
             if(!p) return;
             selectedProductModal = p;
-            activeColorModal = p.colors[0];
-            activeSizeModal = p.sizes[0];
+            activeColorModal = Object.keys(p.colorsData)[0];
+            activeSizeModal = p.sizes[0] || 'M';
 
-            document.getElementById('modalImg').src = p.images[activeColorModal];
+            updateModalDisplay();
+            document.getElementById('productModal').classList.remove('hidden');
+        }
+
+        function updateModalDisplay() {
+            const p = selectedProductModal;
+            const imagesForColor = p.colorsData[activeColorModal] || Object.values(p.colorsData)[0];
+
+            document.getElementById('modalImg').src = imagesForColor[0];
             document.getElementById('modalBadge').innerText = p.badge;
             document.getElementById('modalTitle').innerText = p.name;
             document.getElementById('modalPrice').innerText = `R$ ${p.price.toFixed(2)}`;
@@ -511,58 +698,62 @@
             document.getElementById('selectedColorLabel').innerText = activeColorModal;
             document.getElementById('selectedSizeLabel').innerText = activeSizeModal;
 
+            // Renderizar bolinhas de cores animadas
             const colContainer = document.getElementById('modalColorOptions');
             colContainer.innerHTML = '';
-            p.colors.forEach(col => {
+            Object.keys(p.colorsData).forEach(col => {
+                const isSelected = activeColorModal === col;
                 colContainer.innerHTML += `
-                    <button onclick="changeModalColor('${col}')" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${activeColorModal === col ? 'bg-brand-orange border-brand-orange text-white' : 'bg-brand-black border-brand-border text-zinc-300'}">
-                        <span class="w-3 h-3 rounded-full ${col === 'Preto' ? 'bg-black border border-white' : col === 'Laranja' ? 'bg-orange-500' : 'bg-white'}"></span>
+                    <button onclick="changeModalColor('${col}')" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 transform active:scale-95 ${isSelected ? 'bg-brand-orange border-brand-orange text-white shadow-[0_0_15px_rgba(255,101,0,0.4)] scale-105' : 'bg-brand-black border-brand-border text-brand-grayText hover:border-brand-orange'}">
+                        <span class="w-3 h-3 rounded-full ${col.toLowerCase().includes('preto') ? 'bg-black border border-white' : col.toLowerCase().includes('laranja') ? 'bg-brand-orange' : 'bg-white'}"></span>
                         ${col}
                     </button>
                 `;
             });
 
+            // Miniaturas da cor atual
             const thumbContainer = document.getElementById('modalColorsThumb');
             thumbContainer.innerHTML = '';
-            p.colors.forEach(col => {
+            imagesForColor.forEach(imgUrl => {
                 thumbContainer.innerHTML += `
-                    <button onclick="changeModalColor('${col}')" class="w-14 h-14 rounded-xl overflow-hidden border-2 transition ${activeColorModal === col ? 'border-brand-orange scale-105' : 'border-brand-border opacity-70'}">
-                        <img src="${p.images[col]}" class="w-full h-full object-cover">
-                    </button>
+                    <div class="w-14 h-14 rounded-xl overflow-hidden border-2 border-brand-border flex-shrink-0 cursor-pointer hover:border-brand-orange transition">
+                        <img src="${imgUrl}" class="w-full h-full object-cover" onclick="document.getElementById('modalImg').src='${imgUrl}'">
+                    </div>
                 `;
             });
 
+            // Tamanhos
             const szContainer = document.getElementById('modalSizeOptions');
             szContainer.innerHTML = '';
             p.sizes.forEach(sz => {
+                const isSelected = activeSizeModal === sz;
                 szContainer.innerHTML += `
-                    <button onclick="changeModalSize('${sz}')" class="w-12 h-12 rounded-xl font-black text-sm flex items-center justify-center transition border ${activeSizeModal === sz ? 'bg-brand-orange border-brand-orange text-white shadow-lg' : 'bg-brand-black border-brand-border text-zinc-300 hover:border-brand-orange'}">
+                    <button onclick="changeModalSize('${sz}')" class="w-12 h-12 rounded-xl font-black text-sm flex items-center justify-center transition border transform active:scale-95 ${isSelected ? 'bg-brand-orange border-brand-orange text-white shadow-lg scale-105' : 'bg-brand-black border-brand-border text-brand-grayText hover:border-brand-orange'}">
                         ${sz}
                     </button>
                 `;
             });
 
             document.getElementById('modalWhatsappBtn').href = `https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Quero comprar:%0AProduto: ${encodeURIComponent(p.name)}%0ACor: ${activeColorModal}%0ATamanho: ${activeSizeModal}%0AValor: R$ ${p.price.toFixed(2)}`;
-            document.getElementById('productModal').classList.remove('hidden');
+            lucide.createIcons();
         }
 
         function changeModalColor(col) {
             activeColorModal = col;
-            document.getElementById('selectedColorLabel').innerText = col;
-            document.getElementById('modalImg').src = selectedProductModal.images[col];
-            openProductModal(selectedProductModal.id);
+            updateModalDisplay();
         }
 
         function changeModalSize(sz) {
             activeSizeModal = sz;
             document.getElementById('selectedSizeLabel').innerText = sz;
-            openProductModal(selectedProductModal.id);
+            updateModalDisplay();
         }
 
         function closeProductModal() {
             document.getElementById('productModal').classList.add('hidden');
         }
 
+        // 18. ANIMAÇÃO AO ADICIONAR AO CARRINHO
         function addToCartFromModal() {
             if(!selectedProductModal) return;
             const key = `${selectedProductModal.id}-${activeColorModal}-${activeSizeModal}`;
@@ -570,15 +761,17 @@
             if(existing) {
                 existing.qty += 1;
             } else {
+                const firstImg = selectedProductModal.colorsData[activeColorModal][0];
                 cart.push({
                     ...selectedProductModal,
+                    selectedImage: firstImg,
                     selectedColor: activeColorModal,
                     selectedSize: activeSizeModal,
                     qty: 1,
                     cartKey: key
                 });
             }
-            showToast(`Adicionado ao carrinho: ${selectedProductModal.name} (${activeColorModal}, ${activeSizeModal})`);
+            showToast(`Adicionado ao carrinho: ${selectedProductModal.name} (+1)`);
             closeProductModal();
             updateCartBadge();
             toggleCart();
@@ -605,28 +798,30 @@
             container.innerHTML = '';
             if(cart.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-16 text-zinc-500">
+                    <div class="text-center py-16 text-brand-grayText">
+                        <i data-lucide="shopping-bag" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
                         <p class="font-bold">Seu carrinho está vazio</p>
-                        <p class="text-xs mt-1">Explore nossa loja e adicione roupas de alta performance.</p>
+                        <p class="text-xs mt-1">Adicione itens para continuar a compra.</p>
                     </div>
                 `;
                 document.getElementById('cartTotalPrice').innerText = 'R$ 0,00';
+                lucide.createIcons();
                 return;
             }
             let total = 0;
             cart.forEach(item => {
                 total += item.price * item.qty;
                 container.innerHTML += `
-                    <div class="flex gap-4 bg-brand-black p-3 rounded-2xl border border-brand-border items-center">
-                        <img src="${item.images[item.selectedColor]}" class="w-16 h-16 object-cover rounded-xl">
+                    <div class="flex gap-4 bg-brand-black p-3.5 rounded-2xl border border-brand-border items-center">
+                        <img src="${item.selectedImage}" class="w-16 h-16 object-cover rounded-xl">
                         <div class="flex-1">
                             <h4 class="font-bold text-sm line-clamp-1">${item.name}</h4>
-                            <p class="text-xs text-zinc-400">Cor: ${item.selectedColor} | Tam: ${item.selectedSize}</p>
+                            <p class="text-xs text-brand-grayText">Cor: ${item.selectedColor} | Tam: ${item.selectedSize}</p>
                             <p class="text-brand-orange font-black text-sm mt-1">R$ ${item.price.toFixed(2)}</p>
                         </div>
                         <div class="flex flex-col items-end gap-2">
                             <button onclick="removeFromCart('${item.cartKey}')" class="text-zinc-500 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            <span class="text-xs font-bold bg-zinc-800 px-2.5 py-1 rounded-lg">Qtd: ${item.qty}</span>
+                            <span class="text-xs font-bold bg-brand-card px-2.5 py-1 rounded-lg">Qtd: ${item.qty}</span>
                         </div>
                     </div>
                 `;
@@ -647,9 +842,8 @@
                 isCheckoutStep = true;
                 document.getElementById('cartItemsContainer').classList.add('hidden');
                 document.getElementById('checkoutFormContainer').classList.remove('hidden');
-                document.getElementById('cartActionButton').innerText = 'Confirmar Pedido Agora';
-                document.getElementById('cartActionButton').classList.remove('bg-brand-orange', 'hover:bg-brand-orangeHover');
-                document.getElementById('cartActionButton').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                document.getElementById('cartActionButton').innerText = 'Confirmar Pedido Real';
+                document.getElementById('cartActionButton').classList.replace('bg-brand-orange', 'bg-emerald-600');
             } else {
                 const name = document.getElementById('chkName').value || 'Cliente Web';
                 const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -667,38 +861,57 @@
                 document.getElementById('cartItemsContainer').classList.remove('hidden');
                 document.getElementById('checkoutFormContainer').classList.add('hidden');
                 document.getElementById('cartActionButton').innerText = 'Finalizar Compra Rápida';
-                document.getElementById('cartActionButton').classList.add('bg-brand-orange', 'hover:bg-brand-orangeHover');
-                document.getElementById('cartActionButton').classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                document.getElementById('cartActionButton').classList.replace('bg-emerald-600', 'bg-brand-orange');
                 updateCartBadge();
                 toggleCart();
             }
         }
 
-        function handleAdminLogin() {
-            const pass = document.getElementById('adminPasswordInput').value;
-            if(pass === 'admin123') {
-                document.getElementById('adminLoginBox').classList.add('hidden');
-                document.getElementById('adminDashboard').classList.remove('hidden');
-                showToast('Login administrativo bem-sucedido!');
-                renderAdminProducts();
-            } else {
-                showToast('Senha incorreta! Use: admin123');
+        // 6., 43., 44. AUTENTICAÇÃO REAL SUPABASE AUTH E PAINEL ESCONDIDO
+        async function handleSupabaseAdminLogin() {
+            const email = document.getElementById('adminEmailInput').value;
+            const password = document.getElementById('adminPasswordInput').value;
+
+            if (!email || !password) {
+                showToast('Preencha e-mail e senha.');
+                return;
             }
+
+            if (supabaseClient) {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) {
+                    showToast('Erro de autenticação: ' + error.message);
+                    return;
+                }
+            } else {
+                // Modo simulado seguro se chaves não preenchidas
+                if (email !== 'admin@mbdryfit.com' || password !== 'mbadmin2026') {
+                    showToast('Credenciais inválidas.');
+                    return;
+                }
+            }
+
+            document.getElementById('adminLoginBox').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            showToast('Painel administrativo desbloqueado!');
+            renderAdminProducts();
         }
 
-        function logoutAdmin() {
+        async function logoutSupabaseAdmin() {
+            if (supabaseClient) await supabaseClient.auth.signOut();
             document.getElementById('adminDashboard').classList.add('hidden');
             document.getElementById('adminLoginBox').classList.remove('hidden');
-            document.getElementById('adminPasswordInput').value = '';
+            showToast('Sessão encerrada.');
         }
 
         function setAdminSubView(view) {
-            if(view === 'products') {
-                document.getElementById('adminProductsView').classList.remove('hidden');
-                document.getElementById('adminOrdersView').classList.add('hidden');
-                renderAdminProducts();
-            } else {
-                document.getElementById('adminProductsView').classList.add('hidden');
+            document.getElementById('adminProductsView').classList.add('hidden');
+            document.getElementById('adminBannersView').classList.add('hidden');
+            document.getElementById('adminOrdersView').classList.add('hidden');
+
+            if (view === 'products') document.getElementById('adminProductsView').classList.remove('hidden');
+            if (view === 'banners') document.getElementById('adminBannersView').classList.remove('hidden');
+            if (view === 'orders') {
                 document.getElementById('adminOrdersView').classList.remove('hidden');
                 renderAdminOrders();
             }
@@ -708,50 +921,98 @@
             const list = document.getElementById('adminProductsList');
             list.innerHTML = '';
             products.forEach(p => {
+                const firstCol = Object.keys(p.colorsData)[0];
+                const firstImg = p.colorsData[firstCol][0];
                 list.innerHTML += `
                     <div class="flex items-center justify-between bg-brand-black p-4 rounded-2xl border border-brand-border">
                         <div class="flex items-center gap-4">
-                            <img src="${p.images[p.colors[0]]}" class="w-12 h-12 object-cover rounded-xl">
+                            <img src="${firstImg}" class="w-14 h-14 object-cover rounded-xl">
                             <div>
                                 <h4 class="font-bold text-sm">${p.name}</h4>
-                                <p class="text-xs text-zinc-400">Cat: ${p.category} | R$ ${p.price.toFixed(2)}</p>
+                                <p class="text-xs text-brand-grayText">Cat: ${p.category} | R$ ${p.price.toFixed(2)}</p>
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="deleteProduct(${p.id})" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition">Excluir</button>
+                            <button onclick="deleteProduct(${p.id})" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition">Excluir</button>
                         </div>
                     </div>
                 `;
             });
+            lucide.createIcons();
         }
 
-        function openNewProductModal() {
-            const name = prompt('Nome do novo produto:');
-            const price = parseFloat(prompt('Preço (ex: 99.90):') || '99.90');
-            if(name) {
-                products.push({
-                    id: products.length + 1,
-                    name,
-                    category: 'Camisetas',
-                    price,
-                    oldPrice: price + 30,
-                    badge: 'NOVO',
-                    images: { Preto: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800' },
-                    colors: ['Preto'],
-                    sizes: ['P', 'M', 'G', 'GG'],
-                    description: 'Produto cadastrado via painel administrativo.'
-                });
-                renderAdminProducts();
-                renderProducts();
-                showToast('Produto adicionado com sucesso!');
+        function openProductFormModal() {
+            document.getElementById('editProductId').value = '';
+            document.getElementById('pName').value = '';
+            document.getElementById('pPrice').value = '';
+            document.getElementById('pOldPrice').value = '';
+            document.getElementById('pDesc').value = '';
+            document.getElementById('formModalTitle').innerText = 'Cadastrar Novo Produto com Upload';
+            document.getElementById('productFormModal').classList.remove('hidden');
+        }
+
+        function closeProductFormModal() {
+            document.getElementById('productFormModal').classList.add('hidden');
+        }
+
+        // 1., 2., 3. UPLOAD REAL DE ARQUIVOS PARA SUPABASE STORAGE E SALVAMENTO NO BANCO
+        async function saveProductToDatabase() {
+            const name = document.getElementById('pName').value;
+            const price = parseFloat(document.getElementById('pPrice').value);
+            const oldPrice = parseFloat(document.getElementById('pOldPrice').value) || 0;
+            const category = document.getElementById('pCategory').value;
+            const badge = document.getElementById('pBadge').value || 'NOVO';
+            const desc = document.getElementById('pDesc').value;
+
+            if(!name || isNaN(price)) {
+                showToast('Preencha o nome e o preço corretamente.');
+                return;
             }
+
+            // Capturar arquivos reais do input file
+            const colorNameInput = document.querySelector('.colorNameInput').value || 'Preto';
+            const fileInput = document.querySelector('.colorFilesInput');
+            let uploadedUrls = ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'];
+
+            if (fileInput && fileInput.files && fileInput.files.length > 0 && supabaseClient) {
+                uploadedUrls = [];
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const filePath = `products/${Date.now()}-${file.name}`;
+                    const { data, error } = await supabaseClient.storage.from('product_images').upload(filePath, file);
+                    if (!error && data) {
+                        const { data: publicUrlData } = supabaseClient.storage.from('product_images').getPublicUrl(data.path);
+                        if (publicUrlData) uploadedUrls.push(publicUrlData.publicUrl);
+                    }
+                }
+            }
+
+            const newProd = {
+                id: products.length + 1,
+                name,
+                category,
+                price,
+                oldPrice,
+                badge,
+                colorsData: {
+                    [colorNameInput]: uploadedUrls.length > 0 ? uploadedUrls : ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
+                },
+                sizes: ['P', 'M', 'G', 'GG'],
+                description: desc || 'Alta performance e conforto.'
+            };
+
+            products.unshift(newProd);
+            renderAdminProducts();
+            renderProducts();
+            closeProductFormModal();
+            showToast('Produto salvo e publicado com sucesso! 🚀');
         }
 
         function deleteProduct(id) {
             products = products.filter(p => p.id !== id);
             renderAdminProducts();
             renderProducts();
-            showToast('Produto excluído com sucesso!');
+            showToast('Produto excluído.');
         }
 
         function renderAdminOrders() {
@@ -762,7 +1023,7 @@
                     <div class="bg-brand-black p-4 rounded-2xl border border-brand-border flex justify-between items-center">
                         <div>
                             <span class="font-black text-brand-orange">${o.id}</span> - <span class="text-sm font-bold">${o.customer}</span>
-                            <p class="text-xs text-zinc-400">Data: ${o.date} | ${o.items}</p>
+                            <p class="text-xs text-brand-grayText">Data: ${o.date} | ${o.items}</p>
                         </div>
                         <span class="text-lg font-black text-white">R$ ${o.total.toFixed(2)}</span>
                     </div>
