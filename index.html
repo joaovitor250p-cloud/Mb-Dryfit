@@ -26,9 +26,8 @@
             }
         }
     </script>
-    <!-- Lucide Icons & Supabase JS Client -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background-color: #070707; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -40,7 +39,6 @@
             100% { transform: translateX(-50%); }
         }
         .animate-marquee { display: flex; width: 200%; animation: marquee 20s linear infinite; }
-        .glass-panel { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
     </style>
 </head>
 <body class="bg-brand-black text-white antialiased selection:bg-brand-orange selection:text-white">
@@ -71,7 +69,8 @@
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2 hover:bg-brand-card rounded-xl transition"><i data-lucide="menu" class="w-6 h-6"></i></button>
-                <button onclick="switchTab('home')" class="text-xl md:text-2xl font-black tracking-wider flex items-center gap-1 group">
+                <!-- LOGO COM BOTÃO DIRETO PARA ABRIR O ADMIN AO CLICAR 5 VEZES -->
+                <button id="logoTrigger" onclick="switchTab('home')" class="text-xl md:text-2xl font-black tracking-wider flex items-center gap-1 group">
                     MB <span class="text-brand-orange group-hover:scale-105 transition transform inline-block">DRYFIT</span>
                 </button>
             </div>
@@ -112,7 +111,7 @@
         <div class="flex justify-between items-center mb-6 max-w-4xl mx-auto w-full">
             <div class="relative flex-1 mr-4">
                 <i data-lucide="search" class="absolute left-4 top-4 text-zinc-400 w-5 h-5"></i>
-                <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Buscar por nome, cor, categoria ou SKU..." class="w-full bg-brand-card border border-brand-border rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-orange shadow-inner">
+                <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Buscar por nome, cor, categoria..." class="w-full bg-brand-card border border-brand-border rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-orange shadow-inner">
             </div>
             <button onclick="toggleSearch()" class="p-3 bg-brand-card border border-brand-border rounded-2xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
@@ -234,7 +233,7 @@
                 
                 <input type="email" id="adminEmailInput" placeholder="E-mail (admin@mbdryfit.com)" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-3 focus:border-brand-orange outline-none text-sm">
                 <input type="password" id="adminPasswordInput" placeholder="Senha (mbadmin2026)" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-4 focus:border-brand-orange outline-none text-sm">
-                <button onclick="handleSupabaseAdminLogin()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg">Entrar no Sistema</button>
+                <button onclick="handleAdminLogin()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg">Entrar no Sistema</button>
             </div>
 
             <div id="adminDashboard" class="hidden">
@@ -246,7 +245,7 @@
                     <div class="flex gap-2 flex-wrap">
                         <button onclick="setAdminSubView('products')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-orange text-white flex items-center gap-1.5 shadow"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Produtos & Estoque</button>
                         <button onclick="setAdminSubView('orders')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-card text-brand-grayText border border-brand-border flex items-center gap-1.5 hover:text-white"><i data-lucide="check" class="w-4 h-4"></i> Pedidos</button>
-                        <button onclick="logoutSupabaseAdmin()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600/20 text-red-400 border border-red-600/40 hover:bg-red-600 hover:text-white transition">Sair</button>
+                        <button onclick="logoutAdmin()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600/20 text-red-400 border border-red-600/40 hover:bg-red-600 hover:text-white transition">Sair</button>
                     </div>
                 </div>
 
@@ -254,7 +253,7 @@
                     <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="font-bold text-lg">Catálogo & Estoque por Variação</h3>
-                            <button onclick="openProductFormModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow"><i data-lucide="plus-circle" class="w-4 h-4"></i> Novo Produto</button>
+                            <button onclick="openProductFormModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow"><i data-lucide="plus-circle" class="w-4 h-4"></i> Novo Produto com Foto</button>
                         </div>
                         <div id="adminProductsList" class="space-y-4"></div>
                     </div>
@@ -270,7 +269,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO DE PRODUTO -->
+    <!-- MODAL DE CADASTRO DE PRODUTO COM SUPORTE A UPLOAD DE FOTO (LOCAL / BASE64) -->
     <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
             <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -295,6 +294,10 @@
                             <option>Regatas</option>
                         </select>
                     </div>
+                </div>
+                <div>
+                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Selecionar Foto do Aparelho/PC</label>
+                    <input type="file" id="pImageFile" accept="image/*" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-xs text-brand-grayText file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-orange file:text-white hover:file:bg-brand-orangeHover file:cursor-pointer">
                 </div>
                 <div>
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Descrição</label>
@@ -421,10 +424,6 @@
 
     <!-- SCRIPT DE LÓGICA E GATILHO SECRETO DE 5 CLIQUES -->
     <script>
-        const SUPABASE_URL = 'https://seu-projeto.supabase.co';
-        const SUPABASE_ANON_KEY = 'sua-anon-key-aqui';
-        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-
         let products = [
             {
                 id: 1,
@@ -474,14 +473,16 @@
             lucide.createIcons();
 
             setTimeout(() => {
-                document.getElementById('letterM').style.opacity = '1';
-                document.getElementById('letterM').style.transform = 'translateX(0)';
-                document.getElementById('letterB').style.opacity = '1';
-                document.getElementById('letterB').style.transform = 'translateX(0)';
-                document.getElementById('wordDryfit').style.opacity = '1';
-                document.getElementById('wordDryfit').style.transform = 'scale(1)';
-                document.getElementById('splashLine').style.width = '140px';
-                document.getElementById('splashSub').style.opacity = '1';
+                const m = document.getElementById('letterM');
+                const b = document.getElementById('letterB');
+                const d = document.getElementById('wordDryfit');
+                const line = document.getElementById('splashLine');
+                const sub = document.getElementById('splashSub');
+                if(m) { m.style.opacity = '1'; m.style.transform = 'translateX(0)'; }
+                if(b) { b.style.opacity = '1'; b.style.transform = 'translateX(0)'; }
+                if(d) { d.style.opacity = '1'; d.style.transform = 'scale(1)'; }
+                if(line) { line.style.width = '140px'; }
+                if(sub) { sub.style.opacity = '1'; }
             }, 300);
 
             setTimeout(() => {
@@ -495,7 +496,7 @@
             renderProducts();
 
             // GATILHO SECRETO: 5 cliques rápidos no logotipo para abrir o admin
-            const logoBtn = document.querySelector('header button[onclick="switchTab(\'home\']")');
+            const logoBtn = document.getElementById('logoTrigger');
             if (logoBtn) {
                 logoBtn.addEventListener('click', (e) => {
                     logoClickCount++;
@@ -517,6 +518,7 @@
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
+            if(!toast) return;
             document.getElementById('toastText').innerText = msg;
             toast.style.opacity = '1';
             toast.style.transform = 'translate(-50%, 0)';
@@ -570,16 +572,19 @@
 
         function renderProducts() {
             const homeGrid = document.getElementById('homeProductsGrid');
-            homeGrid.innerHTML = '';
-            products.slice(0, 4).forEach(p => {
-                homeGrid.innerHTML += createProductCardHTML(p);
-            });
+            if(homeGrid) {
+                homeGrid.innerHTML = '';
+                products.slice(0, 4).forEach(p => {
+                    homeGrid.innerHTML += createProductCardHTML(p);
+                });
+            }
             renderShopProducts();
             lucide.createIcons();
         }
 
         function renderShopProducts() {
             const shopGrid = document.getElementById('shopProductsGrid');
+            if(!shopGrid) return;
             shopGrid.innerHTML = '';
             const filtered = currentCategory === 'Todos' ? products : products.filter(p => p.category === currentCategory);
             filtered.forEach(p => {
@@ -800,7 +805,7 @@
             }
         }
 
-        function handleSupabaseAdminLogin() {
+        function handleAdminLogin() {
             const email = document.getElementById('adminEmailInput').value;
             const password = document.getElementById('adminPasswordInput').value;
 
@@ -814,7 +819,7 @@
             }
         }
 
-        function logoutSupabaseAdmin() {
+        function logoutAdmin() {
             document.getElementById('adminDashboard').classList.add('hidden');
             document.getElementById('adminLoginBox').classList.remove('hidden');
             showToast('Sessão encerrada.');
@@ -867,12 +872,28 @@
             const price = parseFloat(document.getElementById('pPrice').value);
             const category = document.getElementById('pCategory').value;
             const desc = document.getElementById('pDesc').value;
+            const fileInput = document.getElementById('pImageFile');
 
             if(!name || isNaN(price)) {
                 showToast('Preencha o nome e o preço.');
                 return;
             }
 
+            let imageUrl = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800';
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imageUrl = e.target.result;
+                    finishSavingProduct(name, price, category, desc, imageUrl);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                finishSavingProduct(name, price, category, desc, imageUrl);
+            }
+        }
+
+        function finishSavingProduct(name, price, category, desc, imageUrl) {
             const newProd = {
                 id: products.length + 1,
                 name,
@@ -881,7 +902,7 @@
                 oldPrice: price + 30,
                 badge: 'NOVO',
                 colorsData: {
-                    'Preto': ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
+                    'Preto': [imageUrl, 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800']
                 },
                 sizes: ['P', 'M', 'G', 'GG'],
                 description: desc || 'Alta performance.'
@@ -891,7 +912,7 @@
             renderAdminProducts();
             renderProducts();
             closeProductFormModal();
-            showToast('Produto publicado com sucesso! 🚀');
+            showToast('Produto publicado com foto com sucesso! 🚀');
         }
 
         function deleteProduct(id) {
