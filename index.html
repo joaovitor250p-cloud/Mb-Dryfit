@@ -128,7 +128,7 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
                 <div>
                     <h1 class="text-3xl font-black">CATÁLOGO DE PRODUTOS</h1>
-                    <p class="text-brand-grayText text-sm">Escolha cores, tamanhos e quantidades para montar seu pedido.</p>
+                    <p class="text-brand-grayText text-sm">Monte seu pedido escolhendo quantas cores e tamanhos quiser de uma só vez.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button onclick="setCategory('Todos')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white">Todos</button>
@@ -161,7 +161,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO COM MULTICORES E FOTOS -->
+    <!-- MODAL DE CADASTRO -->
     <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
             <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
@@ -188,8 +188,8 @@
                     </div>
                 </div>
                 <div>
-                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome da Cor (Ex: Branco com Laranja)</label>
-                    <input type="text" id="pColorName" placeholder="Preto Total" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white mb-2">
+                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome da Cor (Ex: Azul Marinho)</label>
+                    <input type="text" id="pColorName" placeholder="Azul Royal" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white mb-2">
                     
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Foto da Cor (Arquivo do Aparelho/PC)</label>
                     <input type="file" id="pImageFile" accept="image/*" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-xs text-brand-grayText file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
@@ -203,27 +203,39 @@
         </div>
     </div>
 
-    <!-- MODAL DO PRODUTO (ESCOLHA DE COR, QUANTIDADE) -->
+    <!-- MODAL DO PRODUTO COM GRADE MULTI-VARIAÇÃO (COR, TAMANHO E QUANTIDADE) -->
     <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-center p-4 hidden">
-        <div class="bg-brand-card w-full max-w-3xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row">
+        <div class="bg-brand-card w-full max-w-3xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
             <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 p-2.5 rounded-full text-white"><i data-lucide="x"></i></button>
             
             <div class="w-full md:w-1/2 p-6 bg-[#0c0c0c] flex flex-col justify-center items-center">
-                <img id="modalImg" src="" class="w-full h-72 object-cover rounded-2xl shadow-2xl">
+                <img id="modalImg" src="" class="w-full h-72 object-cover rounded-2xl shadow-2xl transition duration-300">
                 <div id="modalColorsThumb" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2"></div>
             </div>
 
-            <div class="w-full md:w-1/2 p-6 flex flex-col justify-between">
+            <div class="w-full md:w-1/2 p-6 flex flex-col justify-between overflow-y-auto">
                 <div>
                     <span id="modalBadge" class="bg-brand-orange/20 text-brand-orange text-xs font-extrabold px-3 py-1 rounded-full uppercase">DESTAQUE</span>
-                    <h2 id="modalTitle" class="text-2xl font-black mt-2 mb-2">Nome do Produto</h2>
+                    <h2 id="modalTitle" class="text-2xl font-black mt-2 mb-1">Nome do Produto</h2>
                     <span id="modalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
-                    <p id="modalDesc" class="text-brand-grayText text-sm my-4">Descrição...</p>
+                    <p id="modalDesc" class="text-brand-grayText text-xs my-3">Descrição...</p>
                     
                     <!-- ESCOLHA DA COR -->
                     <div class="mb-4">
-                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Cor: <span id="selectedColorLabel" class="text-white font-bold"></span></label>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione a Cor:</label>
                         <div id="modalColorOptions" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- ESCOLHA DO TAMANHO -->
+                    <div class="mb-4">
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione o Tamanho:</label>
+                        <div id="modalSizeOptions" class="flex flex-wrap gap-2">
+                            <button onclick="selectSize('P')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">P</button>
+                            <button onclick="selectSize('M')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">M</button>
+                            <button onclick="selectSize('G')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">G</button>
+                            <button onclick="selectSize('GG')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">GG</button>
+                            <button onclick="selectSize('Único')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">Único</button>
+                        </div>
                     </div>
 
                     <!-- ESCOLHA DA QUANTIDADE -->
@@ -238,7 +250,7 @@
                 </div>
 
                 <div class="space-y-3 pt-4 border-t border-brand-border">
-                    <button onclick="addToCartFromModal()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow transition">
+                    <button onclick="addToCartMultiOptions()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow transition">
                         Adicionar ao Carrinho
                     </button>
                 </div>
@@ -246,7 +258,7 @@
         </div>
     </div>
 
-    <!-- CARRINHO LATERAL COM WHATSAPP FORMATADO COM AS FOTOS E DETALHES -->
+    <!-- CARRINHO LATERAL -->
     <div id="cartDrawer" class="fixed inset-0 z-50 bg-brand-black/80 backdrop-blur-md flex justify-end hidden">
         <div class="w-full max-w-md bg-brand-card h-full border-l border-brand-border p-6 flex flex-col justify-between shadow-2xl">
             <div>
@@ -261,7 +273,6 @@
                     <span class="text-brand-grayText font-bold text-sm">Total do Pedido:</span>
                     <span id="cartTotalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                 </div>
-                <!-- BOTÃO DE COMPRAR PELO WHATSAPP ENVIANDO TUDO + FOTO -->
                 <button onclick="checkoutViaWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
                     <i data-lucide="message-circle" class="w-5 h-5"></i> Comprar pelo WhatsApp (Com Foto)
                 </button>
@@ -291,8 +302,8 @@
                 price: 119.90,
                 badge: 'MAIS VENDIDO',
                 colorsData: {
-                    'Preto': ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800'],
-                    'Laranja Neon': ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
+                    'Azul Royal': ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800'],
+                    'Preto': ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
                 },
                 description: 'Desenvolvida com tecnologia Dryfit Advanced.'
             }
@@ -301,6 +312,7 @@
         let cart = [];
         let selectedProductModal = null;
         let activeColorModal = '';
+        let activeSizeModal = 'M';
         let currentQuantity = 1;
         let currentCategory = 'Todos';
 
@@ -396,6 +408,7 @@
             if(!p) return;
             selectedProductModal = p;
             activeColorModal = Object.keys(p.colorsData)[0];
+            activeSizeModal = 'M';
             currentQuantity = 1;
 
             updateModalDisplay();
@@ -414,6 +427,7 @@
             document.getElementById('selectedColorLabel').innerText = activeColorModal;
             document.getElementById('selectedQuantity').innerText = currentQuantity;
 
+            // Renderizar botões de cores
             const colContainer = document.getElementById('modalColorOptions');
             colContainer.innerHTML = '';
             Object.keys(p.colorsData).forEach(col => {
@@ -424,11 +438,28 @@
                     </button>
                 `;
             });
+
+            // Destacar tamanho selecionado
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                if(btn.innerText === activeSizeModal) {
+                    btn.classList.add('bg-brand-orange', 'border-brand-orange', 'text-white');
+                    btn.classList.remove('bg-brand-black', 'text-brand-grayText');
+                } else {
+                    btn.classList.remove('bg-brand-orange', 'border-brand-orange', 'text-white');
+                    btn.classList.add('bg-brand-black', 'text-brand-grayText');
+                }
+            });
+
             lucide.createIcons();
         }
 
         function changeModalColor(col) {
             activeColorModal = col;
+            updateModalDisplay();
+        }
+
+        function selectSize(sz) {
+            activeSizeModal = sz;
             updateModalDisplay();
         }
 
@@ -440,9 +471,10 @@
 
         function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
 
-        function addToCartFromModal() {
+        // ADICIONAR AO CARRINHO COM OPÇÕES ESPECÍFICAS DE COR, TAMANHO E QUANTIDADE
+        function addToCartMultiOptions() {
             if(!selectedProductModal) return;
-            const key = `${selectedProductModal.id}-${activeColorModal}`;
+            const key = `${selectedProductModal.id}-${activeColorModal}-${activeSizeModal}`;
             const existing = cart.find(i => i.cartKey === key);
             const firstImg = selectedProductModal.colorsData[activeColorModal][0];
 
@@ -453,11 +485,12 @@
                     ...selectedProductModal,
                     selectedImage: firstImg,
                     selectedColor: activeColorModal,
+                    selectedSize: activeSizeModal,
                     qty: currentQuantity,
                     cartKey: key
                 });
             }
-            showToast(`Adicionado ${currentQuantity}x ${selectedProductModal.name} ao carrinho!`);
+            showToast(`Adicionado: ${currentQuantity}x ${selectedProductModal.name} (${activeColorModal}, ${activeSizeModal})`);
             closeProductModal();
             updateCartBadge();
             toggleCart();
@@ -487,7 +520,7 @@
                         <img src="${item.selectedImage}" class="w-16 h-16 object-cover rounded-xl">
                         <div class="flex-1">
                             <h4 class="font-bold text-sm line-clamp-1">${item.name}</h4>
-                            <p class="text-xs text-brand-grayText">Cor: ${item.selectedColor} | Qtd: ${item.qty}</p>
+                            <p class="text-xs text-brand-grayText">Cor: ${item.selectedColor} | Tam: ${item.selectedSize} | Qtd: ${item.qty}</p>
                             <p class="text-brand-orange font-black text-sm mt-1">R$ ${(item.price * item.qty).toFixed(2)}</p>
                         </div>
                         <button onclick="removeFromCart('${item.cartKey}')" class="text-zinc-500 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -504,7 +537,7 @@
             renderCartItems();
         }
 
-        // WHATSAPP FORMATADO COM OS ITENS, CORES, QUANTIDADES E O LINK DA FOTO
+        // WHATSAPP FORMATADO COM TUDO E A FOTO VISÍVEL
         function checkoutViaWhatsApp() {
             if(cart.length === 0) return;
             let text = "Olá! Gostaria de finalizar o meu pedido na MB Dryfit:%0A%0A";
@@ -515,15 +548,15 @@
                 total += subtotal;
                 text += `*${index + 1}. ${item.name}*%0A`;
                 text += `   - Cor: ${item.selectedColor}%0A`;
+                text += `   - Tamanho: ${item.selectedSize}%0A`;
                 text += `   - Quantidade: ${item.qty}x%0A`;
-                text += `   - Valor Unitário: R$ ${item.price.toFixed(2)}%0A`;
                 text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A`;
-                text += `   - 🖼️ Foto do Modelo: ${item.selectedImage}%0A%0A`;
+                text += `   - 🖼️ Foto do Modelo/Cor: ${item.selectedImage}%0A%0A`;
             });
 
             text += `💰 *Valor Total do Pedido: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para o pagamento e envio!`;
 
-            const phone = "5511990059547"; // Substitua pelo seu WhatsApp com DDD
+            const phone = "5511999999999"; // Altere para o seu número com DDD
             window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank');
         }
 
