@@ -128,7 +128,7 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
                 <div>
                     <h1 class="text-3xl font-black">CATÁLOGO DE PRODUTOS</h1>
-                    <p class="text-brand-grayText text-sm">Monte seu pedido escolhendo quantas cores e tamanhos quiser de uma só vez.</p>
+                    <p class="text-brand-grayText text-sm">Escolha cor, tamanho e quantidade para montar seu pedido.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button onclick="setCategory('Todos')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white">Todos</button>
@@ -153,23 +153,23 @@
 
             <div id="adminDashboard" class="hidden">
                 <div class="flex justify-between items-center mb-8 border-b border-brand-border pb-6">
-                    <h1 class="text-3xl font-black">PAINEL DE PRODUTOS</h1>
-                    <button onclick="openProductFormModal()" class="bg-brand-orange text-white px-4 py-2.5 rounded-xl text-xs font-bold">+ Novo Produto / Meia</button>
+                    <h1 class="text-3xl font-black">PAINEL DE PRODUTOS & CORES</h1>
+                    <button onclick="openProductFormModal()" class="bg-brand-orange text-white px-4 py-2.5 rounded-xl text-xs font-bold">+ Novo Produto com Cores/Estoque</button>
                 </div>
                 <div id="adminProductsList" class="space-y-4"></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO -->
+    <!-- MODAL DE CADASTRO COM MULTICORES E QUANTIDADE DE ESTOQUE -->
     <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
             <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-2xl font-black mb-6">Cadastrar Produto ou Meia</h3>
+            <h3 class="text-2xl font-black mb-6">Cadastrar Produto, Cores e Estoque</h3>
             <div class="space-y-4">
                 <div>
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome do Produto</label>
-                    <input type="text" id="pName" placeholder="Ex: Meia Esportiva Cano Alto Dryfit" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
+                    <input type="text" id="pName" placeholder="Ex: Meia Esportiva Cano Alto" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -187,23 +187,32 @@
                         </select>
                     </div>
                 </div>
-                <div>
-                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome da Cor (Ex: Azul Marinho)</label>
-                    <input type="text" id="pColorName" placeholder="Azul Royal" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white mb-2">
-                    
-                    <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Foto da Cor (Arquivo do Aparelho/PC)</label>
-                    <input type="file" id="pImageFile" accept="image/*" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-xs text-brand-grayText file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
+
+                <!-- CAMPO DE CORES E QUANTIDADES -->
+                <div class="bg-brand-black p-4 rounded-2xl border border-brand-border space-y-3">
+                    <h4 class="font-bold text-xs uppercase text-brand-orange">Adicionar Cores e Quantidades em Estoque</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newColorName" placeholder="Nome da Cor (Ex: Azul)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
+                        <input type="number" id="newColorStock" placeholder="Qtd em Estoque (Ex: 15)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-brand-grayText block mb-1">Foto desta cor:</label>
+                        <input type="file" id="newColorFile" accept="image/*" class="w-full text-xs text-brand-grayText file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
+                    </div>
+                    <button onclick="addColorToList()" type="button" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-xl">+ Adicionar esta Cor na Lista</button>
+                    <div id="addedColorsPreview" class="text-xs text-brand-grayText mt-2">Nenhuma cor adicionada ainda.</div>
                 </div>
+
                 <div>
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Descrição</label>
                     <textarea id="pDesc" rows="3" placeholder="Conforto e absorção..." class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white"></textarea>
                 </div>
-                <button onclick="saveProductToDatabase()" class="w-full bg-brand-orange text-white py-4 rounded-xl font-bold uppercase tracking-wider">Salvar Produto</button>
+                <button onclick="saveProductToDatabase()" class="w-full bg-brand-orange text-white py-4 rounded-xl font-bold uppercase tracking-wider">Salvar Produto Completo</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DO PRODUTO COM GRADE MULTI-VARIAÇÃO (COR, TAMANHO E QUANTIDADE) -->
+    <!-- MODAL DO PRODUTO CORRIGIDO PARA CLIQUE NAS CORES E TAMANHOS -->
     <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-3xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
             <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 p-2.5 rounded-full text-white"><i data-lucide="x"></i></button>
@@ -220,21 +229,21 @@
                     <span id="modalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                     <p id="modalDesc" class="text-brand-grayText text-xs my-3">Descrição...</p>
                     
-                    <!-- ESCOLHA DA COR -->
+                    <!-- ESCOLHA DA COR (CLICÁVEL) -->
                     <div class="mb-4">
-                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione a Cor:</label>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione a Cor: <span id="selectedColorLabel" class="text-white font-bold"></span></label>
                         <div id="modalColorOptions" class="flex flex-wrap gap-2"></div>
                     </div>
 
-                    <!-- ESCOLHA DO TAMANHO -->
+                    <!-- ESCOLHA DO TAMANHO (CLICÁVEL) -->
                     <div class="mb-4">
-                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione o Tamanho:</label>
+                        <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione o Tamanho: <span id="selectedSizeLabel" class="text-white font-bold">M</span></label>
                         <div id="modalSizeOptions" class="flex flex-wrap gap-2">
-                            <button onclick="selectSize('P')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">P</button>
-                            <button onclick="selectSize('M')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">M</button>
-                            <button onclick="selectSize('G')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">G</button>
-                            <button onclick="selectSize('GG')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">GG</button>
-                            <button onclick="selectSize('Único')" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black">Único</button>
+                            <button onclick="selectSize('P', this)" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black text-white">P</button>
+                            <button onclick="selectSize('M', this)" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-orange bg-brand-orange text-white">M</button>
+                            <button onclick="selectSize('G', this)" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black text-white">G</button>
+                            <button onclick="selectSize('GG', this)" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black text-white">GG</button>
+                            <button onclick="selectSize('Único', this)" class="size-btn px-3 py-2 rounded-xl text-xs font-bold border border-brand-border bg-brand-black text-white">Único</button>
                         </div>
                     </div>
 
@@ -274,7 +283,7 @@
                     <span id="cartTotalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                 </div>
                 <button onclick="checkoutViaWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
-                    <i data-lucide="message-circle" class="w-5 h-5"></i> Comprar pelo WhatsApp (Com Foto)
+                    <i data-lucide="message-circle" class="w-5 h-5"></i> Comprar pelo WhatsApp
                 </button>
             </div>
         </div>
@@ -290,8 +299,8 @@
                 price: 29.90,
                 badge: 'NOVO',
                 colorsData: {
-                    'Branco com Laranja': ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'],
-                    'Preto Total': ['https://images.unsplash.com/photo-1563178406-4cdc2923acbc?auto=format&fit=crop&q=80&w=800']
+                    'Branco com Laranja': { stock: 20, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] },
+                    'Preto Total': { stock: 15, images: ['https://images.unsplash.com/photo-1563178406-4cdc2923acbc?auto=format&fit=crop&q=80&w=800'] }
                 },
                 description: 'Meia de alta compressão com tecnologia antitranspirante.'
             },
@@ -302,8 +311,8 @@
                 price: 119.90,
                 badge: 'MAIS VENDIDO',
                 colorsData: {
-                    'Azul Royal': ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800'],
-                    'Preto': ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800']
+                    'Azul Royal': { stock: 10, images: ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800'] },
+                    'Preto': { stock: 25, images: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'] }
                 },
                 description: 'Desenvolvida com tecnologia Dryfit Advanced.'
             }
@@ -315,6 +324,9 @@
         let activeSizeModal = 'M';
         let currentQuantity = 1;
         let currentCategory = 'Todos';
+
+        // Cores temporárias criadas durante o cadastro no painel admin
+        let tempAdminColors = [];
 
         let logoClickCount = 0;
         let logoClickTimer = null;
@@ -383,7 +395,7 @@
 
         function createProductCardHTML(p) {
             const firstColor = Object.keys(p.colorsData)[0];
-            const firstImg = p.colorsData[firstColor][0];
+            const firstImg = p.colorsData[firstColor].images[0];
             return `
                 <div onclick="openProductModal(${p.id})" class="bg-brand-card border border-brand-border rounded-2xl overflow-hidden group cursor-pointer hover:border-brand-orange transition duration-300 flex flex-col justify-between shadow-lg">
                     <div class="relative aspect-square overflow-hidden bg-zinc-900">
@@ -417,37 +429,26 @@
 
         function updateModalDisplay() {
             const p = selectedProductModal;
-            const imagesForColor = p.colorsData[activeColorModal];
+            const colorObj = p.colorsData[activeColorModal];
 
-            document.getElementById('modalImg').src = imagesForColor[0];
+            document.getElementById('modalImg').src = colorObj.images[0];
             document.getElementById('modalBadge').innerText = p.badge;
             document.getElementById('modalTitle').innerText = p.name;
             document.getElementById('modalPrice').innerText = `R$ ${p.price.toFixed(2)}`;
             document.getElementById('modalDesc').innerText = p.description;
-            document.getElementById('selectedColorLabel').innerText = activeColorModal;
+            document.getElementById('selectedColorLabel').innerText = `${activeColorModal} (Estoque: ${colorObj.stock} un.)`;
             document.getElementById('selectedQuantity').innerText = currentQuantity;
 
-            // Renderizar botões de cores
+            // Renderizar botões de cores clicáveis
             const colContainer = document.getElementById('modalColorOptions');
             colContainer.innerHTML = '';
             Object.keys(p.colorsData).forEach(col => {
                 const isSelected = activeColorModal === col;
                 colContainer.innerHTML += `
-                    <button onclick="changeModalColor('${col}')" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${isSelected ? 'bg-brand-orange border-brand-orange text-white' : 'bg-brand-black border-brand-border text-brand-grayText'}">
-                        ${col}
+                    <button onclick="changeModalColor('${col}')" type="button" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${isSelected ? 'bg-brand-orange border-brand-orange text-white' : 'bg-brand-black border-brand-border text-brand-grayText'}">
+                        ${col} (${p.colorsData[col].stock})
                     </button>
                 `;
-            });
-
-            // Destacar tamanho selecionado
-            document.querySelectorAll('.size-btn').forEach(btn => {
-                if(btn.innerText === activeSizeModal) {
-                    btn.classList.add('bg-brand-orange', 'border-brand-orange', 'text-white');
-                    btn.classList.remove('bg-brand-black', 'text-brand-grayText');
-                } else {
-                    btn.classList.remove('bg-brand-orange', 'border-brand-orange', 'text-white');
-                    btn.classList.add('bg-brand-black', 'text-brand-grayText');
-                }
             });
 
             lucide.createIcons();
@@ -458,39 +459,49 @@
             updateModalDisplay();
         }
 
-        function selectSize(sz) {
+        function selectSize(sz, btnElement) {
             activeSizeModal = sz;
-            updateModalDisplay();
+            document.getElementById('selectedSizeLabel').innerText = sz;
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-orange', 'border-brand-orange');
+                btn.classList.add('bg-brand-black', 'border-brand-border');
+            });
+            btnElement.classList.remove('bg-brand-black', 'border-brand-border');
+            btnElement.classList.add('bg-brand-orange', 'border-brand-orange');
         }
 
         function adjustQuantity(delta) {
+            const maxStock = selectedProductModal.colorsData[activeColorModal].stock;
             currentQuantity += delta;
             if(currentQuantity < 1) currentQuantity = 1;
+            if(currentQuantity > maxStock) {
+                currentQuantity = maxStock;
+                showToast(`Estoque máximo disponível para esta cor: ${maxStock} un.`);
+            }
             document.getElementById('selectedQuantity').innerText = currentQuantity;
         }
 
         function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
 
-        // ADICIONAR AO CARRINHO COM OPÇÕES ESPECÍFICAS DE COR, TAMANHO E QUANTIDADE
         function addToCartMultiOptions() {
             if(!selectedProductModal) return;
             const key = `${selectedProductModal.id}-${activeColorModal}-${activeSizeModal}`;
             const existing = cart.find(i => i.cartKey === key);
-            const firstImg = selectedProductModal.colorsData[activeColorModal][0];
+            const colorObj = selectedProductModal.colorsData[activeColorModal];
 
             if(existing) {
                 existing.qty += currentQuantity;
             } else {
                 cart.push({
                     ...selectedProductModal,
-                    selectedImage: firstImg,
+                    selectedImage: colorObj.images[0],
                     selectedColor: activeColorModal,
                     selectedSize: activeSizeModal,
                     qty: currentQuantity,
                     cartKey: key
                 });
             }
-            showToast(`Adicionado: ${currentQuantity}x ${selectedProductModal.name} (${activeColorModal}, ${activeSizeModal})`);
+            showToast(`Adicionado: ${currentQuantity}x ${selectedProductModal.name} (${activeColorModal})`);
             closeProductModal();
             updateCartBadge();
             toggleCart();
@@ -537,7 +548,6 @@
             renderCartItems();
         }
 
-        // WHATSAPP FORMATADO COM TUDO E A FOTO VISÍVEL
         function checkoutViaWhatsApp() {
             if(cart.length === 0) return;
             let text = "Olá! Gostaria de finalizar o meu pedido na MB Dryfit:%0A%0A";
@@ -551,10 +561,10 @@
                 text += `   - Tamanho: ${item.selectedSize}%0A`;
                 text += `   - Quantidade: ${item.qty}x%0A`;
                 text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A`;
-                text += `   - 🖼️ Foto do Modelo/Cor: ${item.selectedImage}%0A%0A`;
+                text += `   - 🖼️ Foto: ${item.selectedImage}%0A%0A`;
             });
 
-            text += `💰 *Valor Total do Pedido: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para o pagamento e envio!`;
+            text += `💰 *Valor Total: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para o pagamento!`;
 
             const phone = "5511999999999"; // Altere para o seu número com DDD
             window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank');
@@ -576,7 +586,7 @@
                 list.innerHTML += `
                     <div class="flex items-center justify-between bg-brand-black p-4 rounded-2xl border border-brand-border">
                         <div class="flex items-center gap-4">
-                            <img src="${p.colorsData[firstCol][0]}" class="w-14 h-14 object-cover rounded-xl">
+                            <img src="${p.colorsData[firstCol].images[0]}" class="w-14 h-14 object-cover rounded-xl">
                             <div>
                                 <h4 class="font-bold text-sm">${p.name}</h4>
                                 <p class="text-xs text-brand-grayText">Cat: ${p.category} | R$ ${p.price.toFixed(2)}</p>
@@ -589,18 +599,19 @@
             lucide.createIcons();
         }
 
-        function openProductFormModal() { document.getElementById('productFormModal').classList.remove('hidden'); }
+        function openProductFormModal() {
+            tempAdminColors = [];
+            document.getElementById('addedColorsPreview').innerText = 'Nenhuma cor adicionada ainda.';
+            document.getElementById('productFormModal').classList.remove('hidden');
+        }
         function closeProductFormModal() { document.getElementById('productFormModal').classList.add('hidden'); }
 
-        function saveProductToDatabase() {
-            const name = document.getElementById('pName').value;
-            const price = parseFloat(document.getElementById('pPrice').value);
-            const category = document.getElementById('pCategory').value;
-            const colorName = document.getElementById('pColorName').value || 'Cor Única';
-            const desc = document.getElementById('pDesc').value;
-            const fileInput = document.getElementById('pImageFile');
+        function addColorToList() {
+            const colorName = document.getElementById('newColorName').value;
+            const colorStock = parseInt(document.getElementById('newColorStock').value) || 10;
+            const fileInput = document.getElementById('newColorFile');
 
-            if(!name || isNaN(price)) { showToast('Preencha nome e preço.'); return; }
+            if(!colorName) { showToast('Digite o nome da cor.'); return; }
 
             let imageUrl = 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800';
 
@@ -608,26 +619,54 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     imageUrl = e.target.result;
-                    finishSave(name, price, category, colorName, desc, imageUrl);
+                    tempAdminColors.push({ name: colorName, stock: colorStock, image: imageUrl });
+                    document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un)`).join(', ')}`;
+                    document.getElementById('newColorName').value = '';
+                    document.getElementById('newColorStock').value = '';
+                    document.getElementById('newColorFile').value = '';
+                    showToast(`Cor ${colorName} adicionada!`);
                 };
                 reader.readAsDataURL(fileInput.files[0]);
-            } else { finishSave(name, price, category, colorName, desc, imageUrl); }
+            } else {
+                tempAdminColors.push({ name: colorName, stock: colorStock, image: imageUrl });
+                document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un)`).join(', ')}`;
+                document.getElementById('newColorName').value = '';
+                document.getElementById('newColorStock').value = '';
+                showToast(`Cor ${colorName} adicionada!`);
+            }
         }
 
-        function finishSave(name, price, category, colorName, desc, imageUrl) {
+        function saveProductToDatabase() {
+            const name = document.getElementById('pName').value;
+            const price = parseFloat(document.getElementById('pPrice').value);
+            const category = document.getElementById('pCategory').value;
+            const desc = document.getElementById('pDesc').value;
+
+            if(!name || isNaN(price)) { showToast('Preencha nome e preço.'); return; }
+            if(tempAdminColors.length === 0) {
+                // Adiciona cor padrão se nenhuma foi criada
+                tempAdminColors.push({ name: 'Cor Única', stock: 20, image: 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800' });
+            }
+
+            let colorsDataStruct = {};
+            tempAdminColors.forEach(c => {
+                colorsDataStruct[c.name] = { stock: c.stock, images: [c.image] };
+            });
+
             products.unshift({
                 id: products.length + 1,
                 name,
                 category,
                 price,
                 badge: 'NOVO',
-                colorsData: { [colorName]: [imageUrl] },
+                colorsData: colorsDataStruct,
                 description: desc || 'Produto de alta performance.'
             });
+
             renderAdminProducts();
             renderProducts();
             closeProductFormModal();
-            showToast('Produto/Meia cadastrado com sucesso! 🚀');
+            showToast('Produto cadastrado com sucesso! 🚀');
         }
 
         function deleteProduct(id) {
