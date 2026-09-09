@@ -25,7 +25,9 @@
             }
         }
     </script>
+    <!-- Lucide Icons & jsPDF para gerar o PDF do pedido -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { background-color: #070707; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -161,7 +163,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO COM MULTICORES E QUANTIDADE DE ESTOQUE -->
+    <!-- MODAL DE CADASTRO COM SUPORTE A MÚLTIPLAS IMAGENS POR COR -->
     <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
             <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
@@ -188,18 +190,18 @@
                     </div>
                 </div>
 
-                <!-- CAMPO DE CORES E QUANTIDADES -->
+                <!-- CAMPO DE MÚLTIPLAS CORES E MÚLTIPLAS IMAGENS -->
                 <div class="bg-brand-black p-4 rounded-2xl border border-brand-border space-y-3">
-                    <h4 class="font-bold text-xs uppercase text-brand-orange">Adicionar Cores e Quantidades em Estoque</h4>
+                    <h4 class="font-bold text-xs uppercase text-brand-orange">Adicionar Cor com Múltiplas Fotos</h4>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="text" id="newColorName" placeholder="Nome da Cor (Ex: Azul)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
-                        <input type="number" id="newColorStock" placeholder="Qtd em Estoque (Ex: 15)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
+                        <input type="number" id="newColorStock" placeholder="Qtd em Estoque" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
                     </div>
                     <div>
-                        <label class="text-[10px] text-brand-grayText block mb-1">Foto desta cor:</label>
-                        <input type="file" id="newColorFile" accept="image/*" class="w-full text-xs text-brand-grayText file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
+                        <label class="text-[10px] text-brand-grayText block mb-1">Selecionar Várias Fotos (Segure Ctrl ou selecione várias):</label>
+                        <input type="file" id="newColorFiles" accept="image/*" multiple class="w-full text-xs text-brand-grayText file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
                     </div>
-                    <button onclick="addColorToList()" type="button" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-xl">+ Adicionar esta Cor na Lista</button>
+                    <button onclick="addColorToList()" type="button" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-xl">+ Adicionar Cor na Lista</button>
                     <div id="addedColorsPreview" class="text-xs text-brand-grayText mt-2">Nenhuma cor adicionada ainda.</div>
                 </div>
 
@@ -212,14 +214,15 @@
         </div>
     </div>
 
-    <!-- MODAL DO PRODUTO CORRIGIDO PARA CLIQUE NAS CORES E TAMANHOS -->
+    <!-- MODAL DO PRODUTO -->
     <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-3xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
             <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 p-2.5 rounded-full text-white"><i data-lucide="x"></i></button>
             
             <div class="w-full md:w-1/2 p-6 bg-[#0c0c0c] flex flex-col justify-center items-center">
                 <img id="modalImg" src="" class="w-full h-72 object-cover rounded-2xl shadow-2xl transition duration-300">
-                <div id="modalColorsThumb" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2"></div>
+                <!-- Miniaturas de várias imagens da cor -->
+                <div id="modalImagesThumbnails" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2"></div>
             </div>
 
             <div class="w-full md:w-1/2 p-6 flex flex-col justify-between overflow-y-auto">
@@ -229,13 +232,13 @@
                     <span id="modalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                     <p id="modalDesc" class="text-brand-grayText text-xs my-3">Descrição...</p>
                     
-                    <!-- ESCOLHA DA COR (CLICÁVEL) -->
+                    <!-- ESCOLHA DA COR -->
                     <div class="mb-4">
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione a Cor: <span id="selectedColorLabel" class="text-white font-bold"></span></label>
                         <div id="modalColorOptions" class="flex flex-wrap gap-2"></div>
                     </div>
 
-                    <!-- ESCOLHA DO TAMANHO (CLICÁVEL) -->
+                    <!-- ESCOLHA DO TAMANHO -->
                     <div class="mb-4">
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione o Tamanho: <span id="selectedSizeLabel" class="text-white font-bold">M</span></label>
                         <div id="modalSizeOptions" class="flex flex-wrap gap-2">
@@ -267,7 +270,7 @@
         </div>
     </div>
 
-    <!-- CARRINHO LATERAL -->
+    <!-- CARRINHO LATERAL COM GERAÇÃO DE PDF -->
     <div id="cartDrawer" class="fixed inset-0 z-50 bg-brand-black/80 backdrop-blur-md flex justify-end hidden">
         <div class="w-full max-w-md bg-brand-card h-full border-l border-brand-border p-6 flex flex-col justify-between shadow-2xl">
             <div>
@@ -277,13 +280,18 @@
                 </div>
                 <div id="cartItemsContainer" class="space-y-4 max-h-[55vh] overflow-y-auto"></div>
             </div>
-            <div class="border-t border-brand-border pt-4 mt-4">
-                <div class="flex justify-between items-center mb-4">
+            <div class="border-t border-brand-border pt-4 mt-4 space-y-3">
+                <div class="flex justify-between items-center mb-2">
                     <span class="text-brand-grayText font-bold text-sm">Total do Pedido:</span>
                     <span id="cartTotalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                 </div>
+                <!-- BOTÃO PARA GERAR E BAIXAR O PDF DO PEDIDO -->
+                <button onclick="generatePDFOrder()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition flex items-center justify-center gap-2">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> Baixar Resumo em PDF
+                </button>
+                <!-- BOTÃO WHATSAPP -->
                 <button onclick="checkoutViaWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
-                    <i data-lucide="message-circle" class="w-5 h-5"></i> Comprar pelo WhatsApp
+                    <i data-lucide="message-circle" class="w-5 h-5"></i> Enviar Pedido no WhatsApp
                 </button>
             </div>
         </div>
@@ -325,9 +333,7 @@
         let currentQuantity = 1;
         let currentCategory = 'Todos';
 
-        // Cores temporárias criadas durante o cadastro no painel admin
         let tempAdminColors = [];
-
         let logoClickCount = 0;
         let logoClickTimer = null;
 
@@ -439,7 +445,17 @@
             document.getElementById('selectedColorLabel').innerText = `${activeColorModal} (Estoque: ${colorObj.stock} un.)`;
             document.getElementById('selectedQuantity').innerText = currentQuantity;
 
-            // Renderizar botões de cores clicáveis
+            // Renderizar miniaturas de várias imagens da cor selecionada
+            const thumbContainer = document.getElementById('modalImagesThumbnails');
+            thumbContainer.innerHTML = '';
+            colorObj.images.forEach(imgUrl => {
+                thumbContainer.innerHTML += `
+                    <div onclick="document.getElementById('modalImg').src='${imgUrl}'" class="w-14 h-14 rounded-xl overflow-hidden border-2 border-brand-border cursor-pointer hover:border-brand-orange flex-shrink-0">
+                        <img src="${imgUrl}" class="w-full h-full object-cover">
+                    </div>
+                `;
+            });
+
             const colContainer = document.getElementById('modalColorOptions');
             colContainer.innerHTML = '';
             Object.keys(p.colorsData).forEach(col => {
@@ -476,7 +492,7 @@
             if(currentQuantity < 1) currentQuantity = 1;
             if(currentQuantity > maxStock) {
                 currentQuantity = maxStock;
-                showToast(`Estoque máximo disponível para esta cor: ${maxStock} un.`);
+                showToast(`Estoque máximo disponível: ${maxStock} un.`);
             }
             document.getElementById('selectedQuantity').innerText = currentQuantity;
         }
@@ -548,6 +564,56 @@
             renderCartItems();
         }
 
+        // GERAÇÃO DE PDF DO PEDIDO
+        function generatePDFOrder() {
+            if(cart.length === 0) { showToast('Carrinho vazio.'); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFillColor(7, 7, 7);
+            doc.rect(0, 0, 210, 297, 'F');
+
+            doc.setTextColor(255, 101, 0);
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.text("MB DRYFIT - PEDIDO DE COMPRA", 20, 25);
+
+            doc.setTextColor(200, 200, 200);
+            doc.setFontSize(10);
+            doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 33);
+
+            let y = 45;
+            let totalGeneral = 0;
+
+            cart.forEach((item, index) => {
+                const subtotal = item.price * item.qty;
+                totalGeneral += subtotal;
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(12);
+                doc.text(`${index + 1}. ${item.name}`, 20, y);
+                
+                doc.setTextColor(160, 160, 160);
+                doc.setFontSize(10);
+                doc.text(`Cor: ${item.selectedColor} | Tamanho: ${item.selectedSize} | Qtd: ${item.qty}x`, 25, y + 6);
+                doc.text(`Subtotal: R$ ${subtotal.toFixed(2)}`, 25, y + 12);
+
+                y += 22;
+            });
+
+            doc.setDrawColor(50, 50, 50);
+            doc.line(20, y, 190, y);
+
+            y += 10;
+            doc.setTextColor(255, 101, 0);
+            doc.setFontSize(16);
+            doc.text(`VALOR TOTAL: R$ ${totalGeneral.toFixed(2)}`, 20, y);
+
+            doc.save("pedido-mb-dryfit.pdf");
+            showToast('PDF do pedido baixado com sucesso! 📄');
+        }
+
+        // ENVIO WHATSAPP COM TEXTO E LINK DO PDF/ITENS
         function checkoutViaWhatsApp() {
             if(cart.length === 0) return;
             let text = "Olá! Gostaria de finalizar o meu pedido na MB Dryfit:%0A%0A";
@@ -560,13 +626,12 @@
                 text += `   - Cor: ${item.selectedColor}%0A`;
                 text += `   - Tamanho: ${item.selectedSize}%0A`;
                 text += `   - Quantidade: ${item.qty}x%0A`;
-                text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A`;
-                text += `   - 🖼️ Foto: ${item.selectedImage}%0A%0A`;
+                text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A%0A`;
             });
 
-            text += `💰 *Valor Total: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para o pagamento!`;
+            text += `💰 *Valor Total: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para pagamento!`;
 
-            const phone = "5511999999999"; // Altere para o seu número com DDD
+            const phone = "5511999999999"; // Altere para seu número com DDD
             window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank');
         }
 
@@ -606,34 +671,45 @@
         }
         function closeProductFormModal() { document.getElementById('productFormModal').classList.add('hidden'); }
 
+        // ADICIONAR COR COM SUPORTE A MÚLTIPLAS IMAGENS REAIS
         function addColorToList() {
             const colorName = document.getElementById('newColorName').value;
             const colorStock = parseInt(document.getElementById('newColorStock').value) || 10;
-            const fileInput = document.getElementById('newColorFile');
+            const fileInput = document.getElementById('newColorFiles');
 
             if(!colorName) { showToast('Digite o nome da cor.'); return; }
 
-            let imageUrl = 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800';
+            if (fileInput.files && fileInput.files.length > 0) {
+                let imagesArray = [];
+                let filesLoaded = 0;
 
-            if (fileInput.files && fileInput.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imageUrl = e.target.result;
-                    tempAdminColors.push({ name: colorName, stock: colorStock, image: imageUrl });
-                    document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un)`).join(', ')}`;
-                    document.getElementById('newColorName').value = '';
-                    document.getElementById('newColorStock').value = '';
-                    document.getElementById('newColorFile').value = '';
-                    showToast(`Cor ${colorName} adicionada!`);
-                };
-                reader.readAsDataURL(fileInput.files[0]);
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagesArray.push(e.target.result);
+                        filesLoaded++;
+                        if (filesLoaded === fileInput.files.length) {
+                            tempAdminColors.push({ name: colorName, stock: colorStock, images: imagesArray });
+                            updateColorPreviewText();
+                            document.getElementById('newColorName').value = '';
+                            document.getElementById('newColorStock').value = '';
+                            document.getElementById('newColorFiles').value = '';
+                            showToast(`Cor ${colorName} com ${imagesArray.length} fotos adicionada!`);
+                        }
+                    };
+                    reader.readAsDataURL(fileInput.files[i]);
+                }
             } else {
-                tempAdminColors.push({ name: colorName, stock: colorStock, image: imageUrl });
-                document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un)`).join(', ')}`;
+                tempAdminColors.push({ name: colorName, stock: colorStock, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] });
+                updateColorPreviewText();
                 document.getElementById('newColorName').value = '';
                 document.getElementById('newColorStock').value = '';
                 showToast(`Cor ${colorName} adicionada!`);
             }
+        }
+
+        function updateColorPreviewText() {
+            document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un, ${c.images.length} fotos)`).join(' | ')}`;
         }
 
         function saveProductToDatabase() {
@@ -644,13 +720,12 @@
 
             if(!name || isNaN(price)) { showToast('Preencha nome e preço.'); return; }
             if(tempAdminColors.length === 0) {
-                // Adiciona cor padrão se nenhuma foi criada
-                tempAdminColors.push({ name: 'Cor Única', stock: 20, image: 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800' });
+                tempAdminColors.push({ name: 'Cor Única', stock: 20, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] });
             }
 
             let colorsDataStruct = {};
             tempAdminColors.forEach(c => {
-                colorsDataStruct[c.name] = { stock: c.stock, images: [c.image] };
+                colorsDataStruct[c.name] = { stock: c.stock, images: c.images };
             });
 
             products.unshift({
