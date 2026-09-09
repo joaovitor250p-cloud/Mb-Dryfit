@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>MB DRYFIT | Performance, Estilo e Tecnologia</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -25,7 +26,7 @@
             }
         }
     </script>
-    <!-- Lucide Icons & jsPDF para gerar o PDF do pedido -->
+    <!-- Lucide Icons & jsPDF CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -38,37 +39,56 @@
             0% { transform: translateX(0%); }
             100% { transform: translateX(-50%); }
         }
-        .animate-marquee { display: flex; width: 200%; animation: marquee 20s linear infinite; }
+        .animate-marquee { display: flex; width: 200%; animation: marquee 22s linear infinite; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-brand-black text-white antialiased selection:bg-brand-orange selection:text-white">
+
+    <!-- 1. SPLASH SCREEN ANIMADA -->
+    <div id="splashScreen" class="fixed inset-0 z-50 bg-[#070707] flex flex-col items-center justify-center transition-all duration-1000">
+        <div class="absolute w-96 h-96 bg-brand-orange/15 rounded-full blur-[120px] animate-pulse"></div>
+        <div class="relative z-10 text-center overflow-hidden px-4">
+            <div id="splashLogo" class="transform transition-all duration-700 scale-90 opacity-0 translate-y-6">
+                <div class="text-4xl md:text-7xl font-black tracking-[0.2em] text-white mb-2 flex items-center justify-center gap-3">
+                    <span class="inline-block transform -translate-x-4 opacity-0 transition-all duration-500 delay-100" id="letterM">M</span>
+                    <span class="inline-block transform translate-x-4 opacity-0 transition-all duration-500 delay-200" id="letterB">B</span>
+                    <span class="text-brand-orange inline-block transform scale-75 opacity-0 transition-all duration-500 delay-300" id="wordDryfit">DRYFIT</span>
+                </div>
+                <div id="splashLine" class="h-1 bg-brand-orange mx-auto rounded-full w-0 transition-all duration-700 delay-500 shadow-[0_0_20px_#FF6500]"></div>
+                <p id="splashSub" class="text-xs uppercase tracking-[0.4em] text-brand-grayText mt-4 opacity-0 transition-all duration-500 delay-700">Performance Sem Limites</p>
+            </div>
+        </div>
+    </div>
 
     <!-- TOAST NOTIFICATION -->
     <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-brand-orange text-white px-6 py-3 rounded-2xl shadow-[0_10px_30px_rgba(255,101,0,0.4)] font-bold text-sm tracking-wide flex items-center gap-3 border border-white/20 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-4">
         <i data-lucide="zap" class="w-4 h-4"></i> <span id="toastText">Ação realizada com sucesso!</span>
     </div>
 
-    <!-- NAVBAR / CABEÇALHO -->
+    <!-- CABEÇALHO PREMIUM -->
     <header class="sticky top-0 z-40 bg-brand-black/90 backdrop-blur-md border-b border-brand-border">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
+        <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-4">
                 <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2 hover:bg-brand-card rounded-xl transition"><i data-lucide="menu" class="w-6 h-6"></i></button>
                 <!-- 5 CLIQUES NO LOGO ABRE O ADMIN -->
-                <button id="logoTrigger" onclick="switchTab('home')" class="text-xl md:text-2xl font-black tracking-wider flex items-center gap-1 group">
+                <button id="logoTrigger" onclick="switchTab('home')" class="text-2xl md:text-3xl font-black tracking-wider flex items-center gap-1 group text-left">
                     MB <span class="text-brand-orange group-hover:scale-105 transition transform inline-block">DRYFIT</span>
                 </button>
             </div>
-            <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-brand-grayText">
-                <button onclick="switchTab('home')" class="hover:text-white transition font-bold text-brand-orange">Início</button>
+            <nav class="hidden md:flex items-center gap-8 text-sm font-semibold tracking-wide text-brand-grayText">
+                <button onclick="switchTab('home')" class="hover:text-white transition text-brand-orange font-bold">Início</button>
                 <button onclick="switchTab('shop'); setCategory('Todos');" class="hover:text-white transition">Todos</button>
-                <button onclick="switchTab('shop'); setCategory('Meias');" class="hover:text-white transition text-brand-orange font-bold">Meias</button>
                 <button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-white transition">Camisetas</button>
                 <button onclick="switchTab('shop'); setCategory('Shorts');" class="hover:text-white transition">Shorts</button>
                 <button onclick="switchTab('shop'); setCategory('Conjuntos');" class="hover:text-white transition">Conjuntos</button>
+                <button onclick="switchTab('shop'); setCategory('Meias');" class="hover:text-white transition">Meias</button>
+                <button onclick="switchTab('shop'); setCategory('Regatas');" class="hover:text-white transition">Regatas</button>
             </nav>
             <div class="flex items-center gap-3">
-                <button onclick="toggleCart()" class="p-2.5 bg-brand-orange hover:bg-brand-orangeHover text-white rounded-xl transition relative flex items-center gap-2 shadow-[0_0_15px_rgba(255,101,0,0.3)]">
-                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                <button onclick="toggleCart()" class="p-3 bg-brand-orange hover:bg-brand-orangeHover text-white rounded-xl transition relative flex items-center gap-2 shadow-[0_0_20px_rgba(255,101,0,0.3)]">
+                    <i data-lucide="shopping-bag" class="w-5 h-5"></i>
                     <span id="cartBadge" class="absolute -top-1.5 -right-1.5 bg-white text-brand-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow hidden">0</span>
                 </button>
             </div>
@@ -84,161 +104,207 @@
         <div class="flex flex-col gap-4 text-lg font-bold">
             <button onclick="switchTab('home'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Início <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
             <button onclick="switchTab('shop'); setCategory('Todos'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Todos os Produtos <i data-lucide="chevron-right" class="w-5 h-5 text-brand-orange"></i></button>
-            <button onclick="switchTab('shop'); setCategory('Meias'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center text-brand-orange">Meias Esportivas <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
             <button onclick="switchTab('shop'); setCategory('Camisetas'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Camisetas <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
             <button onclick="switchTab('shop'); setCategory('Shorts'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Shorts <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Meias'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center text-brand-orange">Meias <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+            <button onclick="switchTab('shop'); setCategory('Conjuntos'); toggleMobileMenu();" class="text-left py-3 px-4 rounded-xl bg-brand-card border border-brand-border flex justify-between items-center">Conjuntos <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
         </div>
     </div>
 
     <!-- MAIN CONTAINER -->
     <div id="appContainer">
         <!-- HOME PAGE -->
-        <div id="tabHome" class="tab-content">
+        <div id="tabHome" class="tab-content fade-in">
+            <!-- HERO BANNER -->
             <section class="relative h-[85vh] flex items-center justify-center overflow-hidden">
                 <div class="absolute inset-0 z-0">
-                    <img src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1600" alt="Banner" class="w-full h-full object-cover filter brightness-[0.4]">
+                    <img src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1600" alt="Banner" class="w-full h-full object-cover filter brightness-[0.4] transform scale-105 transition duration-1000">
                     <div class="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-transparent"></div>
                 </div>
                 <div class="relative z-10 max-w-5xl mx-auto px-4 text-center mt-12">
-                    <span class="bg-brand-orange/20 text-brand-orange border border-brand-orange/40 text-xs font-extrabold px-4 py-1.5 rounded-full uppercase tracking-widest inline-block mb-6">Nova Coleção de Meias & Roupas</span>
+                    <span class="bg-brand-orange/20 text-brand-orange border border-brand-orange/40 text-xs font-extrabold px-4 py-1.5 rounded-full uppercase tracking-widest inline-block mb-6 shadow-[0_0_20px_rgba(255,101,0,0.3)]">Nova Coleção High Performance</span>
                     <h1 class="text-5xl md:text-8xl font-black tracking-tight leading-none mb-6">
-                        PERFORMANCE <br><span class="text-brand-orange">EM CADA DETALHE</span>
+                        PERFORMANCE <br><span class="text-brand-orange drop-shadow-[0_0_35px_rgba(255,101,0,0.5)]">EM CADA DETALHE</span>
                     </h1>
-                    <button onclick="switchTab('shop')" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-wider shadow-[0_10px_30px_rgba(255,101,0,0.4)] transition">
-                        Ver Catálogo Completo
-                    </button>
+                    <p class="text-brand-grayText text-base md:text-xl max-w-xl mx-auto mb-8 font-medium">Tecnologia têxtil avançada para atletas que exigem o máximo de conforto e durabilidade.</p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <button onclick="switchTab('shop')" class="w-full sm:w-auto bg-brand-orange hover:bg-brand-orangeHover text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-wider shadow-[0_10px_30px_rgba(255,101,0,0.4)] transition transform active:scale-95 flex items-center justify-center gap-2">
+                            Comprar Agora <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="switchTab('shop'); setCategory('Camisetas');" class="w-full sm:w-auto bg-brand-card hover:bg-zinc-800 border border-brand-border text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-wider transition">
+                            Ver Coleção
+                        </button>
+                    </div>
                 </div>
             </section>
 
-            <!-- MARQUEE -->
-            <div class="bg-brand-orange text-brand-black py-3 overflow-hidden font-black uppercase tracking-widest text-xs md:text-sm shadow-lg">
-                <div class="animate-marquee whitespace-nowrap flex gap-8 items-center">
-                    <span>MEIAS DRYFIT • CAMISETAS • SHORTS • CONJUNTOS • TECNOLOGIA •</span>
-                    <span>MEIAS DRYFIT • CAMISETAS • SHORTS • CONJUNTOS • TECNOLOGIA •</span>
+            <!-- MARQUEE ANIMADO -->
+            <div class="bg-brand-orange text-brand-black py-3.5 overflow-hidden font-black uppercase tracking-widest text-xs md:text-sm shadow-xl">
+                <div class="animate-marquee whitespace-nowrap flex gap-10 items-center">
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
+                    <span>MB DRYFIT • PERFORMANCE • CONFORTO • TECNOLOGIA • ESTILO •</span>
                 </div>
             </div>
 
-            <!-- DESTAQUES -->
+            <!-- DESTAQUES DA HOME -->
             <section class="max-w-7xl mx-auto px-4 py-16">
-                <h2 class="text-3xl font-black mb-8">DESTAQUES DA LOJA</h2>
+                <div class="flex justify-between items-end mb-10">
+                    <div>
+                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Destaques</span>
+                        <h2 class="text-3xl font-black mt-1">MAIS VENDIDOS & LANÇAMENTOS</h2>
+                    </div>
+                    <button onclick="switchTab('shop')" class="text-brand-orange font-bold text-sm flex items-center gap-1 hover:underline">Ver todos <i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                </div>
                 <div id="homeProductsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"></div>
             </section>
         </div>
 
         <!-- SHOP TAB -->
-        <div id="tabShop" class="tab-content hidden max-w-7xl mx-auto px-4 py-8">
+        <div id="tabShop" class="tab-content hidden max-w-7xl mx-auto px-4 py-8 fade-in">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
                 <div>
                     <h1 class="text-3xl font-black">CATÁLOGO DE PRODUTOS</h1>
-                    <p class="text-brand-grayText text-sm">Escolha cor, tamanho e quantidade para montar seu pedido.</p>
+                    <p class="text-brand-grayText text-sm">Escolha entre camisetas, shorts, meias e conjuntos de alta performance.</p>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="setCategory('Todos')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white">Todos</button>
-                    <button onclick="setCategory('Meias')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Meias</button>
-                    <button onclick="setCategory('Camisetas')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Camisetas</button>
-                    <button onclick="setCategory('Shorts')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Shorts</button>
-                    <button onclick="setCategory('Conjuntos')" class="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Conjuntos</button>
+                <div class="flex flex-wrap gap-2" id="categoryButtons">
+                    <button onclick="setCategory('Todos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-orange text-white shadow">Todos</button>
+                    <button onclick="setCategory('Camisetas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Camisetas</button>
+                    <button onclick="setCategory('Shorts')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Shorts</button>
+                    <button onclick="setCategory('Conjuntos')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Conjuntos</button>
+                    <button onclick="setCategory('Meias')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Meias</button>
+                    <button onclick="setCategory('Regatas')" class="category-btn px-4 py-2 rounded-xl text-xs font-bold uppercase bg-brand-card text-brand-grayText border border-brand-border">Regatas</button>
                 </div>
             </div>
             <div id="shopProductsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"></div>
         </div>
 
         <!-- PAINEL ADMIN (5 CLIQUES NO LOGO) -->
-        <div id="tabAdmin" class="tab-content hidden max-w-7xl mx-auto px-4 py-12">
+        <div id="tabAdmin" class="tab-content hidden max-w-7xl mx-auto px-4 py-12 fade-in">
             <div id="adminLoginBox" class="max-w-md mx-auto bg-brand-card border border-brand-border rounded-3xl p-8 text-center shadow-2xl">
+                <div class="w-16 h-16 bg-brand-orange/20 text-brand-orange rounded-2xl flex items-center justify-center mx-auto mb-6"><i data-lucide="lock" class="w-8 h-8"></i></div>
                 <h2 class="text-2xl font-black mb-2">GESTÃO MB DRYFIT</h2>
-                <p class="text-brand-grayText text-sm mb-6">Acesso restrito administrativo.</p>
+                <p class="text-brand-grayText text-sm mb-6">Acesso restrito do painel administrativo.</p>
                 <input type="email" id="adminEmailInput" placeholder="E-mail (admin@mbdryfit.com)" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-3 text-sm outline-none">
                 <input type="password" id="adminPasswordInput" placeholder="Senha (mbadmin2026)" class="w-full bg-brand-black border border-brand-border rounded-xl p-4 text-white mb-4 text-sm outline-none">
-                <button onclick="handleAdminLogin()" class="w-full bg-brand-orange text-white py-4 rounded-xl font-bold uppercase tracking-wider">Entrar</button>
+                <button onclick="handleAdminLogin()" class="w-full bg-brand-orange text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg">Entrar no Sistema</button>
             </div>
 
             <div id="adminDashboard" class="hidden">
-                <div class="flex justify-between items-center mb-8 border-b border-brand-border pb-6">
-                    <h1 class="text-3xl font-black">PAINEL DE PRODUTOS & CORES</h1>
-                    <button onclick="openProductFormModal()" class="bg-brand-orange text-white px-4 py-2.5 rounded-xl text-xs font-bold">+ Novo Produto com Cores/Estoque</button>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-brand-border pb-6">
+                    <div>
+                        <span class="text-brand-orange text-xs font-bold uppercase tracking-widest">Painel Administrativo</span>
+                        <h1 class="text-3xl font-black">GERENCIAR LOJA & PEDIDOS</h1>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setAdminSubView('products')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-orange text-white shadow"><i data-lucide="shopping-bag" class="w-4 h-4 inline"></i> Produtos</button>
+                        <button onclick="setAdminSubView('orders')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-card text-brand-grayText border border-brand-border hover:text-white"><i data-lucide="file-text" class="w-4 h-4 inline"></i> Pedidos</button>
+                        <button onclick="logoutAdmin()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600/20 text-red-400 border border-red-600/40">Sair</button>
+                    </div>
                 </div>
-                <div id="adminProductsList" class="space-y-4"></div>
+
+                <div id="adminProductsView">
+                    <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">Catálogo de Produtos</h3>
+                            <button onclick="openProductFormModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow"><i data-lucide="plus-circle" class="w-4 h-4"></i> Novo Produto</button>
+                        </div>
+                        <div id="adminProductsList" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <div id="adminOrdersView" class="hidden">
+                    <div class="bg-brand-card border border-brand-border rounded-3xl p-6">
+                        <h3 class="font-bold text-lg mb-6">Histórico de Pedidos Recebidos</h3>
+                        <div id="adminOrdersList" class="space-y-4"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO COM SUPORTE A MÚLTIPLAS IMAGENS POR COR -->
+    <!-- MODAL DE CADASTRO / EDIÇÃO DE PRODUTO -->
     <div id="productFormModal" class="fixed inset-0 z-50 bg-brand-black/90 backdrop-blur-md overflow-y-auto flex justify-center items-center p-4 hidden">
         <div class="bg-brand-card w-full max-w-2xl rounded-3xl border border-brand-border p-6 md:p-8 max-h-[90vh] overflow-y-auto relative">
             <button onclick="closeProductFormModal()" class="absolute top-6 right-6 p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-2xl font-black mb-6">Cadastrar Produto, Cores e Estoque</h3>
+            <h3 id="formModalTitle" class="text-2xl font-black mb-6">Cadastrar Novo Produto</h3>
+            
             <div class="space-y-4">
+                <input type="hidden" id="editProductId">
                 <div>
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Nome do Produto</label>
-                    <input type="text" id="pName" placeholder="Ex: Meia Esportiva Cano Alto" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
+                    <input type="text" id="pName" placeholder="Ex: Camiseta MB Performance Pro" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Preço (R$)</label>
-                        <input type="number" step="0.01" id="pPrice" placeholder="29.90" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
+                        <input type="number" step="0.01" id="pPrice" placeholder="119.90" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
                     </div>
                     <div>
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Categoria</label>
                         <select id="pCategory" class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white">
-                            <option>Meias</option>
                             <option>Camisetas</option>
                             <option>Shorts</option>
                             <option>Conjuntos</option>
+                            <option>Meias</option>
                             <option>Regatas</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- CAMPO DE MÚLTIPLAS CORES E MÚLTIPLAS IMAGENS -->
+                <!-- GERENCIADOR DE CORES E VÁRIAS FOTOS -->
                 <div class="bg-brand-black p-4 rounded-2xl border border-brand-border space-y-3">
-                    <h4 class="font-bold text-xs uppercase text-brand-orange">Adicionar Cor com Múltiplas Fotos</h4>
+                    <h4 class="font-bold text-xs uppercase text-brand-orange">Adicionar Cores, Estoque e Várias Fotos</h4>
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="newColorName" placeholder="Nome da Cor (Ex: Azul)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
-                        <input type="number" id="newColorStock" placeholder="Qtd em Estoque" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
+                        <input type="text" id="newColorName" placeholder="Nome da Cor (Ex: Preto)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
+                        <input type="number" id="newColorStock" placeholder="Estoque (Ex: 20)" class="bg-brand-card border border-brand-border rounded-xl p-3 text-sm text-white">
                     </div>
                     <div>
-                        <label class="text-[10px] text-brand-grayText block mb-1">Selecionar Várias Fotos (Segure Ctrl ou selecione várias):</label>
-                        <input type="file" id="newColorFiles" accept="image/*" multiple class="w-full text-xs text-brand-grayText file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white">
+                        <label class="text-[10px] text-brand-grayText block mb-1">Selecionar Fotos para esta Cor (Frente, Costas, Detalhe...):</label>
+                        <input type="file" id="newColorFiles" accept="image/*" multiple class="w-full text-xs text-brand-grayText file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-orange file:text-white cursor-pointer">
                     </div>
-                    <button onclick="addColorToList()" type="button" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-xl">+ Adicionar Cor na Lista</button>
-                    <div id="addedColorsPreview" class="text-xs text-brand-grayText mt-2">Nenhuma cor adicionada ainda.</div>
+                    <button onclick="addColorToList()" type="button" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-xl">+ Adicionar Cor ao Produto</button>
+                    <div id="addedColorsPreview" class="text-xs text-brand-grayText mt-2">Nenhuma cor adicionada.</div>
                 </div>
 
                 <div>
                     <label class="text-xs uppercase font-bold text-brand-grayText block mb-1">Descrição</label>
-                    <textarea id="pDesc" rows="3" placeholder="Conforto e absorção..." class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white"></textarea>
+                    <textarea id="pDesc" rows="3" placeholder="Detalhes de tecnologia e tecido..." class="w-full bg-brand-black border border-brand-border rounded-xl p-3 text-sm text-white"></textarea>
                 </div>
-                <button onclick="saveProductToDatabase()" class="w-full bg-brand-orange text-white py-4 rounded-xl font-bold uppercase tracking-wider">Salvar Produto Completo</button>
+                <button onclick="saveProductToDatabase()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider transition shadow-lg mt-4">Salvar e Publicar Produto</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DO PRODUTO -->
-    <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-center p-4 hidden">
-        <div class="bg-brand-card w-full max-w-3xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
-            <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 p-2.5 rounded-full text-white"><i data-lucide="x"></i></button>
+    <!-- PÁGINA / MODAL DO PRODUTO (EXPERIÊNCIA PREMIUM) -->
+    <div id="productModal" class="fixed inset-0 z-50 bg-brand-black/95 backdrop-blur-xl overflow-y-auto flex justify-center items-center p-2 md:p-6 hidden">
+        <div class="bg-brand-card w-full max-w-4xl rounded-3xl border border-brand-border overflow-hidden relative flex flex-col md:flex-row max-h-[92vh]">
+            <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-brand-black/80 p-2.5 rounded-full text-white hover:bg-brand-orange transition"><i data-lucide="x"></i></button>
             
-            <div class="w-full md:w-1/2 p-6 bg-[#0c0c0c] flex flex-col justify-center items-center">
-                <img id="modalImg" src="" class="w-full h-72 object-cover rounded-2xl shadow-2xl transition duration-300">
-                <!-- Miniaturas de várias imagens da cor -->
-                <div id="modalImagesThumbnails" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2"></div>
+            <!-- Lado Esquerdo: Galeria de Fotos -->
+            <div class="w-full md:w-1/2 p-6 bg-[#0c0c0c] flex flex-col justify-center items-center overflow-y-auto">
+                <img id="modalImg" src="" class="w-full h-72 md:h-[380px] object-cover rounded-2xl shadow-2xl transition duration-300">
+                <div id="modalImagesThumbnails" class="flex gap-2 mt-4 overflow-x-auto max-w-full pb-2 w-full"></div>
             </div>
 
-            <div class="w-full md:w-1/2 p-6 flex flex-col justify-between overflow-y-auto">
+            <!-- Lado Direito: Informações e Variações -->
+            <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
                 <div>
                     <span id="modalBadge" class="bg-brand-orange/20 text-brand-orange text-xs font-extrabold px-3 py-1 rounded-full uppercase">DESTAQUE</span>
-                    <h2 id="modalTitle" class="text-2xl font-black mt-2 mb-1">Nome do Produto</h2>
-                    <span id="modalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
-                    <p id="modalDesc" class="text-brand-grayText text-xs my-3">Descrição...</p>
+                    <h2 id="modalTitle" class="text-2xl md:text-3xl font-black mt-2 mb-1">Nome do Produto</h2>
+                    <div class="flex items-baseline gap-3 mb-3">
+                        <span id="modalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
+                        <span id="modalOldPrice" class="text-sm text-brand-grayText line-through"></span>
+                    </div>
+                    <p id="modalDesc" class="text-brand-grayText text-xs leading-relaxed mb-4">Descrição...</p>
                     
-                    <!-- ESCOLHA DA COR -->
+                    <!-- Escolha da Cor -->
                     <div class="mb-4">
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione a Cor: <span id="selectedColorLabel" class="text-white font-bold"></span></label>
                         <div id="modalColorOptions" class="flex flex-wrap gap-2"></div>
                     </div>
 
-                    <!-- ESCOLHA DO TAMANHO -->
+                    <!-- Escolha do Tamanho -->
                     <div class="mb-4">
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Selecione o Tamanho: <span id="selectedSizeLabel" class="text-white font-bold">M</span></label>
                         <div id="modalSizeOptions" class="flex flex-wrap gap-2">
@@ -250,7 +316,7 @@
                         </div>
                     </div>
 
-                    <!-- ESCOLHA DA QUANTIDADE -->
+                    <!-- Escolha da Quantidade -->
                     <div class="mb-6">
                         <label class="text-xs uppercase font-bold text-brand-grayText block mb-2">Quantidade</label>
                         <div class="flex items-center gap-3">
@@ -262,71 +328,130 @@
                 </div>
 
                 <div class="space-y-3 pt-4 border-t border-brand-border">
-                    <button onclick="addToCartMultiOptions()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow transition">
-                        Adicionar ao Carrinho
+                    <button onclick="addToCartAndStay()" class="w-full bg-brand-orange hover:bg-brand-orangeHover text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-[0_10px_25px_rgba(255,101,0,0.3)] transition transform active:scale-95 flex items-center justify-center gap-2">
+                        <i data-lucide="shopping-bag" class="w-5 h-5"></i> Adicionar ao Carrinho (Continuar Comprando)
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- CARRINHO LATERAL COM GERAÇÃO DE PDF -->
+    <!-- CARRINHO LATERAL & DADOS DO CLIENTE -->
     <div id="cartDrawer" class="fixed inset-0 z-50 bg-brand-black/80 backdrop-blur-md flex justify-end hidden">
         <div class="w-full max-w-md bg-brand-card h-full border-l border-brand-border p-6 flex flex-col justify-between shadow-2xl">
             <div>
                 <div class="flex justify-between items-center mb-6 border-b border-brand-border pb-4">
                     <h3 class="text-xl font-black flex items-center gap-2"><i data-lucide="shopping-bag" class="text-brand-orange"></i> SEU CARRINHO</h3>
-                    <button onclick="toggleCart()" class="p-2 bg-brand-black rounded-xl text-zinc-400"><i data-lucide="x"></i></button>
+                    <button onclick="toggleCart()" class="p-2 bg-brand-black rounded-xl text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
                 </div>
-                <div id="cartItemsContainer" class="space-y-4 max-h-[55vh] overflow-y-auto"></div>
+                
+                <!-- Itens do Carrinho -->
+                <div id="cartItemsContainer" class="space-y-4 max-h-[35vh] overflow-y-auto mb-4"></div>
+
+                <!-- Dados do Cliente Antes de Finalizar -->
+                <div class="bg-brand-black p-4 rounded-2xl border border-brand-border space-y-3">
+                    <h4 class="font-bold text-xs uppercase text-brand-orange">Dados para Entrega no Pedido</h4>
+                    <input type="text" id="clientName" placeholder="Seu Nome Completo *" class="w-full bg-brand-card border border-brand-border rounded-xl p-2.5 text-xs text-white outline-none">
+                    <input type="text" id="clientWhatsApp" placeholder="WhatsApp (com DDD) *" class="w-full bg-brand-card border border-brand-border rounded-xl p-2.5 text-xs text-white outline-none">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="clientCity" placeholder="Cidade *" class="bg-brand-card border border-brand-border rounded-xl p-2.5 text-xs text-white outline-none">
+                        <input type="text" id="clientNeighborhood" placeholder="Bairro *" class="bg-brand-card border border-brand-border rounded-xl p-2.5 text-xs text-white outline-none">
+                    </div>
+                    <input type="text" id="clientAddress" placeholder="Endereço e Número *" class="w-full bg-brand-card border border-brand-border rounded-xl p-2.5 text-xs text-white outline-none">
+                </div>
             </div>
+
             <div class="border-t border-brand-border pt-4 mt-4 space-y-3">
-                <div class="flex justify-between items-center mb-2">
+                <div class="flex justify-between items-center mb-1">
                     <span class="text-brand-grayText font-bold text-sm">Total do Pedido:</span>
                     <span id="cartTotalPrice" class="text-2xl font-black text-brand-orange">R$ 0,00</span>
                 </div>
-                <!-- BOTÃO PARA GERAR E BAIXAR O PDF DO PEDIDO -->
-                <button onclick="generatePDFOrder()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition flex items-center justify-center gap-2">
-                    <i data-lucide="file-text" class="w-4 h-4"></i> Baixar Resumo em PDF
+                <!-- Botão Gerar PDF -->
+                <button onclick="generatePDFOrder()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> Baixar Resumo em PDF com Fotos
                 </button>
-                <!-- BOTÃO WHATSAPP -->
+                <!-- Botão Enviar WhatsApp -->
                 <button onclick="checkoutViaWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
                     <i data-lucide="message-circle" class="w-5 h-5"></i> Enviar Pedido no WhatsApp
+                </button>
+                <!-- Botão Compartilhar API nativa celular -->
+                <button onclick="shareOrderNative()" class="w-full bg-brand-card hover:bg-zinc-800 border border-brand-border text-white py-2.5 rounded-xl font-bold text-xs uppercase transition flex items-center justify-center gap-2">
+                    <i data-lucide="share-2" class="w-4 h-4"></i> Compartilhar Pedido
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- SCRIPT DE LÓGICA -->
+    <!-- RODAPÉ -->
+    <footer class="bg-brand-card border-t border-brand-border mt-20 py-12">
+        <div class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+                <h3 class="text-xl font-black mb-4">MB <span class="text-brand-orange">DRYFIT</span></h3>
+                <p class="text-brand-grayText text-sm mb-4">Tecnologia, conforto e design premium para atletas e entusiastas da alta performance.</p>
+                <p class="text-xs text-zinc-500">© 2026 MB DRYFIT. Todos os direitos reservados.</p>
+            </div>
+            <div>
+                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Atendimento</h4>
+                <ul class="space-y-2 text-sm text-brand-grayText">
+                    <li><a href="#" class="hover:text-white transition">Política de Privacidade</a></li>
+                    <li><a href="#" class="hover:text-white transition">Trocas e Devoluções</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Categorias</h4>
+                <ul class="space-y-2 text-sm text-brand-grayText">
+                    <li><button onclick="switchTab('shop'); setCategory('Camisetas');" class="hover:text-white transition">Camisetas Dryfit</button></li>
+                    <li><button onclick="switchTab('shop'); setCategory('Meias');" class="hover:text-white transition">Meias Esportivas</button></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-sm mb-4 text-white uppercase tracking-wider">Suporte Oficial</h4>
+                <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Suporte MB Dryfit." target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WHATSAPP FLUTUANTE -->
+    <a href="https://api.whatsapp.com/send?phone=5511999999999&text=Olá! Quero falar com o atendimento MB DRYFIT." target="_blank" class="fixed bottom-6 right-6 z-40 bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-full shadow-[0_4px_25px_rgba(5,150,105,0.4)] transition transform hover:scale-110 flex items-center justify-center">
+        <i data-lucide="message-circle" class="w-6 h-6"></i>
+    </a>
+
+    <!-- SCRIPT DE LÓGICA E PERSISTÊNCIA COMPLETA -->
     <script>
-        let products = [
+        // Banco de dados persistente em localStorage
+        let products = JSON.parse(localStorage.getItem('mb_dryfit_products')) || [
             {
                 id: 1,
-                name: 'Meia Esportiva Cano Alto Dryfit',
-                category: 'Meias',
-                price: 29.90,
-                badge: 'NOVO',
-                colorsData: {
-                    'Branco com Laranja': { stock: 20, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] },
-                    'Preto Total': { stock: 15, images: ['https://images.unsplash.com/photo-1563178406-4cdc2923acbc?auto=format&fit=crop&q=80&w=800'] }
-                },
-                description: 'Meia de alta compressão com tecnologia antitranspirante.'
-            },
-            {
-                id: 2,
                 name: 'Camiseta MB Performance Pro',
                 category: 'Camisetas',
                 price: 119.90,
+                oldPrice: 159.90,
                 badge: 'MAIS VENDIDO',
                 colorsData: {
-                    'Azul Royal': { stock: 10, images: ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800'] },
-                    'Preto': { stock: 25, images: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'] }
+                    'Preto': { stock: 20, images: ['https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800', 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'] },
+                    'Laranja': { stock: 15, images: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'] }
                 },
-                description: 'Desenvolvida com tecnologia Dryfit Advanced.'
+                description: 'Desenvolvida com tecnologia Dryfit Advanced para máxima evaporação do suor.'
+            },
+            {
+                id: 2,
+                name: 'Meia Esportiva Cano Alto Dryfit',
+                category: 'Meias',
+                price: 29.90,
+                oldPrice: 39.90,
+                badge: 'NOVO',
+                colorsData: {
+                    'Branco com Laranja': { stock: 30, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] }
+                },
+                description: 'Meia de alta compressão com reforço anatômico e tecido antitranspirante.'
             }
         ];
 
-        let cart = [];
+        let cart = JSON.parse(localStorage.getItem('mb_dryfit_cart')) || [];
+        let orders = JSON.parse(localStorage.getItem('mb_dryfit_orders')) || [];
+
         let selectedProductModal = null;
         let activeColorModal = '';
         let activeSizeModal = 'M';
@@ -339,8 +464,33 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            renderProducts();
 
+            // Splash Animation
+            setTimeout(() => {
+                const m = document.getElementById('letterM');
+                const b = document.getElementById('letterB');
+                const d = document.getElementById('wordDryfit');
+                const line = document.getElementById('splashLine');
+                const sub = document.getElementById('splashSub');
+                if(m) { m.style.opacity = '1'; m.style.transform = 'translateX(0)'; }
+                if(b) { b.style.opacity = '1'; b.style.transform = 'translateX(0)'; }
+                if(d) { d.style.opacity = '1'; d.style.transform = 'scale(1)'; }
+                if(line) { line.style.width = '140px'; }
+                if(sub) { sub.style.opacity = '1'; }
+            }, 300);
+
+            setTimeout(() => {
+                const splash = document.getElementById('splashScreen');
+                if(splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => splash.remove(), 1000);
+                }
+            }, 2000);
+
+            renderProducts();
+            updateCartBadge();
+
+            // Gatilho secreto 5 cliques no logo
             const logoBtn = document.getElementById('logoTrigger');
             if (logoBtn) {
                 logoBtn.addEventListener('click', (e) => {
@@ -356,6 +506,12 @@
                 });
             }
         });
+
+        function saveState() {
+            localStorage.setItem('mb_dryfit_products', JSON.stringify(products));
+            localStorage.setItem('mb_dryfit_cart', JSON.stringify(cart));
+            localStorage.setItem('mb_dryfit_orders', JSON.stringify(orders));
+        }
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -402,19 +558,21 @@
         function createProductCardHTML(p) {
             const firstColor = Object.keys(p.colorsData)[0];
             const firstImg = p.colorsData[firstColor].images[0];
+            const secondImg = p.colorsData[firstColor].images[1] || firstImg;
             return `
                 <div onclick="openProductModal(${p.id})" class="bg-brand-card border border-brand-border rounded-2xl overflow-hidden group cursor-pointer hover:border-brand-orange transition duration-300 flex flex-col justify-between shadow-lg">
                     <div class="relative aspect-square overflow-hidden bg-zinc-900">
-                        <img src="${firstImg}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                        <span class="absolute top-3 left-3 bg-brand-orange text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase">${p.badge}</span>
+                        <img src="${firstImg}" onmouseover="this.src='${secondImg}'" onmouseout="this.src='${firstImg}'" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <span class="absolute top-3 left-3 bg-brand-orange text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">${p.badge}</span>
                     </div>
                     <div class="p-4 flex flex-col flex-1 justify-between">
                         <div>
                             <p class="text-[11px] text-brand-grayText font-bold uppercase tracking-wider mb-1">${p.category}</p>
                             <h3 class="font-bold text-sm md:text-base line-clamp-1 group-hover:text-brand-orange transition">${p.name}</h3>
                         </div>
-                        <div class="mt-4">
+                        <div class="mt-4 flex items-baseline gap-2">
                             <span class="text-lg font-black text-white">R$ ${p.price.toFixed(2)}</span>
+                            ${p.oldPrice ? `<span class="text-xs text-brand-grayText line-through">R$ ${p.oldPrice.toFixed(2)}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -441,11 +599,11 @@
             document.getElementById('modalBadge').innerText = p.badge;
             document.getElementById('modalTitle').innerText = p.name;
             document.getElementById('modalPrice').innerText = `R$ ${p.price.toFixed(2)}`;
+            document.getElementById('modalOldPrice').innerText = p.oldPrice ? `R$ ${p.oldPrice.toFixed(2)}` : '';
             document.getElementById('modalDesc').innerText = p.description;
             document.getElementById('selectedColorLabel').innerText = `${activeColorModal} (Estoque: ${colorObj.stock} un.)`;
             document.getElementById('selectedQuantity').innerText = currentQuantity;
 
-            // Renderizar miniaturas de várias imagens da cor selecionada
             const thumbContainer = document.getElementById('modalImagesThumbnails');
             thumbContainer.innerHTML = '';
             colorObj.images.forEach(imgUrl => {
@@ -461,8 +619,8 @@
             Object.keys(p.colorsData).forEach(col => {
                 const isSelected = activeColorModal === col;
                 colContainer.innerHTML += `
-                    <button onclick="changeModalColor('${col}')" type="button" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${isSelected ? 'bg-brand-orange border-brand-orange text-white' : 'bg-brand-black border-brand-border text-brand-grayText'}">
-                        ${col} (${p.colorsData[col].stock})
+                    <button onclick="changeModalColor('${col}')" type="button" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${isSelected ? 'bg-brand-orange border-brand-orange text-white shadow' : 'bg-brand-black border-brand-border text-brand-grayText'}">
+                        ${col}
                     </button>
                 `;
             });
@@ -499,7 +657,7 @@
 
         function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
 
-        function addToCartMultiOptions() {
+        function addToCartAndStay() {
             if(!selectedProductModal) return;
             const key = `${selectedProductModal.id}-${activeColorModal}-${activeSizeModal}`;
             const existing = cart.find(i => i.cartKey === key);
@@ -517,10 +675,9 @@
                     cartKey: key
                 });
             }
-            showToast(`Adicionado: ${currentQuantity}x ${selectedProductModal.name} (${activeColorModal})`);
-            closeProductModal();
+            saveState();
+            showToast(`Adicionado ao carrinho! Escolha mais itens se desejar.`);
             updateCartBadge();
-            toggleCart();
         }
 
         function updateCartBadge() {
@@ -535,7 +692,7 @@
             const container = document.getElementById('cartItemsContainer');
             container.innerHTML = '';
             if(cart.length === 0) {
-                container.innerHTML = `<div class="text-center py-16 text-brand-grayText"><p class="font-bold">Carrinho vazio</p></div>`;
+                container.innerHTML = `<div class="text-center py-12 text-brand-grayText"><p class="font-bold">Seu carrinho está vazio</p></div>`;
                 document.getElementById('cartTotalPrice').innerText = 'R$ 0,00';
                 return;
             }
@@ -543,14 +700,17 @@
             cart.forEach(item => {
                 total += item.price * item.qty;
                 container.innerHTML += `
-                    <div class="flex gap-4 bg-brand-black p-3.5 rounded-2xl border border-brand-border items-center">
-                        <img src="${item.selectedImage}" class="w-16 h-16 object-cover rounded-xl">
+                    <div class="flex gap-3 bg-brand-black p-3 rounded-2xl border border-brand-border items-center">
+                        <img src="${item.selectedImage}" class="w-14 h-14 object-cover rounded-xl">
                         <div class="flex-1">
-                            <h4 class="font-bold text-sm line-clamp-1">${item.name}</h4>
-                            <p class="text-xs text-brand-grayText">Cor: ${item.selectedColor} | Tam: ${item.selectedSize} | Qtd: ${item.qty}</p>
-                            <p class="text-brand-orange font-black text-sm mt-1">R$ ${(item.price * item.qty).toFixed(2)}</p>
+                            <h4 class="font-bold text-xs line-clamp-1">${item.name}</h4>
+                            <p class="text-[11px] text-brand-grayText">Cor: ${item.selectedColor} | Tam: ${item.selectedSize}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs font-bold bg-zinc-800 px-2 py-0.5 rounded">Qtd: ${item.qty}</span>
+                                <span class="text-brand-orange font-black text-xs">R$ ${(item.price * item.qty).toFixed(2)}</span>
+                            </div>
                         </div>
-                        <button onclick="removeFromCart('${item.cartKey}')" class="text-zinc-500 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="removeFromCart('${item.cartKey}')" class="text-zinc-500 hover:text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
                 `;
             });
@@ -560,46 +720,110 @@
 
         function removeFromCart(key) {
             cart = cart.filter(i => i.cartKey !== key);
+            saveState();
             updateCartBadge();
             renderCartItems();
         }
 
-        // GERAÇÃO DE PDF DO PEDIDO
-        function generatePDFOrder() {
+        // FUNÇÃO ROBUSTA DE CONVERSÃO DE IMAGEM PARA BASE64 (EVITA CORS NO PDF)
+        async function getBase64Image(url) {
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                return null; // Fallback se falhar
+            }
+        }
+
+        // GERAÇÃO COMPLETA DE PDF COM FOTOS REAIS INCORPORADAS
+        async function generatePDFOrder() {
             if(cart.length === 0) { showToast('Carrinho vazio.'); return; }
+            
+            const clientName = document.getElementById('clientName').value || 'Cliente Web';
+            const clientWhatsApp = document.getElementById('clientWhatsApp').value || 'Não informado';
+            const clientCity = document.getElementById('clientCity').value || 'Não informada';
+            const clientAddress = document.getElementById('clientAddress').value || 'Não informado';
+
+            const orderId = `MB-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(100+Math.random()*900)}`;
+            
+            showToast('Gerando PDF com fotos dos produtos...');
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
+            // Fundo escuro esportivo
             doc.setFillColor(7, 7, 7);
             doc.rect(0, 0, 210, 297, 'F');
 
+            // Cabeçalho
             doc.setTextColor(255, 101, 0);
             doc.setFontSize(22);
             doc.setFont("helvetica", "bold");
-            doc.text("MB DRYFIT - PEDIDO DE COMPRA", 20, 25);
+            doc.text("MB DRYFIT", 20, 20);
 
-            doc.setTextColor(200, 200, 200);
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(12);
+            doc.text(`Pedido: ${orderId}`, 20, 28);
+
+            doc.setTextColor(160, 160, 160);
+            doc.setFontSize(9);
+            doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, 20, 34);
+
+            // Dados do Cliente
+            doc.setFillColor(20, 20, 20);
+            doc.roundedRect(20, 40, 170, 22, 3, 3, 'F');
+            doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
-            doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 33);
+            doc.text(`Cliente: ${clientName} | WhatsApp: ${clientWhatsApp}`, 25, 48);
+            doc.text(`Endereço: ${clientAddress} - ${clientCity}`, 25, 56);
 
-            let y = 45;
+            let y = 72;
             let totalGeneral = 0;
 
-            cart.forEach((item, index) => {
+            for (let i = 0; i < cart.length; i++) {
+                const item = cart[i];
                 const subtotal = item.price * item.qty;
                 totalGeneral += subtotal;
 
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(12);
-                doc.text(`${index + 1}. ${item.name}`, 20, y);
-                
-                doc.setTextColor(160, 160, 160);
-                doc.setFontSize(10);
-                doc.text(`Cor: ${item.selectedColor} | Tamanho: ${item.selectedSize} | Qtd: ${item.qty}x`, 25, y + 6);
-                doc.text(`Subtotal: R$ ${subtotal.toFixed(2)}`, 25, y + 12);
+                if (y > 250) {
+                    doc.addPage();
+                    doc.setFillColor(7, 7, 7);
+                    doc.rect(0, 0, 210, 297, 'F');
+                    y = 20;
+                }
 
-                y += 22;
-            });
+                // Caixa do produto
+                doc.setFillColor(16, 16, 16);
+                doc.roundedRect(20, y, 170, 32, 3, 3, 'F');
+
+                // Tentar inserir imagem em Base64
+                let base64Img = await getBase64Image(item.selectedImage);
+                if (base64Img) {
+                    try {
+                        doc.addImage(base64Img, 'JPEG', 23, y + 3, 26, 26);
+                    } catch(err) {}
+                }
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.text(item.name, 55, y + 8);
+
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(180, 180, 180);
+                doc.text(`Cor: ${item.selectedColor} | Tamanho: ${item.selectedSize} | Qtd: ${item.qty}x`, 55, y + 16);
+                doc.text(`Subtotal: R$ ${subtotal.toFixed(2)}`, 55, y + 24);
+
+                y += 38;
+            }
+
+            if (y > 270) { doc.addPage(); y = 20; }
 
             doc.setDrawColor(50, 50, 50);
             doc.line(20, y, 190, y);
@@ -607,40 +831,108 @@
             y += 10;
             doc.setTextColor(255, 101, 0);
             doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
             doc.text(`VALOR TOTAL: R$ ${totalGeneral.toFixed(2)}`, 20, y);
 
-            doc.save("pedido-mb-dryfit.pdf");
-            showToast('PDF do pedido baixado com sucesso! 📄');
+            // Salvar histórico no admin
+            orders.unshift({
+                id: orderId,
+                client: clientName,
+                whatsapp: clientWhatsApp,
+                date: new Date().toLocaleDateString('pt-BR'),
+                total: totalGeneral,
+                status: 'Novo',
+                itemsCount: cart.length
+            });
+            saveState();
+
+            doc.save(`${orderId}.pdf`);
+            showToast('PDF gerado e baixado com sucesso! 📄');
         }
 
-        // ENVIO WHATSAPP COM TEXTO E LINK DO PDF/ITENS
-        function checkoutViaWhatsApp() {
-            if(cart.length === 0) return;
-            let text = "Olá! Gostaria de finalizar o meu pedido na MB Dryfit:%0A%0A";
-            let total = 0;
+        // WHATSAPP COM PEDIDO ORGANIZADO
+        async function checkoutViaWhatsApp() {
+            if(cart.length === 0) { showToast('Seu carrinho está vazio.'); return; }
+            
+            const clientName = document.getElementById('clientName').value.trim();
+            const clientWhatsApp = document.getElementById('clientWhatsApp').value.trim();
+            const clientCity = document.getElementById('clientCity').value.trim();
+            const clientAddress = document.getElementById('clientAddress').value.trim();
 
+            if(!clientName || !clientWhatsApp || !clientCity || !clientAddress) {
+                showToast('Preencha todos os dados de entrega no carrinho!');
+                return;
+            }
+
+            let text = `*NOVO PEDIDO - MB DRYFIT*%0A%0A`;
+            text += `👤 *Cliente:* ${clientName}%0A`;
+            text += `📞 *WhatsApp:* ${clientWhatsApp}%0A`;
+            text += `📍 *Local:* ${clientCity} - ${clientAddress}%0A%0A`;
+            text += `--- *ITENS DO PEDIDO* ---%0A`;
+
+            let total = 0;
             cart.forEach((item, index) => {
                 const subtotal = item.price * item.qty;
                 total += subtotal;
-                text += `*${index + 1}. ${item.name}*%0A`;
+                text += `%0A*${index + 1}. ${item.name}*%0A`;
                 text += `   - Cor: ${item.selectedColor}%0A`;
                 text += `   - Tamanho: ${item.selectedSize}%0A`;
                 text += `   - Quantidade: ${item.qty}x%0A`;
-                text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A%0A`;
+                text += `   - Subtotal: R$ ${subtotal.toFixed(2)}%0A`;
             });
 
-            text += `💰 *Valor Total: R$ ${total.toFixed(2)}*%0A%0AAguardo instruções para pagamento!`;
+            text += `%0A💰 *TOTAL GERAL: R$ ${total.toFixed(2)}*%0A%0AAguardo confirmação e dados para pagamento!`;
 
-            const phone = "5511999999999"; // Altere para seu número com DDD
+            const phone = "5511999999999"; // Seu número
             window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank');
         }
 
+        // COMPARTILHAR PEDIDO NATIVO CELULAR
+        async function shareOrderNative() {
+            if(cart.length === 0) { showToast('Carrinho vazio.'); return; }
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Pedido MB Dryfit',
+                        text: `Olá, gostaria de finalizar meu pedido na MB Dryfit. Total: R$ ${cart.reduce((a,c)=>a+(c.price*c.qty),0).toFixed(2)}`,
+                        url: window.location.href,
+                    });
+                } catch (err) {}
+            } else {
+                checkoutViaWhatsApp();
+            }
+        }
+
+        // PAINEL ADMINISTRATIVO E PERSISTÊNCIA
         function handleAdminLogin() {
-            if (document.getElementById('adminEmailInput').value === 'admin@mbdryfit.com' && document.getElementById('adminPasswordInput').value === 'mbadmin2026') {
+            const email = document.getElementById('adminEmailInput').value;
+            const pass = document.getElementById('adminPasswordInput').value;
+            if (email === 'admin@mbdryfit.com' && pass === 'mbadmin2026') {
                 document.getElementById('adminLoginBox').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
                 renderAdminProducts();
-            } else { showToast('Credenciais inválidas.'); }
+                showToast('Login administrativo bem-sucedido!');
+            } else {
+                showToast('Credenciais inválidas. Use: admin@mbdryfit.com / mbadmin2026');
+            }
+        }
+
+        function logoutAdmin() {
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('adminLoginBox').classList.remove('hidden');
+            showToast('Sessão encerrada.');
+        }
+
+        function setAdminSubView(view) {
+            if(view === 'products') {
+                document.getElementById('adminProductsView').classList.remove('hidden');
+                document.getElementById('adminOrdersView').classList.add('hidden');
+                renderAdminProducts();
+            } else {
+                document.getElementById('adminProductsView').classList.add('hidden');
+                document.getElementById('adminOrdersView').classList.remove('hidden');
+                renderAdminOrders();
+            }
         }
 
         function renderAdminProducts() {
@@ -648,32 +940,58 @@
             list.innerHTML = '';
             products.forEach(p => {
                 const firstCol = Object.keys(p.colorsData)[0];
+                const firstImg = p.colorsData[firstCol].images[0];
                 list.innerHTML += `
                     <div class="flex items-center justify-between bg-brand-black p-4 rounded-2xl border border-brand-border">
                         <div class="flex items-center gap-4">
-                            <img src="${p.colorsData[firstCol].images[0]}" class="w-14 h-14 object-cover rounded-xl">
+                            <img src="${firstImg}" class="w-14 h-14 object-cover rounded-xl">
                             <div>
                                 <h4 class="font-bold text-sm">${p.name}</h4>
                                 <p class="text-xs text-brand-grayText">Cat: ${p.category} | R$ ${p.price.toFixed(2)}</p>
                             </div>
                         </div>
-                        <button onclick="deleteProduct(${p.id})" class="bg-red-600/20 text-red-400 px-3.5 py-2 rounded-xl text-xs font-bold">Excluir</button>
+                        <div class="flex gap-2">
+                            <button onclick="deleteProduct(${p.id})" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition">Excluir</button>
+                        </div>
                     </div>
                 `;
             });
             lucide.createIcons();
         }
 
+        function renderAdminOrders() {
+            const list = document.getElementById('adminOrdersList');
+            list.innerHTML = '';
+            if(orders.length === 0) {
+                list.innerHTML = `<p class="text-brand-grayText text-sm">Nenhum pedido registrado ainda.</p>`;
+                return;
+            }
+            orders.forEach(o => {
+                list.innerHTML += `
+                    <div class="bg-brand-black p-4 rounded-2xl border border-brand-border flex justify-between items-center">
+                        <div>
+                            <span class="font-black text-brand-orange">${o.id}</span> - <span class="text-sm font-bold">${o.client}</span> (${o.whatsapp})
+                            <p class="text-xs text-brand-grayText">Data: ${o.date} | ${o.itemsCount} itens</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-black text-white">R$ ${o.total.toFixed(2)}</span>
+                            <span class="block text-[10px] text-emerald-400 font-bold">${o.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         function openProductFormModal() {
             tempAdminColors = [];
-            document.getElementById('addedColorsPreview').innerText = 'Nenhuma cor adicionada ainda.';
+            document.getElementById('addedColorsPreview').innerText = 'Nenhuma cor adicionada.';
             document.getElementById('productFormModal').classList.remove('hidden');
         }
+
         function closeProductFormModal() { document.getElementById('productFormModal').classList.add('hidden'); }
 
-        // ADICIONAR COR COM SUPORTE A MÚLTIPLAS IMAGENS REAIS
         function addColorToList() {
-            const colorName = document.getElementById('newColorName').value;
+            const colorName = document.getElementById('newColorName').value.trim();
             const colorStock = parseInt(document.getElementById('newColorStock').value) || 10;
             const fileInput = document.getElementById('newColorFiles');
 
@@ -709,16 +1027,16 @@
         }
 
         function updateColorPreviewText() {
-            document.getElementById('addedColorsPreview').innerText = `Cores adicionadas: ${tempAdminColors.map(c => `${c.name} (${c.stock} un, ${c.images.length} fotos)`).join(' | ')}`;
+            document.getElementById('addedColorsPreview').innerText = `Cores: ${tempAdminColors.map(c => `${c.name} (${c.stock} un, ${c.images.length} fotos)`).join(' | ')}`;
         }
 
         function saveProductToDatabase() {
-            const name = document.getElementById('pName').value;
+            const name = document.getElementById('pName').value.trim();
             const price = parseFloat(document.getElementById('pPrice').value);
             const category = document.getElementById('pCategory').value;
             const desc = document.getElementById('pDesc').value;
 
-            if(!name || isNaN(price)) { showToast('Preencha nome e preço.'); return; }
+            if(!name || isNaN(price)) { showToast('Preencha nome e preço corretamente.'); return; }
             if(tempAdminColors.length === 0) {
                 tempAdminColors.push({ name: 'Cor Única', stock: 20, images: ['https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?auto=format&fit=crop&q=80&w=800'] });
             }
@@ -729,23 +1047,26 @@
             });
 
             products.unshift({
-                id: products.length + 1,
+                id: Date.now(),
                 name,
                 category,
                 price,
+                oldPrice: price + 30,
                 badge: 'NOVO',
                 colorsData: colorsDataStruct,
-                description: desc || 'Produto de alta performance.'
+                description: desc || 'Tecnologia de alta performance Dryfit.'
             });
 
+            saveState();
             renderAdminProducts();
             renderProducts();
             closeProductFormModal();
-            showToast('Produto cadastrado com sucesso! 🚀');
+            showToast('Produto salvo com sucesso! 🚀');
         }
 
         function deleteProduct(id) {
             products = products.filter(p => p.id !== id);
+            saveState();
             renderAdminProducts();
             renderProducts();
             showToast('Produto excluído.');
