@@ -445,7 +445,7 @@
             .global-search-container { max-width: 400px; }
             .notifications-dropdown { right: 24px; width: 320px; }
             .page-header { flex-direction: row; justify-content: space-between; align-items: center; }
-            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
             .desktop-table-container { display: block !important; }
             .mobile-card-list { display: none !important; }
             .modal-box { max-width: 600px; padding: 24px; }
@@ -484,9 +484,9 @@
             <div class="login-hints">
                 <p><strong>Acessos para Teste:</strong></p>
                 <div>
-                    <button type="button" class="hint-badge" onclick="fillLogin('admin@mb.com', '123456')">Admin</button>
-                    <button type="button" class="hint-badge" onclick="fillLogin('transporte@mb.com', '123456')">Transporte</button>
-                    <button type="button" class="hint-badge" onclick="fillLogin('corte@mb.com', '123456')">Corte</button>
+                    <button type="button" class="hint-badge" onclick="fillLogin('admin@mb.com', '123456')">Marcos (Admin)</button>
+                    <button type="button" class="hint-badge" onclick="fillLogin('transporte@mb.com', '123456')">Jéssica (Transporte)</button>
+                    <button type="button" class="hint-badge" onclick="fillLogin('corte@mb.com', '123456')">Nildo (Corte)</button>
                 </div>
             </div>
         </div>
@@ -513,9 +513,9 @@
 
             <div class="sidebar-footer">
                 <div class="user-profile-info">
-                    <div class="user-avatar" id="user-avatar-initials">AD</div>
+                    <div class="user-avatar" id="user-avatar-initials">MA</div>
                     <div class="user-details">
-                        <span id="sidebar-user-name">Administrador</span>
+                        <span id="sidebar-user-name">Marcos</span>
                         <small id="sidebar-user-role">ADMIN</small>
                     </div>
                 </div>
@@ -543,9 +543,9 @@
                                     <span onclick="clearNotifications()">Marcar lidas</span>
                                 </div>
                                 <div class="notif-list" id="notif-list">
-                                    <div class="notif-item">Cortes prontos aguardando transporte.</div>
-                                    <div class="notif-item">OC 243 possui peças pendentes.</div>
-                                    <div class="notif-item">OC 244 foi finalizada.</div>
+                                    <div class="notif-item">✂️ 3 cortes prontos aguardando envio.</div>
+                                    <div class="notif-item">🏭 OC 243 pronta na oficina Francisca.</div>
+                                    <div class="notif-item">🚚 OC 243 aguardando envio para acabamento.</div>
                                 </div>
                             </div>
                         </div>
@@ -573,48 +573,76 @@
         // Data Mock & LocalStorage Persistence Layer
         const defaultDB = {
             users: [
-                { id: 1, name: "Carlos Administrador", email: "admin@mb.com", role: "ADMIN", status: "Ativo", last_login: "16/09/2026 08:30" },
-                { id: 2, name: "Marcos Transporte", email: "transporte@mb.com", role: "TRANSPORTE", status: "Ativo", last_login: "16/09/2026 09:15" },
-                { id: 3, name: "Pedro Corte", email: "corte@mb.com", role: "CORTE", status: "Ativo", last_login: "16/09/2026 07:45" }
+                { id: 1, name: "Marcos", email: "admin@mb.com", role: "ADMIN", status: "Ativo", last_login: "16/09/2026 08:30" },
+                { id: 2, name: "Jéssica", email: "transporte@mb.com", role: "TRANSPORTE", status: "Ativo", last_login: "16/09/2026 09:15" },
+                { id: 3, name: "Nildo", email: "corte@mb.com", role: "CORTE", status: "Ativo", last_login: "16/09/2026 07:45" }
             ],
             workshops: [
-                { id: 1, name: "Oficina Central", owner: "João da Silva", phone: "(11) 99999-9999", address: "Rua das Indústrias, 100 - SP", status: "Ativa" },
-                { id: 2, name: "Oficina Carlos", owner: "Carlos Souza", phone: "(11) 98888-8888", address: "Av. Brasil, 500 - SP", status: "Ativa" },
-                { id: 3, name: "Oficina Maria", owner: "Maria Santos", phone: "(19) 97777-7777", address: "Rua do Comércio, 45 - SP", status: "Ativa" }
+                { id: 1, name: "Francisca", owner: "Francisca", phone: "(11) 99999-9999", address: "SP", status: "Ativa" },
+                { id: 2, name: "Virgilio", owner: "Virgilio", phone: "(11) 98888-8888", address: "SP", status: "Ativa" },
+                { id: 3, name: "Dario Medina", owner: "Dario Medina", phone: "(19) 97777-7777", address: "SP", status: "Ativa" },
+                { id: 4, name: "Rodrigo", owner: "Rodrigo", phone: "(11) 96666-6666", address: "SP", status: "Ativa" },
+                { id: 5, name: "Samuel", owner: "Samuel", phone: "(11) 95555-5555", address: "SP", status: "Ativa" },
+                { id: 6, name: "Mauro", owner: "Mauro", phone: "(11) 94444-4444", address: "SP", status: "Ativa" },
+                { id: 7, name: "Ramiro", owner: "Ramiro", phone: "(11) 93333-3333", address: "SP", status: "Ativa" },
+                { id: 8, name: "Victor", owner: "Victor", phone: "(11) 92222-2222", address: "SP", status: "Ativa" },
+                { id: 9, name: "Jhony", owner: "Jhony", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
             ],
             references: [
-                { id: 1, code: "1025", name: "Camisa Básica", product: "Camisa", fabric: "Malha PV", status: "Ativa" },
+                { id: 1, code: "1024", name: "Camisa Básica", product: "Camisa", fabric: "Malha", status: "Ativa" },
                 { id: 2, code: "2010", name: "Regata Esportiva", product: "Regata", fabric: "Dry Fit", status: "Ativa" },
                 { id: 3, code: "3040", name: "Bermuda Moletom", product: "Bermuda", fabric: "Moletinho", status: "Ativa" }
             ],
             products: [
-                { id: 1, name: "Camisa", description: "Camisas", status: "Ativo" },
-                { id: 2, name: "Regata", description: "Regatas", status: "Ativo" },
-                { id: 3, name: "Bermuda", description: "Bermudas", status: "Ativo" },
-                { id: 4, name: "Conjunto", description: "Conjuntos", status: "Ativo" }
+                { id: 1, name: "Conjunto", description: "Conjuntos completas", status: "Ativo" },
+                { id: 2, name: "Regata", description: "Regatas esportivas", status: "Ativo" },
+                { id: 3, name: "Bermuda", description: "Bermudas casuais", status: "Ativo" },
+                { id: 4, name: "Camisa", description: "Camisas", status: "Ativo" }
             ],
             fabrics: [
-                { id: 1, name: "Malha PV" },
+                { id: 1, name: "Malha" },
                 { id: 2, name: "Dry Fit" },
                 { id: 3, name: "Moletinho" },
                 { id: 4, name: "Meia Malha" }
             ],
             cuts: [
-                { id: 1, number: "C-0001", date: "2026-09-16", reference: "1025", product: "Camisa", fabric: "Malha PV", p: 100, m: 150, g: 200, gg: 100, total: 550, sent: 550, pending: 0, status: "🚚 Enviado para oficina", responsible: "Pedro Corte" },
-                { id: 2, number: "C-0002", date: "2026-09-16", reference: "2010", product: "Regata", fabric: "Dry Fit", p: 200, m: 200, g: 300, gg: 100, total: 800, sent: 300, pending: 500, status: "🚚 Envio parcial", responsible: "Pedro Corte" },
-                { id: 3, number: "C-0003", date: "2026-09-15", reference: "3040", product: "Bermuda", fabric: "Moletinho", p: 150, m: 150, g: 150, gg: 150, total: 600, sent: 0, pending: 600, status: "✂️ Corte pronto", responsible: "Pedro Corte" },
-                { id: 4, number: "C-0004", date: "2026-09-14", reference: "1025", product: "Camisa", fabric: "Malha PV", p: 50, m: 50, g: 50, gg: 50, total: 200, sent: 0, pending: 200, status: "Aguardando corte", responsible: "Pedro Corte" }
+                { id: 1, number: "C-0001", oc: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", p: 100, m: 150, g: 200, gg: 100, total: 550, sent: 550, pending: 0, status: "🚚 Enviado para oficina", responsible: "Nildo" },
+                { id: 2, number: "C-0002", oc: "244", date: "2026-09-16", reference: "2010", product: "Regata", fabric: "Dry Fit", p: 200, m: 200, g: 300, gg: 100, total: 800, sent: 300, pending: 500, status: "🚚 Envio parcial", responsible: "Nildo" },
+                { id: 3, number: "C-0003", oc: "245", date: "2026-09-15", reference: "3040", product: "Bermuda", fabric: "Moletinho", p: 150, m: 150, g: 150, gg: 150, total: 600, sent: 0, pending: 600, status: "✂️ Corte pronto", responsible: "Nildo" },
+                { id: 4, number: "C-0004", oc: "246", date: "2026-09-14", reference: "1024", product: "Conjunto", fabric: "Malha", p: 50, m: 50, g: 50, gg: 50, total: 200, sent: 0, pending: 200, status: "Aguardando corte", responsible: "Nildo" }
             ],
             shipments: [
-                { id: 1, cut_number: "C-0001", workshop: "Oficina Central", quantity: 550, date: "2026-09-16", responsible: "Marcos Transporte", observation: "Envio total" }
+                { id: 1, cut_number: "C-0001", oc: "243", workshop: "Francisca", quantity: 550, date: "2026-09-16", responsible: "Jéssica", observation: "Envio total" }
             ],
             production_orders: [
-                { id: 1, number: "OC 243", date: "2026-09-16", reference: "1025", product: "Camisa", fabric: "Malha PV", workshop: "Oficina Central", workshop_owner: "João da Silva", p: 50, m: 100, g: 120, gg: 50, total: 320, produced: 250, pending: 70, status: "🏭 Processo na oficina", timeline: [{step: "✂️ Corte pronto", date: "16/09 10:30"}, {step: "🚚 Enviado para oficina", date: "16/09 14:20"}, {step: "🏭 Processo na oficina", date: "17/09 08:15"}] },
-                { id: 2, number: "OC 244", date: "2026-09-15", reference: "3040", product: "Bermuda", fabric: "Moletinho", workshop: "Oficina Carlos", workshop_owner: "Carlos Souza", p: 300, m: 300, g: 300, gg: 300, total: 1200, produced: 1200, pending: 0, status: "📦 OC pronta", timeline: [{step: "✂️ Corte pronto", date: "15/09 09:00"}, {step: "🚚 Enviado para oficina", date: "15/09 11:00"}, {step: "🏭 Processo na oficina", date: "15/09 14:00"}, {step: "📦 OC pronta", date: "16/09 16:00"}] }
+                { 
+                    id: 1, number: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", workshop: "Francisca", workshop_owner: "Francisca", p: 100, m: 150, g: 200, gg: 100, total: 550, produced: 550, pending: 0, 
+                    status: "🏭 Na oficina", 
+                    finishing_status: "Pendente",
+                    timeline: [
+                        {step: "✂️ Corte pronto", date: "16/09 10:30"}, 
+                        {step: "🚚 Enviado para oficina", date: "16/09 14:20"}, 
+                        {step: "🏭 Na oficina", date: "17/09 08:15"}
+                    ] 
+                },
+                { 
+                    id: 2, number: "244", date: "2026-09-15", reference: "2010", product: "Regata", fabric: "Dry Fit", workshop: "Virgilio", workshop_owner: "Virgilio", p: 200, m: 200, g: 300, gg: 100, total: 800, produced: 800, pending: 0, 
+                    status: "📦 OC pronta", 
+                    finishing_status: "Concluído",
+                    timeline: [
+                        {step: "✂️ Corte pronto", date: "15/09 09:00"}, 
+                        {step: "🚚 Enviado para oficina", date: "15/09 11:00"}, 
+                        {step: "🏭 Na oficina", date: "15/09 14:00"}, 
+                        {step: "✓ Oficina pronta", date: "16/09 10:00"},
+                        {step: "🚚 Enviando para acabamento", date: "16/09 11:00"},
+                        {step: "🎨 Chegou no acabamento", date: "16/09 13:00"},
+                        {step: "📦 OC pronta", date: "16/09 16:00"}
+                    ] 
+                }
             ],
             audit_logs: [
-                { id: 1, date: "16/09/2026", time: "09:30", user: "Marcos Transporte", action: "Envio", target: "C-0001", details: "Enviado 550 peças para Oficina Central" },
-                { id: 2, date: "16/09/2026", time: "08:45", user: "Pedro Corte", action: "Corte Pronto", target: "C-0003", details: "Pedro marcou o corte C-0003 como pronto." }
+                { id: 1, date: "16/09/2026", time: "09:30", user: "Jéssica", action: "Envio", target: "OC 243", details: "Jéssica enviou 550 peças do corte C-0001 para Francisca." },
+                { id: 2, date: "16/09/2026", time: "08:45", user: "Nildo", action: "Corte Pronto", target: "C-0003", details: "Nildo marcou o corte C-0003 como pronto." }
             ]
         };
 
@@ -723,6 +751,7 @@
                     <div class="nav-section">
                         <div class="nav-section-title">Operacional</div>
                         <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Cortes Prontos</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> OCs em Produção</a>
                         <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
                     </div>
                 `;
@@ -764,18 +793,22 @@
         function renderDashboard(container) {
             const cutsReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
             const cutsSent = DB.cuts.filter(c => c.status.includes('Enviado') || c.status.includes('Envio parcial')).length;
-            const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Processo na oficina').length;
+            const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Na oficina').length;
+            const ocsWorkshopReady = DB.production_orders.filter(o => o.status === '✓ Oficina pronta').length;
+            const ocsFinishing = DB.production_orders.filter(o => o.status.includes('acabamento')).length;
             const ocsReady = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
 
             if (currentUser.role === 'ADMIN') {
                 container.innerHTML = `
                     <div class="page-header">
-                        <div><h1>Bom dia, ${currentUser.name.split(' ')[0]}</h1><span class="page-subtitle">Indicadores de fluxo da produção</span></div>
+                        <div><h1>Bom dia, ${currentUser.name}</h1><span class="page-subtitle">Indicadores de fluxo da produção (Marcos - Admin)</span></div>
                     </div>
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">✂️ Cortes Prontos</div><div class="stat-card-value">${cutsReady}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🚚 Enviados Oficina</div><div class="stat-card-value">${cutsSent}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">🏭 Em Processo</div><div class="stat-card-value">${ocsInProc}</div></div>
+                        <div class="stat-card"><div class="stat-card-title">🏭 Em Produção</div><div class="stat-card-value">${ocsInProc}</div></div>
+                        <div class="stat-card"><div class="stat-card-title">✓ Oficinas Prontas</div><div class="stat-card-value">${ocsWorkshopReady}</div></div>
+                        <div class="stat-card"><div class="stat-card-title">🎨 No Acabamento</div><div class="stat-card-value">${ocsFinishing}</div></div>
                         <div class="stat-card"><div class="stat-card-title">📦 OCs Prontas</div><div class="stat-card-value">${ocsReady}</div></div>
                     </div>
                     <div class="card">
@@ -796,9 +829,9 @@
                                         <span class="badge badge-info">${l.target}</span>
                                     </div>
                                     <div class="mobile-card-body">
-                                        <div><span>Usuário</span>${l.user}</div>
-                                        <div><span>Data/Hora</span>${l.date} • ${l.time}</div>
-                                        <div><span>Detalhes</span>${l.details}</div>
+                                        <div><span>Usuário:</span>${l.user}</div>
+                                        <div><span>Data/Hora:</span>${l.date} • ${l.time}</div>
+                                        <div><span>Detalhes:</span>${l.details}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -809,24 +842,27 @@
                 const readyCuts = DB.cuts.filter(c => c.status === '✂️ Corte pronto');
                 const totalPiecesReady = readyCuts.reduce((a,c) => a + c.pending, 0);
                 container.innerHTML = `
-                    <div class="page-header"><div><h1>Painel de Transporte</h1><span class="page-subtitle">Expedição de cortes prontos</span></div></div>
+                    <div class="page-header"><div><h1>Painel de Transporte</h1><span class="page-subtitle">Jéssica — Expedição e Acompanhamento de OCs</span></div></div>
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${readyCuts.length}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Peças para Enviar</div><div class="stat-card-value">${formatNumber(totalPiecesReady)}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Envios Realizados</div><div class="stat-card-value">${DB.shipments.length}</div></div>
                     </div>
-                    <div class="card"><button class="btn-primary" onclick="navigateTo('transport')">Ver Cortes Prontos para Envio</button></div>
+                    <div class="card" style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn-primary" onclick="navigateTo('transport')">Ver Cortes Prontos para Envio</button>
+                        <button class="btn-primary" style="background:var(--success);" onclick="navigateTo('orders')">Gerenciar OCs e Acabamento</button>
+                    </div>
                 `;
             } else if (currentUser.role === 'CORTE') {
                 const myReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
                 const myPending = DB.cuts.filter(c => c.status === 'Aguardando corte').length;
                 container.innerHTML = `
-                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">Gerenciamento de lotes e marcação de prontos</span></div></div>
+                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">Nildo — Cadastro de lotes e marcação de prontos</span></div></div>
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${myReady}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Aguardando Corte</div><div class="stat-card-value">${myPending}</div></div>
                     </div>
-                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</button></div>
+                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte (com OC)</button></div>
                 `;
             }
         }
@@ -841,11 +877,12 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Número</th><th>Data</th><th>Ref</th><th>Produto</th><th>Tecido</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>Número</th><th>OC</th><th>Data</th><th>Ref</th><th>Produto</th><th>Tecido</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
                             <tbody>
                                 ${DB.cuts.map(c => `
                                     <tr>
                                         <td><strong>${c.number}</strong></td>
+                                        <td><span class="badge badge-info">OC ${c.oc}</span></td>
                                         <td>${formatDate(c.date)}</td>
                                         <td>${c.reference}</td>
                                         <td>${c.product}</td>
@@ -865,7 +902,7 @@
                         ${DB.cuts.map(c => `
                             <div class="mobile-card-item">
                                 <div class="mobile-card-header">
-                                    <strong>${c.number}</strong>
+                                    <strong>${c.number} (OC ${c.oc})</strong>
                                     <span class="badge ${c.status === '✂️ Corte pronto' ? 'badge-success' : 'badge-warning'}">${c.status}</span>
                                 </div>
                                 <div class="mobile-card-body">
@@ -889,9 +926,10 @@
             openModal(`
                 <div class="modal-header"><h2>Novo Corte</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="handleSaveCut(event)">
-                    <div class="form-group"><label>Referência</label><input type="text" id="cut-ref" required placeholder="Ex: 1025"></div>
+                    <div class="form-group"><label>Número da OC</label><input type="text" id="cut-oc" required placeholder="Ex: 243"></div>
+                    <div class="form-group"><label>Referência</label><input type="text" id="cut-ref" required placeholder="Ex: 1024"></div>
                     <div class="form-group"><label>Produto</label><select id="cut-prod">${DB.products.map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
-                    <div class="form-group"><label>Tecido (Digite livremente)</label><input type="text" id="cut-fab" required list="fab-list" placeholder="Ex: Malha PV"><datalist id="fab-list">${DB.fabrics.map(f=>`<option value="${f.name}">`).join('')}</datalist></div>
+                    <div class="form-group"><label>Tecido (Digite livremente)</label><input type="text" id="cut-fab" required list="fab-list" placeholder="Ex: Malha"><datalist id="fab-list">${DB.fabrics.map(f=>`<option value="${f.name}">`).join('')}</datalist></div>
                     
                     <div style="margin-bottom: 8px; font-weight: 600; font-size: 13px;">QUANTIDADE POR TAMANHO</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
@@ -929,6 +967,7 @@
             const newCut = {
                 id: DB.cuts.length + 1,
                 number: `C-000${DB.cuts.length + 1}`,
+                oc: document.getElementById('cut-oc').value,
                 date: new Date().toISOString().split('T')[0],
                 reference: document.getElementById('cut-ref').value,
                 product: document.getElementById('cut-prod').value,
@@ -936,7 +975,7 @@
                 p, m, g, gg, total, sent: 0, pending: total, status: "Aguardando corte", responsible: currentUser.name
             };
             DB.cuts.unshift(newCut);
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:00", user: currentUser.name, action: "Novo Corte", target: newCut.number, details: `Criado corte com ${total} peças` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:00", user: currentUser.name, action: "Novo Corte", target: `OC ${newCut.oc}`, details: `Nildo cadastrou novo corte para a OC ${newCut.oc} com ${total} peças.` });
             saveDB();
             closeModal();
             showToast('✓ Corte registrado com sucesso.');
@@ -947,7 +986,7 @@
             const c = DB.cuts.find(x => x.number === num);
             if (!c) return;
             c.status = "✂️ Corte pronto";
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: currentUser.name, action: "Corte Pronto", target: c.number, details: `${currentUser.name} marcou o corte ${c.number} como pronto.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: currentUser.name, action: "Corte Pronto", target: `OC ${c.oc}`, details: `Nildo marcou o corte ${c.number} (OC ${c.oc}) como pronto.` });
             saveDB();
             showToast(`✓ Corte ${c.number} marcado como pronto.`);
             renderCuts(document.getElementById('page-content'));
@@ -957,7 +996,7 @@
             const c = DB.cuts.find(x => x.number === num);
             if (!c) return;
             openModal(`
-                <div class="modal-header"><h2>Corte ${c.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h2>Corte ${c.number} — OC ${c.oc}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <p><strong>Ref:</strong> ${c.reference} | <strong>Produto:</strong> ${c.product} | <strong>Tecido:</strong> ${c.fabric}</p>
                 <p style="margin-top:10px;"><strong>Grade:</strong> P: ${c.p} | M: ${c.m} | G: ${c.g} | GG: ${c.gg} | <strong>Total:</strong> ${c.total}</p>
                 <p style="margin-top:10px;"><strong>Enviado:</strong> ${c.sent} | <strong>Pendente:</strong> ${c.pending} | <strong>Status:</strong> ${c.status}</p>
@@ -969,16 +1008,17 @@
         function renderTransport(container) {
             const readyCuts = DB.cuts.filter(c => c.status === '✂️ Corte pronto' || c.status === '🚚 Envio parcial');
             container.innerHTML = `
-                <div class="page-header"><div><h1>Cortes Prontos para Envio</h1><span class="page-subtitle">Expedição exclusiva de material cortado</span></div></div>
+                <div class="page-header"><div><h1>Cortes Prontos para Envio</h1><span class="page-subtitle">Jéssica — Expedição exclusiva de material cortado</span></div></div>
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Fila de Transporte</h3></div>
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Corte</th><th>Referência</th><th>Produto</th><th>Tecido</th><th>Quantidade</th><th>Status</th><th>Ação</th></tr></thead>
+                            <thead><tr><th>Corte</th><th>OC</th><th>Referência</th><th>Produto</th><th>Tecido</th><th>Quantidade</th><th>Status</th><th>Ação</th></tr></thead>
                             <tbody>
-                                ${readyCuts.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum corte pronto no momento.</td></tr>` : readyCuts.map(c => `
+                                ${readyCuts.length === 0 ? `<tr><td colspan="8" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum corte pronto no momento.</td></tr>` : readyCuts.map(c => `
                                     <tr>
                                         <td><strong>${c.number}</strong></td>
+                                        <td><span class="badge badge-info">OC ${c.oc}</span></td>
                                         <td>${c.reference}</td>
                                         <td>${c.product}</td>
                                         <td>${c.fabric}</td>
@@ -994,7 +1034,7 @@
                         ${readyCuts.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum corte pronto no momento.</div>` : readyCuts.map(c => `
                             <div class="mobile-card-item">
                                 <div class="mobile-card-header">
-                                    <strong>${c.number}</strong>
+                                    <strong>${c.number} (OC ${c.oc})</strong>
                                     <span class="badge badge-success">${c.status}</span>
                                 </div>
                                 <div class="mobile-card-body">
@@ -1015,9 +1055,9 @@
         function openShipModal(cutNumber) {
             const c = DB.cuts.find(x => x.number === cutNumber);
             openModal(`
-                <div class="modal-header"><h2>Enviar ${c.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h2>Enviar ${c.number} (OC ${c.oc})</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="handleSaveShipment(event, '${c.number}')">
-                    <div class="form-group"><label>Oficina de Destino</label><select id="ship-workshop">${DB.workshops.map(w=>`<option value="${w.name}">${w.name} — Responsável: ${w.owner}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Oficina</label><select id="ship-workshop">${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name}</option>`).join('')}</select></div>
                     <div class="form-group">
                         <label>Quantidade a Enviar</label>
                         <small style="color:var(--gray-600); display:block; margin-bottom:4px;">Quantidade disponível: <strong>${c.pending}</strong></small>
@@ -1047,28 +1087,37 @@
             c.pending -= qty;
             c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
 
-            DB.shipments.push({ id: DB.shipments.length + 1, cut_number: c.number, workshop, quantity: qty, date: new Date().toISOString().split('T')[0], responsible: currentUser.name, observation: obs });
+            DB.shipments.push({ id: DB.shipments.length + 1, cut_number: c.number, oc: c.oc, workshop, quantity: qty, date: new Date().toISOString().split('T')[0], responsible: currentUser.name, observation: obs });
             
-            const newOCNum = `OC ${243 + DB.production_orders.length}`;
-            DB.production_orders.unshift({
-                id: DB.production_orders.length + 1,
-                number: newOCNum,
-                date: new Date().toISOString().split('T')[0],
-                reference: c.reference,
-                product: c.product,
-                fabric: c.fabric,
-                workshop: workshop,
-                workshop_owner: workshopObj ? workshopObj.owner : 'Responsável',
-                p: c.p, m: c.m, g: c.g, gg: c.gg, total: qty, produced: 0, pending: qty,
-                status: "🏭 Processo na oficina",
-                timeline: [
-                    { step: "✂️ Corte pronto", date: "16/09 10:00" },
-                    { step: "🚚 Enviado para oficina", date: "16/09 14:00" },
-                    { step: "🏭 Processo na oficina", date: "16/09 14:10" }
-                ]
-            });
+            // Check if OC already exists
+            let existingOC = DB.production_orders.find(o => o.number === c.oc);
+            if (existingOC) {
+                existingOC.total += qty;
+                existingOC.pending += qty;
+                existingOC.workshop = workshop;
+                existingOC.workshop_owner = workshopObj ? workshopObj.owner : workshop;
+            } else {
+                DB.production_orders.unshift({
+                    id: DB.production_orders.length + 1,
+                    number: c.oc,
+                    date: new Date().toISOString().split('T')[0],
+                    reference: c.reference,
+                    product: c.product,
+                    fabric: c.fabric,
+                    workshop: workshop,
+                    workshop_owner: workshopObj ? workshopObj.owner : workshop,
+                    p: c.p, m: c.m, g: c.g, gg: c.gg, total: qty, produced: 0, pending: qty,
+                    status: "🏭 Na oficina",
+                    finishing_status: "Pendente",
+                    timeline: [
+                        { step: "✂️ Corte pronto", date: "16/09 10:00" },
+                        { step: "🚚 Enviado para oficina", date: "16/09 14:00" },
+                        { step: "🏭 Na oficina", date: "16/09 14:10" }
+                    ]
+                });
+            }
 
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: currentUser.name, action: "Envio", target: c.number, details: `${currentUser.name} enviou ${qty} peças do corte ${c.number} para ${workshop}.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: currentUser.name, action: "Envio", target: `OC ${c.oc}`, details: `Jéssica enviou ${qty} peças do corte ${c.number} para a Oficina: ${workshop}.` });
 
             saveDB();
             closeModal();
@@ -1076,29 +1125,32 @@
             renderTransport(document.getElementById('page-content'));
         }
 
-        // Orders (OCs) Module
+        // Orders (OCs) Module with Full Pipeline
         function renderOrders(container) {
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento e status nas oficinas</span></div>
+                    <div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento do fluxo completo nas oficinas e acabamento</span></div>
                 </div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Número</th><th>Referência</th><th>Produto</th><th>Oficina</th><th>Qtd</th><th>Produzido</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>OC</th><th>Referência</th><th>Produto</th><th>Oficina</th><th>Qtd</th><th>Produzido</th><th>Status</th><th>Acabamento</th><th>Ações</th></tr></thead>
                             <tbody>
                                 ${DB.production_orders.map(o => `
                                     <tr>
-                                        <td><strong>${o.number}</strong></td>
+                                        <td><strong>OC ${o.number}</strong></td>
                                         <td>${o.reference}</td>
                                         <td>${o.product}</td>
-                                        <td>${o.workshop} (${o.workshop_owner})</td>
+                                        <td>Oficina: ${o.workshop} (${o.workshop_owner})</td>
                                         <td>${formatNumber(o.total)}</td>
                                         <td>${formatNumber(o.produced)}</td>
                                         <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
+                                        <td><span class="badge badge-info">${o.finishing_status || 'Pendente'}</span></td>
                                         <td>
-                                            ${o.pending > 0 && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="padding:6px 12px; font-size:11px; min-height:36px;" onclick="simulateProduction('${o.number}')">+ Produzir</button>` : ''}
-                                            ${o.pending === 0 && o.status !== '📦 OC pronta' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:6px 12px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 Marcar Pronta</button>` : ''}
+                                            ${o.status === '🏭 Na oficina' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
+                                            ${o.status === '✓ Oficina pronta' ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; min-height:36px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
+                                            ${o.status === '🚚 Enviando para acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
+                                            ${o.status === '🎨 Chegou no acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                             <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
                                         </td>
                                     </tr>
@@ -1112,20 +1164,20 @@
                             return `
                                 <div class="mobile-card-item">
                                     <div class="mobile-card-header">
-                                        <strong>${o.number}</strong>
+                                        <strong>OC ${o.number}</strong>
                                         <span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span>
                                     </div>
                                     <div class="mobile-card-body" style="grid-template-columns: 1fr;">
-                                        <div><span>Oficina:</span>🏭 ${o.workshop} — 👤 ${o.workshop_owner}</div>
+                                        <div><span>Oficina:</span>Oficina: ${o.workshop} — 👤 ${o.workshop_owner}</div>
                                         <div><span>Produto:</span>👕 ${o.product} (Ref. ${o.reference}) | 🧵 ${o.fabric}</div>
-                                        <div><span>Grade:</span> P: ${o.p} | M: ${o.m} | G: ${o.g} | GG: ${o.gg}</div>
                                         <div><span>Quantidade Total:</span><strong>${formatNumber(o.total)} peças</strong></div>
-                                        <div><span>Produção (${pct}%):</span>${o.produced} / ${o.total} produzidas (${o.pending} pendentes)</div>
-                                        <div style="background:var(--gray-200); height:8px; border-radius:4px; overflow:hidden; margin-top:4px;"><div style="background:var(--primary); width:${pct}%; height:100%;"></div></div>
+                                        <div><span>Status Acabamento:</span>${o.finishing_status || 'Pendente'}</div>
                                     </div>
                                     <div class="mobile-card-footer">
-                                        ${o.pending > 0 && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px;" onclick="simulateProduction('${o.number}')">+ Produzir</button>` : ''}
-                                        ${o.pending === 0 && o.status !== '📦 OC pronta' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 Marcar Pronta</button>` : ''}
+                                        ${o.status === '🏭 Na oficina' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
+                                        ${o.status === '✓ Oficina pronta' ? `<button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
+                                        ${o.status === '🚚 Enviando para acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
+                                        ${o.status === '🎨 Chegou no acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                         <button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
                                     </div>
                                 </div>
@@ -1136,52 +1188,51 @@
             `;
         }
 
-        function simulateProduction(num) {
+        function markWorkshopReady(num) {
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
-            openModal(`
-                <div class="modal-header"><h2>Registrar Produção — ${o.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <form onsubmit="handleSaveProduction(event, '${o.number}')">
-                    <p style="margin-bottom:12px; color:var(--gray-600);">Quantidade Pendente: <strong>${o.pending} peças</strong></p>
-                    <div class="form-group"><label>Quantidade Produzida Agora</label><input type="number" id="prod-qty" max="${o.pending}" min="1" required value="${o.pending}" style="font-size:16px; font-weight:600;"></div>
-                    <div class="modal-footer"><button type="submit" class="btn-primary">Salvar Produção</button></div>
-                </form>
-            `);
+            o.status = "✓ Oficina pronta";
+            o.timeline.push({ step: "✓ Oficina pronta", date: "18/09 10:20" });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "10:20", user: currentUser.name, action: "Oficina pronta", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como oficina pronta na Oficina: ${o.workshop}.` });
+            saveDB();
+            showToast(`✓ OC ${o.number} marcada como oficina pronta.`);
+            renderOrders(document.getElementById('page-content'));
         }
 
-        function handleSaveProduction(e, num) {
-            e.preventDefault();
-            const qty = parseInt(document.getElementById('prod-qty').value);
+        function sendToFinishing(num) {
             const o = DB.production_orders.find(x => x.number === num);
-            if (qty > o.pending) {
-                showToast('Não é possível produzir mais do que o pendente.', 'error');
-                return;
-            }
-            o.produced += qty;
-            o.pending -= qty;
-            if (o.pending === 0) {
-                o.status = "📦 OC pronta";
-                if(!o.timeline.some(t => t.step === "📦 OC pronta")) {
-                    o.timeline.push({ step: "📦 OC pronta", date: "16/09 17:00" });
-                }
-            }
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "16:00", user: currentUser.name, action: "Produção", target: o.number, details: `Registrado ${qty} peças produzidas na ${o.workshop}.` });
+            if (!o) return;
+            o.status = "🚚 Enviando para acabamento";
+            o.timeline.push({ step: "🚚 Enviando para acabamento", date: "18/09 11:00" });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: currentUser.name, action: "Enviando para acabamento", target: `OC ${o.number}`, details: `${currentUser.name} enviou a OC ${o.number} para acabamento.` });
             saveDB();
-            closeModal();
-            showToast('✓ Produção registrada com sucesso.');
+            showToast(`✓ OC ${o.number} enviada para acabamento.`);
+            renderOrders(document.getElementById('page-content'));
+        }
+
+        function arriveFinishing(num) {
+            const o = DB.production_orders.find(x => x.number === num);
+            if (!o) return;
+            o.status = "🎨 Chegou no acabamento";
+            o.finishing_status = "Em acabamento";
+            o.timeline.push({ step: "🎨 Chegou no acabamento", date: "18/09 12:30" });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "12:30", user: currentUser.name, action: "Chegou no acabamento", target: `OC ${o.number}`, details: `${currentUser.name} confirmou chegada da OC ${o.number} no acabamento.` });
+            saveDB();
+            showToast(`✓ OC ${o.number} chegou no acabamento.`);
             renderOrders(document.getElementById('page-content'));
         }
 
         function markOCReady(num) {
             const o = DB.production_orders.find(x => x.number === num);
-            if (!o || o.pending > 0) return;
+            if (!o) return;
             o.status = "📦 OC pronta";
-            if(!o.timeline.some(t => t.step === "📦 OC pronta")) {
-                o.timeline.push({ step: "📦 OC pronta", date: "16/09 17:00" });
-            }
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "16:10", user: currentUser.name, action: "OC Pronta", target: o.number, details: `${currentUser.name} marcou a ${o.number} como pronta.` });
+            o.finishing_status = "Concluído";
+            o.produced = o.total;
+            o.pending = 0;
+            o.timeline.push({ step: "📦 OC pronta", date: "18/09 14:00" });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "14:00", user: currentUser.name, action: "OC Pronta", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como pronta.` });
             saveDB();
-            showToast(`✓ ${o.number} marcada como pronta.`);
+            showToast(`✓ OC ${o.number} marcada como pronta.`);
             renderOrders(document.getElementById('page-content'));
         }
 
@@ -1189,10 +1240,30 @@
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
             const pct = Math.round((o.produced / o.total) * 100);
+            
+            const steps = [
+                "✂️ Corte pronto",
+                "🚚 Enviado para oficina",
+                "🏭 Na oficina",
+                "✓ Oficina pronta",
+                "🚚 Enviando para acabamento",
+                "🎨 Chegou no acabamento",
+                "📦 OC pronta"
+            ];
+
+            let timelineHTML = steps.map(step => {
+                const done = o.timeline.some(t => t.step === step);
+                const isCurrent = o.status === step;
+                let cls = done ? "done" : "";
+                if (isCurrent) cls = "active";
+                const found = o.timeline.find(t => t.step === step);
+                return `<div class="timeline-item ${cls}"><div class="timeline-title">${step}</div><div class="timeline-date">${found ? found.date : 'Pendente'}</div></div>`;
+            }).join('');
+
             openModal(`
-                <div class="modal-header"><h2>${o.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h2>OC ${o.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div style="font-size:13px; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                    <div>🏭 <strong>Oficina:</strong> ${o.workshop} — 👤 ${o.workshop_owner}</div>
+                    <div>🏭 <strong>Oficina:</strong> Oficina: ${o.workshop} — 👤 ${o.workshop_owner}</div>
                     <div>👕 <strong>Produto:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference} | 🧵 <strong>Tecido:</strong> ${o.fabric}</div>
                 </div>
                 <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius); margin-bottom:12px;">
@@ -1205,10 +1276,7 @@
                 </div>
                 <strong style="font-size:13px; color:var(--gray-900);">TIMELINE DO PROCESSO</strong>
                 <div class="timeline">
-                    <div class="timeline-item done"><div class="timeline-title">✂️ Corte pronto</div><div class="timeline-date">16/09 — 10:30</div></div>
-                    <div class="timeline-item done"><div class="timeline-title">🚚 Enviado para oficina</div><div class="timeline-date">16/09 — 14:20</div></div>
-                    <div class="timeline-item ${o.status === '🏭 Processo na oficina' ? 'active' : 'done'}"><div class="timeline-title">🏭 Processo na oficina</div><div class="timeline-date">17/09 — 08:15</div></div>
-                    <div class="timeline-item ${o.status === '📦 OC pronta' ? 'done' : ''}"><div class="timeline-title">📦 OC pronta</div><div class="timeline-date">${o.status === '📦 OC pronta' ? 'Finalizado' : 'Pendente'}</div></div>
+                    ${timelineHTML}
                 </div>
                 <div class="modal-footer"><button class="btn-primary" onclick="closeModal()">Fechar</button></div>
             `);
@@ -1216,7 +1284,7 @@
 
         // Other Modules (Workshops, References, Products, Reports, Users, History)
         function renderWorkshops(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Oficinas</h1><span class="page-subtitle">Parceiros cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Oficina</th><th>Responsável</th><th>Telefone</th><th>Endereço</th></tr></thead><tbody>${DB.workshops.map(w=>`<tr><td><strong>${w.name}</strong></td><td>${w.owner}</td><td>${w.phone}</td><td>${w.address}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.workshops.map(w=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${w.name}</strong><span class="badge badge-success">${w.status}</span></div><div class="mobile-card-body"><div><span>Responsável:</span>${w.owner}</div><div><span>Telefone:</span>${w.phone}</div><div><span>Endereço:</span>${w.address}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `<div class="page-header"><div><h1>Oficinas Independentes</h1><span class="page-subtitle">Parceiros cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Oficina</th><th>Responsável</th><th>Telefone</th><th>Endereço</th></tr></thead><tbody>${DB.workshops.map(w=>`<tr><td><strong>Oficina: ${w.name}</strong></td><td>${w.owner}</td><td>${w.phone}</td><td>${w.address}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.workshops.map(w=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Oficina: ${w.name}</strong><span class="badge badge-success">${w.status}</span></div><div class="mobile-card-body"><div><span>Responsável:</span>${w.owner}</div><div><span>Telefone:</span>${w.phone}</div><div><span>Endereço:</span>${w.address}</div></div></div>`).join('')}</div></div>`;
         }
         function renderReferences(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Código</th><th>Nome</th><th>Produto</th><th>Tecido Padrão</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.references.map(r=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Ref. ${r.code}</strong><span class="badge badge-success">${r.status}</span></div><div class="mobile-card-body"><div><span>Nome:</span>${r.name}</div><div><span>Produto:</span>${r.product}</div><div><span>Tecido:</span>${r.fabric}</div></div></div>`).join('')}</div></div>`;
@@ -1225,24 +1293,58 @@
             container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>Descrição</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.products.map(p=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${p.name}</strong><span class="badge badge-success">${p.status}</span></div><div class="mobile-card-body"><div><span>Descrição:</span>${p.description}</div></div></div>`).join('')}</div></div>`;
         }
         function renderReports(container) {
+            const totalPiecesCut = DB.cuts.reduce((a,c) => a + c.total, 0);
+            const totalPiecesSent = DB.shipments.reduce((a,s) => a + s.quantity, 0);
+            const totalProduced = DB.production_orders.reduce((a,o) => a + o.produced, 0);
+            const totalFinished = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
+            
+            const totalP = DB.production_orders.reduce((a,o) => a + (o.p || 0), 0);
+            const totalM = DB.production_orders.reduce((a,o) => a + (o.m || 0), 0);
+            const totalG = DB.production_orders.reduce((a,o) => a + (o.g || 0), 0);
+            const totalGG = DB.production_orders.reduce((a,o) => a + (o.gg || 0), 0);
+
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>Relatórios</h1><span class="page-subtitle">Consolidado e status da produção</span></div>
+                    <div><h1>Relatórios de Setembro/2026</h1><span class="page-subtitle">Marcos — Consolidado e status da produção</span></div>
                     <button class="btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir</button>
                 </div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-card-title">Total de OCs</div><div class="stat-card-value">${DB.production_orders.length}</div></div>
+                    <div class="stat-card"><div class="stat-card-title">Peças Cortadas</div><div class="stat-card-value">${formatNumber(totalPiecesCut)}</div></div>
+                    <div class="stat-card"><div class="stat-card-title">Enviadas Oficina</div><div class="stat-card-value">${formatNumber(totalPiecesSent)}</div></div>
+                    <div class="stat-card"><div class="stat-card-title">Peças Produzidas</div><div class="stat-card-value">${formatNumber(totalProduced)}</div></div>
+                    <div class="stat-card"><div class="stat-card-title">OCs Finalizadas</div><div class="stat-card-value">${totalFinished}</div></div>
+                </div>
                 <div class="card">
-                    <h3>Status da Produção</h3>
-                    <div class="stats-grid" style="margin-top:16px;">
-                        <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${DB.cuts.filter(c=>c.status==='✂️ Corte pronto').length}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">Enviados Oficina</div><div class="stat-card-value">${DB.cuts.filter(c=>c.status.includes('Enviado')).length}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">Em Processo</div><div class="stat-card-value">${DB.production_orders.filter(o=>o.status==='🏭 Processo na oficina').length}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">OCs Prontas</div><div class="stat-card-value">${DB.production_orders.filter(o=>o.status==='📦 OC pronta').length}</div></div>
+                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Tamanho</h3>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; text-align:center;">
+                        <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius);"><strong>P</strong><br>${formatNumber(totalP)}</div>
+                        <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius);"><strong>M</strong><br>${formatNumber(totalM)}</div>
+                        <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius);"><strong>G</strong><br>${formatNumber(totalG)}</div>
+                        <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius);"><strong>GG</strong><br>${formatNumber(totalGG)}</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Oficina</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Oficina</th><th>Peças Enviadas</th><th>Peças Produzidas</th><th>Pendente</th></tr></thead>
+                            <tbody>
+                                ${DB.workshops.map(w => {
+                                    const shipmentsW = DB.shipments.filter(s => s.workshop === w.name).reduce((a,s)=>a+s.quantity,0);
+                                    const ordersW = DB.production_orders.filter(o => o.workshop === w.name);
+                                    const prodW = ordersW.reduce((a,o)=>a+o.produced,0);
+                                    const pendW = ordersW.reduce((a,o)=>a+o.pending,0);
+                                    return `<tr><td><strong>Oficina: ${w.name}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             `;
         }
         function renderUsers(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.users.map(u=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${u.name}</strong><span class="badge badge-info">${u.role}</span></div><div class="mobile-card-body"><div><span>E-mail:</span>${u.email}</div><div><span>Status:</span>${u.status}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.users.map(u=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${u.name}</strong><span class="badge badge-info">${u.role}</span></div><div class="mobile-card-body"><div><span>E-mail:</span>${u.email}</div><div><span>Status:</span>${u.status}</div></div></div>`).join('')}</div></div>`;
         }
         function renderHistory(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Trilha de eventos</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead><tbody>${DB.audit_logs.map(l=>`<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.audit_logs.map(l=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${l.action}</strong><span class="badge badge-info">${l.target}</span></div><div class="mobile-card-body"><div><span>Usuário:</span>${l.user}</div><div><span>Data/Hora:</span>${l.date} • ${l.time}</div><div><span>Detalhes:</span>${l.details}</div></div></div>`).join('')}</div></div>`;
@@ -1252,7 +1354,7 @@
             const dropdown = document.getElementById('search-results-dropdown');
             if (!q || q.length < 2) { dropdown.classList.add('hidden'); return; }
             let results = [];
-            DB.production_orders.forEach(o => { if(o.number.toLowerCase().includes(q.toLowerCase())) results.push({title: `${o.number} (OC)`, page: 'orders'}); });
+            DB.production_orders.forEach(o => { if(o.number.toLowerCase().includes(q.toLowerCase())) results.push({title: `OC ${o.number}`, page: 'orders'}); });
             DB.cuts.forEach(c => { if(c.number.toLowerCase().includes(q.toLowerCase())) results.push({title: `Corte ${c.number}`, page: 'cuts'}); });
             if (results.length > 0) {
                 dropdown.innerHTML = results.map(r => `<div class="search-result-item" onclick="navigateTo('${r.page}'); document.getElementById('search-results-dropdown').classList.add('hidden');">${r.title}</div>`).join('');
