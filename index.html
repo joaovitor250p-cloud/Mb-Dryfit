@@ -578,15 +578,15 @@
                 { id: 3, name: "Nildo", email: "corte@mb.com", role: "CORTE", status: "Ativo", last_login: "16/09/2026 07:45" }
             ],
             workshops: [
-                { id: 1, name: "Francisca", owner: "Francisca", phone: "(11) 99999-9999", address: "SP", status: "Ativa" },
-                { id: 2, name: "Virgilio", owner: "Virgilio", phone: "(11) 98888-8888", address: "SP", status: "Ativa" },
-                { id: 3, name: "Dario Medina", owner: "Dario Medina", phone: "(19) 97777-7777", address: "SP", status: "Ativa" },
-                { id: 4, name: "Rodrigo", owner: "Rodrigo", phone: "(11) 96666-6666", address: "SP", status: "Ativa" },
-                { id: 5, name: "Samuel", owner: "Samuel", phone: "(11) 95555-5555", address: "SP", status: "Ativa" },
-                { id: 6, name: "Mauro", owner: "Mauro", phone: "(11) 94444-4444", address: "SP", status: "Ativa" },
-                { id: 7, name: "Ramiro", owner: "Ramiro", phone: "(11) 93333-3333", address: "SP", status: "Ativa" },
-                { id: 8, name: "Victor", owner: "Victor", phone: "(11) 92222-2222", address: "SP", status: "Ativa" },
-                { id: 9, name: "Jhony", owner: "Jhony", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
+                { id: 1, name: "Francisca", owner: "", phone: "(11) 99999-9999", address: "SP", status: "Ativa" },
+                { id: 2, name: "Virgilio", owner: "", phone: "(11) 98888-8888", address: "SP", status: "Ativa" },
+                { id: 3, name: "Dario Medina", owner: "", phone: "(19) 97777-7777", address: "SP", status: "Ativa" },
+                { id: 4, name: "Rodrigo", owner: "", phone: "(11) 96666-6666", address: "SP", status: "Ativa" },
+                { id: 5, name: "Samuel", owner: "", phone: "(11) 95555-5555", address: "SP", status: "Ativa" },
+                { id: 6, name: "Mauro", owner: "", phone: "(11) 94444-4444", address: "SP", status: "Ativa" },
+                { id: 7, name: "Ramiro", owner: "", phone: "(11) 93333-3333", address: "SP", status: "Ativa" },
+                { id: 8, name: "Victor", owner: "", phone: "(11) 92222-2222", address: "SP", status: "Ativa" },
+                { id: 9, name: "Jhony", owner: "", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
             ],
             references: [
                 { id: 1, code: "1024", name: "Camisa Básica", product: "Camisa", fabric: "Malha", status: "Ativa" },
@@ -606,17 +606,14 @@
                 { id: 4, name: "Meia Malha" }
             ],
             cuts: [
-                { id: 1, number: "C-0001", oc: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", p: 100, m: 150, g: 200, gg: 100, total: 550, sent: 550, pending: 0, status: "🚚 Enviado para oficina", responsible: "Nildo" },
-                { id: 2, number: "C-0002", oc: "244", date: "2026-09-16", reference: "2010", product: "Regata", fabric: "Dry Fit", p: 200, m: 200, g: 300, gg: 100, total: 800, sent: 300, pending: 500, status: "🚚 Envio parcial", responsible: "Nildo" },
-                { id: 3, number: "C-0003", oc: "245", date: "2026-09-15", reference: "3040", product: "Bermuda", fabric: "Moletinho", p: 150, m: 150, g: 150, gg: 150, total: 600, sent: 0, pending: 600, status: "✂️ Corte pronto", responsible: "Nildo" },
-                { id: 4, number: "C-0004", oc: "246", date: "2026-09-14", reference: "1024", product: "Conjunto", fabric: "Malha", p: 50, m: 50, g: 50, gg: 50, total: 200, sent: 0, pending: 200, status: "Aguardando corte", responsible: "Nildo" }
+                { id: 1, number: "C-0001", oc: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", p: 100, m: 150, g: 200, gg: 100, total: 550, sent: 550, pending: 0, status: "🚚 Enviado para oficina", responsible: "Nildo" }
             ],
             shipments: [
                 { id: 1, cut_number: "C-0001", oc: "243", workshop: "Francisca", quantity: 550, date: "2026-09-16", responsible: "Jéssica", observation: "Envio total" }
             ],
             production_orders: [
                 { 
-                    id: 1, number: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", workshop: "Francisca", workshop_owner: "Francisca", p: 100, m: 150, g: 200, gg: 100, total: 550, produced: 550, pending: 0, 
+                    id: 1, number: "243", date: "2026-09-16", reference: "1024", product: "Conjunto", fabric: "Malha", workshop: "Francisca", workshop_owner: "", p: 100, m: 150, g: 200, gg: 100, total: 550, produced: 550, pending: 0, 
                     status: "🏭 Na oficina", 
                     finishing_status: "Pendente",
                     timeline: [
@@ -624,29 +621,19 @@
                         {step: "🚚 Enviado para oficina", date: "16/09 14:20"}, 
                         {step: "🏭 Na oficina", date: "17/09 08:15"}
                     ] 
-                },
-                { 
-                    id: 2, number: "244", date: "2026-09-15", reference: "2010", product: "Regata", fabric: "Dry Fit", workshop: "Virgilio", workshop_owner: "Virgilio", p: 200, m: 200, g: 300, gg: 100, total: 800, produced: 800, pending: 0, 
-                    status: "📦 OC pronta", 
-                    finishing_status: "Concluído",
-                    timeline: [
-                        {step: "✂️ Corte pronto", date: "15/09 09:00"}, 
-                        {step: "🚚 Enviado para oficina", date: "15/09 11:00"}, 
-                        {step: "🏭 Na oficina", date: "15/09 14:00"}, 
-                        {step: "✓ Oficina pronta", date: "16/09 10:00"},
-                        {step: "🚚 Enviando para acabamento", date: "16/09 11:00"},
-                        {step: "🎨 Chegou no acabamento", date: "16/09 13:00"},
-                        {step: "📦 OC pronta", date: "16/09 16:00"}
-                    ] 
                 }
             ],
-            audit_logs: [
-                { id: 1, date: "16/09/2026", time: "09:30", user: "Jéssica", action: "Envio", target: "OC 243", details: "Jéssica enviou 550 peças do corte C-0001 para Francisca." },
-                { id: 2, date: "16/09/2026", time: "08:45", user: "Nildo", action: "Corte Pronto", target: "C-0003", details: "Nildo marcou o corte C-0003 como pronto." }
-            ]
+            audit_logs: []
         };
 
         let DB = JSON.parse(localStorage.getItem('mb_db')) || defaultDB;
+        
+        // Clean history routine as requested
+        if (!localStorage.getItem('mb_history_cleaned_v2')) {
+            DB.audit_logs = [];
+            localStorage.setItem('mb_history_cleaned_v2', 'true');
+        }
+
         function saveDB() { localStorage.setItem('mb_db', JSON.stringify(DB)); }
 
         let currentUser = JSON.parse(localStorage.getItem('mb_current_user')) || null;
@@ -750,9 +737,10 @@
                     <div class="nav-section"><a href="#" class="nav-item active" onclick="navigateTo('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></div>
                     <div class="nav-section">
                         <div class="nav-section-title">Operacional</div>
-                        <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Cortes Prontos</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> OCs em Produção</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Transporte</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas / Acompanhamento</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> Produção em oficina</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
             } else if (currentUser.role === 'CORTE') {
@@ -760,7 +748,9 @@
                     <div class="nav-section"><a href="#" class="nav-item active" onclick="navigateTo('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></div>
                     <div class="nav-section">
                         <div class="nav-section-title">Cortes</div>
-                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Meus Cortes</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-plus"></i> Novo Corte</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
             }
@@ -795,7 +785,8 @@
             const cutsSent = DB.cuts.filter(c => c.status.includes('Enviado') || c.status.includes('Envio parcial')).length;
             const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Na oficina').length;
             const ocsWorkshopReady = DB.production_orders.filter(o => o.status === '✓ Oficina pronta').length;
-            const ocsFinishing = DB.production_orders.filter(o => o.status.includes('acabamento')).length;
+            const ocsFinishingSend = DB.production_orders.filter(o => o.status === '🚚 Enviando para acabamento').length;
+            const ocsFinishing = DB.production_orders.filter(o => o.status === '🎨 Chegou no acabamento').length;
             const ocsReady = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
 
             if (currentUser.role === 'ADMIN') {
@@ -806,8 +797,9 @@
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">✂️ Cortes Prontos</div><div class="stat-card-value">${cutsReady}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🚚 Enviados Oficina</div><div class="stat-card-value">${cutsSent}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">🏭 Em Produção</div><div class="stat-card-value">${ocsInProc}</div></div>
+                        <div class="stat-card"><div class="stat-card-title">🏭 Em Oficina</div><div class="stat-card-value">${ocsInProc}</div></div>
                         <div class="stat-card"><div class="stat-card-title">✓ Oficinas Prontas</div><div class="stat-card-value">${ocsWorkshopReady}</div></div>
+                        <div class="stat-card"><div class="stat-card-title">🚚 Env. Acabamento</div><div class="stat-card-value">${ocsFinishingSend}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🎨 No Acabamento</div><div class="stat-card-value">${ocsFinishing}</div></div>
                         <div class="stat-card"><div class="stat-card-title">📦 OCs Prontas</div><div class="stat-card-value">${ocsReady}</div></div>
                     </div>
@@ -822,7 +814,7 @@
                             </table>
                         </div>
                         <div class="mobile-card-list">
-                            ${DB.audit_logs.map(l => `
+                            ${DB.audit_logs.length === 0 ? '<div style="text-align:center;color:var(--gray-500);padding:10px;">Nenhuma atividade recente.</div>' : DB.audit_logs.map(l => `
                                 <div class="mobile-card-item">
                                     <div class="mobile-card-header">
                                         <strong>${l.action}</strong>
@@ -850,7 +842,7 @@
                     </div>
                     <div class="card" style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn-primary" onclick="navigateTo('transport')">Ver Cortes Prontos para Envio</button>
-                        <button class="btn-primary" style="background:var(--success);" onclick="navigateTo('orders')">Gerenciar OCs e Acabamento</button>
+                        <button class="btn-primary" style="background:var(--success);" onclick="navigateTo('orders')">Acabamento e Produção</button>
                     </div>
                 `;
             } else if (currentUser.role === 'CORTE') {
@@ -963,11 +955,12 @@
             const g = parseInt(document.getElementById('cut-g').value) || 0;
             const gg = parseInt(document.getElementById('cut-gg').value) || 0;
             const total = p + m + g + gg;
+            const ocVal = document.getElementById('cut-oc').value;
 
             const newCut = {
                 id: DB.cuts.length + 1,
                 number: `C-000${DB.cuts.length + 1}`,
-                oc: document.getElementById('cut-oc').value,
+                oc: ocVal,
                 date: new Date().toISOString().split('T')[0],
                 reference: document.getElementById('cut-ref').value,
                 product: document.getElementById('cut-prod').value,
@@ -975,7 +968,7 @@
                 p, m, g, gg, total, sent: 0, pending: total, status: "Aguardando corte", responsible: currentUser.name
             };
             DB.cuts.unshift(newCut);
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:00", user: currentUser.name, action: "Novo Corte", target: `OC ${newCut.oc}`, details: `Nildo cadastrou novo corte para a OC ${newCut.oc} com ${total} peças.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:00", user: "Nildo", action: "Novo corte", target: `OC ${ocVal}`, details: `Nildo cadastrou novo corte para a OC ${ocVal} com ${total} peças.` });
             saveDB();
             closeModal();
             showToast('✓ Corte registrado com sucesso.');
@@ -986,7 +979,7 @@
             const c = DB.cuts.find(x => x.number === num);
             if (!c) return;
             c.status = "✂️ Corte pronto";
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: currentUser.name, action: "Corte Pronto", target: `OC ${c.oc}`, details: `Nildo marcou o corte ${c.number} (OC ${c.oc}) como pronto.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: "Nildo", action: "Corte pronto", target: `OC ${c.oc}`, details: `Nildo marcou o corte ${c.number} (OC ${c.oc}) como pronto.` });
             saveDB();
             showToast(`✓ Corte ${c.number} marcado como pronto.`);
             renderCuts(document.getElementById('page-content'));
@@ -1057,7 +1050,7 @@
             openModal(`
                 <div class="modal-header"><h2>Enviar ${c.number} (OC ${c.oc})</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="handleSaveShipment(event, '${c.number}')">
-                    <div class="form-group"><label>Oficina</label><select id="ship-workshop">${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Oficina</label><select id="ship-workshop">${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name} ${w.owner ? '(Resp: '+w.owner+')' : ''}</option>`).join('')}</select></div>
                     <div class="form-group">
                         <label>Quantidade a Enviar</label>
                         <small style="color:var(--gray-600); display:block; margin-bottom:4px;">Quantidade disponível: <strong>${c.pending}</strong></small>
@@ -1087,15 +1080,14 @@
             c.pending -= qty;
             c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
 
-            DB.shipments.push({ id: DB.shipments.length + 1, cut_number: c.number, oc: c.oc, workshop, quantity: qty, date: new Date().toISOString().split('T')[0], responsible: currentUser.name, observation: obs });
+            DB.shipments.push({ id: DB.shipments.length + 1, cut_number: c.number, oc: c.oc, workshop, quantity: qty, date: new Date().toISOString().split('T')[0], responsible: "Jéssica", observation: obs });
             
-            // Check if OC already exists
             let existingOC = DB.production_orders.find(o => o.number === c.oc);
             if (existingOC) {
                 existingOC.total += qty;
                 existingOC.pending += qty;
                 existingOC.workshop = workshop;
-                existingOC.workshop_owner = workshopObj ? workshopObj.owner : workshop;
+                existingOC.workshop_owner = workshopObj ? workshopObj.owner : '';
             } else {
                 DB.production_orders.unshift({
                     id: DB.production_orders.length + 1,
@@ -1105,7 +1097,7 @@
                     product: c.product,
                     fabric: c.fabric,
                     workshop: workshop,
-                    workshop_owner: workshopObj ? workshopObj.owner : workshop,
+                    workshop_owner: workshopObj ? workshopObj.owner : '',
                     p: c.p, m: c.m, g: c.g, gg: c.gg, total: qty, produced: 0, pending: qty,
                     status: "🏭 Na oficina",
                     finishing_status: "Pendente",
@@ -1117,7 +1109,7 @@
                 });
             }
 
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: currentUser.name, action: "Envio", target: `OC ${c.oc}`, details: `Jéssica enviou ${qty} peças do corte ${c.number} para a Oficina: ${workshop}.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: "Jéssica", action: "Enviado para oficina", target: `OC ${c.oc}`, details: `Jéssica enviou ${qty} peças do corte ${c.number} para Oficina: ${workshop}.` });
 
             saveDB();
             closeModal();
@@ -1141,7 +1133,7 @@
                                         <td><strong>OC ${o.number}</strong></td>
                                         <td>${o.reference}</td>
                                         <td>${o.product}</td>
-                                        <td>Oficina: ${o.workshop} (${o.workshop_owner})</td>
+                                        <td>Oficina: ${o.workshop} ${o.workshop_owner ? '(Resp: '+o.workshop_owner+')' : ''}</td>
                                         <td>${formatNumber(o.total)}</td>
                                         <td>${formatNumber(o.produced)}</td>
                                         <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
@@ -1150,7 +1142,7 @@
                                             ${o.status === '🏭 Na oficina' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
                                             ${o.status === '✓ Oficina pronta' ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; min-height:36px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
                                             ${o.status === '🚚 Enviando para acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
-                                            ${o.status === '🎨 Chegou no acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
+                                            ${o.status === '🎨 Chegou no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                             <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
                                         </td>
                                     </tr>
@@ -1168,7 +1160,7 @@
                                         <span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span>
                                     </div>
                                     <div class="mobile-card-body" style="grid-template-columns: 1fr;">
-                                        <div><span>Oficina:</span>Oficina: ${o.workshop} — 👤 ${o.workshop_owner}</div>
+                                        <div><span>Oficina:</span>Oficina: ${o.workshop} ${o.workshop_owner ? '— Resp: '+o.workshop_owner : ''}</div>
                                         <div><span>Produto:</span>👕 ${o.product} (Ref. ${o.reference}) | 🧵 ${o.fabric}</div>
                                         <div><span>Quantidade Total:</span><strong>${formatNumber(o.total)} peças</strong></div>
                                         <div><span>Status Acabamento:</span>${o.finishing_status || 'Pendente'}</div>
@@ -1177,7 +1169,7 @@
                                         ${o.status === '🏭 Na oficina' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
                                         ${o.status === '✓ Oficina pronta' ? `<button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
                                         ${o.status === '🚚 Enviando para acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
-                                        ${o.status === '🎨 Chegou no acabamento' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
+                                        ${o.status === '🎨 Chegou no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                         <button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
                                     </div>
                                 </div>
@@ -1193,7 +1185,7 @@
             if (!o) return;
             o.status = "✓ Oficina pronta";
             o.timeline.push({ step: "✓ Oficina pronta", date: "18/09 10:20" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "10:20", user: currentUser.name, action: "Oficina pronta", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como oficina pronta na Oficina: ${o.workshop}.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "10:20", user: "Jéssica", action: "Oficina pronta", target: `OC ${o.number}`, details: `Jéssica marcou a OC ${o.number} como oficina pronta na Oficina: ${o.workshop}.` });
             saveDB();
             showToast(`✓ OC ${o.number} marcada como oficina pronta.`);
             renderOrders(document.getElementById('page-content'));
@@ -1204,7 +1196,7 @@
             if (!o) return;
             o.status = "🚚 Enviando para acabamento";
             o.timeline.push({ step: "🚚 Enviando para acabamento", date: "18/09 11:00" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: currentUser.name, action: "Enviando para acabamento", target: `OC ${o.number}`, details: `${currentUser.name} enviou a OC ${o.number} para acabamento.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: "Jéssica", action: "Enviando para acabamento", target: `OC ${o.number}`, details: `Jéssica enviou a OC ${o.number} para acabamento.` });
             saveDB();
             showToast(`✓ OC ${o.number} enviada para acabamento.`);
             renderOrders(document.getElementById('page-content'));
@@ -1216,7 +1208,7 @@
             o.status = "🎨 Chegou no acabamento";
             o.finishing_status = "Em acabamento";
             o.timeline.push({ step: "🎨 Chegou no acabamento", date: "18/09 12:30" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "12:30", user: currentUser.name, action: "Chegou no acabamento", target: `OC ${o.number}`, details: `${currentUser.name} confirmou chegada da OC ${o.number} no acabamento.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "12:30", user: "Jéssica", action: "Chegou no acabamento", target: `OC ${o.number}`, details: `Jéssica confirmou chegada da OC ${o.number} no acabamento.` });
             saveDB();
             showToast(`✓ OC ${o.number} chegou no acabamento.`);
             renderOrders(document.getElementById('page-content'));
@@ -1230,7 +1222,7 @@
             o.produced = o.total;
             o.pending = 0;
             o.timeline.push({ step: "📦 OC pronta", date: "18/09 14:00" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "14:00", user: currentUser.name, action: "OC Pronta", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como pronta.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "14:00", user: "Marcos", action: "OC pronta", target: `OC ${o.number}`, details: `Marcos marcou a OC ${o.number} como pronta.` });
             saveDB();
             showToast(`✓ OC ${o.number} marcada como pronta.`);
             renderOrders(document.getElementById('page-content'));
@@ -1263,7 +1255,7 @@
             openModal(`
                 <div class="modal-header"><h2>OC ${o.number}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div style="font-size:13px; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                    <div>🏭 <strong>Oficina:</strong> Oficina: ${o.workshop} — 👤 ${o.workshop_owner}</div>
+                    <div>🏭 <strong>Oficina:</strong> Oficina: ${o.workshop} ${o.workshop_owner ? '— Resp: '+o.workshop_owner : ''}</div>
                     <div>👕 <strong>Produto:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference} | 🧵 <strong>Tecido:</strong> ${o.fabric}</div>
                 </div>
                 <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius); margin-bottom:12px;">
@@ -1282,10 +1274,82 @@
             `);
         }
 
-        // Other Modules (Workshops, References, Products, Reports, Users, History)
+        // Other Modules (Workshops with Editor, References, Products, Reports, Users, History)
         function renderWorkshops(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Oficinas Independentes</h1><span class="page-subtitle">Parceiros cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Oficina</th><th>Responsável</th><th>Telefone</th><th>Endereço</th></tr></thead><tbody>${DB.workshops.map(w=>`<tr><td><strong>Oficina: ${w.name}</strong></td><td>${w.owner}</td><td>${w.phone}</td><td>${w.address}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.workshops.map(w=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Oficina: ${w.name}</strong><span class="badge badge-success">${w.status}</span></div><div class="mobile-card-body"><div><span>Responsável:</span>${w.owner}</div><div><span>Telefone:</span>${w.phone}</div><div><span>Endereço:</span>${w.address}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `
+                <div class="page-header">
+                    <div><h1>Oficinas Independentes</h1><span class="page-subtitle">Parceiros cadastrados e responsáveis</span></div>
+                </div>
+                <div class="card">
+                    <div class="desktop-table-container table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Oficina</th><th>Responsável</th><th>Telefone</th><th>Endereço</th><th>Ação</th></tr></thead>
+                            <tbody>
+                                ${DB.workshops.map((w, idx) => `
+                                    <tr>
+                                        <td><strong>Oficina: ${w.name}</strong></td>
+                                        <td>${w.owner ? w.owner : '<span style="color:var(--gray-400)">Não cadastrado</span>'}</td>
+                                        <td>${w.phone}</td>
+                                        <td>${w.address}</td>
+                                        <td><button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="openWorkshopEditModal(${idx})">Editar Responsável</button></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mobile-card-list">
+                        ${DB.workshops.map((w, idx) => `
+                            <div class="mobile-card-item">
+                                <div class="mobile-card-header">
+                                    <strong>Oficina: ${w.name}</strong>
+                                    <span class="badge badge-success">${w.status}</span>
+                                </div>
+                                <div class="mobile-card-body">
+                                    <div><span>Responsável:</span>${w.owner ? w.owner : 'Não cadastrado'}</div>
+                                    <div><span>Telefone:</span>${w.phone}</div>
+                                    <div><span>Endereço:</span>${w.address}</div>
+                                </div>
+                                <div class="mobile-card-footer">
+                                    <button class="btn-primary" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;" onclick="openWorkshopEditModal(${idx})">Editar Responsável</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
+
+        function openWorkshopEditModal(idx) {
+            const w = DB.workshops[idx];
+            openModal(`
+                <div class="modal-header"><h2>Editar Oficina: ${w.name}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="handleSaveWorkshop(event, ${idx})">
+                    <div class="form-group"><label>Nome da Oficina</label><input type="text" value="${w.name}" disabled style="background:var(--gray-100)"></div>
+                    <div class="form-group"><label>Nome do Responsável</label><input type="text" id="edit-workshop-owner" required value="${w.owner || ''}" placeholder="Digite o nome do responsável"></div>
+                    <div class="modal-footer"><button type="submit" class="btn-primary">Salvar Responsável</button></div>
+                </form>
+            `);
+        }
+
+        function handleSaveWorkshop(e, idx) {
+            e.preventDefault();
+            const ownerName = document.getElementById('edit-workshop-owner').value;
+            DB.workshops[idx].owner = ownerName;
+            
+            // Update in active production orders if match
+            DB.production_orders.forEach(o => {
+                if (o.workshop === DB.workshops[idx].name) {
+                    o.workshop_owner = ownerName;
+                }
+            });
+
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "16:00", user: currentUser.name, action: "Atualizar oficina", target: DB.workshops[idx].name, details: `${currentUser.name} atualizou o responsável da oficina ${DB.workshops[idx].name} para ${ownerName}.` });
+            saveDB();
+            closeModal();
+            showToast('✓ Responsável atualizado com sucesso.');
+            renderWorkshops(document.getElementById('page-content'));
+        }
+
         function renderReferences(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Código</th><th>Nome</th><th>Produto</th><th>Tecido Padrão</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.references.map(r=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Ref. ${r.code}</strong><span class="badge badge-success">${r.status}</span></div><div class="mobile-card-body"><div><span>Nome:</span>${r.name}</div><div><span>Produto:</span>${r.product}</div><div><span>Tecido:</span>${r.fabric}</div></div></div>`).join('')}</div></div>`;
         }
@@ -1335,7 +1399,7 @@
                                     const ordersW = DB.production_orders.filter(o => o.workshop === w.name);
                                     const prodW = ordersW.reduce((a,o)=>a+o.produced,0);
                                     const pendW = ordersW.reduce((a,o)=>a+o.pending,0);
-                                    return `<tr><td><strong>Oficina: ${w.name}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
+                                    return `<tr><td><strong>Oficina: ${w.name} ${w.owner ? '(Resp: '+w.owner+')' : ''}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
                                 }).join('')}
                             </tbody>
                         </table>
@@ -1347,7 +1411,34 @@
             container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.users.map(u=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${u.name}</strong><span class="badge badge-info">${u.role}</span></div><div class="mobile-card-body"><div><span>E-mail:</span>${u.email}</div><div><span>Status:</span>${u.status}</div></div></div>`).join('')}</div></div>`;
         }
         function renderHistory(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Trilha de eventos</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead><tbody>${DB.audit_logs.map(l=>`<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.audit_logs.map(l=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${l.action}</strong><span class="badge badge-info">${l.target}</span></div><div class="mobile-card-body"><div><span>Usuário:</span>${l.user}</div><div><span>Data/Hora:</span>${l.date} • ${l.time}</div><div><span>Detalhes:</span>${l.details}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `
+                <div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Trilha de eventos limpa e organizada</span></div></div>
+                <div class="card">
+                    <div class="desktop-table-container table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead>
+                            <tbody>
+                                ${DB.audit_logs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum registro no histórico.</td></tr>` : DB.audit_logs.map(l=>`<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mobile-card-list">
+                        ${DB.audit_logs.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum registro no histórico.</div>` : DB.audit_logs.map(l=>`
+                            <div class="mobile-card-item">
+                                <div class="mobile-card-header">
+                                    <strong>${l.action}</strong>
+                                    <span class="badge badge-info">${l.target}</span>
+                                </div>
+                                <div class="mobile-card-body">
+                                    <div><span>Usuário:</span>${l.user}</div>
+                                    <div><span>Data/Hora:</span>${l.date} • ${l.time}</div>
+                                    <div><span>Detalhes:</span>${l.details}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         function handleGlobalSearch(q) {
