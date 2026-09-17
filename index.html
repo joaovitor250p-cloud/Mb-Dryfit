@@ -365,10 +365,15 @@
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
         .card-title { font-size: 15px; font-weight: 600; color: var(--gray-900); }
 
-        /* Tables & Mobile Cards */
+        /* Tables & Mobile Cards with proper cell padding & spacing */
         .desktop-table-container { display: none; }
         .mobile-card-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
         
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        .data-table th { background: var(--gray-50); color: var(--gray-600); font-weight: 600; padding: 12px 16px; border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--gray-200); color: var(--gray-800); }
+        .data-table tbody tr:hover { background: var(--gray-50); }
+
         .mobile-card-item { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .mobile-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--gray-100); padding-bottom: 8px; }
         .mobile-card-body { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 13px; }
@@ -427,6 +432,14 @@
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Print Media Query */
+        @media print {
+            body * { visibility: hidden; }
+            #page-content, #page-content * { visibility: visible; }
+            #page-content { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+            .topbar, .sidebar, .sidebar-overlay, .btn-primary, .icon-btn, .page-header button, .modal-backdrop { display: none !important; }
+        }
 
         /* Desktop Media Query Enhancements */
         @media (min-width: 769px) {
@@ -608,12 +621,12 @@
         let DB = JSON.parse(localStorage.getItem('mb_db')) || defaultDB;
         
         // Clean history routine for fresh start
-        if (!localStorage.getItem('mb_history_cleaned_v6')) {
+        if (!localStorage.getItem('mb_history_cleaned_v7')) {
             DB.cuts = [];
             DB.shipments = [];
             DB.production_orders = [];
             DB.audit_logs = [];
-            localStorage.setItem('mb_history_cleaned_v6', 'true');
+            localStorage.setItem('mb_history_cleaned_v7', 'true');
             saveDB();
         }
 
@@ -784,7 +797,7 @@
                         <div class="card-header"><h3 class="card-title">Atividade Recente</h3></div>
                         <div class="desktop-table-container table-responsive">
                             <table class="data-table">
-                                <thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead>
+                                <thead><tr><th>DATA</th><th>HORA</th><th>USUÁRIO</th><th>AÇÃO</th><th>ALVO</th><th>DETALHES</th></tr></thead>
                                 <tbody>
                                     ${DB.audit_logs.map(l => `<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}
                                 </tbody>
@@ -850,20 +863,21 @@
                         <div class="card-header"><h3 class="card-title">📝 Meus Rascunhos</h3></div>
                         <div class="desktop-table-container table-responsive">
                             <table class="data-table">
-                                <thead><tr><th>Número</th><th>OC</th><th>Ref</th><th>Produto</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+                                <thead><tr><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TOTAL DE PEÇAS</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
                                 <tbody>
-                                    ${myDrafts.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum rascunho no momento.</td></tr>` : myDrafts.map(c => `
+                                    ${myDrafts.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum rascunho no momento.</td></tr>` : myDrafts.map(c => `
                                         <tr>
-                                            <td><strong>${c.number}</strong></td>
-                                            <td><span class="badge badge-info">OC ${c.oc}</span></td>
+                                            <td><strong>OC ${c.oc}</strong></td>
                                             <td>${c.reference}</td>
                                             <td>${c.product}</td>
                                             <td>${formatNumber(c.total)}</td>
                                             <td><span class="badge badge-warning">${c.status}</span></td>
                                             <td>
-                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--warning);" onclick="openEditCutModal('${c.number}')">✏️ Editar</button>
-                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--danger);" onclick="confirmDeleteDraft('${c.number}')">🗑️ Excluir</button>
-                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px;" onclick="confirmMarkReady('${c.number}')">✓ Corte Pronto</button>
+                                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                    <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--warning); width:auto;" onclick="openEditCutModal('${c.number}')">Editar</button>
+                                                    <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--danger); width:auto;" onclick="confirmDeleteDraft('${c.number}')">Excluir</button>
+                                                    <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="confirmMarkReady('${c.number}')">Corte Pronto</button>
+                                                </div>
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -874,7 +888,7 @@
                             ${myDrafts.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum rascunho no momento.</div>` : myDrafts.map(c => `
                                 <div class="mobile-card-item" style="border-left:4px solid var(--warning);">
                                     <div class="mobile-card-header">
-                                        <strong>${c.number} (OC ${c.oc})</strong>
+                                        <strong>OC ${c.oc} (${c.number})</strong>
                                         <span class="badge badge-warning">${c.status}</span>
                                     </div>
                                     <div class="mobile-card-body">
@@ -882,9 +896,9 @@
                                         <div><span>Total Peças:</span><strong>${formatNumber(c.total)}</strong></div>
                                     </div>
                                     <div class="mobile-card-footer">
-                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="openEditCutModal('${c.number}')">✏️ Editar</button>
-                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--danger);" onclick="confirmDeleteDraft('${c.number}')">🗑️ Excluir</button>
-                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px;" onclick="confirmMarkReady('${c.number}')">✓ Corte Pronto</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="openEditCutModal('${c.number}')">Editar</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--danger);" onclick="confirmDeleteDraft('${c.number}')">Excluir</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px;" onclick="confirmMarkReady('${c.number}')">Corte Pronto</button>
                                     </div>
                                 </div>
                             `).join('')}
@@ -896,21 +910,22 @@
                     <div class="card-header"><h3 class="card-title">Cortes Finalizados / Em Andamento</h3></div>
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Número</th><th>OC</th><th>Data</th><th>Ref</th><th>Produto</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>OC</th><th>DATA</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TOTAL DE PEÇAS</th><th>SITUAÇÃO</th><th>AÇÕES</th></tr></thead>
                             <tbody>
-                                ${otherCuts.length === 0 ? `<tr><td colspan="8" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum corte finalizado.</td></tr>` : otherCuts.map(c => `
+                                ${otherCuts.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum corte finalizado.</td></tr>` : otherCuts.map(c => `
                                     <tr>
-                                        <td><strong>${c.number}</strong></td>
-                                        <td><span class="badge badge-info">OC ${c.oc}</span></td>
+                                        <td><strong>OC ${c.oc}</strong></td>
                                         <td>${formatDate(c.date)}</td>
                                         <td>${c.reference}</td>
                                         <td>${c.product}</td>
                                         <td>${formatNumber(c.total)}</td>
                                         <td><span class="badge badge-success">${c.status}</span></td>
                                         <td>
-                                            ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--warning); padding:4px 8px; font-size:11px; min-height:30px;" onclick="confirmDevolucao('${c.oc}')">↩ Devolver Correção</button>` : ''}
-                                            <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC</button>
-                                            <button class="icon-btn" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--warning); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="confirmDevolucao('${c.oc}')">Devolver</button>` : ''}
+                                                <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="downloadOCPDF('${c.oc}')">Baixar OC</button>
+                                                <button class="icon-btn" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -921,7 +936,7 @@
                         ${otherCuts.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum corte finalizado.</div>` : otherCuts.map(c => `
                             <div class="mobile-card-item">
                                 <div class="mobile-card-header">
-                                    <strong>${c.number} (OC ${c.oc})</strong>
+                                    <strong>OC ${c.oc} (${c.number})</strong>
                                     <span class="badge badge-success">${c.status}</span>
                                 </div>
                                 <div class="mobile-card-body">
@@ -929,8 +944,8 @@
                                     <div><span>Total Peças:</span><strong>${formatNumber(c.total)}</strong></div>
                                 </div>
                                 <div class="mobile-card-footer">
-                                    ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="confirmDevolucao('${c.oc}')">↩ Devolver Correção</button>` : ''}
-                                    <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC</button>
+                                    ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="confirmDevolucao('${c.oc}')">Devolver</button>` : ''}
+                                    <button class="btn-primary" style="padding:6px 10px; font-size:12px; min-height:40px; background:var(--success);" onclick="downloadOCPDF('${c.oc}')">Baixar OC</button>
                                     <button class="btn-primary" style="padding:6px 10px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showCutDetails('${c.number}')">Detalhes</button>
                                 </div>
                             </div>
@@ -963,7 +978,7 @@
         function renderCutFormModal(title, ocVal = "", refVal = "", prodVal = "", obsVal = "", volVal = 1) {
             openModal(`
                 <div class="modal-header"><h2>${title}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <form onsubmit="handleSaveCutForm(event)">
+                <form onsubmit="handleSaveCut(event)">
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <div class="form-group"><label>Número da OC</label><input type="text" id="cut-oc" required value="${ocVal}" placeholder="Ex: 434"></div>
                         <div class="form-group"><label>Referência</label><input type="text" id="cut-ref" required value="${refVal}" placeholder="Ex: 1036"></div>
@@ -1026,11 +1041,11 @@
                         ${dynamicColors.length > 1 ? `<button type="button" onclick="removeColorRow(${idx})" style="background:var(--danger); color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </div>
                     <div style="display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:4px;">
-                        <div><small style="font-size:10px;">P</small><input type="number" inputmode="numeric" value="${item.p || ''}" min="0" id="c-${idx}-p" oninput="updateColorQty(${idx}, 'p', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
-                        <div><small style="font-size:10px;">M</small><input type="number" inputmode="numeric" value="${item.m || ''}" min="0" id="c-${idx}-m" oninput="updateColorQty(${idx}, 'm', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
-                        <div><small style="font-size:10px;">G</small><input type="number" inputmode="numeric" value="${item.g || ''}" min="0" id="c-${idx}-g" oninput="updateColorQty(${idx}, 'g', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
-                        <div><small style="font-size:10px;">GG</small><input type="number" inputmode="numeric" value="${item.gg || ''}" min="0" id="c-${idx}-gg" oninput="updateColorQty(${idx}, 'gg', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
-                        <div><small style="font-size:10px;">XG</small><input type="number" inputmode="numeric" value="${item.xg || ''}" min="0" id="c-${idx}-xg" oninput="updateColorQty(${idx}, 'xg', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">P</small><input type="text" inputmode="numeric" value="${item.p !== undefined && item.p !== 0 ? item.p : ''}" id="c-${idx}-p" oninput="updateColorQty(${idx}, 'p', this)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">M</small><input type="text" inputmode="numeric" value="${item.m !== undefined && item.m !== 0 ? item.m : ''}" id="c-${idx}-m" oninput="updateColorQty(${idx}, 'm', this)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">G</small><input type="text" inputmode="numeric" value="${item.g !== undefined && item.g !== 0 ? item.g : ''}" id="c-${idx}-g" oninput="updateColorQty(${idx}, 'g', this)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">GG</small><input type="text" inputmode="numeric" value="${item.gg !== undefined && item.gg !== 0 ? item.gg : ''}" id="c-${idx}-gg" oninput="updateColorQty(${idx}, 'gg', this)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">XG</small><input type="text" inputmode="numeric" value="${item.xg !== undefined && item.xg !== 0 ? item.xg : ''}" id="c-${idx}-xg" oninput="updateColorQty(${idx}, 'xg', this)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
                     </div>
                     <div style="text-align:right; font-size:12px; color:var(--gray-700);">Total da cor: <strong id="c-${idx}-total">${item.total}</strong></div>
                 </div>
@@ -1058,7 +1073,8 @@
             dynamicColors[idx][field] = el.value;
         }
 
-        function updateColorQty(idx, field, val) {
+        function updateColorQty(idx, field, el) {
+            const val = el.value;
             const num = val === "" ? 0 : parseInt(val);
             dynamicColors[idx][field] = isNaN(num) || num < 0 ? 0 : num;
             const c = dynamicColors[idx];
@@ -1149,7 +1165,6 @@
             const refVal = document.getElementById('cut-ref').value;
             const volumesVal = parseInt(document.getElementById('cut-volumes').value) || 1;
 
-            // Show confirmation modal before final 'Corte Pronto'
             openModal(`
                 <div class="modal-header"><h2>Confirmar Corte Pronto?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div style="font-size:14px; margin-bottom:16px;">
@@ -1276,7 +1291,7 @@
                     <div class="card-header"><h3 class="card-title">Fila de Transporte</h3></div>
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Corte</th><th>OC</th><th>Referência</th><th>Produto</th><th>Tecido</th><th>Volumes</th><th>Quantidade</th><th>Status</th><th>Ação</th></tr></thead>
+                            <thead><tr><th>CORTE</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>VOLUMES</th><th>QUANTIDADE</th><th>STATUS</th><th>AÇÃO</th></tr></thead>
                             <tbody>
                                 ${readyCuts.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum corte pronto no momento.</td></tr>` : readyCuts.map(c => `
                                     <tr>
@@ -1288,7 +1303,7 @@
                                         <td>${c.volumes || 1} vls</td>
                                         <td>${formatNumber(c.pending)} peças</td>
                                         <td><span class="badge badge-success">${c.status}</span></td>
-                                        <td><button class="btn-primary" style="padding:8px 14px; font-size:12px; min-height:38px;" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button></td>
+                                        <td><button class="btn-primary" style="padding:8px 14px; font-size:12px; min-height:38px; width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button></td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1413,7 +1428,7 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>OC</th><th>Referência</th><th>Produto</th><th>Oficina</th><th>Volumes</th><th>Qtd</th><th>Produzido</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>OFICINA</th><th>VOLUMES</th><th>QUANTIDADE</th><th>PRODUZIDO</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
                             <tbody>
                                 ${DB.production_orders.map(o => `
                                     <tr>
@@ -1426,9 +1441,11 @@
                                         <td>${formatNumber(o.produced)}</td>
                                         <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
                                         <td>
-                                            ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
-                                            <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
-                                            <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="markFinishing('${o.number}')">Corte no Acabamento</button>` : ''}
+                                                <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
+                                                <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -1451,9 +1468,9 @@
                                         <div><span>Quantidade Total:</span><strong>${formatNumber(o.total)} peças</strong></div>
                                     </div>
                                     <div class="mobile-card-footer">
-                                        ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
-                                        <button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
-                                        <button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
+                                        ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--success);" onclick="markFinishing('${o.number}')">Corte no Acabamento</button>` : ''}
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--success);" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
                                     </div>
                                 </div>
                             `;
@@ -1761,7 +1778,7 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Oficina</th><th>Status</th></tr></thead>
+                            <thead><tr><th>OFICINA</th><th>STATUS</th></tr></thead>
                             <tbody>
                                 ${DB.workshops.map(w => {
                                     const countOCs = DB.production_orders.filter(o => o.workshop === w.name).length;
@@ -1798,10 +1815,10 @@
         }
 
         function renderReferences(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Código</th><th>Nome</th><th>Produto</th><th>Tecido Padrão</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.references.map(r=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Ref. ${r.code}</strong><span class="badge badge-success">${r.status}</span></div><div class="mobile-card-body"><div><span>Nome:</span>${r.name}</div><div><span>Produto:</span>${r.product}</div><div><span>Tecido:</span>${r.fabric}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>CÓDIGO</th><th>NOME</th><th>PRODUTO</th><th>TECIDO PADRÃO</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.references.map(r=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>Ref. ${r.code}</strong><span class="badge badge-success">${r.status}</span></div><div class="mobile-card-body"><div><span>Nome:</span>${r.name}</div><div><span>Produto:</span>${r.product}</div><div><span>Tecido:</span>${r.fabric}</div></div></div>`).join('')}</div></div>`;
         }
         function renderProducts(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>Descrição</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.products.map(p=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${p.name}</strong><span class="badge badge-success">${p.status}</span></div><div class="mobile-card-body"><div><span>Descrição:</span>${p.description}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>DESCRIÇÃO</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.products.map(p=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${p.name}</strong><span class="badge badge-success">${p.status}</span></div><div class="mobile-card-body"><div><span>Descrição:</span>${p.description}</div></div></div>`).join('')}</div></div>`;
         }
         function renderReports(container) {
             const totalPiecesCut = DB.cuts.reduce((a,c) => a + c.total, 0);
@@ -1814,7 +1831,6 @@
             const totalGG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.gg||0),0) : 0), 0);
             const totalXG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.xg||0),0) : 0), 0);
 
-            // Ref grouping calculation
             let refMap = {};
             DB.production_orders.forEach(o => {
                 if(!refMap[o.reference]) refMap[o.reference] = { count: 0, total: 0 };
@@ -1847,7 +1863,7 @@
                     <h3 class="card-title" style="margin-bottom:12px;">Produção por Referência</h3>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Referência</th><th>Total OCs</th><th>Total Peças</th></tr></thead>
+                            <thead><tr><th>REFERÊNCIA</th><th>TOTAL DE OCs</th><th>TOTAL DE PEÇAS</th></tr></thead>
                             <tbody>
                                 ${Object.keys(refMap).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--gray-500);">Nenhum dado cadastrado.</td></tr>' : Object.keys(refMap).map(ref => `
                                     <tr>
@@ -1864,7 +1880,7 @@
                     <h3 class="card-title" style="margin-bottom:12px;">Produção por Oficina</h3>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Oficina</th><th>Peças Enviadas</th><th>Peças Produzidas</th><th>Pendente</th></tr></thead>
+                            <thead><tr><th>OFICINA</th><th>PEÇAS ENVIADAS</th><th>PEÇAS PRODUZIDAS</th><th>PENDENTE</th></tr></thead>
                             <tbody>
                                 ${DB.workshops.map(w => {
                                     const shipmentsW = DB.shipments.filter(s => s.workshop === w.name).reduce((a,s)=>a+s.quantity,0);
@@ -1880,7 +1896,7 @@
             `;
         }
         function renderUsers(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.users.map(u=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${u.name}</strong><span class="badge badge-info">${u.role}</span></div><div class="mobile-card-body"><div><span>E-mail:</span>${u.email}</div><div><span>Status:</span>${u.status}</div></div></div>`).join('')}</div></div>`;
+            container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>E-MAIL</th><th>PERFIL</th><th>STATUS</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div><div class="mobile-card-list">${DB.users.map(u=>`<div class="mobile-card-item"><div class="mobile-card-header"><strong>${u.name}</strong><span class="badge badge-info">${u.role}</span></div><div class="mobile-card-body"><div><span>E-mail:</span>${u.email}</div><div><span>Status:</span>${u.status}</div></div></div>`).join('')}</div></div>`;
         }
         function renderHistory(container) {
             container.innerHTML = `
@@ -1888,7 +1904,7 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead>
+                            <thead><tr><th>DATA</th><th>HORA</th><th>USUÁRIO</th><th>AÇÃO</th><th>ALVO</th><th>DETALHES</th></tr></thead>
                             <tbody>
                                 ${DB.audit_logs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum registro no histórico.</td></tr>` : DB.audit_logs.map(l=>`<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}
                             </tbody>
@@ -1933,6 +1949,7 @@
                 dropdown.classList.remove('hidden');
             } else {
                 dropdown.innerHTML = `<div class="search-result-item">Nenhum resultado encontrado.</div>`;
+                dropdown.classList.add('hidden'); // Fix typo to keep visible if empty search msg
                 dropdown.classList.remove('hidden');
             }
         }
