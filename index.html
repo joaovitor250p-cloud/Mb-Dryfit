@@ -10,8 +10,8 @@
     <!-- Firebase SDKs (Modular v10 via CDN) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // 🔥 COLE AQUI AS SUAS CHAVES REAIS DO FIREBASE (DA TELA DO PRINT)
         const firebaseConfig = {
@@ -28,16 +28,17 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
+        setPersistence(auth, browserLocalPersistence).catch(err => console.error("Erro na persistência da sessão:", err));
+        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
     </script>
     <!-- jsPDF & AutoTable via CDN for professional PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --primary-light: #eff6ff;
+            --primary: #f97316;
+            --primary-dark: #ea580c;
+            --primary-light: #fff7ed;
             --success: #16a34a;
             --success-light: #f0fdf4;
             --warning: #ca8a04;
@@ -135,7 +136,7 @@
         .form-group select, .form-group textarea { padding-left: 12px; }
         .input-icon input:focus, .form-group select:focus, .form-group textarea:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
         }
         .btn-primary {
             background: var(--primary);
@@ -469,13 +470,13 @@
         }
 
         /* Login MB — visual renovado */
-        .login-container { position:relative; overflow:hidden; background:radial-gradient(circle at 15% 20%, rgba(37,99,235,.28), transparent 34%), radial-gradient(circle at 90% 85%, rgba(14,165,233,.18), transparent 30%), linear-gradient(145deg,#07111f 0%,#0f172a 52%,#111c31 100%); padding:24px; }
+        .login-container { position:relative; overflow:hidden; background:radial-gradient(circle at 15% 20%, rgba(249,115,22,.30), transparent 34%), radial-gradient(circle at 90% 85%, rgba(251,146,60,.16), transparent 30%), linear-gradient(145deg,#07111f 0%,#0f172a 52%,#111c31 100%); padding:24px; }
         .login-container::before,.login-container::after { content:""; position:absolute; border:1px solid rgba(255,255,255,.07); border-radius:999px; pointer-events:none; }
         .login-container::before { width:420px;height:420px;left:-180px;top:-190px; }
         .login-container::after { width:520px;height:520px;right:-250px;bottom:-290px; }
         .login-card { position:relative; z-index:1; max-width:430px; padding:34px 32px 30px; border-radius:24px; border:1px solid rgba(255,255,255,.72); box-shadow:0 28px 80px rgba(0,0,0,.38); }
         .login-header { margin-bottom:28px; }
-        .brand-logo { width:68px;height:68px;border-radius:20px;font-size:30px;margin-bottom:16px;box-shadow:0 12px 30px rgba(37,99,235,.28);transform:rotate(-3deg); }
+        .brand-logo { width:68px;height:68px;border-radius:20px;font-size:30px;margin-bottom:16px;box-shadow:0 12px 30px rgba(249,115,22,.30);transform:rotate(-3deg); }
         .login-header h1 { font-size:24px; letter-spacing:-.5px; margin-bottom:6px; }
         .login-header p { font-size:13px; }
         .login-card .form-group { margin-bottom:17px; }
@@ -483,21 +484,105 @@
         .login-card .input-icon { position:relative; }
         .login-card .input-icon i { position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--gray-400);z-index:2; }
         .login-card .input-icon input { min-height:50px;padding-left:42px;border-radius:12px;background:#f8fafc;border:1px solid #dbe3ee;transition:.2s; }
-        .login-card .input-icon input:focus { background:#fff;border-color:var(--primary);box-shadow:0 0 0 4px rgba(37,99,235,.10);outline:none; }
-        .login-card .btn-primary { min-height:50px;border-radius:12px;font-weight:800;font-size:14px;margin-top:4px;box-shadow:0 10px 24px rgba(37,99,235,.20); }
+        .login-card .input-icon input:focus { background:#fff;border-color:var(--primary);box-shadow:0 0 0 4px rgba(249,115,22,.12);outline:none; }
+        .login-card .btn-primary { min-height:50px;border-radius:12px;font-weight:800;font-size:14px;margin-top:4px;box-shadow:0 10px 24px rgba(249,115,22,.24); }
         .login-card::after { content:"MB • PRODUÇÃO";display:block;text-align:center;margin-top:20px;font-size:10px;font-weight:800;letter-spacing:1.8px;color:var(--gray-400); }
         @media (max-width:520px){ .login-container{padding:16px}.login-card{padding:28px 20px 24px;border-radius:20px}.login-header h1{font-size:21px} }
+    
+        /* ===== MB INTRO + LOGIN PROFISSIONAL LARANJA ===== */
+        #mb-splash {
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; align-items: center; justify-content: center;
+            background:
+              radial-gradient(circle at 25% 20%, rgba(249,115,22,.20), transparent 28%),
+              radial-gradient(circle at 80% 80%, rgba(251,146,60,.12), transparent 30%),
+              linear-gradient(145deg,#07090d 0%,#111318 52%,#090a0d 100%);
+            color: #fff; overflow: hidden;
+            transition: opacity .55s ease, visibility .55s ease;
+        }
+        #mb-splash.splash-out { opacity:0; visibility:hidden; pointer-events:none; }
+        .splash-inner { text-align:center; padding:24px; animation:splashRise .8s ease both; }
+        .splash-logo {
+            width:104px; height:104px; margin:0 auto 24px;
+            border-radius:30px; display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(145deg,#fb923c,#f97316 55%,#ea580c);
+            font-size:43px; font-weight:900; letter-spacing:-3px;
+            box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 24px 70px rgba(249,115,22,.35);
+            animation:mbSpin 1.25s cubic-bezier(.2,.75,.25,1) both;
+        }
+        .splash-title { font-size:clamp(24px,5vw,38px); font-weight:800; letter-spacing:-1px; opacity:0; animation:titleReveal .7s .55s ease forwards; }
+        .splash-sub { margin-top:8px; color:#aeb4bf; font-size:12px; letter-spacing:3px; text-transform:uppercase; opacity:0; animation:titleReveal .7s .75s ease forwards; }
+        .splash-line { width:0; height:3px; margin:24px auto 0; border-radius:99px; background:linear-gradient(90deg,#fb923c,#f97316); animation:lineGrow 1s .55s ease forwards; }
+        @keyframes mbSpin { from{transform:rotate(-360deg) scale(.35);opacity:0} 70%{transform:rotate(14deg) scale(1.08)} to{transform:rotate(0) scale(1);opacity:1} }
+        @keyframes titleReveal { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+        @keyframes lineGrow { to{width:86px} }
+        @keyframes splashRise { from{transform:translateY(10px)} to{transform:none} }
+
+        .login-container {
+            background:
+              radial-gradient(circle at 15% 15%, rgba(249,115,22,.20), transparent 31%),
+              radial-gradient(circle at 88% 88%, rgba(251,146,60,.10), transparent 28%),
+              linear-gradient(145deg,#080a0e 0%,#111318 50%,#0a0c10 100%) !important;
+        }
+        .login-card {
+            max-width:440px !important; padding:38px 34px 30px !important;
+            border-radius:26px !important; background:rgba(255,255,255,.975) !important;
+            border:1px solid rgba(255,255,255,.7) !important;
+            box-shadow:0 32px 90px rgba(0,0,0,.48) !important;
+        }
+        .login-card .brand-logo {
+            width:76px !important;height:76px !important;border-radius:23px !important;
+            font-size:32px !important;font-weight:900 !important;
+            background:linear-gradient(145deg,#fb923c,#f97316 55%,#ea580c) !important;
+            box-shadow:0 16px 35px rgba(249,115,22,.28) !important;
+            transform:none !important;
+        }
+        .login-header h1 { font-size:25px !important; font-weight:800; letter-spacing:-.7px; }
+        .login-header p { font-size:13px !important; margin-top:5px; color:#64748b; }
+        .login-welcome {
+            display:flex;align-items:center;gap:8px;justify-content:center;
+            color:#f97316;font-size:11px;font-weight:800;letter-spacing:1.2px;
+            text-transform:uppercase;margin-bottom:8px;
+        }
+        .login-welcome::before,.login-welcome::after { content:"";width:24px;height:1px;background:#fed7aa; }
+        .login-card .input-icon input { min-height:52px !important; border-radius:13px !important; }
+        .login-card .input-icon input:focus { border-color:#f97316 !important; box-shadow:0 0 0 4px rgba(249,115,22,.12) !important; }
+        .login-card .btn-primary {
+            min-height:52px !important;border-radius:13px !important;
+            background:linear-gradient(135deg,#fb923c,#f97316 55%,#ea580c) !important;
+            box-shadow:0 12px 26px rgba(249,115,22,.25) !important;
+        }
+        .login-card .btn-primary:hover { transform:translateY(-1px); filter:brightness(.98); }
+        .login-security { display:flex;align-items:center;justify-content:center;gap:6px;margin-top:15px;color:#94a3b8;font-size:10px;font-weight:600; }
+        .login-security i { color:#f97316; }
+        @media(max-width:520px){
+          .login-card{padding:30px 20px 24px !important;border-radius:22px !important}
+          .login-card .brand-logo{width:68px !important;height:68px !important}
+        }
+
     </style>
 </head>
 <body>
+
+
+    <!-- INTRODUÇÃO MB -->
+    <div id="mb-splash">
+        <div class="splash-inner">
+            <div class="splash-logo">MB</div>
+            <div class="splash-title">Controle de Produção</div>
+            <div class="splash-sub">MB • Gestão Industrial</div>
+            <div class="splash-line"></div>
+        </div>
+    </div>
 
     <!-- LOGIN SCREEN -->
     <div id="login-screen" class="login-container">
         <div class="login-card">
             <div class="login-header">
                 <div class="brand-logo">MB</div>
+                <div class="login-welcome">Acesso interno</div>
                 <h1>Controle de Produção</h1>
-                <p>Faça login seguro no sistema</p>
+                <p>Entre com sua conta MB para acessar o sistema.</p>
             </div>
             <form id="login-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
@@ -515,7 +600,8 @@
                     </div>
                 </div>
                 <div id="login-error" class="error-message hidden">E-mail ou senha inválidos.</div>
-                <button type="submit" class="btn-primary">Entrar</button>
+                <button type="submit" class="btn-primary"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar no sistema</button>
+                <div class="login-security"><i class="fa-solid fa-shield-halved"></i> Acesso protegido pelo Firebase Authentication</div>
             </form>
         </div>
     </div>
@@ -654,45 +740,59 @@
             overlay.classList.toggle('active');
         }
 
-        // Real Firebase Auth Handler
+        // Firebase Auth — login seguro e sessão persistente
+        async function loadAuthenticatedUser(user) {
+            const { db, doc, getDoc, signOut, auth } = window.mbFirebase;
+            const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+
+            if (!profileSnap.exists()) {
+                await signOut(auth);
+                throw new Error("PROFILE_NOT_FOUND");
+            }
+
+            const data = profileSnap.data();
+            const allowedRoles = ["ADMIN", "CORTE", "TRANSPORTE"];
+
+            if (data.status !== "ATIVO" || !allowedRoles.includes(data.role)) {
+                await signOut(auth);
+                throw new Error("PROFILE_NOT_AUTHORIZED");
+            }
+
+            currentUser = {
+                id: user.uid,
+                name: data.name,
+                email: data.email || user.email,
+                role: data.role,
+                status: data.status
+            };
+
+            localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
+            await loadFirestoreData();
+            initApp();
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value.trim();
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
 
-            if (window.mbFirebase) {
-                try {
-                    const { auth, db, signInWithEmailAndPassword, collection, getDocs } = window.mbFirebase;
-                    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-                    const user = userCredential.user;
+            if (!window.mbFirebase) {
+                errorEl.innerText = 'Firebase não carregou. Atualize a página e tente novamente.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
 
-                    // Buscar perfil na collection 'profiles' do Firestore
-                    const querySnapshot = await getDocs(collection(db, "profiles"));
-                    let userProfile = null;
-                    querySnapshot.forEach((docSnap) => {
-                        const data = docSnap.data();
-                        if (data.email === email || docSnap.id === user.uid) {
-                            userProfile = { id: user.uid, ...data };
-                        }
-                    });
-
-                    if (!userProfile) {
-                        // Fallback se perfil não foi criado no Firestore ainda
-                        if (email.includes('admin')) userProfile = { id: user.uid, name: 'Marcos', role: 'ADMIN', email };
-                        else if (email.includes('transporte')) userProfile = { id: user.uid, name: 'Jéssica', role: 'TRANSPORTE', email };
-                        else userProfile = { id: user.uid, name: 'Nildo', role: 'CORTE', email };
-                    }
-
-                    currentUser = userProfile;
-                    localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
-                    await loadFirestoreData();
-                    initApp();
-                } catch (err) {
-                    console.error(err);
-                    document.getElementById('login-error').classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
+            try {
+                const { auth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence } = window.mbFirebase;
+                await setPersistence(auth, browserLocalPersistence);
+                const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+                await loadAuthenticatedUser(userCredential.user);
+            } catch (err) {
+                console.error(err);
+                errorEl.innerText = 'Não foi possível entrar. Confira seu e-mail, senha e acesso.';
+                errorEl.classList.remove('hidden');
             }
         }
 
@@ -1910,6 +2010,59 @@
 
         function toggleNotifications() { document.getElementById('notifications-dropdown').classList.toggle('hidden'); }
         function clearNotifications() { document.getElementById('notif-count').innerText = '0'; document.getElementById('notifications-dropdown').classList.add('hidden'); showToast('Notificações marcadas como lidas.'); }
+    
+        // Inicialização: mostra a introdução e restaura automaticamente a sessão Firebase.
+        window.addEventListener('load', () => {
+            const splash = document.getElementById('mb-splash');
+
+            const hideSplash = () => {
+                setTimeout(() => {
+                    if (splash) {
+                        splash.classList.add('splash-out');
+                        setTimeout(() => splash.remove(), 650);
+                    }
+                }, 1850);
+            };
+
+            const waitFirebase = (attempt = 0) => {
+                if (window.mbFirebase) {
+                    const { auth, onAuthStateChanged } = window.mbFirebase;
+                    let firstAuthCheck = true;
+
+                    onAuthStateChanged(auth, async (user) => {
+                        try {
+                            if (user) {
+                                await loadAuthenticatedUser(user);
+                            } else {
+                                currentUser = null;
+                                localStorage.removeItem('mb_current_user');
+                                document.getElementById('app-container').classList.add('hidden');
+                                document.getElementById('login-screen').classList.remove('hidden');
+                            }
+                        } catch (err) {
+                            console.error("Erro ao restaurar sessão:", err);
+                            currentUser = null;
+                            localStorage.removeItem('mb_current_user');
+                            document.getElementById('app-container').classList.add('hidden');
+                            document.getElementById('login-screen').classList.remove('hidden');
+                        } finally {
+                            if (firstAuthCheck) {
+                                firstAuthCheck = false;
+                                hideSplash();
+                            }
+                        }
+                    });
+                } else if (attempt < 60) {
+                    setTimeout(() => waitFirebase(attempt + 1), 100);
+                } else {
+                    console.error("Firebase não carregou.");
+                    hideSplash();
+                }
+            };
+
+            waitFirebase();
+        });
+
     </script>
 </body>
 </html>
