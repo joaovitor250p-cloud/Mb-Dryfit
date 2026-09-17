@@ -397,7 +397,7 @@
         .modal-box {
             background: #fff;
             width: 100%;
-            max-width: 700px;
+            max-width: 850px;
             border-radius: 12px;
             box-shadow: var(--shadow-md);
             max-height: 90vh;
@@ -451,7 +451,7 @@
             .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
             .desktop-table-container { display: block !important; }
             .mobile-card-list { display: none !important; }
-            .modal-box { max-width: 800px; padding: 24px; }
+            .modal-box { max-width: 900px; padding: 24px; }
             .toast-container { max-width: 400px; }
         }
     </style>
@@ -581,24 +581,24 @@
                 { id: 3, name: "Nildo", email: "corte@mb.com", role: "CORTE", status: "Ativo", last_login: "16/09/2026 07:45" }
             ],
             workshops: [
-                { id: 1, name: "Francisca", owner: "", phone: "(11) 99999-9999", address: "SP", status: "Ativa" },
-                { id: 2, name: "Virgilio", owner: "", phone: "(11) 98888-8888", address: "SP", status: "Ativa" },
-                { id: 3, name: "Dario Medina", owner: "", phone: "(19) 97777-7777", address: "SP", status: "Ativa" },
-                { id: 4, name: "Rodrigo", owner: "", phone: "(11) 96666-6666", address: "SP", status: "Ativa" },
-                { id: 5, name: "Samuel", owner: "", phone: "(11) 95555-5555", address: "SP", status: "Ativa" },
-                { id: 6, name: "Mauro", owner: "", phone: "(11) 94444-4444", address: "SP", status: "Ativa" },
-                { id: 7, name: "Ramiro", owner: "", phone: "(11) 93333-3333", address: "SP", status: "Ativa" },
-                { id: 8, name: "Victor", owner: "", phone: "(11) 92222-2222", address: "SP", status: "Ativa" },
-                { id: 9, name: "Jhony", owner: "", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
+                { id: 1, name: "Francisca", phone: "(11) 99999-9999", address: "SP", status: "Ativa" },
+                { id: 2, name: "Virgilio", phone: "(11) 98888-8888", address: "SP", status: "Ativa" },
+                { id: 3, name: "Dario Medina", phone: "(19) 97777-7777", address: "SP", status: "Ativa" },
+                { id: 4, name: "Rodrigo", phone: "(11) 96666-6666", address: "SP", status: "Ativa" },
+                { id: 5, name: "Samuel", phone: "(11) 95555-5555", address: "SP", status: "Ativa" },
+                { id: 6, name: "Mauro", phone: "(11) 94444-4444", address: "SP", status: "Ativa" },
+                { id: 7, name: "Ramiro", phone: "(11) 93333-3333", address: "SP", status: "Ativa" },
+                { id: 8, name: "Victor", phone: "(11) 92222-2222", address: "SP", status: "Ativa" },
+                { id: 9, name: "Jhony", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
             ],
             references: [
-                { id: 1, code: "1024", name: "Camisa Básica", product: "Camisa", fabric: "Malha", status: "Ativa" },
+                { id: 1, code: "1036", name: "Regata com Recorte Lateral", product: "Regata", fabric: "Malha", status: "Ativa" },
                 { id: 2, code: "2010", name: "Regata Esportiva", product: "Regata", fabric: "Dry Fit", status: "Ativa" },
                 { id: 3, code: "3040", name: "Bermuda Moletom", product: "Bermuda", fabric: "Moletinho", status: "Ativa" }
             ],
             products: [
-                { id: 1, name: "Conjunto", description: "Conjuntos completos", status: "Ativo" },
-                { id: 2, name: "Regata", description: "Regatas esportivas", status: "Ativo" },
+                { id: 1, name: "Regata", description: "Regatas esportivas", status: "Ativo" },
+                { id: 2, name: "Conjunto", description: "Conjuntos completos", status: "Ativo" },
                 { id: 3, name: "Bermuda", description: "Bermudas casuais", status: "Ativo" },
                 { id: 4, name: "Camisa", description: "Camisas", status: "Ativo" }
             ],
@@ -608,47 +608,22 @@
                 { id: 3, name: "Moletinho" },
                 { id: 4, name: "Meia Malha" }
             ],
-            cuts: [
-                { 
-                    id: 1, number: "C-0001", oc: "434", date: "2026-09-16", reference: "1036", product: "Conjunto", fabric: "Malha", 
-                    colors: [
-                        { color: "Preto", p: 28, m: 56, g: 56, gg: 28, xg: 0, details: "Lisa", total: 168 },
-                        { color: "Branco", p: 28, m: 56, g: 56, gg: 28, xg: 0, details: "Lisa", total: 168 }
-                    ],
-                    volumes: 4, total: 336, sent: 336, pending: 0, status: "🚚 Enviado para oficina", responsible: "Nildo",
-                    entry_date: "2026-09-16", exit_date: "2026-09-20", info_workshop: "Cortar com atenção na gola", cut_date: "2026-09-15", stamp: "Sim", stamp_date: "2026-09-16", obs: "Urgente"
-                }
-            ],
-            shipments: [
-                { id: 1, cut_number: "C-0001", oc: "434", workshop: "Virgilio", quantity: 336, volumes: 4, date: "2026-09-16", responsible: "Jéssica", observation: "Envio total" }
-            ],
-            production_orders: [
-                { 
-                    id: 1, number: "434", date: "2026-09-16", reference: "1036", product: "Conjunto", fabric: "Malha", workshop: "Virgilio", workshop_owner: "", 
-                    colors: [
-                        { color: "Preto", p: 28, m: 56, g: 56, gg: 28, xg: 0, details: "Lisa", total: 168 },
-                        { color: "Branco", p: 28, m: 56, g: 56, gg: 28, xg: 0, details: "Lisa", total: 168 }
-                    ],
-                    volumes: 4, total: 336, produced: 336, pending: 0, 
-                    status: "🏭 Na oficina", 
-                    finishing_status: "Pendente",
-                    entry_date: "2026-09-16", exit_date: "2026-09-20", info_workshop: "Cortar com atenção na gola", cut_date: "2026-09-15", stamp: "Sim", stamp_date: "2026-09-16", obs: "Urgente",
-                    timeline: [
-                        {step: "✂️ Corte pronto", date: "16/09 10:30"}, 
-                        {step: "🚚 Enviado para oficina", date: "16/09 14:20"}, 
-                        {step: "🏭 Na oficina", date: "17/09 08:15"}
-                    ] 
-                }
-            ],
+            cuts: [],
+            shipments: [],
+            production_orders: [],
             audit_logs: []
         };
 
         let DB = JSON.parse(localStorage.getItem('mb_db')) || defaultDB;
         
-        // Clean history routine
-        if (!localStorage.getItem('mb_history_cleaned_v3')) {
+        // Clean history routine for fresh start
+        if (!localStorage.getItem('mb_history_cleaned_v4')) {
+            DB.cuts = [];
+            DB.shipments = [];
+            DB.production_orders = [];
             DB.audit_logs = [];
-            localStorage.setItem('mb_history_cleaned_v3', 'true');
+            localStorage.setItem('mb_history_cleaned_v4', 'true');
+            saveDB();
         }
 
         function saveDB() { localStorage.setItem('mb_db', JSON.stringify(DB)); }
@@ -755,8 +730,8 @@
                     <div class="nav-section">
                         <div class="nav-section-title">Operacional</div>
                         <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Transporte</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas / Acompanhamento</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> Produção em oficina</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> Acabamento e OCs</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -766,7 +741,7 @@
                     <div class="nav-section">
                         <div class="nav-section-title">Cortes</div>
                         <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-plus"></i> Novo Corte</a>
+                        <a href="#" class="nav-item" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -866,12 +841,12 @@
                 const myReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
                 const myPending = DB.cuts.filter(c => c.status === 'Aguardando corte').length;
                 container.innerHTML = `
-                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">${currentUser.name} (${currentUser.role}) — Cadastro de lotes e marcação de prontos</span></div></div>
+                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">${currentUser.name} (${currentUser.role}) — Cadastro simplificado de lotes e grade</span></div></div>
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${myReady}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Aguardando Corte</div><div class="stat-card-value">${myPending}</div></div>
                     </div>
-                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte (com Ficha Completa)</button></div>
+                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte (Ficha Digital)</button></div>
                 `;
             }
         }
@@ -951,20 +926,8 @@
                         <div class="form-group"><label>Modelo / Produto</label><select id="cut-prod">${DB.products.map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
                         <div class="form-group"><label>Tecido</label><input type="text" id="cut-fab" required list="fab-list" placeholder="Ex: Malha"><datalist id="fab-list">${DB.fabrics.map(f=>`<option value="${f.name}">`).join('')}</datalist></div>
                     </div>
-                    
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div class="form-group"><label>Data de Entrada</label><input type="date" id="cut-entry-date" value="${new Date().toISOString().split('T')[0]}"></div>
-                        <div class="form-group"><label>Data de Saída</label><input type="date" id="cut-exit-date" value="${new Date(Date.now() + 5*86400000).toISOString().split('T')[0]}"></div>
-                    </div>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                        <div class="form-group"><label>Data do Corte</label><input type="date" id="cut-date-val" value="${new Date().toISOString().split('T')[0]}"></div>
-                        <div class="form-group"><label>Estampa</label><select id="cut-stamp"><option value="Não">Não</option><option value="Sim">Sim</option></select></div>
-                        <div class="form-group"><label>Data da Estampa</label><input type="date" id="cut-stamp-date" value="${new Date().toISOString().split('T')[0]}"></div>
-                    </div>
-
-                    <div class="form-group"><label>Informações para Oficina</label><textarea id="cut-info" placeholder="Instruções especiais"></textarea></div>
-                    <div class="form-group"><label>Observações / Outras Informações</label><textarea id="cut-obs" placeholder="Observações gerais"></textarea></div>
+                    <div class="form-group"><label>Informações / Observações</label><textarea id="cut-obs" placeholder="Observações e instruções para oficina"></textarea></div>
 
                     <hr style="margin:16px 0; border:0; border-top:1px solid var(--gray-200);">
                     
@@ -977,11 +940,24 @@
                         <!-- Rendered via JS -->
                     </div>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:var(--gray-100); padding:12px; border-radius:var(--radius); margin-bottom:14px;">
-                        <div class="form-group" style="margin-bottom:0;"><label>Quantidade de Volumes</label><input type="number" id="cut-volumes" value="1" min="1" required style="font-size:16px; font-weight:600;"></div>
-                        <div style="text-align:right; display:flex; flex-direction:column; justify-content:center;">
-                            <span style="font-size:11px; color:var(--gray-600); text-transform:uppercase;">TOTAL GERAL DE PEÇAS</span>
-                            <strong id="modal-total-geral" style="font-size:20px; color:var(--primary);">0</strong>
+                    <div style="background:var(--gray-50); padding:12px; border-radius:var(--radius); border:1px solid var(--gray-200); margin-bottom:14px;">
+                        <strong style="font-size:12px; color:var(--gray-600); text-transform:uppercase; display:block; margin-bottom:6px;">Resumo da OC</strong>
+                        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; text-align:center; font-size:12px; margin-bottom:8px;">
+                            <div style="background:#fff; padding:6px; border:1px solid var(--gray-200); border-radius:4px;">P: <strong id="res-p">0</strong></div>
+                            <div style="background:#fff; padding:6px; border:1px solid var(--gray-200); border-radius:4px;">M: <strong id="res-m">0</strong></div>
+                            <div style="background:#fff; padding:6px; border:1px solid var(--gray-200); border-radius:4px;">G: <strong id="res-g">0</strong></div>
+                            <div style="background:#fff; padding:6px; border:1px solid var(--gray-200); border-radius:4px;">GG: <strong id="res-gg">0</strong></div>
+                            <div style="background:#fff; padding:6px; border:1px solid var(--gray-200); border-radius:4px;">XG: <strong id="res-xg">0</strong></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <label style="font-size:12px; font-weight:600;">Quantidade de Volumes:</label>
+                                <input type="number" id="cut-volumes" value="1" min="1" required style="width:90px; display:inline-block; margin-left:8px; font-weight:600; text-align:center;">
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="font-size:11px; color:var(--gray-600); text-transform:uppercase; display:block;">Total Geral</span>
+                                <strong id="modal-total-geral" style="font-size:18px; color:var(--primary);">0 PEÇAS</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -996,29 +972,33 @@
             container.innerHTML = dynamicColors.map((item, idx) => `
                 <div style="background:var(--gray-50); border:1px solid var(--gray-200); padding:10px; border-radius:var(--radius); display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; gap:8px; align-items:center;">
-                        <input type="text" placeholder="Nome da Cor (Ex: Preto)" value="${item.color}" oninput="updateColorField(${idx}, 'color', this.value)" required style="flex:2; min-height:38px;">
-                        <input type="text" placeholder="Detalhes (Ex: Lisa)" value="${item.details}" oninput="updateColorField(${idx}, 'details', this.value)" style="flex:2; min-height:38px;">
+                        <input type="text" placeholder="Nome da Cor (Ex: Preto)" value="${item.color}" id="color-name-${idx}" oninput="updateColorFieldInput(${idx}, 'color', this)" required style="flex:2; min-height:38px;">
+                        <input type="text" placeholder="Detalhes (Ex: Lisa)" value="${item.details}" id="color-details-${idx}" oninput="updateColorFieldInput(${idx}, 'details', this)" style="flex:2; min-height:38px;">
                         ${dynamicColors.length > 1 ? `<button type="button" onclick="removeColorRow(${idx})" style="background:var(--danger); color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </div>
                     <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px;">
-                        <div><small style="font-size:10px;">P</small><input type="number" value="${item.p}" min="0" oninput="updateColorQty(${idx}, 'p', this.value)" style="text-align:center; min-height:36px; padding:4px;"></div>
-                        <div><small style="font-size:10px;">M</small><input type="number" value="${item.m}" min="0" oninput="updateColorQty(${idx}, 'm', this.value)" style="text-align:center; min-height:36px; padding:4px;"></div>
-                        <div><small style="font-size:10px;">G</small><input type="number" value="${item.g}" min="0" oninput="updateColorQty(${idx}, 'g', this.value)" style="text-align:center; min-height:36px; padding:4px;"></div>
-                        <div><small style="font-size:10px;">GG</small><input type="number" value="${item.gg}" min="0" oninput="updateColorQty(${idx}, 'gg', this.value)" style="text-align:center; min-height:36px; padding:4px;"></div>
-                        <div><small style="font-size:10px;">XG</small><input type="number" value="${item.xg}" min="0" oninput="updateColorQty(${idx}, 'xg', this.value)" style="text-align:center; min-height:36px; padding:4px;"></div>
+                        <div><small style="font-size:10px;">P</small><input type="number" inputmode="numeric" value="${item.p || ''}" min="0" id="c-${idx}-p" oninput="updateColorQty(${idx}, 'p', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
+                        <div><small style="font-size:10px;">M</small><input type="number" inputmode="numeric" value="${item.m || ''}" min="0" id="c-${idx}-m" oninput="updateColorQty(${idx}, 'm', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
+                        <div><small style="font-size:10px;">G</small><input type="number" inputmode="numeric" value="${item.g || ''}" min="0" id="c-${idx}-g" oninput="updateColorQty(${idx}, 'g', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
+                        <div><small style="font-size:10px;">GG</small><input type="number" inputmode="numeric" value="${item.gg || ''}" min="0" id="c-${idx}-gg" oninput="updateColorQty(${idx}, 'gg', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
+                        <div><small style="font-size:10px;">XG</small><input type="number" inputmode="numeric" value="${item.xg || ''}" min="0" id="c-${idx}-xg" oninput="updateColorQty(${idx}, 'xg', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
                     </div>
-                    <div style="text-align:right; font-size:12px; color:var(--gray-700);">Total da cor: <strong>${item.total}</strong></div>
+                    <div style="text-align:right; font-size:12px; color:var(--gray-700);">Total da cor: <strong id="c-${idx}-total">${item.total}</strong></div>
                 </div>
             `).join('');
             
-            const totalGeral = dynamicColors.reduce((acc, curr) => acc + curr.total, 0);
-            const previewEl = document.getElementById('modal-total-geral');
-            if (previewEl) previewEl.innerText = formatNumber(totalGeral);
+            updateResumoTotals();
         }
 
         function addColorRow() {
             dynamicColors.push({ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 });
             renderColorRows();
+            // Focus on the newly added color input
+            const newIdx = dynamicColors.length - 1;
+            setTimeout(() => {
+                const el = document.getElementById(`color-name-${newIdx}`);
+                if(el) el.focus();
+            }, 50);
         }
 
         function removeColorRow(idx) {
@@ -1026,16 +1006,40 @@
             renderColorRows();
         }
 
-        function updateColorField(idx, field, val) {
-            dynamicColors[idx][field] = val;
+        function updateColorFieldInput(idx, field, el) {
+            dynamicColors[idx][field] = el.value;
         }
 
         function updateColorQty(idx, field, val) {
-            const num = parseInt(val) || 0;
-            dynamicColors[idx][field] = num < 0 ? 0 : num;
+            const num = val === "" ? 0 : parseInt(val);
+            dynamicColors[idx][field] = isNaN(num) || num < 0 ? 0 : num;
             const c = dynamicColors[idx];
-            c.total = c.p + c.m + c.g + c.gg + c.xg;
-            renderColorRows();
+            c.total = (c.p || 0) + (c.m || 0) + (c.g || 0) + (c.gg || 0) + (c.xg || 0);
+            
+            // Update only specific total label without re-rendering whole form to prevent focus loss
+            const totalEl = document.getElementById(`c-${idx}-total`);
+            if(totalEl) totalEl.innerText = c.total;
+            
+            updateResumoTotals();
+        }
+
+        function updateResumoTotals() {
+            let sumP = 0, sumM = 0, sumG = 0, sumGG = 0, sumXG = 0, totalGeral = 0;
+            dynamicColors.forEach(c => {
+                sumP += (c.p || 0);
+                sumM += (c.m || 0);
+                sumG += (c.g || 0);
+                sumGG += (c.gg || 0);
+                sumXG += (c.xg || 0);
+                totalGeral += (c.total || 0);
+            });
+
+            if(document.getElementById('res-p')) document.getElementById('res-p').innerText = formatNumber(sumP);
+            if(document.getElementById('res-m')) document.getElementById('res-m').innerText = formatNumber(sumM);
+            if(document.getElementById('res-g')) document.getElementById('res-g').innerText = formatNumber(sumG);
+            if(document.getElementById('res-gg')) document.getElementById('res-gg').innerText = formatNumber(sumGG);
+            if(document.getElementById('res-xg')) document.getElementById('res-xg').innerText = formatNumber(sumXG);
+            if(document.getElementById('modal-total-geral')) document.getElementById('modal-total-geral').innerText = formatNumber(totalGeral) + " PEÇAS";
         }
 
         function handleSaveCut(e) {
@@ -1064,12 +1068,6 @@
                 pending: total,
                 status: "Aguardando corte",
                 responsible: "Nildo",
-                entry_date: document.getElementById('cut-entry-date').value,
-                exit_date: document.getElementById('cut-exit-date').value,
-                info_workshop: document.getElementById('cut-info').value,
-                cut_date: document.getElementById('cut-date-val').value,
-                stamp: document.getElementById('cut-stamp').value,
-                stamp_date: document.getElementById('cut-stamp-date').value,
                 obs: document.getElementById('cut-obs').value
             };
 
@@ -1152,7 +1150,7 @@
             openModal(`
                 <div class="modal-header"><h2>Enviar ${c.number} (OC ${c.oc})</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="handleSaveShipment(event, '${c.number}')">
-                    <div class="form-group"><label>Oficina (Selecione da lista cadastrada)</label><select id="ship-workshop" required>${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name} ${w.owner ? '(Resp: '+w.owner+')' : ''}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Oficina (Selecione da lista cadastrada)</label><select id="ship-workshop" required>${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name}</option>`).join('')}</select></div>
                     <div class="form-group">
                         <label>Quantidade de Peças a Enviar</label>
                         <small style="color:var(--gray-600); display:block; margin-bottom:4px;">Quantidade disponível: <strong>${c.pending}</strong></small>
@@ -1192,7 +1190,6 @@
                 existingOC.pending += qty;
                 existingOC.volumes = (existingOC.volumes || 0) + volumesVal;
                 existingOC.workshop = workshop;
-                existingOC.workshop_owner = workshopObj ? workshopObj.owner : '';
             } else {
                 DB.production_orders.unshift({
                     id: DB.production_orders.length + 1,
@@ -1202,18 +1199,11 @@
                     product: c.product,
                     fabric: c.fabric,
                     workshop: workshop,
-                    workshop_owner: workshopObj ? workshopObj.owner : '',
                     colors: JSON.parse(JSON.stringify(c.colors || [])),
                     volumes: volumesVal,
                     total: qty, produced: 0, pending: qty,
                     status: "🏭 Na oficina",
                     finishing_status: "Pendente",
-                    entry_date: c.entry_date,
-                    exit_date: c.exit_date,
-                    info_workshop: c.info_workshop,
-                    cut_date: c.cut_date,
-                    stamp: c.stamp,
-                    stamp_date: c.stamp_date,
                     obs: c.obs,
                     timeline: [
                         { step: "✂️ Corte pronto", date: "16/09 10:00" },
@@ -1223,7 +1213,7 @@
                 });
             }
 
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: "Jéssica", action: "Enviado para oficina", target: `OC ${c.oc}`, details: `Jéssica enviou ${qty} peças (${volumesVal} volumes) do corte ${c.number} para Oficina: ${workshop}.` });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:10", user: "Jéssica", action: "Em processo na oficina", target: `OC ${c.oc}`, details: `Jéssica enviou ${qty} peças (${volumesVal} volumes) do corte ${c.number} para Oficina: ${workshop} (Status: 🏭 Em processo na oficina).` });
 
             saveDB();
             closeModal();
@@ -1231,33 +1221,30 @@
             renderTransport(document.getElementById('page-content'));
         }
 
-        // Orders (OCs) Module with Full Pipeline
+        // Orders (OCs) Module with Simplified Pipeline
         function renderOrders(container) {
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento do fluxo completo nas oficinas e acabamento</span></div>
+                    <div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento do fluxo nas oficinas e acabamento</span></div>
                 </div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>OC</th><th>Referência</th><th>Produto</th><th>Oficina</th><th>Volumes</th><th>Qtd</th><th>Produzido</th><th>Status</th><th>Acabamento</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>OC</th><th>Referência</th><th>Produto</th><th>Oficina</th><th>Volumes</th><th>Qtd</th><th>Produzido</th><th>Status</th><th>Ações</th></tr></thead>
                             <tbody>
                                 ${DB.production_orders.map(o => `
                                     <tr>
                                         <td><strong>OC ${o.number}</strong></td>
                                         <td>${o.reference}</td>
                                         <td>${o.product}</td>
-                                        <td>Oficina: ${o.workshop} ${o.workshop_owner ? '(Resp: '+o.workshop_owner+')' : ''}</td>
+                                        <td>Oficina: ${o.workshop}</td>
                                         <td>${o.volumes || 1} vls</td>
                                         <td>${formatNumber(o.total)}</td>
                                         <td>${formatNumber(o.produced)}</td>
                                         <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
-                                        <td><span class="badge badge-info">${o.finishing_status || 'Pendente'}</span></td>
                                         <td>
-                                            ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
-                                            ${o.status === '✓ Oficina pronta' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; min-height:36px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
-                                            ${o.status === '🚚 Enviando para acabamento' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
-                                            ${o.status === '🎨 Chegou no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
+                                            ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
+                                            ${o.status === '🎨 Corte no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                             <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
                                             <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
                                         </td>
@@ -1276,17 +1263,14 @@
                                         <span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span>
                                     </div>
                                     <div class="mobile-card-body" style="grid-template-columns: 1fr;">
-                                        <div><span>Oficina:</span>Oficina: ${o.workshop} ${o.workshop_owner ? '— Resp: '+o.workshop_owner : ''}</div>
+                                        <div><span>Oficina:</span>Oficina: ${o.workshop}</div>
                                         <div><span>Produto:</span>👕 ${o.product} (Ref. ${o.reference}) | 🧵 ${o.fabric}</div>
                                         <div><span>Volumes:</span>${o.volumes || 1} volumes</div>
                                         <div><span>Quantidade Total:</span><strong>${formatNumber(o.total)} peças</strong></div>
-                                        <div><span>Status Acabamento:</span>${o.finishing_status || 'Pendente'}</div>
                                     </div>
                                     <div class="mobile-card-footer">
-                                        ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markWorkshopReady('${o.number}')">✓ Oficina Pronta</button>` : ''}
-                                        ${o.status === '✓ Oficina pronta' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px;" onclick="sendToFinishing('${o.number}')">🚚 Enviar Acabamento</button>` : ''}
-                                        ${o.status === '🚚 Enviando para acabamento' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="arriveFinishing('${o.number}')">🎨 Chegou Acabamento</button>` : ''}
-                                        ${o.status === '🎨 Chegou no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
+                                        ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
+                                        ${o.status === '🎨 Corte no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                         <button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
                                         <button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
                                     </div>
@@ -1298,37 +1282,14 @@
             `;
         }
 
-        function markWorkshopReady(num) {
+        function markFinishing(num) {
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
-            o.status = "✓ Oficina pronta";
-            o.timeline.push({ step: "✓ Oficina pronta", date: "18/09 10:20" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "10:20", user: "Jéssica", action: "Oficina pronta", target: `OC ${o.number}`, details: `Jéssica marcou a OC ${o.number} como oficina pronta na Oficina: ${o.workshop}.` });
+            o.status = "🎨 Corte no acabamento";
+            o.timeline.push({ step: "🎨 Corte no acabamento", date: "18/09 11:00" });
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: currentUser.name, action: "Corte no acabamento", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como corte no acabamento.` });
             saveDB();
-            showToast(`✓ OC ${o.number} marcada como oficina pronta.`);
-            renderOrders(document.getElementById('page-content'));
-        }
-
-        function sendToFinishing(num) {
-            const o = DB.production_orders.find(x => x.number === num);
-            if (!o) return;
-            o.status = "🚚 Enviando para acabamento";
-            o.timeline.push({ step: "🚚 Enviando para acabamento", date: "18/09 11:00" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: "Jéssica", action: "Enviando para acabamento", target: `OC ${o.number}`, details: `Jéssica enviou a OC ${o.number} para acabamento.` });
-            saveDB();
-            showToast(`✓ OC ${o.number} enviada para acabamento.`);
-            renderOrders(document.getElementById('page-content'));
-        }
-
-        function arriveFinishing(num) {
-            const o = DB.production_orders.find(x => x.number === num);
-            if (!o) return;
-            o.status = "🎨 Chegou no acabamento";
-            o.finishing_status = "Em acabamento";
-            o.timeline.push({ step: "🎨 Chegou no acabamento", date: "18/09 12:30" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "12:30", user: "Jéssica", action: "Chegou no acabamento", target: `OC ${o.number}`, details: `Jéssica confirmou chegada da OC ${o.number} no acabamento.` });
-            saveDB();
-            showToast(`✓ OC ${o.number} chegou no acabamento.`);
+            showToast(`✓ OC ${o.number} marcada como corte no acabamento.`);
             renderOrders(document.getElementById('page-content'));
         }
 
@@ -1336,7 +1297,6 @@
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
             o.status = "📦 OC pronta";
-            o.finishing_status = "Concluído";
             o.produced = o.total;
             o.pending = 0;
             o.timeline.push({ step: "📦 OC pronta", date: "18/09 14:00" });
@@ -1346,7 +1306,7 @@
             renderOrders(document.getElementById('page-content'));
         }
 
-        // PDF Generation Function using jsPDF + AutoTable
+        // PDF Generation Function (Professional Ficha de Produção MB inspired by physical sheet photo)
         function downloadOCPDF(num) {
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) {
@@ -1357,44 +1317,59 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-            // Header Banner
-            doc.setFillColor(37, 99, 235);
-            doc.rect(14, 14, 182, 16, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(14);
+            // Header Title
             doc.setFont('inter', 'bold');
-            doc.text('MB — FICHA DE PRODUÇÃO', 18, 25);
+            doc.setFontSize(16);
+            doc.setTextColor(15, 23, 42);
+            doc.text('MB — FICHA DE PRODUÇÃO', 14, 16);
 
-            // Metadata Box
-            doc.setDrawColor(203, 213, 225);
-            doc.setFillColor(248, 250, 252);
-            doc.roundedRect(14, 34, 182, 36, 2, 2, 'FD');
+            // Top Meta Grid Box
+            doc.setDrawColor(100, 116, 139);
+            doc.setLineWidth(0.3);
+            doc.rect(14, 20, 182, 18); // Top block for Model/Ref
+            doc.line(14, 29, 196, 29); // divider
+            doc.line(130, 20, 130, 38); // vertical divider
 
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(10);
+            doc.setFontSize(9);
             doc.setFont('inter', 'bold');
-            doc.text(`NÚMERO DA OC: ${o.number}`, 18, 42);
-            doc.text(`REFERÊNCIA: ${o.reference}`, 80, 42);
-            doc.text(`PRODUTO / MODELO: ${o.product}`, 140, 42);
-
+            doc.text('Modelo:', 16, 25);
             doc.setFont('inter', 'normal');
-            doc.text(`Oficina: ${o.workshop} ${o.workshop_owner ? '(Resp: '+o.workshop_owner+')' : ''}`, 18, 50);
-            doc.text(`Status Atual: ${o.status}`, 110, 50);
+            doc.text(`${o.product || '-'}`, 35, 25);
 
-            doc.text(`Data Entrada: ${formatDate(o.entry_date || o.date)}`, 18, 58);
-            doc.text(`Data Saída: ${formatDate(o.exit_date || '')}`, 80, 58);
-            doc.text(`Volumes: ${o.volumes || 1}`, 140, 58);
+            doc.setFont('inter', 'bold');
+            doc.text('REF:', 132, 25);
+            doc.setFont('inter', 'normal');
+            doc.text(`${o.reference || '-'}`, 145, 25);
 
-            // Secondary Info Box
-            doc.roundedRect(14, 74, 182, 26, 2, 2, 'FD');
-            doc.text(`Corte Data: ${formatDate(o.cut_date || '')}`, 18, 81);
-            doc.text(`Estampa: ${o.stamp || 'Não'} (${formatDate(o.stamp_date || '')})`, 80, 81);
-            doc.text(`Info Oficina: ${o.info_workshop || 'Nenhuma'}`, 18, 89);
-            doc.text(`Observações: ${o.obs || 'Nenhuma'}`, 18, 96);
+            doc.setFont('inter', 'bold');
+            doc.text('OC:', 132, 34);
+            doc.setFont('inter', 'normal');
+            doc.text(`${o.number}`, 145, 34);
 
-            // Colors Table
+            // Oficina & Infos Box
+            doc.rect(14, 38, 182, 32);
+            doc.line(130, 38, 130, 70); // vertical divider
+
+            doc.setFont('inter', 'bold');
+            doc.text('Oficina:', 132, 44);
+            doc.setFont('inter', 'normal');
+            doc.text(`${o.workshop || '-'}`, 148, 44);
+
+            doc.setFont('inter', 'bold');
+            doc.text('Inf. p/ oficina:', 16, 44);
+            doc.setFont('inter', 'normal');
+            const splitInfo = doc.splitTextToSize(o.info_workshop || 'Nenhuma', 110);
+            doc.text(splitInfo, 16, 50);
+
+            doc.line(130, 54, 196, 54);
+            doc.setFont('inter', 'bold');
+            doc.text('Status:', 132, 60);
+            doc.setFont('inter', 'normal');
+            doc.text(`${o.status}`, 145, 60);
+
+            // Colors Table Construction
             let tableBody = [];
-            let sumP = 0, sumM = 0, sumG = 0, sumGG = 0, sumXG = 0;
+            let sumP = 0, sumM = 0, sumG = 0, sumGG = 0, sumXG = 0, totalGeral = 0;
 
             if (o.colors && o.colors.length > 0) {
                 o.colors.forEach(col => {
@@ -1405,7 +1380,7 @@
                         col.g || 0,
                         col.gg || 0,
                         col.xg || 0,
-                        col.details || '-',
+                        col.details || '',
                         col.total || 0
                     ]);
                     sumP += (col.p || 0);
@@ -1413,45 +1388,67 @@
                     sumG += (col.g || 0);
                     sumGG += (col.gg || 0);
                     sumXG += (col.xg || 0);
+                    totalGeral += (col.total || 0);
                 });
             } else {
-                tableBody.push([
-                    'Padrão', o.p || 0, o.m || 0, o.g || 0, o.gg || 0, 0, '-', o.total || 0
-                ]);
+                tableBody.push(['Padrão', o.p || 0, o.m || 0, o.g || 0, o.gg || 0, 0, '', o.total || 0]);
                 sumP += (o.p || 0);
                 sumM += (o.m || 0);
                 sumG += (o.g || 0);
                 sumGG += (o.gg || 0);
+                totalGeral += (o.total || 0);
             }
 
+            // Add Totals row directly inside table body like the physical sheet
+            tableBody.push([
+                'TOTAL', sumP, sumM, sumG, sumGG, sumXG, '', totalGeral
+            ]);
+
             doc.autoTable({
-                startY: 104,
-                head: [['COR', 'P', 'M', 'G', 'GG', 'XG', 'DETALHES', 'TOTAL']],
-                body: tableBody,
+                startY: 72,
+                head: [['CORES', 'P', 'M', 'G', 'GG', 'XG', 'DETALHES']],
+                body: tableBody.map(row => [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]), // table view matches physical sheet layout columns
                 theme: 'grid',
-                headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 9, textColor: [30, 41, 59] },
+                headStyles: { fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9, lineWidth: 0.3, lineColor: [100, 116, 139], halign: 'center' },
+                bodyStyles: { fontSize: 9, textColor: [30, 41, 59], lineWidth: 0.3, lineColor: [100, 116, 139] },
                 columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 15, halign: 'center' },
-                    2: { cellWidth: 15, halign: 'center' },
-                    3: { cellWidth: 15, halign: 'center' },
-                    4: { cellWidth: 15, halign: 'center' },
-                    5: { cellWidth: 15, halign: 'center' },
-                    6: { cellWidth: 47 },
-                    7: { cellWidth: 25, halign: 'center', fontStyle: 'bold' }
+                    0: { cellWidth: 45, fontStyle: 'bold' },
+                    1: { cellWidth: 18, halign: 'center' },
+                    2: { cellWidth: 18, halign: 'center' },
+                    3: { cellWidth: 18, halign: 'center' },
+                    4: { cellWidth: 18, halign: 'center' },
+                    5: { cellWidth: 18, halign: 'center' },
+                    6: { cellWidth: 57 }
+                },
+                didParseCell: function (data) {
+                    // Highlight last row (TOTAL)
+                    if (data.row.index === tableBody.length - 1) {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.fillColor = [241, 245, 249];
+                    }
                 }
             });
 
             const finalY = doc.lastAutoTable.finalY + 6;
 
-            // Totals Footer Box
-            doc.setFillColor(241, 245, 249);
-            doc.roundedRect(14, finalY, 182, 18, 2, 2, 'FD');
+            // Outras Informações / Observações Box & Volumes (matching physical sheet footer)
+            doc.setDrawColor(100, 116, 139);
+            doc.rect(14, finalY, 182, 28);
             doc.setFont('inter', 'bold');
             doc.setFontSize(9);
-            doc.text(`TOTAIS -> P: ${sumP} | M: ${sumM} | G: ${sumG} | GG: ${sumGG} | XG: ${sumXG}`, 18, finalY + 7);
-            doc.text(`TOTAL GERAL DE PEÇAS: ${o.total}  |  VOLUMES: ${o.volumes || 1}`, 18, finalY + 14);
+            doc.text('Outras inf:', 16, finalY + 6);
+            doc.setFont('inter', 'normal');
+            const splitObs = doc.splitTextToSize(o.obs || 'Nenhuma observação', 170);
+            doc.text(splitObs, 16, finalY + 12);
+
+            // Volumes Box at bottom left
+            doc.rect(14, finalY + 28, 50, 14);
+            doc.setFont('inter', 'bold');
+            doc.text(`Volumes: ${o.volumes || 1}`, 18, finalY + 37);
+
+            // Total final highlight right side
+            doc.rect(64, finalY + 28, 132, 14);
+            doc.text(`TOTAL GERAL DE PEÇAS: ${totalGeral}`, 70, finalY + 37);
 
             doc.save(`OC-${o.number}.pdf`);
             showToast(`✓ Download do PDF da OC ${o.number} realizado com sucesso.`);
@@ -1526,10 +1523,9 @@
                     </div>
                 </div>
                 <div style="font-size:13px; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                    <div>🏭 <strong>Oficina:</strong> ${o.workshop} ${o.workshop_owner ? '— Resp: '+o.workshop_owner : ''}</div>
+                    <div>🏭 <strong>Oficina:</strong> ${o.workshop}</div>
                     <div>👕 <strong>Produto/Modelo:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference} | 🧵 <strong>Tecido:</strong> ${o.fabric}</div>
                     <div>📦 <strong>Volumes:</strong> ${o.volumes || 1} volumes | <strong>Status:</strong> ${o.status}</div>
-                    <div>📅 <strong>Entrada:</strong> ${formatDate(o.entry_date || o.date)} | <strong>Saída:</strong> ${formatDate(o.exit_date || '')}</div>
                 </div>
                 ${colorsTableHTML}
                 <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius); margin-bottom:12px; font-size:12px;">
@@ -1548,79 +1544,44 @@
             `);
         }
 
-        // Other Modules (Workshops with Editor, References, Products, Reports, Users, History)
+        // Other Modules (Workshops, References, Products, Reports, Users, History)
         function renderWorkshops(container) {
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>Oficinas Independentes</h1><span class="page-subtitle">Parceiros cadastrados e responsáveis</span></div>
+                    <div><h1>Oficinas Independentes</h1><span class="page-subtitle">Parceiros cadastrados</span></div>
                 </div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Oficina</th><th>Responsável</th><th>Telefone</th><th>Endereço</th><th>Ação</th></tr></thead>
+                            <thead><tr><th>Oficina</th><th>Telefone</th><th>Endereço</th><th>Status</th></tr></thead>
                             <tbody>
-                                ${DB.workshops.map((w, idx) => `
+                                ${DB.workshops.map(w => `
                                     <tr>
                                         <td><strong>Oficina: ${w.name}</strong></td>
-                                        <td>${w.owner ? w.owner : '<span style="color:var(--gray-400)">Não cadastrado</span>'}</td>
                                         <td>${w.phone}</td>
                                         <td>${w.address}</td>
-                                        <td><button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="openWorkshopEditModal(${idx})">Editar Responsável</button></td>
+                                        <td><span class="badge badge-success">${w.status}</span></td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     </div>
                     <div class="mobile-card-list">
-                        ${DB.workshops.map((w, idx) => `
+                        ${DB.workshops.map(w => `
                             <div class="mobile-card-item">
                                 <div class="mobile-card-header">
                                     <strong>Oficina: ${w.name}</strong>
                                     <span class="badge badge-success">${w.status}</span>
                                 </div>
                                 <div class="mobile-card-body">
-                                    <div><span>Responsável:</span>${w.owner ? w.owner : 'Não cadastrado'}</div>
                                     <div><span>Telefone:</span>${w.phone}</div>
                                     <div><span>Endereço:</span>${w.address}</div>
-                                </div>
-                                <div class="mobile-card-footer">
-                                    <button class="btn-primary" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;" onclick="openWorkshopEditModal(${idx})">Editar Responsável</button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `;
-        }
-
-        function openWorkshopEditModal(idx) {
-            const w = DB.workshops[idx];
-            openModal(`
-                <div class="modal-header"><h2>Editar Oficina: ${w.name}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <form onsubmit="handleSaveWorkshop(event, ${idx})">
-                    <div class="form-group"><label>Nome da Oficina</label><input type="text" value="${w.name}" disabled style="background:var(--gray-100)"></div>
-                    <div class="form-group"><label>Nome do Responsável</label><input type="text" id="edit-workshop-owner" required value="${w.owner || ''}" placeholder="Digite o nome do responsável"></div>
-                    <div class="modal-footer"><button type="submit" class="btn-primary">Salvar Responsável</button></div>
-                </form>
-            `);
-        }
-
-        function handleSaveWorkshop(e, idx) {
-            e.preventDefault();
-            const ownerName = document.getElementById('edit-workshop-owner').value;
-            DB.workshops[idx].owner = ownerName;
-            
-            DB.production_orders.forEach(o => {
-                if (o.workshop === DB.workshops[idx].name) {
-                    o.workshop_owner = ownerName;
-                }
-            });
-
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "16:00", user: currentUser.name, action: "Atualizar oficina", target: DB.workshops[idx].name, details: `${currentUser.name} atualizou o responsável da oficina ${DB.workshops[idx].name} para ${ownerName}.` });
-            saveDB();
-            closeModal();
-            showToast('✓ Responsável atualizado com sucesso.');
-            renderWorkshops(document.getElementById('page-content'));
         }
 
         function renderReferences(container) {
@@ -1635,10 +1596,10 @@
             const totalProduced = DB.production_orders.reduce((a,o) => a + o.produced, 0);
             const totalFinished = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
             
-            const totalP = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.p||0),0) : (o.p || 0)), 0);
-            const totalM = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.m||0),0) : (o.m || 0)), 0);
-            const totalG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.g||0),0) : (o.g || 0)), 0);
-            const totalGG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.gg||0),0) : (o.gg || 0)), 0);
+            const totalP = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.p||0),0) : 0), 0);
+            const totalM = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.m||0),0) : 0), 0);
+            const totalG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.g||0),0) : 0), 0);
+            const totalGG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.gg||0),0) : 0), 0);
             const totalXG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.xg||0),0) : 0), 0);
 
             container.innerHTML = `
@@ -1674,7 +1635,7 @@
                                     const ordersW = DB.production_orders.filter(o => o.workshop === w.name);
                                     const prodW = ordersW.reduce((a,o)=>a+o.produced,0);
                                     const pendW = ordersW.reduce((a,o)=>a+o.pending,0);
-                                    return `<tr><td><strong>Oficina: ${w.name} ${w.owner ? '(Resp: '+w.owner+')' : ''}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
+                                    return `<tr><td><strong>Oficina: ${w.name}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
                                 }).join('')}
                             </tbody>
                         </table>
