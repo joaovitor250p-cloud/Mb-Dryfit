@@ -737,12 +737,13 @@
                 { name: "Jhony", phone: "(11) 91111-1111", address: "SP", status: "Ativa" }
             ],
             references: [
-                { code: "1036", name: "Regata com Recorte Lateral", product: "Regata", fabric: "Malha", status: "Ativa" }
+                { code: "1036", name: "Regata com Recorte Lateral", product: "Regata", fabric: (document.getElementById('cut-fabric')?.value || "").trim(), status: "Ativa" }
             ],
             products: [
                 { name: "Regata", description: "Regatas esportivas", status: "Ativo" },
                 { name: "Conjunto", description: "Conjuntos completos", status: "Ativo" },
                 { name: "Bermuda", description: "Bermudas casuais", status: "Ativo" },
+                { name: "Calça", description: "Calças", status: "Ativo" },
                 { name: "Camisa", description: "Camisas", status: "Ativo" }
             ],
             fabrics: [{ name: "Malha" }, { name: "Dry Fit" }, { name: "Moletinho" }],
@@ -756,7 +757,36 @@
         let currentPage = "dashboard";
         let realtimeUnsubscribers = [];
 
-        function formatNumber(num) { return num ? num.toLocaleString('pt-BR') : '0'; }
+        function toQuantity(value) {
+            if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value) : 0;
+            if (value === null || value === undefined || value === '') return 0;
+            let s = String(value).trim().replace(/\s/g, '');
+            // Production quantities are integers. In pt-BR, dots are commonly thousand separators.
+            if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+            else if (/^\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, '');
+            else s = s.replace(/[^0-9-]/g, '');
+            const n = parseInt(s, 10);
+            return Number.isFinite(n) ? n : 0;
+        }
+        function formatNumber(num) { return toQuantity(num).toLocaleString('pt-BR'); }
+
+        function availableQuantity(cut) {
+            if (!cut) return 0;
+            const pending = toQuantity(cut.pending);
+            const total = Math.abs(toQuantity(cut.total));
+
+            // Corrige fichas antigas que ficaram gravadas como -1126, -500 etc.
+            // Numa ficha ainda disponível para transporte, o sinal negativo é corrupção,
+            // não uma quantidade negativa real.
+            if (pending < 0) return Math.abs(pending);
+            if (pending > 0) return pending;
+
+            const sent = Math.max(0, toQuantity(cut.sent));
+            if ((cut.status === '✂️ Corte pronto' || cut.status === '🚚 Envio parcial') && total > 0 && sent === 0) {
+                return total;
+            }
+            return 0;
+        }
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');
@@ -891,6 +921,7 @@
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'fichas') renderFichas(content);
             else if (currentPage === 'history') renderHistory(content);
         }
 
@@ -918,6 +949,7 @@
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'fichas') renderFichas(content);
             else if (currentPage === 'history') renderHistory(content);
         }
 
@@ -1002,6 +1034,7 @@
                     <div class="nav-section">
                         <div class="nav-section-title">Gestão</div>
                         <a href="#" class="nav-item" onclick="navigateTo('reports', this)"><i class="fa-solid fa-chart-line"></i> Relatórios</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('fichas', this)"><i class="fa-solid fa-folder-open"></i> Fichas</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -1014,6 +1047,7 @@
                         <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> Acabamento e OCs</a>
                         <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
                         <a href="#" class="nav-item" onclick="navigateTo('reports', this)"><i class="fa-solid fa-chart-line"></i> Relatórios</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('fichas', this)"><i class="fa-solid fa-folder-open"></i> Fichas</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -1024,6 +1058,7 @@
                         <div class="nav-section-title">Cortes</div>
                         <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes & Rascunhos</a>
                         <a href="#" class="nav-item" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('fichas', this)"><i class="fa-solid fa-folder-open"></i> Fichas</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -1050,6 +1085,7 @@
             else if (page === 'references') renderReferences(content);
             else if (page === 'products') renderProducts(content);
             else if (page === 'reports') renderReports(content);
+            else if (page === 'fichas') renderFichas(content);
             else if (page === 'history') renderHistory(content);
         }
 
@@ -1193,10 +1229,10 @@
             if (!c || c.status !== '📝 Rascunho') return;
             editingCutNumber = c.number;
             dynamicColors = JSON.parse(JSON.stringify(c.colors || [{ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 }]));
-            renderCutFormModal("Editar Rascunho", c.oc, c.reference, c.product, c.obs, c.volumes);
+            renderCutFormModal("Editar Rascunho", c.oc, c.reference, c.product, c.obs, c.volumes, c.fabric || "");
         }
 
-        function renderCutFormModal(title, ocVal = "", refVal = "", prodVal = "", obsVal = "", volVal = 1) {
+        function renderCutFormModal(title, ocVal = "", refVal = "", prodVal = "", obsVal = "", volVal = 1, fabricVal = "") {
             openModal(`
                 <div class="modal-header"><h2>${title}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="handleSaveCut(event)">
@@ -1207,6 +1243,10 @@
                     <div class="form-group">
                         <label>Modelo / Produto</label>
                         <select id="cut-prod">${DB.products.map(p=>`<option value="${p.name}" ${prodVal === p.name ? 'selected' : ''}>${p.name}</option>`).join('')}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Tecido</label>
+                        <input type="text" id="cut-fabric" value="${fabricVal || ''}" placeholder="Ex: Dry Fit, Malha, Moletinho..." autocomplete="off">
                     </div>
                     <div class="form-group"><label>Informações / Observações</label><textarea id="cut-obs" placeholder="Observações e instruções">${obsVal}</textarea></div>
                     <hr style="margin:16px 0; border:0; border-top:1px solid var(--gray-200);">
@@ -1313,7 +1353,7 @@
                 date: new Date().toISOString().split('T')[0],
                 reference: refVal,
                 product: document.getElementById('cut-prod').value,
-                fabric: "Malha",
+                fabric: (document.getElementById("cut-fabric")?.value || "").trim(),
                 colors: JSON.parse(JSON.stringify(dynamicColors)),
                 volumes: volumesVal,
                 total: total,
@@ -1323,6 +1363,7 @@
                 responsible: currentUser.name,
                 responsibleUid: currentUser.id,
                 obs: document.getElementById('cut-obs').value,
+                createdAt: editingCutNumber ? (DB.cuts.find(x => x.number === editingCutNumber)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
 
@@ -1354,6 +1395,7 @@
                 oc: document.getElementById('cut-oc').value.trim(),
                 reference: document.getElementById('cut-ref').value.trim(),
                 product: document.getElementById('cut-prod').value,
+                fabric: (document.getElementById('cut-fabric')?.value || "").trim(),
                 obs: document.getElementById('cut-obs').value,
                 volumes: parseInt(document.getElementById('cut-volumes').value) || 1,
                 total,
@@ -1372,6 +1414,7 @@
                     <p><strong>OC:</strong> ${pendingCutConfirmation.oc}</p>
                     <p><strong>Referência:</strong> ${pendingCutConfirmation.reference}</p>
                     <p><strong>Produto:</strong> ${pendingCutConfirmation.product}</p>
+                    <p><strong>Tipo de Tecido:</strong> ${pendingCutConfirmation.fabric || '-'}</p>
                     <p><strong>Total:</strong> ${formatNumber(total)} peças</p>
                     <p><strong>Volumes:</strong> ${pendingCutConfirmation.volumes}</p>
                     <p style="margin-top:10px;color:var(--warning);"><strong>Confira os dados.</strong> Se voltar, nada será apagado.</p>
@@ -1393,7 +1436,7 @@
             dynamicColors = JSON.parse(JSON.stringify(p.colors));
             renderCutFormModal(
                 editingCutNumber ? "Editar Rascunho" : "Novo Corte (Rascunho)",
-                p.oc, p.reference, p.product, p.obs, p.volumes
+                p.oc, p.reference, p.product, p.obs, p.volumes, p.fabric
             );
         }
 
@@ -1411,7 +1454,7 @@
                 date: now.toISOString().split('T')[0],
                 reference: p.reference,
                 product: p.product,
-                fabric: p.previous?.fabric || "Malha",
+                fabric: p.fabric || p.previous?.fabric || "",
                 colors: JSON.parse(JSON.stringify(p.colors)),
                 volumes: p.volumes,
                 total: p.total,
@@ -1421,6 +1464,8 @@
                 responsible: currentUser.name,
                 responsibleUid: currentUser.id,
                 obs: p.obs,
+                createdAt: p.previous?.createdAt || now.toISOString(),
+                readyAt: now.toISOString(),
                 updatedAt: now.toISOString()
             };
 
@@ -1557,8 +1602,9 @@
                                     <tr>
                                         <td><strong>${c.number}</strong></td><td><span class="badge badge-info">OC ${c.oc}</span></td>
                                         <td>${c.reference}</td><td>${c.product}</td><td>${c.fabric || '-'}</td><td>${c.volumes || 1} vls</td>
-                                        <td>${formatNumber(c.pending)} peças</td><td><span class="badge badge-success">${c.status}</span></td>
+                                        <td>${formatNumber(availableQuantity(c))} peças</td><td><span class="badge badge-success">${c.status}</span></td>
                                         <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                            ${toQuantity(c.pending) < 0 ? `<button class="btn-primary" style="background:#7c3aed;padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir quantidade</button>` : ''}
                                             <button class="btn-primary" style="padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar</button>
                                             ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver</button><button class="btn-primary" style="background:var(--danger);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar</button>` : ''}
                                         </div></td>
@@ -1577,12 +1623,13 @@
                                 <div class="mobile-data-grid">
                                     <div class="mobile-field"><small>Referência</small><strong>${c.reference}</strong></div>
                                     <div class="mobile-field"><small>Produto</small><strong>${c.product}</strong></div>
-                                    <div class="mobile-field"><small>Quantidade</small><strong>${formatNumber(c.pending)} peças</strong></div>
+                                    <div class="mobile-field"><small>Quantidade</small><strong>${formatNumber(availableQuantity(c))} peças</strong></div>
                                     <div class="mobile-field"><small>Volumes</small><strong>${c.volumes || 1}</strong></div>
                                     <div class="mobile-field"><small>Tecido</small><strong>${c.fabric || '-'}</strong></div>
                                     <div class="mobile-field"><small>Situação</small><strong>Pronto para envio</strong></div>
                                 </div>
                                 <div class="mobile-action-row">
+                                    ${toQuantity(c.pending) < 0 ? `<button class="btn-primary" style="background:#7c3aed;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir quantidade</button>` : ''}
                                     <button class="btn-primary" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button>
                                     ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver ao Nildo</button><button class="btn-primary" style="background:var(--danger);" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar OC</button>` : ''}
                                 </div>
@@ -1643,18 +1690,66 @@
             } catch(err) { console.error(err); showToast('Não foi possível apagar a OC. Verifique as regras do Firebase.', 'error'); }
         }
 
+        async function repairLegacyCut(cutNumber) {
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c) return;
+
+            const rawPending = toQuantity(c.pending);
+            if (rawPending >= 0) {
+                showToast('Esta ficha não precisa de correção.');
+                return;
+            }
+
+            const corrected = Math.abs(rawPending) || Math.abs(toQuantity(c.total));
+            const now = new Date();
+
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", c.number), {
+                    total: Math.abs(toQuantity(c.total)) || corrected,
+                    pending: corrected,
+                    sent: 0,
+                    updatedAt: now.toISOString()
+                }, { merge:true });
+
+                await addDoc(collection(db, "auditLogs"), {
+                    date: now.toLocaleDateString('pt-BR'),
+                    time: now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user: currentUser.name,
+                    userUid: currentUser.id,
+                    action: "Quantidade corrigida",
+                    target: `OC ${c.oc}`,
+                    details: `Quantidade disponível corrigida de ${rawPending} para ${corrected} peças. Ficha antiga recuperada sem exclusão.`,
+                    createdAt: now.toISOString()
+                });
+
+                await loadFirestoreData();
+                showToast(`✓ OC ${c.oc} corrigida para ${formatNumber(corrected)} peças.`);
+                renderTransport(document.getElementById('page-content'));
+            } catch (err) {
+                console.error("Erro ao corrigir ficha antiga:", err);
+                showToast('Não foi possível corrigir a ficha. Verifique as permissões do Firebase.', 'error');
+            }
+        }
+
         function openShipModal(cutNumber) {
             const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c) return;
+            const available = availableQuantity(c);
+            if (available <= 0) {
+                showToast('Esta OC está sem quantidade disponível para envio.', 'error');
+                return;
+            }
             openModal(`
                 <div class="modal-header"><h2>Enviar ${c.number} (OC ${c.oc})</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <form onsubmit="confirmShipment(event, '${c.number}')">
                     <div class="form-group"><label>Oficina</label><select id="ship-workshop" required>${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name}</option>`).join('')}</select></div>
                     <div class="form-group">
                         <label>Quantidade de Peças a Enviar</label>
-                        <small style="color:var(--gray-600); display:block; margin-bottom:4px;">Disponível: <strong>${c.pending}</strong></small>
-                        <input type="number" id="ship-qty" max="${c.pending}" min="1" required value="${c.pending}" style="font-size:16px; font-weight:600;">
+                        <small style="color:var(--gray-600);display:block;margin-bottom:4px;">Disponível: <strong>${formatNumber(available)}</strong></small>
+                        <input type="number" id="ship-qty" max="${available}" min="1" step="1" required value="${available}" style="font-size:16px;font-weight:600;">
                     </div>
-                    <div class="form-group"><label>Volumes</label><input type="number" id="ship-volumes" min="1" required value="${c.volumes || 1}"></div>
+                    <div class="form-group"><label>Volumes</label><input type="number" id="ship-volumes" min="1" step="1" required value="${toQuantity(c.volumes) || 1}"></div>
                     <div class="modal-footer"><button type="submit" class="btn-primary">Avançar</button></div>
                 </form>
             `);
@@ -1662,129 +1757,130 @@
 
         function confirmShipment(e, cutNum) {
             e.preventDefault();
-            const qty = parseInt(document.getElementById('ship-qty').value);
-            const volumesVal = parseInt(document.getElementById('ship-volumes').value) || 1;
+            const qty = toQuantity(document.getElementById('ship-qty').value);
+            const volumesVal = Math.max(1, toQuantity(document.getElementById('ship-volumes').value));
             const workshop = document.getElementById('ship-workshop').value;
             const c = DB.cuts.find(x => x.number === cutNum);
+            const available = availableQuantity(c);
 
-            if (qty > c.pending) {
-                showToast(`Quantidade inválida. Restam ${c.pending}.`, 'error');
+            if (!c || qty < 1 || qty > available) {
+                showToast(`Quantidade inválida. Disponível: ${formatNumber(available)} peças.`, 'error');
                 return;
             }
 
             openModal(`
                 <div class="modal-header"><h2>Confirmar Envio?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <div style="font-size:14px; margin-bottom:16px;">
+                <div style="font-size:14px;margin-bottom:16px;">
                     <p><strong>OC:</strong> ${c.oc}</p>
                     <p><strong>Total:</strong> ${formatNumber(qty)} peças</p>
                     <p><strong>Volumes:</strong> ${volumesVal}</p>
                     <p><strong>Destino:</strong> ${workshop}</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="openShipModal('${cutNum}')">Cancelar</button>
-                    <button class="btn-primary" style="background:var(--success); width:auto;" onclick="executeSaveShipment('${cutNum}', ${qty}, ${volumesVal}, '${workshop}')">🚚 Confirmar envio</button>
+                    <button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="openShipModal('${cutNum}')">Voltar</button>
+                    <button class="btn-primary" style="background:var(--success);width:auto;" onclick="executeSaveShipment('${cutNum}', ${qty}, ${volumesVal}, ${JSON.stringify(workshop)})">🚚 Confirmar envio</button>
                 </div>
             `);
         }
 
         async function executeSaveShipment(cutNum, qty, volumesVal, workshop) {
             const c = DB.cuts.find(x => x.number === cutNum);
-            c.sent += qty;
-            c.pending -= qty;
-            c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
+            if (!c) return;
 
-            const shipData = { cut_number: c.number, oc: c.oc, workshop, quantity: qty, volumes: volumesVal, date: new Date().toISOString().split('T')[0], responsible: currentUser.name, observation: '' };
-            
-            let existingOC = DB.production_orders.find(o => o.number === c.oc);
-            let ocData = null;
-            if (existingOC) {
-                existingOC.total += qty;
-                existingOC.pending += qty;
-                existingOC.volumes = (existingOC.volumes || 0) + volumesVal;
-                existingOC.workshop = workshop;
-                ocData = existingOC;
-            } else {
-                ocData = {
-                    number: c.oc,
-                    date: c.date,
-                    reference: c.reference,
-                    product: c.product,
-                    fabric: c.fabric,
-                    workshop: workshop,
-                    colors: JSON.parse(JSON.stringify(c.colors || [])),
-                    volumes: volumesVal,
-                    total: qty, produced: 0, pending: qty,
-                    status: "🏭 Na oficina",
-                    obs: c.obs
-                };
-                DB.production_orders.unshift(ocData);
-            }
-
-            const logData = {
-                date: new Date().toLocaleDateString('pt-BR'),
-                time: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                user_name: currentUser.name,
-                action: "Em processo na oficina",
-                target: `OC ${c.oc}`,
-                details: `${currentUser.name} enviou ${qty} peças (${volumesVal} volumes) do corte ${c.number} para Oficina: ${workshop} (Status: 🏭 Em processo na oficina).`
-            };
-
-            try {
-                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
-                await setDoc(doc(db, "cuts", c.number), { ...c, updatedAt: new Date().toISOString() }, { merge: true });
-                await addDoc(collection(db, "shipments"), { ...shipData, responsibleUid: currentUser.id, createdAt: new Date().toISOString() });
-                await setDoc(doc(db, "productionOrders", String(ocData.number)), { ...ocData, updatedAt: new Date().toISOString() }, { merge: true });
-                await addDoc(collection(db, "auditLogs"), {
-                    date: logData.date, time: logData.time, user: logData.user_name,
-                    action: logData.action, target: logData.target, details: logData.details,
-                    userUid: currentUser.id, createdAt: new Date().toISOString()
-                });
-                await loadFirestoreData();
-            } catch (err) {
-                console.error("Erro ao registrar envio no Firestore:", err);
-                showToast('Não foi possível registrar o envio no Firebase.', 'error');
+            qty = toQuantity(qty);
+            const available = availableQuantity(c);
+            if (qty < 1 || qty > available) {
+                showToast(`Quantidade inválida. Disponível: ${formatNumber(available)} peças.`, 'error');
                 return;
             }
 
-            closeModal();
-            showToast('✓ Envio registrado com sucesso.');
-            renderTransport(document.getElementById('page-content'));
+            c.total = Math.abs(toQuantity(c.total)) || available;
+            // Se a ficha antiga veio corrompida com pending negativo, não carregue um sent inválido.
+            const legacyNegative = toQuantity(c.pending) < 0;
+            c.sent = (legacyNegative ? 0 : Math.max(0, toQuantity(c.sent))) + qty;
+            c.pending = Math.max(0, available - qty);
+            c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
+
+            const now = new Date();
+            const shipData = {
+                cut_number:c.number, oc:c.oc, workshop, quantity:qty, volumes:volumesVal,
+                date:now.toISOString().split('T')[0], responsible:currentUser.name, observation:''
+            };
+
+            let existingOC = DB.production_orders.find(o => String(o.number) === String(c.oc));
+            let ocData;
+            if (existingOC) {
+                ocData = { ...existingOC };
+                ocData.total = toQuantity(ocData.total) + qty;
+                ocData.pending = toQuantity(ocData.pending) + qty;
+                ocData.volumes = toQuantity(ocData.volumes) + volumesVal;
+                ocData.workshop = workshop;
+                ocData.status = "🏭 Na oficina";
+            } else {
+                ocData = {
+                    number:c.oc, date:c.date, reference:c.reference, product:c.product, fabric:c.fabric,
+                    workshop, colors:JSON.parse(JSON.stringify(c.colors || [])), volumes:volumesVal,
+                    total:qty, produced:0, pending:qty, status:"🏭 Na oficina", obs:c.obs
+                };
+            }
+
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", c.number), { ...c, currentWorkshop:workshop, updatedAt:now.toISOString() }, { merge:true });
+                await addDoc(collection(db, "shipments"), { ...shipData, responsibleUid:currentUser.id, createdAt:now.toISOString() });
+                await setDoc(doc(db, "productionOrders", String(ocData.number)), { ...ocData, updatedAt:now.toISOString() }, { merge:true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id, action:"Enviado para oficina", target:`OC ${c.oc}`,
+                    details:`${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
+                    createdAt:now.toISOString()
+                });
+                await loadFirestoreData();
+                closeModal();
+                showToast(`✓ OC ${c.oc} enviada para ${workshop}.`);
+                renderTransport(document.getElementById('page-content'));
+            } catch (err) {
+                console.error("Erro ao registrar envio no Firestore:", err);
+                showToast('Não foi possível registrar o envio no Firebase.', 'error');
+            }
         }
 
         function renderOrders(container) {
+            const orders = DB.production_orders;
+            const actionsFor = (o) => `
+                ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success);width:auto;" onclick="markFinishing('${o.number}')">🎨 Ir para Acabamento</button>` : ''}
+                ${o.status === '🎨 Corte no acabamento' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--warning);width:auto;" onclick="returnOCToWorkshop('${o.number}')">↩️ Voltar para Oficina</button>` : ''}
+                ${(currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:#64748b;width:auto;" onclick="confirmReturnOCToCuts('${o.number}')">✂️ Voltar para Cortes</button>` : ''}
+                <button class="btn-primary" style="background:var(--success);width:auto;" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
+                <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>`;
+
             container.innerHTML = `
-                <div class="page-header">
-                    <div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento do fluxo nas oficinas e acabamento</span></div>
-                </div>
+                <div class="page-header"><div><h1>Ordens de Produção (OCs)</h1><span class="page-subtitle">Acompanhamento do fluxo nas oficinas e acabamento</span></div></div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
                             <thead><tr><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>OFICINA</th><th>VOLUMES</th><th>QUANTIDADE</th><th>PRODUZIDO</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
-                            <tbody>
-                                ${DB.production_orders.map(o => `
-                                    <tr>
-                                        <td><strong>OC ${o.number}</strong></td>
-                                        <td>${o.reference}</td>
-                                        <td>${o.product}</td>
-                                        <td>Oficina: ${o.workshop}</td>
-                                        <td>${o.volumes || 1} vls</td>
-                                        <td>${formatNumber(o.total)}</td>
-                                        <td>${formatNumber(o.produced)}</td>
-                                        <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
-                                        <td>
-                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                                ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="markFinishing('${o.number}')">Corte no Acabamento</button>` : ''}
-                                                <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
-                                                <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
+                            <tbody>${orders.map(o=>`<tr>
+                                <td><strong>OC ${o.number}</strong></td><td>${o.reference}</td><td>${o.product}</td><td>Oficina: ${o.workshop || '-'}</td>
+                                <td>${toQuantity(o.volumes)||1} vls</td><td>${formatNumber(o.total)}</td><td>${formatNumber(o.produced)}</td>
+                                <td><span class="badge badge-warning">${o.status}</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap;">${actionsFor(o)}</div></td>
+                            </tr>`).join('')}</tbody>
                         </table>
                     </div>
-                </div>
-            `;
+                    <div class="mobile-card-list">
+                        ${orders.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--gray-500)">Nenhuma OC em produção.</div>` : orders.map(o=>`
+                            <div class="mobile-data-card">
+                                <div class="mobile-data-head"><div><div class="mobile-data-title">OC ${o.number}</div><small>${o.reference} • ${o.product}</small></div><span class="badge badge-warning">${o.status}</span></div>
+                                <div class="mobile-data-grid">
+                                    <div class="mobile-field"><small>Oficina</small><strong>${o.workshop || '-'}</strong></div>
+                                    <div class="mobile-field"><small>Quantidade</small><strong>${formatNumber(o.total)} peças</strong></div>
+                                    <div class="mobile-field"><small>Volumes</small><strong>${toQuantity(o.volumes)||1}</strong></div>
+                                    <div class="mobile-field"><small>Produzido</small><strong>${formatNumber(o.produced)}</strong></div>
+                                </div>
+                                <div class="mobile-action-row">${actionsFor(o)}</div>
+                            </div>`).join('')}
+                    </div>
+                </div>`;
         }
 
         async function markFinishing(num) {
@@ -1812,6 +1908,57 @@
                 console.error("Erro ao marcar acabamento:", err);
                 showToast('Não foi possível atualizar a OC no Firebase.', 'error');
             }
+        }
+
+        async function returnOCToWorkshop(num) {
+            const o = DB.production_orders.find(x => String(x.number) === String(num));
+            if (!o) return;
+            const now = new Date();
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "productionOrders", String(o.number)), { status:"🏭 Na oficina", updatedAt:now.toISOString() }, { merge:true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id, action:"Voltou para oficina", target:`OC ${o.number}`,
+                    details:`${currentUser.name} devolveu a OC ${o.number} do acabamento para a oficina ${o.workshop || '-'}.`,
+                    createdAt:now.toISOString()
+                });
+                await loadFirestoreData(); showToast(`✓ OC ${o.number} voltou para a oficina.`); renderOrders(document.getElementById('page-content'));
+            } catch(e) { console.error(e); showToast('Não foi possível voltar a OC para a oficina.', 'error'); }
+        }
+
+        function confirmReturnOCToCuts(num) {
+            const o = DB.production_orders.find(x => String(x.number) === String(num));
+            if (!o) return;
+            openModal(`
+                <div class="modal-header"><h2>Voltar OC ${o.number} para Cortes?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <p style="margin-bottom:14px;">A OC sairá da oficina/acabamento e voltará para <strong>Corte Pronto</strong>, ficando novamente disponível para a Jéssica enviar.</p>
+                <div class="form-group"><label>Motivo</label><textarea id="return-cuts-reason" required placeholder="Informe o motivo da devolução..."></textarea></div>
+                <div class="modal-footer"><button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button class="btn-primary" style="background:var(--warning);width:auto;" onclick="returnOCToCuts('${o.number}')">✂️ Confirmar</button></div>
+            `);
+        }
+
+        async function returnOCToCuts(num) {
+            const o = DB.production_orders.find(x => String(x.number) === String(num));
+            const c = DB.cuts.find(x => String(x.oc) === String(num));
+            const reason = document.getElementById('return-cuts-reason')?.value.trim();
+            if (!o || !c || !reason) { showToast('Informe o motivo da devolução.', 'error'); return; }
+            const now = new Date();
+            try {
+                const { db, doc, setDoc, deleteDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", c.number), {
+                    status:"✂️ Corte pronto", sent:0, pending:toQuantity(c.total), currentWorkshop:"",
+                    updatedAt:now.toISOString()
+                }, { merge:true });
+                await deleteDoc(doc(db, "productionOrders", String(o.number)));
+                await addDoc(collection(db, "auditLogs"), {
+                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id, action:"Voltou para Cortes", target:`OC ${o.number}`,
+                    details:`${currentUser.name} devolveu a OC ${o.number} para Corte Pronto. Motivo: ${reason}`,
+                    createdAt:now.toISOString()
+                });
+                await loadFirestoreData(); closeModal(); showToast(`✓ OC ${o.number} voltou para Cortes.`); navigateTo('transport');
+            } catch(e) { console.error(e); showToast('Não foi possível voltar a OC para Cortes. Verifique as permissões do Firebase.', 'error'); }
         }
 
         function confirmDevolucao(ocNum) {
@@ -2178,6 +2325,52 @@
         function renderUsers(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>E-MAIL</th><th>PERFIL</th><th>STATUS</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div></div>`;
         }
+        function renderFichas(container) {
+            const fichas = [...DB.cuts].sort((a,b) => String(b.createdAt || b.readyAt || b.updatedAt || b.date || '').localeCompare(String(a.createdAt || a.readyAt || a.updatedAt || a.date || '')));
+
+            const getFichaTime = c => {
+                const raw = c.createdAt || c.readyAt || c.updatedAt;
+                if (!raw) return { date: formatDate(c.date), time: 'Horário não registrado' };
+                const d = new Date(raw);
+                if (isNaN(d.getTime())) return { date: formatDate(c.date), time:'Horário não registrado' };
+                return { date:d.toLocaleDateString('pt-BR'), time:d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) };
+            };
+            const getWorkshop = c => {
+                const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
+                return order?.workshop || c.currentWorkshop || '';
+            };
+
+            container.innerHTML = `
+                <div class="page-header"><div><h1>📁 Fichas</h1><span class="page-subtitle">Todas as fichas criadas no Controle de Produção</span></div></div>
+                <div class="card">
+                    <div class="desktop-table-container table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>DATA</th><th>HORÁRIO</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>PEÇAS</th><th>OFICINA</th><th>STATUS</th><th>FICHA</th></tr></thead>
+                            <tbody>${fichas.length === 0 ? `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--gray-500)">Nenhuma ficha criada.</td></tr>` : fichas.map(c=>{
+                                const t=getFichaTime(c), w=getWorkshop(c);
+                                return `<tr><td>${t.date}</td><td>${t.time}</td><td><strong>OC ${c.oc}</strong></td><td>${c.reference}</td><td>${c.product}</td><td>${c.fabric||'-'}</td><td>${formatNumber(c.total)}</td><td>${w ? `Oficina: ${w}` : `<span class="badge badge-gray">Sem oficina ainda</span>`}</td><td><span class="badge badge-info">${c.status}</span></td><td><button class="icon-btn" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button></td></tr>`;
+                            }).join('')}</tbody>
+                        </table>
+                    </div>
+                    <div class="mobile-card-list">
+                        ${fichas.length === 0 ? `<div style="text-align:center;padding:20px;color:var(--gray-500)">Nenhuma ficha criada.</div>` : fichas.map(c=>{
+                            const t=getFichaTime(c), w=getWorkshop(c);
+                            return `<div class="mobile-data-card">
+                                <div class="mobile-data-head"><div><div class="mobile-data-title">OC ${c.oc}</div><small>${t.date} às ${t.time}</small></div><span class="badge badge-info">${c.status}</span></div>
+                                <div class="mobile-data-grid">
+                                    <div class="mobile-field"><small>Referência</small><strong>${c.reference}</strong></div>
+                                    <div class="mobile-field"><small>Produto</small><strong>${c.product}</strong></div>
+                                    <div class="mobile-field"><small>Tecido</small><strong>${c.fabric||'-'}</strong></div>
+                                    <div class="mobile-field"><small>Peças</small><strong>${formatNumber(c.total)}</strong></div>
+                                </div>
+                                <div style="padding:9px;border-radius:9px;background:${w ? 'var(--success-light)' : 'var(--gray-100)'};font-size:12px;"><strong>Oficina:</strong> ${w || 'Sem oficina ainda'}</div>
+                                <button class="btn-primary" style="width:100%;" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i> Ver ficha</button>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+
         function renderHistory(container) {
             const logs = [...DB.audit_logs].sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
             container.innerHTML = `
