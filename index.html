@@ -1744,6 +1744,8 @@
             }
         }
 
+        let pendingShipmentConfirmation = null;
+
         function openShipModal(cutNumber) {
             const c = DB.cuts.find(x => x.number === cutNumber);
             if (!c) return;
@@ -1769,16 +1771,34 @@
 
         function confirmShipment(e, cutNum) {
             e.preventDefault();
-            const qty = toQuantity(document.getElementById('ship-qty').value);
-            const volumesVal = Math.max(1, toQuantity(document.getElementById('ship-volumes').value));
-            const workshop = document.getElementById('ship-workshop').value;
-            const c = DB.cuts.find(x => x.number === cutNum);
-            const available = availableQuantity(c);
 
-            if (!c || qty < 1 || qty > available) {
+            const c = DB.cuts.find(x => x.number === cutNum);
+            if (!c) {
+                showToast('Ficha não encontrada.', 'error');
+                return;
+            }
+
+            const qty = Math.abs(toQuantity(document.getElementById('ship-qty')?.value));
+            const volumesVal = Math.max(1, Math.abs(toQuantity(document.getElementById('ship-volumes')?.value)));
+            const workshop = document.getElementById('ship-workshop')?.value || "";
+            const available = Math.abs(availableQuantity(c));
+
+            if (!workshop) {
+                showToast('Escolha uma oficina.', 'error');
+                return;
+            }
+            if (qty < 1 || qty > available) {
                 showToast(`Quantidade inválida. Disponível: ${formatNumber(available)} peças.`, 'error');
                 return;
             }
+
+            // Guarda os dados fora do HTML. Assim nomes de oficina nunca quebram o botão.
+            pendingShipmentConfirmation = {
+                cutNum: String(cutNum),
+                qty,
+                volumesVal,
+                workshop
+            };
 
             openModal(`
                 <div class="modal-header"><h2>Confirmar Envio?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
@@ -1790,9 +1810,32 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="openShipModal('${cutNum}')">Voltar</button>
-                    <button class="btn-primary" style="background:var(--success);width:auto;" onclick="executeSaveShipment('${cutNum}', ${qty}, ${volumesVal}, ${JSON.stringify(workshop)})">🚚 Confirmar envio</button>
+                    <button id="confirm-real-shipment-btn" class="btn-primary" style="background:var(--success);width:auto;" onclick="executePendingShipment()">🚚 Confirmar envio</button>
                 </div>
             `);
+        }
+
+        async function executePendingShipment() {
+            const p = pendingShipmentConfirmation;
+            if (!p) {
+                showToast('Dados do envio expiraram. Abra a ficha novamente.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('confirm-real-shipment-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = 'Enviando...';
+            }
+
+            try {
+                await executeSaveShipment(p.cutNum, p.qty, p.volumesVal, p.workshop);
+            } finally {
+                if (document.getElementById('confirm-real-shipment-btn')) {
+                    document.getElementById('confirm-real-shipment-btn').disabled = false;
+                    document.getElementById('confirm-real-shipment-btn').innerHTML = '🚚 Confirmar envio';
+                }
+            }
         }
 
         async function executeSaveShipment(cutNum, qty, volumesVal, workshop) {
@@ -2250,7 +2293,7 @@
             const finalized = DB.production_orders.filter(o => {
                 if (o.status !== "✅ Finalizado") return false;
                 const raw = o.finishedAt || o.updatedAt || o.date || "";
-                const date = String(raw).slice(0,10);
+                const date = normalizeReportDate(raw);
                 if (start && date < start) return false;
                 if (end && date > end) return false;
                 return true;
@@ -2289,34 +2332,93 @@
                 </div>`;
         }
 
+        let reportDateState = { start: "", end: "" };
+
+        function normalizeReportDate(value) {
+            if (!value) return "";
+            if (value instanceof Date && !isNaN(value.getTime())) {
+                const y = value.getFullYear();
+                const m = String(value.getMonth()+1).padStart(2,'0');
+                const d = String(value.getDate()).padStart(2,'0');
+                return `${y}-${m}-${d}`;
+            }
+
+            const s = String(value).trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+
+            const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (br) return `${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`;
+
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                const y = parsed.getFullYear();
+                const m = String(parsed.getMonth()+1).padStart(2,'0');
+                const d = String(parsed.getDate()).padStart(2,'0');
+                return `${y}-${m}-${d}`;
+            }
+            return "";
+        }
+
+        function getCutReportDate(c) {
+            return normalizeReportDate(c.createdAt || c.date || c.readyAt || c.updatedAt || "");
+        }
+
+        function saveReportDates() {
+            reportDateState.start = document.getElementById('report-start-date')?.value || reportDateState.start || "";
+            reportDateState.end = document.getElementById('report-end-date')?.value || reportDateState.end || "";
+        }
+
         function generateFichaPeriodReport() {
-            const start = document.getElementById('report-start-date')?.value;
-            const end = document.getElementById('report-end-date')?.value;
+            saveReportDates();
+            const start = normalizeReportDate(reportDateState.start);
+            const end = normalizeReportDate(reportDateState.end);
             const target = document.getElementById('ficha-period-report');
-            if (!start || !end || !target) { showToast('Escolha a data inicial e a data final.', 'error'); return; }
-            if (start > end) { showToast('A data inicial não pode ser maior que a final.', 'error'); return; }
+
+            if (!start || !end || !target) {
+                showToast('Escolha a data inicial e a data final.', 'error');
+                return;
+            }
+            if (start > end) {
+                showToast('A data inicial não pode ser maior que a data final.', 'error');
+                return;
+            }
 
             const rows = DB.cuts.filter(c => {
-                let date = c.date;
-                if (!date && c.createdAt) date = String(c.createdAt).slice(0,10);
+                const date = getCutReportDate(c);
                 return date && date >= start && date <= end;
-            }).sort((a,b) => String(a.date||a.createdAt||'').localeCompare(String(b.date||b.createdAt||'')));
+            }).sort((a,b) => getCutReportDate(a).localeCompare(getCutReportDate(b)));
 
-            const totalPieces = rows.reduce((s,c)=>s+Math.abs(toQuantity(c.total)),0);
+            const totalPieces = rows.reduce((s,c) => s + Math.abs(toQuantity(c.total)), 0);
+
             renderWorkshopProductionReport(start, end);
+
             target.innerHTML = `
                 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
                     <span class="badge badge-info">${rows.length} fichas</span>
                     <span class="badge badge-success">${formatNumber(totalPieces)} peças</span>
                     <span class="badge badge-gray">${start.split('-').reverse().join('/')} até ${end.split('-').reverse().join('/')}</span>
                 </div>
-                ${rows.length === 0 ? `<div style="padding:16px;text-align:center;color:var(--gray-500)">Nenhuma ficha nesse período.</div>` :
-                `<div class="table-responsive"><table class="data-table"><thead><tr><th>DATA</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>PEÇAS</th><th>OFICINA</th><th>STATUS</th></tr></thead>
-                <tbody>${rows.map(c=>{
-                    const order=DB.production_orders.find(o=>String(o.number)===String(c.oc));
-                    const w=order?.workshop||c.currentWorkshop||'Sem oficina ainda';
-                    return `<tr><td>${formatDate(c.date)}</td><td><strong>OC ${c.oc}</strong></td><td>${c.reference||'-'}</td><td>${c.product||'-'}</td><td>${c.fabric||'-'}</td><td>${formatNumber(c.total)}</td><td>${w}</td><td>${c.status||'-'}</td></tr>`;
-                }).join('')}</tbody></table></div>`}`;
+                ${rows.length === 0
+                    ? `<div style="padding:16px;text-align:center;color:var(--gray-500);">Nenhuma ficha criada nesse período.</div>`
+                    : `<div class="table-responsive"><table class="data-table">
+                        <thead><tr><th>DATA</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>PEÇAS</th><th>OFICINA</th><th>STATUS</th></tr></thead>
+                        <tbody>${rows.map(c => {
+                            const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
+                            const w = order?.workshop || c.currentWorkshop || 'Sem oficina ainda';
+                            const d = getCutReportDate(c);
+                            return `<tr>
+                                <td>${d ? d.split('-').reverse().join('/') : '-'}</td>
+                                <td><strong>OC ${c.oc}</strong></td>
+                                <td>${c.reference || '-'}</td>
+                                <td>${c.product || '-'}</td>
+                                <td>${c.fabric || '-'}</td>
+                                <td>${formatNumber(c.total)}</td>
+                                <td>${w}</td>
+                                <td>${c.status || '-'}</td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table></div>`}
+            `;
         }
 
         function renderReports(container) {
@@ -2342,8 +2444,8 @@
                 <div class="card" style="margin-bottom:16px;">
                     <div class="card-header"><h3 class="card-title">Período das fichas</h3></div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;">
-                        <div class="form-group" style="margin:0;"><label>Data inicial</label><input type="date" id="report-start-date"></div>
-                        <div class="form-group" style="margin:0;"><label>Data final</label><input type="date" id="report-end-date"></div>
+                        <div class="form-group" style="margin:0;"><label>Data inicial</label><input type="date" id="report-start-date" value="${reportDateState.start}" onchange="saveReportDates()" oninput="saveReportDates()"></div>
+                        <div class="form-group" style="margin:0;"><label>Data final</label><input type="date" id="report-end-date" value="${reportDateState.end}" onchange="saveReportDates()" oninput="saveReportDates()"></div>
                         <button class="btn-primary" onclick="generateFichaPeriodReport()">🔎 Gerar relatório</button>
                     </div>
                     <div id="ficha-period-report" style="margin-top:14px;"></div>
