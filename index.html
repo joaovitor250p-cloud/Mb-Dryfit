@@ -11,7 +11,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // 🔥 COLE AQUI AS SUAS CHAVES REAIS DO FIREBASE (DA TELA DO PRINT)
         const firebaseConfig = {
@@ -28,7 +28,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
+        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
     </script>
     <!-- jsPDF & AutoTable via CDN for professional PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -467,6 +467,26 @@
             .modal-box { max-width: 950px; padding: 24px; }
             .toast-container { max-width: 400px; }
         }
+
+        /* Login MB — visual renovado */
+        .login-container { position:relative; overflow:hidden; background:radial-gradient(circle at 15% 20%, rgba(37,99,235,.28), transparent 34%), radial-gradient(circle at 90% 85%, rgba(14,165,233,.18), transparent 30%), linear-gradient(145deg,#07111f 0%,#0f172a 52%,#111c31 100%); padding:24px; }
+        .login-container::before,.login-container::after { content:""; position:absolute; border:1px solid rgba(255,255,255,.07); border-radius:999px; pointer-events:none; }
+        .login-container::before { width:420px;height:420px;left:-180px;top:-190px; }
+        .login-container::after { width:520px;height:520px;right:-250px;bottom:-290px; }
+        .login-card { position:relative; z-index:1; max-width:430px; padding:34px 32px 30px; border-radius:24px; border:1px solid rgba(255,255,255,.72); box-shadow:0 28px 80px rgba(0,0,0,.38); }
+        .login-header { margin-bottom:28px; }
+        .brand-logo { width:68px;height:68px;border-radius:20px;font-size:30px;margin-bottom:16px;box-shadow:0 12px 30px rgba(37,99,235,.28);transform:rotate(-3deg); }
+        .login-header h1 { font-size:24px; letter-spacing:-.5px; margin-bottom:6px; }
+        .login-header p { font-size:13px; }
+        .login-card .form-group { margin-bottom:17px; }
+        .login-card .form-group label { font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:7px; }
+        .login-card .input-icon { position:relative; }
+        .login-card .input-icon i { position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--gray-400);z-index:2; }
+        .login-card .input-icon input { min-height:50px;padding-left:42px;border-radius:12px;background:#f8fafc;border:1px solid #dbe3ee;transition:.2s; }
+        .login-card .input-icon input:focus { background:#fff;border-color:var(--primary);box-shadow:0 0 0 4px rgba(37,99,235,.10);outline:none; }
+        .login-card .btn-primary { min-height:50px;border-radius:12px;font-weight:800;font-size:14px;margin-top:4px;box-shadow:0 10px 24px rgba(37,99,235,.20); }
+        .login-card::after { content:"MB • PRODUÇÃO";display:block;text-align:center;margin-top:20px;font-size:10px;font-weight:800;letter-spacing:1.8px;color:var(--gray-400); }
+        @media (max-width:520px){ .login-container{padding:16px}.login-card{padding:28px 20px 24px;border-radius:20px}.login-header h1{font-size:21px} }
     </style>
 </head>
 <body>
@@ -639,62 +659,40 @@
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value.trim();
-            const errorEl = document.getElementById('login-error');
-            errorEl.classList.add('hidden');
 
-            if (!window.mbFirebase) {
-                errorEl.innerText = 'Firebase não carregou. Atualize a página e tente novamente.';
-                errorEl.classList.remove('hidden');
-                return;
-            }
+            if (window.mbFirebase) {
+                try {
+                    const { auth, db, signInWithEmailAndPassword, collection, getDocs } = window.mbFirebase;
+                    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+                    const user = userCredential.user;
 
-            try {
-                const { auth, db, signInWithEmailAndPassword, signOut, doc, getDoc } = window.mbFirebase;
+                    // Buscar perfil na collection 'profiles' do Firestore
+                    const querySnapshot = await getDocs(collection(db, "profiles"));
+                    let userProfile = null;
+                    querySnapshot.forEach((docSnap) => {
+                        const data = docSnap.data();
+                        if (data.email === email || docSnap.id === user.uid) {
+                            userProfile = { id: user.uid, ...data };
+                        }
+                    });
 
-                const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-                const user = userCredential.user;
+                    if (!userProfile) {
+                        // Fallback se perfil não foi criado no Firestore ainda
+                        if (email.includes('admin')) userProfile = { id: user.uid, name: 'Marcos', role: 'ADMIN', email };
+                        else if (email.includes('transporte')) userProfile = { id: user.uid, name: 'Jéssica', role: 'TRANSPORTE', email };
+                        else userProfile = { id: user.uid, name: 'Nildo', role: 'CORTE', email };
+                    }
 
-                // Segurança: cada usuário lê somente o próprio perfil pelo UID.
-                const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-
-                if (!profileSnap.exists()) {
-                    await signOut(auth);
-                    throw new Error("PROFILE_NOT_FOUND");
+                    currentUser = userProfile;
+                    localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
+                    await loadFirestoreData();
+                    initApp();
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('login-error').classList.remove('hidden');
                 }
-
-                const data = profileSnap.data();
-                const allowedRoles = ["ADMIN", "CORTE", "TRANSPORTE"];
-
-                if (data.status !== "ATIVO" || !allowedRoles.includes(data.role)) {
-                    await signOut(auth);
-                    throw new Error("PROFILE_NOT_AUTHORIZED");
-                }
-
-                currentUser = {
-                    id: user.uid,
-                    name: data.name,
-                    email: data.email || user.email,
-                    role: data.role,
-                    status: data.status
-                };
-
-                localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
-                await loadFirestoreData();
-                initApp();
-
-            } catch (err) {
-                console.error("Falha no login:", err);
-                currentUser = null;
-                localStorage.removeItem('mb_current_user');
-
-                if (err.message === "PROFILE_NOT_FOUND") {
-                    errorEl.innerText = 'Usuário autenticado, mas sem perfil autorizado no sistema.';
-                } else if (err.message === "PROFILE_NOT_AUTHORIZED") {
-                    errorEl.innerText = 'Este usuário está inativo ou não possui permissão de acesso.';
-                } else {
-                    errorEl.innerText = 'E-mail ou senha inválidos.';
-                }
-                errorEl.classList.remove('hidden');
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
             }
         }
 
@@ -774,6 +772,7 @@
                         <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Transporte</a>
                         <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> Acabamento e OCs</a>
                         <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('reports', this)"><i class="fa-solid fa-chart-line"></i> Relatórios</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
                 `;
@@ -1278,7 +1277,11 @@
                                         <td>${c.volumes || 1} vls</td>
                                         <td>${formatNumber(c.pending)} peças</td>
                                         <td><span class="badge badge-success">${c.status}</span></td>
-                                        <td><button class="btn-primary" style="padding:8px 14px; font-size:12px; min-height:38px; width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button></td>
+                                        <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                            <button class="btn-primary" style="padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar</button>
+                                            ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver</button>
+                                            <button class="btn-primary" style="background:var(--danger);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar</button>` : ''}
+                                        </div></td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1286,6 +1289,48 @@
                     </div>
                 </div>
             `;
+        }
+
+        function confirmJessicaReturn(cutNumber) {
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c || c.status !== '✂️ Corte pronto') return showToast('Somente cortes prontos podem ser devolvidos.', 'error');
+            openModal(`
+                <div class="modal-header"><h2>↩️ Devolver OC ${c.oc} ao Nildo?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="executeJessicaReturn(event, '${c.number}')">
+                    <p style="color:var(--gray-600);margin-bottom:14px;">A ficha voltará para <strong>Rascunho</strong> e poderá ser corrigida pelo Nildo.</p>
+                    <div class="form-group"><label>Motivo da devolução</label><textarea id="jessica-return-reason" required placeholder="Ex: corrigir quantidade, referência, cor..."></textarea></div>
+                    <div class="modal-footer"><button type="button" class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button type="submit" class="btn-primary" style="background:var(--warning);width:auto;">Confirmar devolução</button></div>
+                </form>`);
+        }
+
+        async function executeJessicaReturn(e, cutNumber) {
+            e.preventDefault();
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            const motivo = document.getElementById('jessica-return-reason').value.trim();
+            if (currentUser.role !== 'TRANSPORTE' || !c || c.status !== '✂️ Corte pronto') return showToast('Ação não permitida.', 'error');
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, 'cuts', c.number), { status:'📝 Rascunho', pending:c.total, updatedAt:new Date().toISOString() }, { merge:true });
+                await addDoc(collection(db, 'auditLogs'), { date:new Date().toLocaleDateString('pt-BR'), time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), user:currentUser.name, userUid:currentUser.id, action:'Devolução para o corte', target:`OC ${c.oc}`, details:`${currentUser.name} devolveu a OC ${c.oc} para Nildo corrigir. Motivo: ${motivo}`, createdAt:new Date().toISOString() });
+                await loadFirestoreData(); closeModal(); showToast(`✓ OC ${c.oc} devolvida para Nildo.`); navigateTo('transport');
+            } catch(err) { console.error(err); showToast('Não foi possível devolver a OC.', 'error'); }
+        }
+
+        function confirmJessicaDelete(cutNumber) {
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c || c.status !== '✂️ Corte pronto') return showToast('Somente OCs em Corte pronto podem ser apagadas.', 'error');
+            openModal(`<div class="modal-header"><h2>🗑️ Apagar OC ${c.oc}?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div><div style="padding:4px 0 10px;"><p><strong>Esta ação apaga a ficha pronta da produção.</strong></p><p style="color:var(--danger);margin-top:8px;">O registro da exclusão continuará no Histórico.</p></div><div class="modal-footer"><button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button class="btn-primary" style="background:var(--danger);width:auto;" onclick="executeJessicaDelete('${c.number}')">Sim, apagar OC</button></div>`);
+        }
+
+        async function executeJessicaDelete(cutNumber) {
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (currentUser.role !== 'TRANSPORTE' || !c || c.status !== '✂️ Corte pronto') return showToast('Ação não permitida.', 'error');
+            try {
+                const { db, doc, deleteDoc, collection, addDoc } = window.mbFirebase;
+                await addDoc(collection(db, 'auditLogs'), { date:new Date().toLocaleDateString('pt-BR'), time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), user:currentUser.name, userUid:currentUser.id, action:'OC pronta excluída', target:`OC ${c.oc}`, details:`${currentUser.name} apagou a OC ${c.oc} que estava em Corte pronto.`, createdAt:new Date().toISOString() });
+                await deleteDoc(doc(db, 'cuts', c.number));
+                await loadFirestoreData(); closeModal(); showToast(`✓ OC ${c.oc} apagada.`); navigateTo('transport');
+            } catch(err) { console.error(err); showToast('Não foi possível apagar a OC. Verifique as regras do Firebase.', 'error'); }
         }
 
         function openShipModal(cutNumber) {
