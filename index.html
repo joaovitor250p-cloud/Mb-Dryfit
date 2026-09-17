@@ -547,7 +547,7 @@
                 </div>
                 <div class="global-search-container">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="global-search" placeholder="Pesquisar OC, Corte, Referência..." oninput="handleGlobalSearch(this.value)">
+                    <input type="text" id="global-search" placeholder="🔎 Buscar OC, referência ou oficina..." oninput="handleGlobalSearch(this.value)">
                     <div id="search-results-dropdown" class="search-dropdown hidden"></div>
                 </div>
             </header>
@@ -608,12 +608,12 @@
         let DB = JSON.parse(localStorage.getItem('mb_db')) || defaultDB;
         
         // Clean history routine for fresh start
-        if (!localStorage.getItem('mb_history_cleaned_v5')) {
+        if (!localStorage.getItem('mb_history_cleaned_v6')) {
             DB.cuts = [];
             DB.shipments = [];
             DB.production_orders = [];
             DB.audit_logs = [];
-            localStorage.setItem('mb_history_cleaned_v5', 'true');
+            localStorage.setItem('mb_history_cleaned_v6', 'true');
             saveDB();
         }
 
@@ -698,7 +698,7 @@
                     <div class="nav-section"><a href="#" class="nav-item active" onclick="navigateTo('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></div>
                     <div class="nav-section">
                         <div class="nav-section-title">Produção</div>
-                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes & Rascunhos</a>
                         <a href="#" class="nav-item" onclick="navigateTo('transport', this)"><i class="fa-solid fa-truck-fast"></i> Transporte</a>
                         <a href="#" class="nav-item" onclick="navigateTo('orders', this)"><i class="fa-solid fa-file-invoice"></i> OCs</a>
                     </div>
@@ -731,7 +731,7 @@
                     <div class="nav-section"><a href="#" class="nav-item active" onclick="navigateTo('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></div>
                     <div class="nav-section">
                         <div class="nav-section-title">Cortes</div>
-                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes</a>
+                        <a href="#" class="nav-item" onclick="navigateTo('cuts', this)"><i class="fa-solid fa-scissors"></i> Cortes & Rascunhos</a>
                         <a href="#" class="nav-item" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</a>
                         <a href="#" class="nav-item" onclick="navigateTo('history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
                     </div>
@@ -762,13 +762,12 @@
             else if (page === 'history') renderHistory(content);
         }
 
-        // Dashboards
+        // Dashboards (Updated without removed cards)
         function renderDashboard(container) {
+            const rascunhosCount = DB.cuts.filter(c => c.status === '📝 Rascunho').length;
             const cutsReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
-            const cutsSent = DB.cuts.filter(c => c.status.includes('Enviado') || c.status.includes('Envio parcial')).length;
             const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Na oficina').length;
             const ocsFinishing = DB.production_orders.filter(o => o.status === '🎨 Corte no acabamento').length;
-            const ocsReady = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
 
             if (currentUser.role === 'ADMIN') {
                 container.innerHTML = `
@@ -776,11 +775,10 @@
                         <div><h1>Bom dia, ${currentUser.name}</h1><span class="page-subtitle">Indicadores de fluxo da produção (${currentUser.name} - ${currentUser.role})</span></div>
                     </div>
                     <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-card-title">📝 Rascunhos</div><div class="stat-card-value">${rascunhosCount}</div></div>
                         <div class="stat-card"><div class="stat-card-title">✂️ Cortes Prontos</div><div class="stat-card-value">${cutsReady}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">🚚 Enviados Oficina</div><div class="stat-card-value">${cutsSent}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🏭 Em Oficina</div><div class="stat-card-value">${ocsInProc}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🎨 No Acabamento</div><div class="stat-card-value">${ocsFinishing}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">📦 OCs Prontas</div><div class="stat-card-value">${ocsReady}</div></div>
                     </div>
                     <div class="card">
                         <div class="card-header"><h3 class="card-title">Atividade Recente</h3></div>
@@ -817,7 +815,6 @@
                     <div class="stats-grid">
                         <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${readyCuts.length}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Peças para Enviar</div><div class="stat-card-value">${formatNumber(totalPiecesReady)}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">Envios Realizados</div><div class="stat-card-value">${DB.shipments.length}</div></div>
                     </div>
                     <div class="card" style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn-primary" onclick="navigateTo('transport')">Ver Cortes Prontos para Envio</button>
@@ -825,45 +822,94 @@
                     </div>
                 `;
             } else if (currentUser.role === 'CORTE') {
+                const myDrafts = DB.cuts.filter(c => c.status === '📝 Rascunho').length;
                 const myReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
-                const myPending = DB.cuts.filter(c => c.status === 'Aguardando corte').length;
                 container.innerHTML = `
-                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">${currentUser.name} (${currentUser.role}) — Cadastro simplificado de lotes e grade</span></div></div>
+                    <div class="page-header"><div><h1>Painel de Corte</h1><span class="page-subtitle">${currentUser.name} (${currentUser.role}) — Rascunhos e Lotes Prontos</span></div></div>
                     <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-card-title">Meus Rascunhos</div><div class="stat-card-value">${myDrafts}</div></div>
                         <div class="stat-card"><div class="stat-card-title">Cortes Prontos</div><div class="stat-card-value">${myReady}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">Aguardando Corte</div><div class="stat-card-value">${myPending}</div></div>
                     </div>
-                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte (Ficha Digital)</button></div>
+                    <div class="card"><button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte (Rascunho)</button></div>
                 `;
             }
         }
 
-        // Cuts Module
+        // Cuts Module (Cortes & Rascunhos)
         function renderCuts(container) {
+            const myDrafts = DB.cuts.filter(c => c.status === '📝 Rascunho');
+            const otherCuts = DB.cuts.filter(c => c.status !== '📝 Rascunho');
+
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>Cortes</h1><span class="page-subtitle">Gerenciamento de lotes e grades por cor</span></div>
+                    <div><h1>Cortes & Rascunhos</h1><span class="page-subtitle">Gerenciamento de fichas de corte</span></div>
                     ${currentUser.role !== 'TRANSPORTE' ? `<button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</button>` : ''}
                 </div>
+                ${currentUser.role === 'CORTE' || currentUser.role === 'ADMIN' ? `
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">📝 Meus Rascunhos</h3></div>
+                        <div class="desktop-table-container table-responsive">
+                            <table class="data-table">
+                                <thead><tr><th>Número</th><th>OC</th><th>Ref</th><th>Produto</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+                                <tbody>
+                                    ${myDrafts.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum rascunho no momento.</td></tr>` : myDrafts.map(c => `
+                                        <tr>
+                                            <td><strong>${c.number}</strong></td>
+                                            <td><span class="badge badge-info">OC ${c.oc}</span></td>
+                                            <td>${c.reference}</td>
+                                            <td>${c.product}</td>
+                                            <td>${formatNumber(c.total)}</td>
+                                            <td><span class="badge badge-warning">${c.status}</span></td>
+                                            <td>
+                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--warning);" onclick="openEditCutModal('${c.number}')">✏️ Editar</button>
+                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px; background:var(--danger);" onclick="confirmDeleteDraft('${c.number}')">🗑️ Excluir</button>
+                                                <button class="btn-primary" style="padding:4px 8px; font-size:11px; min-height:30px;" onclick="confirmMarkReady('${c.number}')">✓ Corte Pronto</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mobile-card-list">
+                            ${myDrafts.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum rascunho no momento.</div>` : myDrafts.map(c => `
+                                <div class="mobile-card-item" style="border-left:4px solid var(--warning);">
+                                    <div class="mobile-card-header">
+                                        <strong>${c.number} (OC ${c.oc})</strong>
+                                        <span class="badge badge-warning">${c.status}</span>
+                                    </div>
+                                    <div class="mobile-card-body">
+                                        <div><span>Ref / Produto:</span>${c.reference} - ${c.product}</div>
+                                        <div><span>Total Peças:</span><strong>${formatNumber(c.total)}</strong></div>
+                                    </div>
+                                    <div class="mobile-card-footer">
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="openEditCutModal('${c.number}')">✏️ Editar</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--danger);" onclick="confirmDeleteDraft('${c.number}')">🗑️ Excluir</button>
+                                        <button class="btn-primary" style="padding:6px 10px; font-size:11px;" onclick="confirmMarkReady('${c.number}')">✓ Corte Pronto</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
                 <div class="card">
+                    <div class="card-header"><h3 class="card-title">Cortes Finalizados / Em Andamento</h3></div>
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Número</th><th>OC</th><th>Data</th><th>Ref</th><th>Produto</th><th>Tecido</th><th>Volumes</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>Número</th><th>OC</th><th>Data</th><th>Ref</th><th>Produto</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
                             <tbody>
-                                ${DB.cuts.map(c => `
+                                ${otherCuts.length === 0 ? `<tr><td colspan="8" style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum corte finalizado.</td></tr>` : otherCuts.map(c => `
                                     <tr>
                                         <td><strong>${c.number}</strong></td>
                                         <td><span class="badge badge-info">OC ${c.oc}</span></td>
                                         <td>${formatDate(c.date)}</td>
                                         <td>${c.reference}</td>
                                         <td>${c.product}</td>
-                                        <td>${c.fabric}</td>
-                                        <td>${c.volumes || 1} vls</td>
                                         <td>${formatNumber(c.total)}</td>
-                                        <td><span class="badge ${c.status === '✂️ Corte pronto' ? 'badge-success' : c.status.includes('Enviado') ? 'badge-info' : 'badge-warning'}">${c.status}</span></td>
+                                        <td><span class="badge badge-success">${c.status}</span></td>
                                         <td>
-                                            ${c.status === 'Aguardando corte' && (currentUser.role === 'CORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="padding:6px 12px; font-size:11px; min-height:36px;" onclick="markCutReady('${c.number}')">✓ Marcar Pronto</button>` : ''}
-                                            <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC ${c.oc}</button>
+                                            ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--warning); padding:4px 8px; font-size:11px; min-height:30px;" onclick="confirmDevolucao('${c.oc}')">↩ Devolver Correção</button>` : ''}
+                                            <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC</button>
                                             <button class="icon-btn" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
                                         </td>
                                     </tr>
@@ -872,22 +918,20 @@
                         </table>
                     </div>
                     <div class="mobile-card-list">
-                        ${DB.cuts.map(c => `
+                        ${otherCuts.length === 0 ? `<div style="text-align:center; color:var(--gray-500); padding:16px;">Nenhum corte finalizado.</div>` : otherCuts.map(c => `
                             <div class="mobile-card-item">
                                 <div class="mobile-card-header">
                                     <strong>${c.number} (OC ${c.oc})</strong>
-                                    <span class="badge ${c.status === '✂️ Corte pronto' ? 'badge-success' : 'badge-warning'}">${c.status}</span>
+                                    <span class="badge badge-success">${c.status}</span>
                                 </div>
                                 <div class="mobile-card-body">
                                     <div><span>Ref / Produto:</span>${c.reference} - ${c.product}</div>
-                                    <div><span>Tecido:</span>${c.fabric}</div>
-                                    <div><span>Volumes:</span>${c.volumes || 1} vls</div>
                                     <div><span>Total Peças:</span><strong>${formatNumber(c.total)}</strong></div>
                                 </div>
                                 <div class="mobile-card-footer">
-                                    ${c.status === 'Aguardando corte' && (currentUser.role === 'CORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="padding:8px 14px; font-size:12px; min-height:40px;" onclick="markCutReady('${c.number}')">✓ Marcar Pronto</button>` : ''}
-                                    <button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC ${c.oc}</button>
-                                    <button class="btn-primary" style="padding:8px 14px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showCutDetails('${c.number}')">Detalhes</button>
+                                    ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="padding:6px 10px; font-size:11px; background:var(--warning);" onclick="confirmDevolucao('${c.oc}')">↩ Devolver Correção</button>` : ''}
+                                    <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${c.oc}')">⬇ Baixar OC</button>
+                                    <button class="btn-primary" style="padding:6px 10px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showCutDetails('${c.number}')">Detalhes</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -899,22 +943,37 @@
         let dynamicColors = [
             { color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 }
         ];
+        let editingCutNumber = null;
 
         function openNewCutModal() {
+            editingCutNumber = null;
             dynamicColors = [{ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 }];
+            renderCutFormModal("Novo Corte (Rascunho)", "");
+        }
+
+        function openEditCutModal(num) {
+            const c = DB.cuts.find(x => x.number === num);
+            if (!c || c.status !== '📝 Rascunho') return;
+            editingCutNumber = c.number;
+            dynamicColors = JSON.parse(JSON.stringify(c.colors || [{ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 }]));
+            
+            renderCutFormModal("Editar Rascunho", c.oc, c.reference, c.product, c.obs, c.volumes);
+        }
+
+        function renderCutFormModal(title, ocVal = "", refVal = "", prodVal = "", obsVal = "", volVal = 1) {
             openModal(`
-                <div class="modal-header"><h2>Novo Corte / Ficha de Produção</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <form onsubmit="handleSaveCut(event)">
+                <div class="modal-header"><h2>${title}</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="handleSaveCutForm(event)">
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div class="form-group"><label>Número da OC</label><input type="text" id="cut-oc" required placeholder="Ex: 434"></div>
-                        <div class="form-group"><label>Referência</label><input type="text" id="cut-ref" required placeholder="Ex: 1036"></div>
+                        <div class="form-group"><label>Número da OC</label><input type="text" id="cut-oc" required value="${ocVal}" placeholder="Ex: 434"></div>
+                        <div class="form-group"><label>Referência</label><input type="text" id="cut-ref" required value="${refVal}" placeholder="Ex: 1036"></div>
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div class="form-group"><label>Modelo / Produto</label><select id="cut-prod">${DB.products.map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
-                        <div class="form-group"><label>Tecido</label><input type="text" id="cut-fab" required list="fab-list" placeholder="Ex: Malha"><datalist id="fab-list">${DB.fabrics.map(f=>`<option value="${f.name}">`).join('')}</datalist></div>
+                    <div class="form-group">
+                        <label>Modelo / Produto</label>
+                        <select id="cut-prod">${DB.products.map(p=>`<option value="${p.name}" ${prodVal === p.name ? 'selected' : ''}>${p.name}</option>`).join('')}</select>
                     </div>
 
-                    <div class="form-group"><label>Informações / Observações</label><textarea id="cut-obs" placeholder="Observações e instruções para oficina"></textarea></div>
+                    <div class="form-group"><label>Informações / Observações</label><textarea id="cut-obs" placeholder="Observações e instruções para oficina">${obsVal}</textarea></div>
 
                     <hr style="margin:16px 0; border:0; border-top:1px solid var(--gray-200);">
                     
@@ -938,8 +997,8 @@
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <label style="font-size:12px; font-weight:600;">Quantidade de Volumes:</label>
-                                <input type="number" id="cut-volumes" value="1" min="1" required style="width:90px; display:inline-block; margin-left:8px; font-weight:600; text-align:center;">
+                                <label style="font-size:12px; font-weight:600;">Volumes:</label>
+                                <input type="number" id="cut-volumes" value="${volVal}" min="1" required style="width:90px; display:inline-block; margin-left:8px; font-weight:600; text-align:center;">
                             </div>
                             <div style="text-align:right;">
                                 <span style="font-size:11px; color:var(--gray-600); text-transform:uppercase; display:block;">Total Geral</span>
@@ -948,7 +1007,10 @@
                         </div>
                     </div>
 
-                    <div class="modal-footer"><button type="submit" class="btn-primary">Salvar Ficha da OC</button></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background:var(--warning); width:auto;" onclick="saveCutAsDraft()">💾 Salvar Rascunho</button>
+                        <button type="submit" class="btn-primary" style="width:auto;">✓ Corte Pronto</button>
+                    </div>
                 </form>
             `);
             renderColorRows();
@@ -1027,6 +1089,54 @@
             if(document.getElementById('modal-total-geral')) document.getElementById('modal-total-geral').innerText = formatNumber(totalGeral) + " PEÇAS";
         }
 
+        function saveCutAsDraft() {
+            const ocVal = document.getElementById('cut-oc').value;
+            const refVal = document.getElementById('cut-ref').value;
+            if(!ocVal || !refVal) {
+                showToast('Preencha ao menos o número da OC e a Referência.', 'error');
+                return;
+            }
+            const total = dynamicColors.reduce((acc, curr) => acc + curr.total, 0);
+            const volumesVal = parseInt(document.getElementById('cut-volumes').value) || 1;
+
+            if (editingCutNumber) {
+                const c = DB.cuts.find(x => x.number === editingCutNumber);
+                if(c) {
+                    c.oc = ocVal;
+                    c.reference = refVal;
+                    c.product = document.getElementById('cut-prod').value;
+                    c.colors = JSON.parse(JSON.stringify(dynamicColors));
+                    c.volumes = volumesVal;
+                    c.total = total;
+                    c.pending = total - c.sent;
+                    c.obs = document.getElementById('cut-obs').value;
+                }
+            } else {
+                const newCut = {
+                    id: DB.cuts.length + 1,
+                    number: `C-000${DB.cuts.length + 1}`,
+                    oc: ocVal,
+                    date: new Date().toISOString().split('T')[0],
+                    reference: refVal,
+                    product: document.getElementById('cut-prod').value,
+                    fabric: "Malha",
+                    colors: JSON.parse(JSON.stringify(dynamicColors)),
+                    volumes: volumesVal,
+                    total: total,
+                    sent: 0,
+                    pending: total,
+                    status: "📝 Rascunho",
+                    responsible: "Nildo",
+                    obs: document.getElementById('cut-obs').value
+                };
+                DB.cuts.unshift(newCut);
+            }
+            saveDB();
+            closeModal();
+            showToast('✓ Rascunho salvo com sucesso.');
+            renderCuts(document.getElementById('page-content'));
+        }
+
         function handleSaveCut(e) {
             e.preventDefault();
             const total = dynamicColors.reduce((acc, curr) => acc + curr.total, 0);
@@ -1036,32 +1146,87 @@
             }
 
             const ocVal = document.getElementById('cut-oc').value;
+            const refVal = document.getElementById('cut-ref').value;
             const volumesVal = parseInt(document.getElementById('cut-volumes').value) || 1;
 
-            const newCut = {
-                id: DB.cuts.length + 1,
-                number: `C-000${DB.cuts.length + 1}`,
-                oc: ocVal,
-                date: new Date().toISOString().split('T')[0],
-                reference: document.getElementById('cut-ref').value,
-                product: document.getElementById('cut-prod').value,
-                fabric: document.getElementById('cut-fab').value,
-                colors: JSON.parse(JSON.stringify(dynamicColors)),
-                volumes: volumesVal,
-                total: total,
-                sent: 0,
-                pending: total,
-                status: "Aguardando corte",
-                responsible: "Nildo",
-                obs: document.getElementById('cut-obs').value
-            };
+            // Show confirmation modal before final 'Corte Pronto'
+            openModal(`
+                <div class="modal-header"><h2>Confirmar Corte Pronto?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div style="font-size:14px; margin-bottom:16px;">
+                    <p><strong>OC:</strong> ${ocVal}</p>
+                    <p><strong>Referência:</strong> ${refVal}</p>
+                    <p><strong>Total:</strong> ${formatNumber(total)} peças</p>
+                    <p><strong>Volumes:</strong> ${volumesVal}</p>
+                    <p style="margin-top:10px; color:var(--warning);">Atenção: após confirmar, a ficha ficará definitiva e não poderá ser excluída por aqui.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="openNewCutModal()">Voltar e conferir</button>
+                    <button type="button" class="btn-primary" style="background:var(--success); width:auto;" onclick="executeFinalCortePronto('${ocVal}', '${refVal}', ${volumesVal}, ${total})">✓ Confirmar Corte Pronto</button>
+                </div>
+            `);
+        }
 
-            DB.cuts.unshift(newCut);
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:00", user: "Nildo", action: "Novo corte", target: `OC ${ocVal}`, details: `Nildo cadastrou novo corte para a OC ${ocVal} com ${total} peças (${volumesVal} volumes).` });
+        function executeFinalCortePronto(ocVal, refVal, volumesVal, total) {
+            const prodVal = document.getElementById('cut-prod').value;
+            const obsVal = document.getElementById('cut-obs').value;
+
+            if (editingCutNumber) {
+                const c = DB.cuts.find(x => x.number === editingCutNumber);
+                if(c) {
+                    c.oc = ocVal;
+                    c.reference = refVal;
+                    c.product = prodVal;
+                    c.colors = JSON.parse(JSON.stringify(dynamicColors));
+                    c.volumes = volumesVal;
+                    c.total = total;
+                    c.pending = total - c.sent;
+                    c.obs = obsVal;
+                    c.status = "✂️ Corte pronto";
+                }
+            } else {
+                const newCut = {
+                    id: DB.cuts.length + 1,
+                    number: `C-000${DB.cuts.length + 1}`,
+                    oc: ocVal,
+                    date: new Date().toISOString().split('T')[0],
+                    reference: refVal,
+                    product: prodVal,
+                    fabric: "Malha",
+                    colors: JSON.parse(JSON.stringify(dynamicColors)),
+                    volumes: volumesVal,
+                    total: total,
+                    sent: 0,
+                    pending: total,
+                    status: "✂️ Corte pronto",
+                    responsible: "Nildo",
+                    obs: obsVal
+                };
+                DB.cuts.unshift(newCut);
+            }
+
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: "Nildo", action: "Corte pronto", target: `OC ${ocVal}`, details: `Nildo marcou a OC ${ocVal} como corte pronto (${total} peças).` });
             saveDB();
             closeModal();
-            showToast('✓ Ficha da OC registrada com sucesso.');
+            showToast('✓ Corte marcado como pronto com sucesso.');
             renderCuts(document.getElementById('page-content'));
+        }
+
+        function confirmMarkReady(num) {
+            const c = DB.cuts.find(x => x.number === num);
+            if (!c) return;
+            openModal(`
+                <div class="modal-header"><h2>Confirmar Corte Pronto?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div style="font-size:14px; margin-bottom:16px;">
+                    <p><strong>OC:</strong> ${c.oc}</p>
+                    <p><strong>Referência:</strong> ${c.reference}</p>
+                    <p><strong>Total:</strong> ${formatNumber(c.total)} peças</p>
+                    <p><strong>Volumes:</strong> ${c.volumes || 1}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="closeModal()">Voltar e conferir</button>
+                    <button type="button" class="btn-primary" style="background:var(--success); width:auto;" onclick="markCutReady('${c.number}')">✓ Confirmar Corte Pronto</button>
+                </div>
+            `);
         }
 
         function markCutReady(num) {
@@ -1070,7 +1235,29 @@
             c.status = "✂️ Corte pronto";
             DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "16/09/2026", time: "15:30", user: "Nildo", action: "Corte pronto", target: `OC ${c.oc}`, details: `Nildo marcou o corte ${c.number} (OC ${c.oc}) como pronto.` });
             saveDB();
+            closeModal();
             showToast(`✓ Corte ${c.number} marcado como pronto.`);
+            renderCuts(document.getElementById('page-content'));
+        }
+
+        function confirmDeleteDraft(num) {
+            const c = DB.cuts.find(x => x.number === num);
+            if (!c || c.status !== '📝 Rascunho') return;
+            openModal(`
+                <div class="modal-header"><h2>Excluir Rascunho?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <p style="margin-bottom:16px;">Excluir OC ${c.oc}? Essa ação removerá este rascunho. Deseja continuar?</p>
+                <div class="modal-footer">
+                    <button class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="closeModal()">Cancelar</button>
+                    <button class="btn-primary" style="background:var(--danger); width:auto;" onclick="deleteDraft('${c.number}')">Excluir</button>
+                </div>
+            `);
+        }
+
+        function deleteDraft(num) {
+            DB.cuts = DB.cuts.filter(x => x.number !== num);
+            saveDB();
+            closeModal();
+            showToast('Rascunho excluído com sucesso.');
             renderCuts(document.getElementById('page-content'));
         }
 
@@ -1134,7 +1321,7 @@
             const c = DB.cuts.find(x => x.number === cutNumber);
             openModal(`
                 <div class="modal-header"><h2>Enviar ${c.number} (OC ${c.oc})</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <form onsubmit="handleSaveShipment(event, '${c.number}')">
+                <form onsubmit="confirmShipment(event, '${c.number}')">
                     <div class="form-group"><label>Oficina (Selecione da lista cadastrada)</label><select id="ship-workshop" required>${DB.workshops.map(w=>`<option value="${w.name}">Oficina: ${w.name}</option>`).join('')}</select></div>
                     <div class="form-group">
                         <label>Quantidade de Peças a Enviar</label>
@@ -1144,12 +1331,12 @@
                     <div class="form-group"><label>Volumes Enviados</label><input type="number" id="ship-volumes" min="1" required value="${c.volumes || 1}"></div>
                     <div class="form-group"><label>Data</label><input type="date" id="ship-date" value="${new Date().toISOString().split('T')[0]}" required></div>
                     <div class="form-group"><label>Observação (Opcional)</label><textarea id="ship-obs"></textarea></div>
-                    <div class="modal-footer"><button type="submit" class="btn-primary">Confirmar Envio</button></div>
+                    <div class="modal-footer"><button type="submit" class="btn-primary">Avançar</button></div>
                 </form>
             `);
         }
 
-        function handleSaveShipment(e, cutNum) {
+        function confirmShipment(e, cutNum) {
             e.preventDefault();
             const qty = parseInt(document.getElementById('ship-qty').value);
             const volumesVal = parseInt(document.getElementById('ship-volumes').value) || 1;
@@ -1162,6 +1349,24 @@
                 return;
             }
 
+            openModal(`
+                <div class="modal-header"><h2>Confirmar Envio?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div style="font-size:14px; margin-bottom:16px;">
+                    <p><strong>OC:</strong> ${c.oc}</p>
+                    <p><strong>Referência:</strong> ${c.reference}</p>
+                    <p><strong>Total:</strong> ${formatNumber(qty)} peças</p>
+                    <p><strong>Volumes:</strong> ${volumesVal}</p>
+                    <p><strong>Destino:</strong> ${workshop}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="openShipModal('${cutNum}')">Cancelar</button>
+                    <button class="btn-primary" style="background:var(--success); width:auto;" onclick="executeSaveShipment('${cutNum}', ${qty}, ${volumesVal}, '${workshop}', '${obs}')">🚚 Confirmar envio</button>
+                </div>
+            `);
+        }
+
+        function executeSaveShipment(cutNum, qty, volumesVal, workshop, obs) {
+            const c = DB.cuts.find(x => x.number === cutNum);
             c.sent += qty;
             c.pending -= qty;
             c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
@@ -1187,13 +1392,7 @@
                     volumes: volumesVal,
                     total: qty, produced: 0, pending: qty,
                     status: "🏭 Na oficina",
-                    finishing_status: "Pendente",
-                    obs: c.obs,
-                    timeline: [
-                        { step: "✂️ Corte pronto", date: "16/09 10:00" },
-                        { step: "🚚 Enviado para oficina", date: "16/09 14:00" },
-                        { step: "🏭 Na oficina", date: "16/09 14:10" }
-                    ]
+                    obs: c.obs
                 });
             }
 
@@ -1228,7 +1427,6 @@
                                         <td><span class="badge ${o.status === '📦 OC pronta' ? 'badge-success' : 'badge-warning'}">${o.status}</span></td>
                                         <td>
                                             ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
-                                            ${o.status === '🎨 Corte no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                             <button class="btn-primary" style="background:var(--success); padding:6px 10px; font-size:11px; min-height:36px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
                                             <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>
                                         </td>
@@ -1254,7 +1452,6 @@
                                     </div>
                                     <div class="mobile-card-footer">
                                         ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markFinishing('${o.number}')">✓ Corte no Acabamento</button>` : ''}
-                                        ${o.status === '🎨 Corte no acabamento' && currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="markOCReady('${o.number}')">📦 OC Pronta</button>` : ''}
                                         <button class="btn-primary" style="background:var(--success); padding:8px 12px; font-size:12px; min-height:40px;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
                                         <button class="btn-primary" style="padding:8px 12px; font-size:12px; min-height:40px; background:var(--gray-600);" onclick="showOrderDetails('${o.number}')">Detalhes</button>
                                     </div>
@@ -1270,29 +1467,43 @@
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
             o.status = "🎨 Corte no acabamento";
-            o.timeline.push({ step: "🎨 Corte no acabamento", date: "18/09 11:00" });
             DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:00", user: currentUser.name, action: "Corte no acabamento", target: `OC ${o.number}`, details: `${currentUser.name} marcou a OC ${o.number} como corte no acabamento.` });
             saveDB();
             showToast(`✓ OC ${o.number} marcada como corte no acabamento.`);
             renderOrders(document.getElementById('page-content'));
         }
 
-        function markOCReady(num) {
-            const o = DB.production_orders.find(x => x.number === num);
-            if (!o) return;
-            o.status = "📦 OC pronta";
-            o.produced = o.total;
-            o.pending = 0;
-            o.timeline.push({ step: "📦 OC pronta", date: "18/09 14:00" });
-            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "14:00", user: "Marcos", action: "OC pronta", target: `OC ${o.number}`, details: `Marcos marcou a OC ${o.number} como pronta.` });
-            saveDB();
-            showToast(`✓ OC ${o.number} marcada como pronta.`);
-            renderOrders(document.getElementById('page-content'));
+        function confirmDevolucao(ocNum) {
+            openModal(`
+                <div class="modal-header"><h2>Devolver para Correção?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="executeDevolucao(event, '${ocNum}')">
+                    <div class="form-group"><label>Motivo da correção</label><textarea id="dev-motivo" required placeholder="Digite o motivo da devolução para Nildo..."></textarea></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="closeModal()">Cancelar</button>
+                        <button type="submit" class="btn-primary" style="background:var(--warning); width:auto;">Confirmar Devolução</button>
+                    </div>
+                </form>
+            `);
         }
 
-        // PDF Generation Function (Professional Ficha de Produção MB inspired by physical sheet photo)
+        function executeDevolucao(e, ocNum) {
+            e.preventDefault();
+            const motivo = document.getElementById('dev-motivo').value;
+            let c = DB.cuts.find(x => x.oc === ocNum);
+            if(c) {
+                c.status = "📝 Rascunho";
+            }
+            DB.production_orders = DB.production_orders.filter(o => o.number !== ocNum);
+
+            DB.audit_logs.unshift({ id: DB.audit_logs.length + 1, date: "18/09/2026", time: "11:30", user: "Marcos", action: "Devolvida para correção", target: `OC ${ocNum}`, details: `Marcos devolveu a OC ${ocNum} para correção. Motivo: ${motivo}` });
+            saveDB();
+            closeModal();
+            showToast(`✓ OC ${ocNum} devolvida para Nildo como rascunho.`);
+            navigateTo('cuts');
+        }
+
+        // PDF Generation Function (Professional Ficha de Produção MB without process/timeline/repetition)
         function downloadOCPDF(num) {
-            // Find in production orders or cuts
             let o = DB.production_orders.find(x => x.number === num);
             if (!o) {
                 const c = DB.cuts.find(x => x.oc === num);
@@ -1307,8 +1518,7 @@
                         volumes: c.volumes,
                         total: c.total,
                         obs: c.obs,
-                        status: c.status,
-                        info_workshop: c.info_workshop || ''
+                        status: c.status
                     };
                 }
             }
@@ -1330,9 +1540,9 @@
             // Top Meta Grid Box
             doc.setDrawColor(100, 116, 139);
             doc.setLineWidth(0.3);
-            doc.rect(14, 20, 182, 18); // Top block for Model/Ref
-            doc.line(14, 29, 196, 29); // divider
-            doc.line(130, 20, 130, 38); // vertical divider
+            doc.rect(14, 20, 182, 18);
+            doc.line(14, 29, 196, 29);
+            doc.line(130, 20, 130, 38);
 
             doc.setFontSize(9);
             doc.setFont('inter', 'bold');
@@ -1350,26 +1560,12 @@
             doc.setFont('inter', 'normal');
             doc.text(`${o.number}`, 145, 34);
 
-            // Oficina & Infos Box
-            doc.rect(14, 38, 182, 32);
-            doc.line(130, 38, 130, 70); // vertical divider
-
+            // Oficina Box
+            doc.rect(14, 38, 182, 14);
             doc.setFont('inter', 'bold');
-            doc.text('Oficina:', 132, 44);
+            doc.text('Oficina:', 16, 46);
             doc.setFont('inter', 'normal');
-            doc.text(`${o.workshop || 'Não definida'}`, 148, 44);
-
-            doc.setFont('inter', 'bold');
-            doc.text('Inf. p/ oficina:', 16, 44);
-            doc.setFont('inter', 'normal');
-            const splitInfo = doc.splitTextToSize(o.info_workshop || 'Nenhuma', 110);
-            doc.text(splitInfo, 16, 50);
-
-            doc.line(130, 54, 196, 54);
-            doc.setFont('inter', 'bold');
-            doc.text('Status:', 132, 60);
-            doc.setFont('inter', 'normal');
-            doc.text(`${o.status}`, 145, 60);
+            doc.text(`${o.workshop || 'Não definida'}`, 32, 46);
 
             // Colors Table Construction
             let tableBody = [];
@@ -1403,13 +1599,12 @@
                 totalGeral += (o.total || 0);
             }
 
-            // Add Totals row directly inside table body like the physical sheet
             tableBody.push([
                 'TOTAL', sumP, sumM, sumG, sumGG, sumXG, '', totalGeral
             ]);
 
             doc.autoTable({
-                startY: 72,
+                startY: 56,
                 head: [['CORES', 'P', 'M', 'G', 'GG', 'XG', 'DETALHES']],
                 body: tableBody.map(row => [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]),
                 theme: 'grid',
@@ -1434,7 +1629,7 @@
 
             const finalY = doc.lastAutoTable.finalY + 6;
 
-            // Outras Informações / Observações Box & Volumes
+            // Outras Informações / Observações Box & Volumes (Non-repeated)
             doc.setDrawColor(100, 116, 139);
             doc.rect(14, finalY, 182, 28);
             doc.setFont('inter', 'bold');
@@ -1472,8 +1667,7 @@
                         volumes: c.volumes,
                         total: c.total,
                         obs: c.obs,
-                        status: c.status,
-                        info_workshop: c.info_workshop || ''
+                        status: c.status
                     };
                 }
             }
@@ -1549,7 +1743,6 @@
                     <div>🏭 <strong>Oficina:</strong> ${o.workshop || 'Não definida'}</div>
                     <div>👕 <strong>Modelo/Produto:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference}</div>
                 </div>
-                ${o.info_workshop ? `<div style="background:var(--gray-50); padding:8px; border-radius:var(--radius); margin-bottom:8px; font-size:12px;"><strong>Inf. p/ oficina:</strong> ${o.info_workshop}</div>` : ''}
                 ${colorsTableHTML}
                 <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius); margin-bottom:12px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
                     <div><strong>Outras inf / Observações:</strong> ${o.obs || 'Nenhuma'}</div>
@@ -1559,7 +1752,7 @@
             `);
         }
 
-        // Other Modules (Workshops, References, Products, Reports, Users, History)
+        // Other Modules (Workshops simplified without phone/responsible)
         function renderWorkshops(container) {
             container.innerHTML = `
                 <div class="page-header">
@@ -1568,32 +1761,37 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Oficina</th><th>Telefone</th><th>Endereço</th><th>Status</th></tr></thead>
+                            <thead><tr><th>Oficina</th><th>Status</th></tr></thead>
                             <tbody>
-                                ${DB.workshops.map(w => `
-                                    <tr>
-                                        <td><strong>Oficina: ${w.name}</strong></td>
-                                        <td>${w.phone}</td>
-                                        <td>${w.address}</td>
-                                        <td><span class="badge badge-success">${w.status}</span></td>
-                                    </tr>
-                                `).join('')}
+                                ${DB.workshops.map(w => {
+                                    const countOCs = DB.production_orders.filter(o => o.workshop === w.name).length;
+                                    const sumPieces = DB.production_orders.filter(o => o.workshop === w.name).reduce((a,b)=>a+b.total,0);
+                                    return `
+                                        <tr>
+                                            <td><strong>Oficina: ${w.name}</strong> (${countOCs} OCs — ${formatNumber(sumPieces)} peças)</td>
+                                            <td><span class="badge badge-success">${w.status}</span></td>
+                                        </tr>
+                                    `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
                     <div class="mobile-card-list">
-                        ${DB.workshops.map(w => `
-                            <div class="mobile-card-item">
-                                <div class="mobile-card-header">
-                                    <strong>Oficina: ${w.name}</strong>
-                                    <span class="badge badge-success">${w.status}</span>
+                        ${DB.workshops.map(w => {
+                            const countOCs = DB.production_orders.filter(o => o.workshop === w.name).length;
+                            const sumPieces = DB.production_orders.filter(o => o.workshop === w.name).reduce((a,b)=>a+b.total,0);
+                            return `
+                                <div class="mobile-card-item">
+                                    <div class="mobile-card-header">
+                                        <strong>Oficina: ${w.name}</strong>
+                                        <span class="badge badge-success">${w.status}</span>
+                                    </div>
+                                    <div class="mobile-card-body">
+                                        <div><span>Volume:</span>${countOCs} OCs — ${formatNumber(sumPieces)} peças</div>
+                                    </div>
                                 </div>
-                                <div class="mobile-card-body">
-                                    <div><span>Telefone:</span>${w.phone}</div>
-                                    <div><span>Endereço:</span>${w.address}</div>
-                                </div>
-                            </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `;
@@ -1609,13 +1807,20 @@
             const totalPiecesCut = DB.cuts.reduce((a,c) => a + c.total, 0);
             const totalPiecesSent = DB.shipments.reduce((a,s) => a + s.quantity, 0);
             const totalProduced = DB.production_orders.reduce((a,o) => a + o.produced, 0);
-            const totalFinished = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
             
             const totalP = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.p||0),0) : 0), 0);
             const totalM = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.m||0),0) : 0), 0);
             const totalG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.g||0),0) : 0), 0);
             const totalGG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.gg||0),0) : 0), 0);
             const totalXG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.xg||0),0) : 0), 0);
+
+            // Ref grouping calculation
+            let refMap = {};
+            DB.production_orders.forEach(o => {
+                if(!refMap[o.reference]) refMap[o.reference] = { count: 0, total: 0 };
+                refMap[o.reference].count += 1;
+                refMap[o.reference].total += o.total;
+            });
 
             container.innerHTML = `
                 <div class="page-header">
@@ -1627,7 +1832,6 @@
                     <div class="stat-card"><div class="stat-card-title">Peças Cortadas</div><div class="stat-card-value">${formatNumber(totalPiecesCut)}</div></div>
                     <div class="stat-card"><div class="stat-card-title">Enviadas Oficina</div><div class="stat-card-value">${formatNumber(totalPiecesSent)}</div></div>
                     <div class="stat-card"><div class="stat-card-title">Peças Produzidas</div><div class="stat-card-value">${formatNumber(totalProduced)}</div></div>
-                    <div class="stat-card"><div class="stat-card-title">OCs Finalizadas</div><div class="stat-card-value">${totalFinished}</div></div>
                 </div>
                 <div class="card">
                     <h3 class="card-title" style="margin-bottom:12px;">Produção por Tamanho</h3>
@@ -1637,6 +1841,23 @@
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>G</strong><br>${formatNumber(totalG)}</div>
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>GG</strong><br>${formatNumber(totalGG)}</div>
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>XG</strong><br>${formatNumber(totalXG)}</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Referência</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Referência</th><th>Total OCs</th><th>Total Peças</th></tr></thead>
+                            <tbody>
+                                ${Object.keys(refMap).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--gray-500);">Nenhum dado cadastrado.</td></tr>' : Object.keys(refMap).map(ref => `
+                                    <tr>
+                                        <td><strong>Ref. ${ref}</strong></td>
+                                        <td>${refMap[ref].count} OCs</td>
+                                        <td>${formatNumber(refMap[ref].total)} peças</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 <div class="card">
@@ -1696,8 +1917,17 @@
             const dropdown = document.getElementById('search-results-dropdown');
             if (!q || q.length < 2) { dropdown.classList.add('hidden'); return; }
             let results = [];
-            DB.production_orders.forEach(o => { if(o.number.toLowerCase().includes(q.toLowerCase())) results.push({title: `OC ${o.number}`, page: 'orders'}); });
-            DB.cuts.forEach(c => { if(c.number.toLowerCase().includes(q.toLowerCase())) results.push({title: `Corte ${c.number}`, page: 'cuts'}); });
+            const query = q.toLowerCase();
+            DB.production_orders.forEach(o => { 
+                if(o.number.toLowerCase().includes(query) || o.reference.toLowerCase().includes(query) || (o.workshop && o.workshop.toLowerCase().includes(query))) {
+                    results.push({title: `OC ${o.number} (Ref. ${o.reference})`, page: 'orders'}); 
+                }
+            });
+            DB.cuts.forEach(c => { 
+                if(c.number.toLowerCase().includes(query) || c.oc.toLowerCase().includes(query) || c.reference.toLowerCase().includes(query)) {
+                    results.push({title: `Corte ${c.number} - OC ${c.oc}`, page: 'cuts'}); 
+                }
+            });
             if (results.length > 0) {
                 dropdown.innerHTML = results.map(r => `<div class="search-result-item" onclick="navigateTo('${r.page}'); document.getElementById('search-results-dropdown').classList.add('hidden');">${r.title}</div>`).join('');
                 dropdown.classList.remove('hidden');
