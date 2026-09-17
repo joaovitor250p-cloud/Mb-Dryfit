@@ -808,6 +808,7 @@
 
         let currentUser = null;
         let currentPage = "dashboard";
+        let selectedWorkshopPage = null;
         let realtimeUnsubscribers = [];
 
         function toQuantity(value) {
@@ -970,7 +971,7 @@
             else if (currentPage === 'cuts') renderCuts(content);
             else if (currentPage === 'transport') renderTransport(content);
             else if (currentPage === 'orders') renderOrders(content);
-            else if (currentPage === 'workshops') renderWorkshops(content);
+            else if (currentPage === 'workshops') renderWorkshops(content, true);
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') {
@@ -1001,7 +1002,7 @@
             else if (currentPage === 'cuts') renderCuts(content);
             else if (currentPage === 'transport') renderTransport(content);
             else if (currentPage === 'orders') renderOrders(content);
-            else if (currentPage === 'workshops') renderWorkshops(content);
+            else if (currentPage === 'workshops') renderWorkshops(content, true);
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') {
@@ -1139,7 +1140,7 @@
             else if (page === 'cuts') renderCuts(content);
             else if (page === 'transport') renderTransport(content);
             else if (page === 'orders') renderOrders(content);
-            else if (page === 'workshops') renderWorkshops(content);
+            else if (page === 'workshops') renderWorkshops(content, true);
             else if (page === 'references') renderReferences(content);
             else if (page === 'products') renderProducts(content);
             else if (page === 'reports') renderReports(content);
@@ -2320,7 +2321,12 @@
             return Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total));
         }
 
-        function renderWorkshops(container) {
+        function renderWorkshops(container, preserveSelection = false) {
+            if (!preserveSelection) selectedWorkshopPage = null;
+            if (preserveSelection && selectedWorkshopPage) {
+                openWorkshopPage(selectedWorkshopPage);
+                return;
+            }
             const names = getWorkshopNames();
 
             container.innerHTML = `
@@ -2360,6 +2366,7 @@
         }
 
         function openWorkshopPage(name) {
+            selectedWorkshopPage = name;
             const container = document.getElementById('page-content');
             if (!container) return;
 
@@ -2403,7 +2410,7 @@
 
             container.innerHTML = `
                 <div class="workshop-page-head">
-                    <button class="workshop-back" onclick="renderWorkshops(document.getElementById('page-content'))"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button class="workshop-back" onclick="selectedWorkshopPage=null; renderWorkshops(document.getElementById('page-content'))"><i class="fa-solid fa-arrow-left"></i></button>
                     <div class="workshop-page-avatar">${name.charAt(0).toUpperCase()}</div>
                     <div>
                         <h1>${name}</h1>
