@@ -2421,101 +2421,181 @@
             `;
         }
 
-        function renderReports(container) {
-            const totalPiecesCut = DB.cuts.reduce((a,c) => a + c.total, 0);
-            const totalPiecesSent = DB.shipments.reduce((a,s) => a + s.quantity, 0);
-            const totalProduced = DB.production_orders.reduce((a,o) => a + o.produced, 0);
-            
-            const totalP = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.p||0),0) : 0), 0);
-            const totalM = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.m||0),0) : 0), 0);
-            const totalG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.g||0),0) : 0), 0);
-            const totalGG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.gg||0),0) : 0), 0);
-            const totalXG = DB.production_orders.reduce((a,o) => a + (o.colors ? o.colors.reduce((ac,cc)=>ac+(cc.xg||0),0) : 0), 0);
+        function downloadProductionPeriodPDF() {
+            saveReportDates();
+            const start = normalizeReportDate(reportDateState.start);
+            const end = normalizeReportDate(reportDateState.end);
 
-            let refMap = {};
-            DB.production_orders.forEach(o => {
-                if(!refMap[o.reference]) refMap[o.reference] = { count: 0, total: 0 };
-                refMap[o.reference].count += 1;
-                refMap[o.reference].total += o.total;
+            if (!start || !end) {
+                showToast('Escolha a data inicial e a data final.', 'error');
+                return;
+            }
+            if (start > end) {
+                showToast('A data inicial não pode ser maior que a data final.', 'error');
+                return;
+            }
+
+            const cuts = DB.cuts.filter(c => {
+                const d = getCutReportDate(c);
+                return d && d >= start && d <= end;
+            }).sort((a,b) => getCutReportDate(a).localeCompare(getCutReportDate(b)));
+
+            if (!cuts.length) {
+                showToast('Não existem fichas no período escolhido.', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+            const startBR = start.split('-').reverse().join('/');
+            const endBR = end.split('-').reverse().join('/');
+            const totalPieces = cuts.reduce((s,c)=>s+Math.abs(toQuantity(c.total)),0);
+
+            // Production by workshop/product. Prefer final production order data, but
+            // retain currentWorkshop so the report reflects the ficha's real workshop.
+            const workshops = {};
+            cuts.forEach(c => {
+                const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
+                const workshop = order?.workshop || c.currentWorkshop || 'Sem oficina';
+                const product = (c.product || order?.product || 'Outros').trim();
+                const qty = Math.abs(toQuantity(c.total));
+                if (!workshops[workshop]) workshops[workshop] = {total:0, products:{}};
+                workshops[workshop].total += qty;
+                workshops[workshop].products[product] = (workshops[workshop].products[product] || 0) + qty;
             });
 
+            // Header
+            pdf.setFillColor(234, 88, 12);
+            pdf.rect(0, 0, 210, 35, 'F');
+            pdf.setTextColor(255,255,255);
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(22);
+            pdf.text('MB', 14, 15);
+            pdf.setFontSize(13);
+            pdf.text('RELATÓRIO DE PRODUÇÃO', 14, 24);
+            pdf.setFont('helvetica','normal');
+            pdf.setFontSize(9);
+            pdf.text(`Período: ${startBR} até ${endBR}`, 196, 15, {align:'right'});
+            pdf.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`, 196, 22, {align:'right'});
+
+            // Summary
+            pdf.setTextColor(31,41,55);
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(11);
+            pdf.text(`Fichas: ${cuts.length}`, 14, 45);
+            pdf.text(`Total de peças: ${formatNumber(totalPieces)}`, 70, 45);
+            pdf.text(`Oficinas: ${Object.keys(workshops).filter(x=>x!=='Sem oficina').length}`, 145, 45);
+
+            // Workshop summary
+            const workshopRows = [];
+            Object.keys(workshops).sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(w => {
+                const g = workshops[w];
+                Object.entries(g.products).sort((a,b)=>b[1]-a[1]).forEach(([product,qty], i) => {
+                    workshopRows.push([
+                        i === 0 ? w : '',
+                        product,
+                        formatNumber(qty),
+                        i === 0 ? formatNumber(g.total) : ''
+                    ]);
+                });
+            });
+
+            pdf.autoTable({
+                startY: 53,
+                head: [['OFICINA','PRODUTO','PEÇAS','TOTAL OFICINA']],
+                body: workshopRows,
+                theme:'grid',
+                styles:{fontSize:8,cellPadding:2.4,textColor:[31,41,55]},
+                headStyles:{fillColor:[17,24,39],textColor:[255,255,255],fontStyle:'bold'},
+                alternateRowStyles:{fillColor:[249,250,251]},
+                columnStyles:{2:{halign:'right'},3:{halign:'right',fontStyle:'bold'}},
+                margin:{left:14,right:14}
+            });
+
+            let y = pdf.lastAutoTable.finalY + 10;
+            if (y > 245) { pdf.addPage(); y = 18; }
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(12);
+            pdf.setTextColor(31,41,55);
+            pdf.text('Fichas do período', 14, y);
+
+            const detailRows = cuts.map(c => {
+                const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
+                const workshop = order?.workshop || c.currentWorkshop || 'Sem oficina';
+                const d = getCutReportDate(c);
+                return [
+                    d ? d.split('-').reverse().join('/') : '-',
+                    String(c.oc || '-'),
+                    c.reference || '-',
+                    c.product || '-',
+                    c.fabric || '-',
+                    formatNumber(c.total),
+                    workshop,
+                    (c.status || '-').replace(/[^\p{L}\p{N}\s\-]/gu,'').trim()
+                ];
+            });
+
+            pdf.autoTable({
+                startY:y+5,
+                head:[['DATA','OC','REF.','PRODUTO','TECIDO','PEÇAS','OFICINA','STATUS']],
+                body:detailRows,
+                theme:'striped',
+                styles:{fontSize:6.6,cellPadding:1.8,textColor:[31,41,55],overflow:'linebreak'},
+                headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},
+                columnStyles:{5:{halign:'right'}},
+                margin:{left:8,right:8},
+                didDrawPage:function(data){
+                    const page = pdf.internal.getNumberOfPages();
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(107,114,128);
+                    pdf.text(`MB Controle de Produção • ${startBR} a ${endBR}`, 10, 291);
+                    pdf.text(`Página ${page}`, 200, 291, {align:'right'});
+                }
+            });
+
+            const filename = `MB_Relatorio_${start.replaceAll('-','')}_a_${end.replaceAll('-','')}.pdf`;
+            pdf.save(filename);
+            showToast('✓ Relatório PDF gerado com sucesso.');
+        }
+
+        function renderReports(container) {
             container.innerHTML = `
-                <div class="page-header"><div><h1>📊 Relatórios por Período</h1><span class="page-subtitle">Escolha a data inicial e final das fichas</span></div></div>
-                <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header"><h3 class="card-title">Período das fichas</h3></div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;">
-                        <div class="form-group" style="margin:0;"><label>Data inicial</label><input type="date" id="report-start-date" value="${reportDateState.start}" onchange="saveReportDates()" oninput="saveReportDates()"></div>
-                        <div class="form-group" style="margin:0;"><label>Data final</label><input type="date" id="report-end-date" value="${reportDateState.end}" onchange="saveReportDates()" oninput="saveReportDates()"></div>
-                        <button class="btn-primary" onclick="generateFichaPeriodReport()">🔎 Gerar relatório</button>
-                    </div>
-                    <div id="ficha-period-report" style="margin-top:14px;"></div>
-                </div>
-                <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header">
-                        <div><h3 class="card-title">🏭 Peças feitas por Oficina</h3>
-                        <small style="color:var(--gray-500);">Conta somente OCs finalizadas no acabamento e separa por produto.</small></div>
-                    </div>
-                    <div id="workshop-production-report">
-                        <div style="padding:14px;color:var(--gray-500);">Escolha o período acima e clique em Gerar relatório.</div>
+                <div class="page-header">
+                    <div>
+                        <h1>📊 Relatório de Produção</h1>
+                        <span class="page-subtitle">Escolha o período e baixe o relatório em PDF</span>
                     </div>
                 </div>
 
-                <div class="page-header">
-                    <div><h1>Relatórios de Setembro/2026</h1><span class="page-subtitle">${currentUser.name} — Consolidado e status da produção</span></div>
-                    <button class="btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir</button>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-card-title">Total de OCs</div><div class="stat-card-value">${DB.production_orders.length}</div></div>
-                    <div class="stat-card"><div class="stat-card-title">Peças Cortadas</div><div class="stat-card-value">${formatNumber(totalPiecesCut)}</div></div>
-                    <div class="stat-card"><div class="stat-card-title">Enviadas Oficina</div><div class="stat-card-value">${formatNumber(totalPiecesSent)}</div></div>
-                    <div class="stat-card"><div class="stat-card-title">Peças Produzidas</div><div class="stat-card-value">${formatNumber(totalProduced)}</div></div>
-                </div>
-                <div class="card">
-                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Tamanho</h3>
-                    <div class="report-size-grid" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; text-align:center;">
-                        <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>P</strong><br>${formatNumber(totalP)}</div>
-                        <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>M</strong><br>${formatNumber(totalM)}</div>
-                        <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>G</strong><br>${formatNumber(totalG)}</div>
-                        <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>GG</strong><br>${formatNumber(totalGG)}</div>
-                        <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>XG</strong><br>${formatNumber(totalXG)}</div>
+                <div class="card" style="max-width:760px;margin:0 auto;">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Período do relatório</h3>
+                            <small style="color:var(--gray-500);">O PDF será gerado somente com as fichas do período escolhido.</small>
+                        </div>
                     </div>
-                </div>
-                <div class="card">
-                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Referência</h3>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead><tr><th>REFERÊNCIA</th><th>TOTAL DE OCs</th><th>TOTAL DE PEÇAS</th></tr></thead>
-                            <tbody>
-                                ${Object.keys(refMap).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--gray-500);">Nenhum dado cadastrado.</td></tr>' : Object.keys(refMap).map(ref => `
-                                    <tr>
-                                        <td><strong>Ref. ${ref}</strong></td>
-                                        <td>${refMap[ref].count} OCs</td>
-                                        <td>${formatNumber(refMap[ref].total)} peças</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end;">
+                        <div class="form-group" style="margin:0;">
+                            <label>Data inicial</label>
+                            <input type="date" id="report-start-date" value="${reportDateState.start}" onchange="saveReportDates()" oninput="saveReportDates()">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Data final</label>
+                            <input type="date" id="report-end-date" value="${reportDateState.end}" onchange="saveReportDates()" oninput="saveReportDates()">
+                        </div>
+                        <button class="btn-primary" onclick="downloadProductionPeriodPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> Baixar relatório PDF
+                        </button>
                     </div>
-                </div>
-                <div class="card">
-                    <h3 class="card-title" style="margin-bottom:12px;">Produção por Oficina</h3>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead><tr><th>OFICINA</th><th>PEÇAS ENVIADAS</th><th>PEÇAS PRODUZIDAS</th><th>PENDENTE</th></tr></thead>
-                            <tbody>
-                                ${DB.workshops.map(w => {
-                                    const shipmentsW = DB.shipments.filter(s => s.workshop === w.name).reduce((a,s)=>a+s.quantity,0);
-                                    const ordersW = DB.production_orders.filter(o => o.workshop === w.name);
-                                    const prodW = ordersW.reduce((a,o)=>a+o.produced,0);
-                                    const pendW = ordersW.reduce((a,o)=>a+o.pending,0);
-                                    return `<tr><td><strong>Oficina: ${w.name}</strong></td><td>${formatNumber(shipmentsW)}</td><td>${formatNumber(prodW)}</td><td>${formatNumber(pendW)}</td></tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
+                    <div style="margin-top:14px;padding:12px;border-radius:10px;background:var(--gray-50);color:var(--gray-600);font-size:13px;">
+                        O relatório não imprime esta página. Ele cria um arquivo PDF separado, organizado por oficina e produto.
                     </div>
                 </div>
             `;
         }
+
         function renderUsers(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>E-MAIL</th><th>PERFIL</th><th>STATUS</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div></div>`;
         }
