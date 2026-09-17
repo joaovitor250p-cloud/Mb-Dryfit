@@ -3110,9 +3110,94 @@
                 </div>`;
         }
 
+        async function checkOneTimeHistoryCleanupAvailability() {
+            const area = document.getElementById('one-time-history-cleanup-area');
+            if (!area || currentUser?.role !== 'ADMIN') return;
+            try {
+                const { db, doc, getDoc } = window.mbFirebase;
+                // getDoc may not be exposed in older build; fallback checks local flag.
+                if (!getDoc) {
+                    if (localStorage.getItem('mb_history_cleanup_used') !== '1') area.style.display = 'block';
+                    return;
+                }
+                const snap = await getDoc(doc(db, 'systemSettings', 'historyCleanup'));
+                if (!snap.exists() || snap.data()?.used !== true) area.style.display = 'block';
+            } catch (e) {
+                if (localStorage.getItem('mb_history_cleanup_used') !== '1') area.style.display = 'block';
+            }
+        }
+
+        function confirmOneTimeHistoryCleanup() {
+            if (currentUser?.role !== 'ADMIN') return;
+            openModal(`
+                <div class="modal-header">
+                    <h2>Apagar todo o histórico?</h2>
+                    <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="padding:4px 0 8px;font-size:13px;line-height:1.55;">
+                    <p>Esta opção funciona <strong>uma única vez</strong>.</p>
+                    <p>Ela apaga somente os registros do <strong>Histórico</strong>. Fichas, OCs, oficinas e usuários continuam no sistema.</p>
+                    <p>Depois que concluir, o botão desaparecerá e não poderá ser usado novamente.</p>
+                    <label style="display:block;margin-top:12px;font-weight:700;">Digite <strong>APAGAR HISTÓRICO</strong> para confirmar:</label>
+                    <input id="history-cleanup-confirm-text" class="form-control" style="margin-top:7px;" autocomplete="off">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" style="width:auto;background:var(--gray-400);" onclick="closeModal()">Cancelar</button>
+                    <button id="history-cleanup-btn" class="btn-primary" style="width:auto;background:var(--danger);" onclick="executeOneTimeHistoryCleanup()">Apagar histórico</button>
+                </div>
+            `);
+        }
+
+        async function executeOneTimeHistoryCleanup() {
+            if (currentUser?.role !== 'ADMIN') return;
+            const typed = (document.getElementById('history-cleanup-confirm-text')?.value || '').trim().toUpperCase();
+            if (typed !== 'APAGAR HISTÓRICO') {
+                showToast('Digite APAGAR HISTÓRICO para confirmar.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('history-cleanup-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Apagando...'; }
+
+            try {
+                const { db, collection, getDocs, deleteDoc, doc, setDoc } = window.mbFirebase;
+
+                // Marker is checked before deletion to prevent a second use on the same device/session.
+                // Firestore rules must allow ADMIN delete on auditLogs and write on systemSettings.
+                const logs = await getDocs(collection(db, 'auditLogs'));
+                for (const item of logs.docs) {
+                    await deleteDoc(doc(db, 'auditLogs', item.id));
+                }
+
+                await setDoc(doc(db, 'systemSettings', 'historyCleanup'), {
+                    used: true,
+                    usedAt: new Date().toISOString(),
+                    usedBy: currentUser.name || 'Administrador',
+                    usedByUid: currentUser.id || ''
+                }, {merge:true});
+
+                localStorage.setItem('mb_history_cleanup_used', '1');
+                closeModal();
+                await loadFirestoreData();
+                showToast('✓ Histórico apagado. A opção foi desativada permanentemente.');
+                renderHistory(document.getElementById('page-content'));
+            } catch (err) {
+                console.error('ERRO LIMPEZA ÚNICA DO HISTÓRICO:', err);
+                const code = err?.code || err?.message || 'erro desconhecido';
+                showToast(`Não foi possível apagar o histórico (${code}).`, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Apagar histórico'; }
+            }
+        }
+
         function renderHistory(container) {
             const logs = [...DB.audit_logs].sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
             container.innerHTML = `
+                <div id="one-time-history-cleanup-area" style="display:none;margin-bottom:12px;">
+                    <button class="btn-primary" style="width:auto;background:var(--danger);" onclick="confirmOneTimeHistoryCleanup()">
+                        <i class="fa-solid fa-trash-can"></i> Apagar histórico uma vez
+                    </button>
+                    <small style="display:block;margin-top:6px;color:var(--gray-500);">Disponível somente para o administrador e desaparece para sempre após o uso.</small>
+                </div>
                 <div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Todas as movimentações da produção</span></div></div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
@@ -3131,6 +3216,7 @@
                     </div>
                 </div>
             `;
+            checkOneTimeHistoryCleanupAvailability();
         }
 
         function handleGlobalSearch(q) {
