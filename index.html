@@ -397,7 +397,7 @@
         .modal-box {
             background: #fff;
             width: 100%;
-            max-width: 850px;
+            max-width: 900px;
             border-radius: 12px;
             box-shadow: var(--shadow-md);
             max-height: 90vh;
@@ -428,15 +428,6 @@
         .toast.error { background: var(--danger); }
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        /* Timeline */
-        .timeline { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; position: relative; padding-left: 20px; border-left: 2px solid var(--gray-200); }
-        .timeline-item { position: relative; }
-        .timeline-item::before { content: ''; position: absolute; left: -25px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--gray-300); }
-        .timeline-item.done::before { background: var(--success); }
-        .timeline-item.active::before { background: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
-        .timeline-title { font-weight: 600; font-size: 13px; color: var(--gray-900); }
-        .timeline-date { font-size: 11px; color: var(--gray-500); }
-
         /* Desktop Media Query Enhancements */
         @media (min-width: 769px) {
             :root { --sidebar-width: 260px; }
@@ -451,7 +442,7 @@
             .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
             .desktop-table-container { display: block !important; }
             .mobile-card-list { display: none !important; }
-            .modal-box { max-width: 900px; padding: 24px; }
+            .modal-box { max-width: 950px; padding: 24px; }
             .toast-container { max-width: 400px; }
         }
     </style>
@@ -617,12 +608,12 @@
         let DB = JSON.parse(localStorage.getItem('mb_db')) || defaultDB;
         
         // Clean history routine for fresh start
-        if (!localStorage.getItem('mb_history_cleaned_v4')) {
+        if (!localStorage.getItem('mb_history_cleaned_v5')) {
             DB.cuts = [];
             DB.shipments = [];
             DB.production_orders = [];
             DB.audit_logs = [];
-            localStorage.setItem('mb_history_cleaned_v4', 'true');
+            localStorage.setItem('mb_history_cleaned_v5', 'true');
             saveDB();
         }
 
@@ -776,9 +767,7 @@
             const cutsReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
             const cutsSent = DB.cuts.filter(c => c.status.includes('Enviado') || c.status.includes('Envio parcial')).length;
             const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Na oficina').length;
-            const ocsWorkshopReady = DB.production_orders.filter(o => o.status === '✓ Oficina pronta').length;
-            const ocsFinishingSend = DB.production_orders.filter(o => o.status === '🚚 Enviando para acabamento').length;
-            const ocsFinishing = DB.production_orders.filter(o => o.status === '🎨 Chegou no acabamento').length;
+            const ocsFinishing = DB.production_orders.filter(o => o.status === '🎨 Corte no acabamento').length;
             const ocsReady = DB.production_orders.filter(o => o.status === '📦 OC pronta').length;
 
             if (currentUser.role === 'ADMIN') {
@@ -790,8 +779,6 @@
                         <div class="stat-card"><div class="stat-card-title">✂️ Cortes Prontos</div><div class="stat-card-value">${cutsReady}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🚚 Enviados Oficina</div><div class="stat-card-value">${cutsSent}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🏭 Em Oficina</div><div class="stat-card-value">${ocsInProc}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">✓ Oficinas Prontas</div><div class="stat-card-value">${ocsWorkshopReady}</div></div>
-                        <div class="stat-card"><div class="stat-card-title">🚚 Env. Acabamento</div><div class="stat-card-value">${ocsFinishingSend}</div></div>
                         <div class="stat-card"><div class="stat-card-title">🎨 No Acabamento</div><div class="stat-card-value">${ocsFinishing}</div></div>
                         <div class="stat-card"><div class="stat-card-title">📦 OCs Prontas</div><div class="stat-card-value">${ocsReady}</div></div>
                     </div>
@@ -976,12 +963,12 @@
                         <input type="text" placeholder="Detalhes (Ex: Lisa)" value="${item.details}" id="color-details-${idx}" oninput="updateColorFieldInput(${idx}, 'details', this)" style="flex:2; min-height:38px;">
                         ${dynamicColors.length > 1 ? `<button type="button" onclick="removeColorRow(${idx})" style="background:var(--danger); color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </div>
-                    <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px;">
-                        <div><small style="font-size:10px;">P</small><input type="number" inputmode="numeric" value="${item.p || ''}" min="0" id="c-${idx}-p" oninput="updateColorQty(${idx}, 'p', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
-                        <div><small style="font-size:10px;">M</small><input type="number" inputmode="numeric" value="${item.m || ''}" min="0" id="c-${idx}-m" oninput="updateColorQty(${idx}, 'm', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
-                        <div><small style="font-size:10px;">G</small><input type="number" inputmode="numeric" value="${item.g || ''}" min="0" id="c-${idx}-g" oninput="updateColorQty(${idx}, 'g', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
-                        <div><small style="font-size:10px;">GG</small><input type="number" inputmode="numeric" value="${item.gg || ''}" min="0" id="c-${idx}-gg" oninput="updateColorQty(${idx}, 'gg', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
-                        <div><small style="font-size:10px;">XG</small><input type="number" inputmode="numeric" value="${item.xg || ''}" min="0" id="c-${idx}-xg" oninput="updateColorQty(${idx}, 'xg', this.value)" style="text-align:center; min-height:38px; padding:4px; font-size:15px; font-weight:600;"></div>
+                    <div style="display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:4px;">
+                        <div><small style="font-size:10px;">P</small><input type="number" inputmode="numeric" value="${item.p || ''}" min="0" id="c-${idx}-p" oninput="updateColorQty(${idx}, 'p', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">M</small><input type="number" inputmode="numeric" value="${item.m || ''}" min="0" id="c-${idx}-m" oninput="updateColorQty(${idx}, 'm', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">G</small><input type="number" inputmode="numeric" value="${item.g || ''}" min="0" id="c-${idx}-g" oninput="updateColorQty(${idx}, 'g', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">GG</small><input type="number" inputmode="numeric" value="${item.gg || ''}" min="0" id="c-${idx}-gg" oninput="updateColorQty(${idx}, 'gg', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
+                        <div><small style="font-size:10px;">XG</small><input type="number" inputmode="numeric" value="${item.xg || ''}" min="0" id="c-${idx}-xg" oninput="updateColorQty(${idx}, 'xg', this.value)" style="text-align:center; min-height:38px; padding:2px; font-size:14px; font-weight:600; width:100%;"></div>
                     </div>
                     <div style="text-align:right; font-size:12px; color:var(--gray-700);">Total da cor: <strong id="c-${idx}-total">${item.total}</strong></div>
                 </div>
@@ -993,7 +980,6 @@
         function addColorRow() {
             dynamicColors.push({ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 });
             renderColorRows();
-            // Focus on the newly added color input
             const newIdx = dynamicColors.length - 1;
             setTimeout(() => {
                 const el = document.getElementById(`color-name-${newIdx}`);
@@ -1016,7 +1002,6 @@
             const c = dynamicColors[idx];
             c.total = (c.p || 0) + (c.m || 0) + (c.g || 0) + (c.gg || 0) + (c.xg || 0);
             
-            // Update only specific total label without re-rendering whole form to prevent focus loss
             const totalEl = document.getElementById(`c-${idx}-total`);
             if(totalEl) totalEl.innerText = c.total;
             
@@ -1171,7 +1156,6 @@
             const workshop = document.getElementById('ship-workshop').value;
             const obs = document.getElementById('ship-obs').value;
             const c = DB.cuts.find(x => x.number === cutNum);
-            const workshopObj = DB.workshops.find(w => w.name === workshop);
 
             if (qty > c.pending) {
                 showToast(`Não é possível enviar ${qty} peças. Restam apenas ${c.pending}.`, 'error');
@@ -1308,7 +1292,27 @@
 
         // PDF Generation Function (Professional Ficha de Produção MB inspired by physical sheet photo)
         function downloadOCPDF(num) {
-            const o = DB.production_orders.find(x => x.number === num);
+            // Find in production orders or cuts
+            let o = DB.production_orders.find(x => x.number === num);
+            if (!o) {
+                const c = DB.cuts.find(x => x.oc === num);
+                if (c) {
+                    o = {
+                        number: c.oc,
+                        reference: c.reference,
+                        product: c.product,
+                        fabric: c.fabric,
+                        workshop: "Não definida",
+                        colors: c.colors,
+                        volumes: c.volumes,
+                        total: c.total,
+                        obs: c.obs,
+                        status: c.status,
+                        info_workshop: c.info_workshop || ''
+                    };
+                }
+            }
+
             if (!o) {
                 showToast(`OC ${num} não encontrada para exportação.`, 'error');
                 return;
@@ -1353,7 +1357,7 @@
             doc.setFont('inter', 'bold');
             doc.text('Oficina:', 132, 44);
             doc.setFont('inter', 'normal');
-            doc.text(`${o.workshop || '-'}`, 148, 44);
+            doc.text(`${o.workshop || 'Não definida'}`, 148, 44);
 
             doc.setFont('inter', 'bold');
             doc.text('Inf. p/ oficina:', 16, 44);
@@ -1407,7 +1411,7 @@
             doc.autoTable({
                 startY: 72,
                 head: [['CORES', 'P', 'M', 'G', 'GG', 'XG', 'DETALHES']],
-                body: tableBody.map(row => [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]), // table view matches physical sheet layout columns
+                body: tableBody.map(row => [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]),
                 theme: 'grid',
                 headStyles: { fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9, lineWidth: 0.3, lineColor: [100, 116, 139], halign: 'center' },
                 bodyStyles: { fontSize: 9, textColor: [30, 41, 59], lineWidth: 0.3, lineColor: [100, 116, 139] },
@@ -1421,7 +1425,6 @@
                     6: { cellWidth: 57 }
                 },
                 didParseCell: function (data) {
-                    // Highlight last row (TOTAL)
                     if (data.row.index === tableBody.length - 1) {
                         data.cell.styles.fontStyle = 'bold';
                         data.cell.styles.fillColor = [241, 245, 249];
@@ -1431,7 +1434,7 @@
 
             const finalY = doc.lastAutoTable.finalY + 6;
 
-            // Outras Informações / Observações Box & Volumes (matching physical sheet footer)
+            // Outras Informações / Observações Box & Volumes
             doc.setDrawColor(100, 116, 139);
             doc.rect(14, finalY, 182, 28);
             doc.setFont('inter', 'bold');
@@ -1455,30 +1458,30 @@
         }
 
         function showOrderDetails(num) {
-            const o = DB.production_orders.find(x => x.number === num);
+            let o = DB.production_orders.find(x => x.number === num);
+            if (!o) {
+                const c = DB.cuts.find(x => x.oc === num);
+                if (c) {
+                    o = {
+                        number: c.oc,
+                        reference: c.reference,
+                        product: c.product,
+                        fabric: c.fabric,
+                        workshop: "Não definida",
+                        colors: c.colors,
+                        volumes: c.volumes,
+                        total: c.total,
+                        obs: c.obs,
+                        status: c.status,
+                        info_workshop: c.info_workshop || ''
+                    };
+                }
+            }
             if (!o) return;
-            const pct = Math.round((o.produced / o.total) * 100);
-            
-            const steps = [
-                "✂️ Corte pronto",
-                "🚚 Enviado para oficina",
-                "🏭 Na oficina",
-                "✓ Oficina pronta",
-                "🚚 Enviando para acabamento",
-                "🎨 Chegou no acabamento",
-                "📦 OC pronta"
-            ];
-
-            let timelineHTML = steps.map(step => {
-                const done = o.timeline.some(t => t.step === step);
-                const isCurrent = o.status === step;
-                let cls = done ? "done" : "";
-                if (isCurrent) cls = "active";
-                const found = o.timeline.find(t => t.step === step);
-                return `<div class="timeline-item ${cls}"><div class="timeline-title">${step}</div><div class="timeline-date">${found ? found.date : 'Pendente'}</div></div>`;
-            }).join('');
 
             let colorsTableHTML = '';
+            let sumP = 0, sumM = 0, sumG = 0, sumGG = 0, sumXG = 0, totalGeral = 0;
+
             if (o.colors && o.colors.length > 0) {
                 colorsTableHTML = `
                     <div style="margin-bottom:12px; overflow-x:auto;">
@@ -1496,19 +1499,39 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${o.colors.map(col => `
-                                    <tr style="border-bottom:1px solid var(--gray-200);">
-                                        <td style="padding:6px; text-align:left; font-weight:600;">${col.color}</td>
-                                        <td style="padding:6px;">${col.p}</td>
-                                        <td style="padding:6px;">${col.m}</td>
-                                        <td style="padding:6px;">${col.g}</td>
-                                        <td style="padding:6px;">${col.gg}</td>
-                                        <td style="padding:6px;">${col.xg || 0}</td>
-                                        <td style="padding:6px; text-align:left; color:var(--gray-600);">${col.details || '-'}</td>
-                                        <td style="padding:6px; font-weight:600;">${col.total}</td>
-                                    </tr>
-                                `).join('')}
+                                ${o.colors.map(col => {
+                                    sumP += (col.p || 0);
+                                    sumM += (col.m || 0);
+                                    sumG += (col.g || 0);
+                                    sumGG += (col.gg || 0);
+                                    sumXG += (col.xg || 0);
+                                    totalGeral += (col.total || 0);
+                                    return `
+                                        <tr style="border-bottom:1px solid var(--gray-200);">
+                                            <td style="padding:6px; text-align:left; font-weight:600;">${col.color}</td>
+                                            <td style="padding:6px;">${col.p}</td>
+                                            <td style="padding:6px;">${col.m}</td>
+                                            <td style="padding:6px;">${col.g}</td>
+                                            <td style="padding:6px;">${col.gg}</td>
+                                            <td style="padding:6px;">${col.xg || 0}</td>
+                                            <td style="padding:6px; text-align:left; color:var(--gray-600);">${col.details || '-'}</td>
+                                            <td style="padding:6px; font-weight:600;">${col.total}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
                             </tbody>
+                            <tfoot>
+                                <tr style="background:var(--gray-100); font-weight:600;">
+                                    <td style="padding:6px; text-align:left;">TOTAL</td>
+                                    <td style="padding:6px;">${sumP}</td>
+                                    <td style="padding:6px;">${sumM}</td>
+                                    <td style="padding:6px;">${sumG}</td>
+                                    <td style="padding:6px;">${sumGG}</td>
+                                    <td style="padding:6px;">${sumXG}</td>
+                                    <td style="padding:6px;"></td>
+                                    <td style="padding:6px;">${totalGeral}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 `;
@@ -1523,22 +1546,14 @@
                     </div>
                 </div>
                 <div style="font-size:13px; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                    <div>🏭 <strong>Oficina:</strong> ${o.workshop}</div>
-                    <div>👕 <strong>Produto/Modelo:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference} | 🧵 <strong>Tecido:</strong> ${o.fabric}</div>
-                    <div>📦 <strong>Volumes:</strong> ${o.volumes || 1} volumes | <strong>Status:</strong> ${o.status}</div>
+                    <div>🏭 <strong>Oficina:</strong> ${o.workshop || 'Não definida'}</div>
+                    <div>👕 <strong>Modelo/Produto:</strong> ${o.product} | 🔢 <strong>Ref:</strong> ${o.reference}</div>
                 </div>
+                ${o.info_workshop ? `<div style="background:var(--gray-50); padding:8px; border-radius:var(--radius); margin-bottom:8px; font-size:12px;"><strong>Inf. p/ oficina:</strong> ${o.info_workshop}</div>` : ''}
                 ${colorsTableHTML}
-                <div style="background:var(--gray-50); padding:10px; border-radius:var(--radius); margin-bottom:12px; font-size:12px;">
-                    <div><strong>Info Oficina:</strong> ${o.info_workshop || 'Nenhuma'}</div>
-                    <div><strong>Observações:</strong> ${o.obs || 'Nenhuma'}</div>
-                </div>
-                <div style="margin-bottom:16px;">
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>Produção: ${o.produced} / ${o.total} (${pct}%)</span><span>${o.pending} pendentes</span></div>
-                    <div style="background:var(--gray-200); height:10px; border-radius:5px; overflow:hidden;"><div style="background:var(--primary); width:${pct}%; height:100%;"></div></div>
-                </div>
-                <strong style="font-size:13px; color:var(--gray-900);">TIMELINE DO PROCESSO</strong>
-                <div class="timeline">
-                    ${timelineHTML}
+                <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius); margin-bottom:12px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div><strong>Outras inf / Observações:</strong> ${o.obs || 'Nenhuma'}</div>
+                    <div><strong>Volumes:</strong> ${o.volumes || 1}</div>
                 </div>
                 <div class="modal-footer"><button class="btn-primary" onclick="closeModal()">Fechar</button></div>
             `);
