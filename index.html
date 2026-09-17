@@ -711,6 +711,17 @@
             .mb-live-alert{right:14px;left:14px;top:68px;width:auto}
         }
 
+
+        .products-mobile{display:none}
+        @media(max-width:768px){
+            .products-desktop{display:none !important}
+            .products-mobile{display:grid !important;grid-template-columns:1fr;gap:9px}
+            .product-mobile-card{display:flex !important;align-items:center;gap:11px;background:#fff;border:1px solid #e5e7eb;border-radius:13px;padding:13px;box-shadow:0 3px 12px rgba(15,23,42,.05)}
+            .product-mobile-icon{width:40px;height:40px;border-radius:11px;background:#fff7ed;color:#ea580c;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+            .product-mobile-card strong{display:block;font-size:13px;color:#111827}
+            .product-mobile-card span{display:block;font-size:10px;color:#6b7280;margin-top:2px}
+        }
+
 </style>
 </head>
 <body>
@@ -1029,7 +1040,6 @@
             else if (currentPage === 'transport') renderTransport(content);
             else if (currentPage === 'orders') renderOrders(content);
             else if (currentPage === 'workshops') renderWorkshops(content, true);
-            else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') {
                 // Não recriar a página enquanto o usuário escolhe as datas.
@@ -1060,7 +1070,6 @@
             else if (currentPage === 'transport') renderTransport(content);
             else if (currentPage === 'orders') renderOrders(content);
             else if (currentPage === 'workshops') renderWorkshops(content, true);
-            else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
             else if (currentPage === 'reports') {
                 // Preserva os campos de data do relatório durante atualizações em tempo real.
@@ -1314,7 +1323,6 @@
             else if (page === 'transport') renderTransport(content);
             else if (page === 'orders') renderOrders(content);
             else if (page === 'workshops') renderWorkshops(content, true);
-            else if (page === 'references') renderReferences(content);
             else if (page === 'products') renderProducts(content);
             else if (page === 'reports') renderReports(content);
             else if (page === 'fichas') renderFichas(content);
@@ -2655,13 +2663,27 @@
                 </div>
             `);
         }
-
-
-        function renderReferences(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>CÓDIGO</th><th>NOME</th><th>PRODUTO</th><th>TECIDO PADRÃO</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div></div>`;
-        }
         function renderProducts(container) {
-            container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>DESCRIÇÃO</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div></div>`;
+            container.innerHTML = `
+                <div class="page-header">
+                    <div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário cadastrados</span></div>
+                </div>
+                <div class="card products-desktop">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>NOME</th><th>DESCRIÇÃO</th></tr></thead>
+                            <tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description || '-'}</td></tr>`).join('')}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="products-mobile">
+                    ${DB.products.map(p=>`
+                        <div class="product-mobile-card">
+                            <div class="product-mobile-icon"><i class="fa-solid fa-shirt"></i></div>
+                            <div><strong>${p.name}</strong><span>${p.description || 'Sem descrição'}</span></div>
+                        </div>`).join('')}
+                </div>
+            `;
         }
         function renderWorkshopProductionReport(start = "", end = "") {
             const target = document.getElementById('workshop-production-report');
@@ -3431,11 +3453,30 @@
             }
         }
 
-        function toggleNotifications() { document.getElementById('notifications-dropdown').classList.toggle('hidden'); }
-        function clearNotifications() {
+        function toggleNotifications() {
+            document.getElementById('notifications-dropdown').classList.toggle('hidden');
             mbLiveNotifications.forEach(n => n.read = true);
             mbRenderNotificationBell();
         }
+        function clearNotifications() {
+            mbLiveNotifications.forEach(n => n.read = true);
+            mbRenderNotificationBell();
+            document.getElementById('notifications-dropdown').classList.add('hidden');
+            showToast('Notificações marcadas como lidas.');
+        }
+
+
+    
+        // Inicialização: mostra a introdução e restaura automaticamente a sessão Firebase.
+        window.addEventListener('load', () => {
+            const splash = document.getElementById('mb-splash');
+
+            const hideSplash = () => {
+                setTimeout(() => {
+                    if (splash) {
+                        splash.classList.add('splash-out');
+                        setTimeout(() => splash.remove(), 650);
+                    }
                 }, 1850);
             };
 
@@ -3477,6 +3518,7 @@
 
             waitFirebase();
         });
+
 
     </script>
 </body>
