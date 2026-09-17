@@ -11,7 +11,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // 🔥 COLE AQUI AS SUAS CHAVES REAIS DO FIREBASE (DA TELA DO PRINT)
         const firebaseConfig = {
@@ -28,7 +28,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
+        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
     </script>
     <!-- jsPDF & AutoTable via CDN for professional PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -639,40 +639,62 @@
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value.trim();
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
 
-            if (window.mbFirebase) {
-                try {
-                    const { auth, db, signInWithEmailAndPassword, collection, getDocs } = window.mbFirebase;
-                    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-                    const user = userCredential.user;
+            if (!window.mbFirebase) {
+                errorEl.innerText = 'Firebase não carregou. Atualize a página e tente novamente.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
 
-                    // Buscar perfil na collection 'profiles' do Firestore
-                    const querySnapshot = await getDocs(collection(db, "profiles"));
-                    let userProfile = null;
-                    querySnapshot.forEach((docSnap) => {
-                        const data = docSnap.data();
-                        if (data.email === email || docSnap.id === user.uid) {
-                            userProfile = { id: user.uid, ...data };
-                        }
-                    });
+            try {
+                const { auth, db, signInWithEmailAndPassword, signOut, doc, getDoc } = window.mbFirebase;
 
-                    if (!userProfile) {
-                        // Fallback se perfil não foi criado no Firestore ainda
-                        if (email.includes('admin')) userProfile = { id: user.uid, name: 'Marcos', role: 'ADMIN', email };
-                        else if (email.includes('transporte')) userProfile = { id: user.uid, name: 'Jéssica', role: 'TRANSPORTE', email };
-                        else userProfile = { id: user.uid, name: 'Nildo', role: 'CORTE', email };
-                    }
+                const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+                const user = userCredential.user;
 
-                    currentUser = userProfile;
-                    localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
-                    await loadFirestoreData();
-                    initApp();
-                } catch (err) {
-                    console.error(err);
-                    document.getElementById('login-error').classList.remove('hidden');
+                // Segurança: cada usuário lê somente o próprio perfil pelo UID.
+                const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+
+                if (!profileSnap.exists()) {
+                    await signOut(auth);
+                    throw new Error("PROFILE_NOT_FOUND");
                 }
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
+
+                const data = profileSnap.data();
+                const allowedRoles = ["ADMIN", "CORTE", "TRANSPORTE"];
+
+                if (data.status !== "ATIVO" || !allowedRoles.includes(data.role)) {
+                    await signOut(auth);
+                    throw new Error("PROFILE_NOT_AUTHORIZED");
+                }
+
+                currentUser = {
+                    id: user.uid,
+                    name: data.name,
+                    email: data.email || user.email,
+                    role: data.role,
+                    status: data.status
+                };
+
+                localStorage.setItem('mb_current_user', JSON.stringify(currentUser));
+                await loadFirestoreData();
+                initApp();
+
+            } catch (err) {
+                console.error("Falha no login:", err);
+                currentUser = null;
+                localStorage.removeItem('mb_current_user');
+
+                if (err.message === "PROFILE_NOT_FOUND") {
+                    errorEl.innerText = 'Usuário autenticado, mas sem perfil autorizado no sistema.';
+                } else if (err.message === "PROFILE_NOT_AUTHORIZED") {
+                    errorEl.innerText = 'Este usuário está inativo ou não possui permissão de acesso.';
+                } else {
+                    errorEl.innerText = 'E-mail ou senha inválidos.';
+                }
+                errorEl.classList.remove('hidden');
             }
         }
 
