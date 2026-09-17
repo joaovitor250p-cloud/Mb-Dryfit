@@ -1202,7 +1202,10 @@
                                             <div style="display:flex; gap:6px; flex-wrap:wrap;">
                                                 ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--warning); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="confirmDevolucao('${c.oc}')">Devolver</button>` : ''}
                                                 <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="downloadOCPDF('${c.oc}')">Baixar OC</button>
-                                                <button class="icon-btn" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
+                                                <div style="display:flex;gap:6px;">
+                                    <button class="icon-btn" title="Ver ficha" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
+                                    <button class="icon-btn" title="Baixar ficha" onclick="downloadFichaPDF('${c.number}')"><i class="fa-solid fa-download"></i></button>
+                                </div>
                                             </div>
                                         </td>
                                     </tr>
@@ -1785,63 +1788,112 @@
 
         async function executeSaveShipment(cutNum, qty, volumesVal, workshop) {
             const c = DB.cuts.find(x => x.number === cutNum);
-            if (!c) return;
+            if (!c) {
+                showToast('Ficha não encontrada. Atualize a tela e tente novamente.', 'error');
+                return;
+            }
 
-            qty = toQuantity(qty);
-            const available = availableQuantity(c);
+            qty = Math.abs(toQuantity(qty));
+            volumesVal = Math.max(1, Math.abs(toQuantity(volumesVal)));
+            const available = Math.abs(availableQuantity(c));
+
+            if (available < 1) {
+                showToast('Esta ficha está sem quantidade disponível. Use Corrigir quantidade e tente novamente.', 'error');
+                return;
+            }
             if (qty < 1 || qty > available) {
                 showToast(`Quantidade inválida. Disponível: ${formatNumber(available)} peças.`, 'error');
                 return;
             }
 
-            c.total = Math.abs(toQuantity(c.total)) || available;
-            // Se a ficha antiga veio corrompida com pending negativo, não carregue um sent inválido.
-            const legacyNegative = toQuantity(c.pending) < 0;
-            c.sent = (legacyNegative ? 0 : Math.max(0, toQuantity(c.sent))) + qty;
-            c.pending = Math.max(0, available - qty);
-            c.status = c.pending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
-
             const now = new Date();
+            const normalizedTotal = Math.abs(toQuantity(c.total)) || available;
+            const oldPendingWasNegative = toQuantity(c.pending) < 0;
+            const oldSent = oldPendingWasNegative ? 0 : Math.max(0, toQuantity(c.sent));
+            const newSent = oldSent + qty;
+            const newPending = Math.max(0, available - qty);
+            const newStatus = newPending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
+
             const shipData = {
-                cut_number:c.number, oc:c.oc, workshop, quantity:qty, volumes:volumesVal,
-                date:now.toISOString().split('T')[0], responsible:currentUser.name, observation:''
+                cut_number: c.number,
+                oc: c.oc,
+                workshop: workshop,
+                quantity: qty,
+                volumes: volumesVal,
+                date: now.toISOString().split('T')[0],
+                responsible: currentUser.name,
+                responsibleUid: currentUser.id,
+                observation: '',
+                createdAt: now.toISOString()
             };
 
-            let existingOC = DB.production_orders.find(o => String(o.number) === String(c.oc));
-            let ocData;
-            if (existingOC) {
-                ocData = { ...existingOC };
-                ocData.total = toQuantity(ocData.total) + qty;
-                ocData.pending = toQuantity(ocData.pending) + qty;
-                ocData.volumes = toQuantity(ocData.volumes) + volumesVal;
-                ocData.workshop = workshop;
-                ocData.status = "🏭 Na oficina";
-            } else {
-                ocData = {
-                    number:c.oc, date:c.date, reference:c.reference, product:c.product, fabric:c.fabric,
-                    workshop, colors:JSON.parse(JSON.stringify(c.colors || [])), volumes:volumesVal,
-                    total:qty, produced:0, pending:qty, status:"🏭 Na oficina", obs:c.obs
-                };
-            }
+            const existingOC = DB.production_orders.find(o => String(o.number) === String(c.oc));
+            const ocData = existingOC ? {
+                ...existingOC,
+                total: Math.max(0, toQuantity(existingOC.total)) + qty,
+                pending: Math.max(0, toQuantity(existingOC.pending)) + qty,
+                volumes: Math.max(0, toQuantity(existingOC.volumes)) + volumesVal,
+                workshop,
+                status: "🏭 Na oficina",
+                updatedAt: now.toISOString()
+            } : {
+                number: String(c.oc),
+                date: c.date,
+                reference: c.reference,
+                product: c.product,
+                fabric: c.fabric || "",
+                workshop,
+                colors: JSON.parse(JSON.stringify(c.colors || [])),
+                volumes: volumesVal,
+                total: qty,
+                produced: 0,
+                pending: qty,
+                status: "🏭 Na oficina",
+                obs: c.obs || "",
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString()
+            };
 
             try {
                 const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
-                await setDoc(doc(db, "cuts", c.number), { ...c, currentWorkshop:workshop, updatedAt:now.toISOString() }, { merge:true });
-                await addDoc(collection(db, "shipments"), { ...shipData, responsibleUid:currentUser.id, createdAt:now.toISOString() });
-                await setDoc(doc(db, "productionOrders", String(ocData.number)), { ...ocData, updatedAt:now.toISOString() }, { merge:true });
+
+                // Primeiro normaliza/salva o corte. Isso também recupera fichas antigas negativas.
+                await setDoc(doc(db, "cuts", c.number), {
+                    total: normalizedTotal,
+                    sent: newSent,
+                    pending: newPending,
+                    status: newStatus,
+                    currentWorkshop: workshop,
+                    updatedAt: now.toISOString()
+                }, { merge: true });
+
+                await addDoc(collection(db, "shipments"), shipData);
+                await setDoc(doc(db, "productionOrders", String(c.oc)), ocData, { merge: true });
+
                 await addDoc(collection(db, "auditLogs"), {
-                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
-                    user:currentUser.name, userUid:currentUser.id, action:"Enviado para oficina", target:`OC ${c.oc}`,
-                    details:`${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
-                    createdAt:now.toISOString()
+                    date: now.toLocaleDateString('pt-BR'),
+                    time: now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+                    user: currentUser.name,
+                    userUid: currentUser.id,
+                    action: "Enviado para oficina",
+                    target: `OC ${c.oc}`,
+                    details: `${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
+                    createdAt: now.toISOString()
                 });
-                await loadFirestoreData();
+
                 closeModal();
                 showToast(`✓ OC ${c.oc} enviada para ${workshop}.`);
+                await loadFirestoreData();
+                currentPage = 'transport';
                 renderTransport(document.getElementById('page-content'));
             } catch (err) {
-                console.error("Erro ao registrar envio no Firestore:", err);
-                showToast('Não foi possível registrar o envio no Firebase.', 'error');
+                console.error("ERRO ENVIO OFICINA:", err);
+                const msg = String(err?.code || err?.message || err);
+                if (msg.includes('permission-denied')) {
+                    showToast('Firebase bloqueou o envio por permissão. A ficha não foi apagada.', 'error');
+                } else {
+                    showToast('Falha ao enviar para oficina. A ficha foi preservada. Tente novamente.', 'error');
+                }
             }
         }
 
@@ -1849,8 +1901,6 @@
             const orders = DB.production_orders;
             const actionsFor = (o) => `
                 ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success);width:auto;" onclick="markFinishing('${o.number}')">🎨 Ir para Acabamento</button>` : ''}
-                ${o.status === '🎨 Corte no acabamento' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--warning);width:auto;" onclick="returnOCToWorkshop('${o.number}')">↩️ Voltar para Oficina</button>` : ''}
-                ${(currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:#64748b;width:auto;" onclick="confirmReturnOCToCuts('${o.number}')">✂️ Voltar para Cortes</button>` : ''}
                 <button class="btn-primary" style="background:var(--success);width:auto;" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
                 <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>`;
 
@@ -1908,57 +1958,6 @@
                 console.error("Erro ao marcar acabamento:", err);
                 showToast('Não foi possível atualizar a OC no Firebase.', 'error');
             }
-        }
-
-        async function returnOCToWorkshop(num) {
-            const o = DB.production_orders.find(x => String(x.number) === String(num));
-            if (!o) return;
-            const now = new Date();
-            try {
-                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
-                await setDoc(doc(db, "productionOrders", String(o.number)), { status:"🏭 Na oficina", updatedAt:now.toISOString() }, { merge:true });
-                await addDoc(collection(db, "auditLogs"), {
-                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
-                    user:currentUser.name, userUid:currentUser.id, action:"Voltou para oficina", target:`OC ${o.number}`,
-                    details:`${currentUser.name} devolveu a OC ${o.number} do acabamento para a oficina ${o.workshop || '-'}.`,
-                    createdAt:now.toISOString()
-                });
-                await loadFirestoreData(); showToast(`✓ OC ${o.number} voltou para a oficina.`); renderOrders(document.getElementById('page-content'));
-            } catch(e) { console.error(e); showToast('Não foi possível voltar a OC para a oficina.', 'error'); }
-        }
-
-        function confirmReturnOCToCuts(num) {
-            const o = DB.production_orders.find(x => String(x.number) === String(num));
-            if (!o) return;
-            openModal(`
-                <div class="modal-header"><h2>Voltar OC ${o.number} para Cortes?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <p style="margin-bottom:14px;">A OC sairá da oficina/acabamento e voltará para <strong>Corte Pronto</strong>, ficando novamente disponível para a Jéssica enviar.</p>
-                <div class="form-group"><label>Motivo</label><textarea id="return-cuts-reason" required placeholder="Informe o motivo da devolução..."></textarea></div>
-                <div class="modal-footer"><button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button class="btn-primary" style="background:var(--warning);width:auto;" onclick="returnOCToCuts('${o.number}')">✂️ Confirmar</button></div>
-            `);
-        }
-
-        async function returnOCToCuts(num) {
-            const o = DB.production_orders.find(x => String(x.number) === String(num));
-            const c = DB.cuts.find(x => String(x.oc) === String(num));
-            const reason = document.getElementById('return-cuts-reason')?.value.trim();
-            if (!o || !c || !reason) { showToast('Informe o motivo da devolução.', 'error'); return; }
-            const now = new Date();
-            try {
-                const { db, doc, setDoc, deleteDoc, collection, addDoc } = window.mbFirebase;
-                await setDoc(doc(db, "cuts", c.number), {
-                    status:"✂️ Corte pronto", sent:0, pending:toQuantity(c.total), currentWorkshop:"",
-                    updatedAt:now.toISOString()
-                }, { merge:true });
-                await deleteDoc(doc(db, "productionOrders", String(o.number)));
-                await addDoc(collection(db, "auditLogs"), {
-                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
-                    user:currentUser.name, userUid:currentUser.id, action:"Voltou para Cortes", target:`OC ${o.number}`,
-                    details:`${currentUser.name} devolveu a OC ${o.number} para Corte Pronto. Motivo: ${reason}`,
-                    createdAt:now.toISOString()
-                });
-                await loadFirestoreData(); closeModal(); showToast(`✓ OC ${o.number} voltou para Cortes.`); navigateTo('transport');
-            } catch(e) { console.error(e); showToast('Não foi possível voltar a OC para Cortes. Verifique as permissões do Firebase.', 'error'); }
         }
 
         function confirmDevolucao(ocNum) {
@@ -2325,6 +2324,61 @@
         function renderUsers(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>E-MAIL</th><th>PERFIL</th><th>STATUS</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div></div>`;
         }
+        function downloadFichaPDF(cutNumber) {
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c) { showToast('Ficha não encontrada.', 'error'); return; }
+
+            const workshop = DB.production_orders.find(o => String(o.number) === String(c.oc))?.workshop || c.currentWorkshop || 'Sem oficina ainda';
+            const raw = c.createdAt || c.readyAt || c.updatedAt;
+            const d = raw ? new Date(raw) : null;
+            const fichaDate = d && !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : formatDate(c.date);
+            const fichaTime = d && !isNaN(d.getTime()) ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : 'Horário não registrado';
+
+            const sizes = (c.colors || []).map(color => `
+                <tr>
+                    <td>${color.name || color.color || '-'}</td>
+                    <td>${color.pp || 0}</td><td>${color.p || 0}</td><td>${color.m || 0}</td>
+                    <td>${color.g || 0}</td><td>${color.gg || 0}</td>
+                    <td><strong>${formatNumber(color.total || 0)}</strong></td>
+                </tr>`).join('');
+
+            const win = window.open('', '_blank');
+            if (!win) {
+                showToast('Permita pop-ups para baixar a ficha.', 'error');
+                return;
+            }
+            win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ficha OC ${c.oc}</title>
+                <style>
+                    body{font-family:Arial,sans-serif;color:#111827;padding:28px}
+                    h1{margin:0;color:#ea580c} .sub{color:#6b7280;margin:4px 0 22px}
+                    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:20px}
+                    .box{border:1px solid #e5e7eb;border-radius:8px;padding:9px}
+                    small{display:block;color:#6b7280;text-transform:uppercase;font-size:10px;margin-bottom:3px}
+                    table{width:100%;border-collapse:collapse;margin-top:14px}
+                    th,td{border:1px solid #d1d5db;padding:7px;text-align:center;font-size:12px}
+                    th{background:#f3f4f6}.foot{margin-top:18px;font-size:11px;color:#6b7280}
+                    @media print{body{padding:8px}.no-print{display:none}}
+                </style></head><body>
+                <h1>MB — Ficha de Corte</h1><div class="sub">OC ${c.oc}</div>
+                <div class="grid">
+                    <div class="box"><small>Data</small><strong>${fichaDate}</strong></div>
+                    <div class="box"><small>Horário</small><strong>${fichaTime}</strong></div>
+                    <div class="box"><small>Referência</small><strong>${c.reference || '-'}</strong></div>
+                    <div class="box"><small>Produto</small><strong>${c.product || '-'}</strong></div>
+                    <div class="box"><small>Tipo de tecido</small><strong>${c.fabric || '-'}</strong></div>
+                    <div class="box"><small>Quantidade</small><strong>${formatNumber(c.total)} peças</strong></div>
+                    <div class="box"><small>Volumes</small><strong>${toQuantity(c.volumes) || 1}</strong></div>
+                    <div class="box"><small>Oficina atual</small><strong>${workshop}</strong></div>
+                </div>
+                <table><thead><tr><th>Cor</th><th>PP</th><th>P</th><th>M</th><th>G</th><th>GG</th><th>Total</th></tr></thead>
+                <tbody>${sizes || '<tr><td colspan="7">Sem grade registrada</td></tr>'}</tbody></table>
+                ${c.obs ? `<div class="box" style="margin-top:14px"><small>Observação</small>${c.obs}</div>` : ''}
+                <div class="foot">Ficha individual — MB Controle de Produção</div>
+                <script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script>
+                </body></html>`);
+            win.document.close();
+        }
+
         function renderFichas(container) {
             const fichas = [...DB.cuts].sort((a,b) => String(b.createdAt || b.readyAt || b.updatedAt || b.date || '').localeCompare(String(a.createdAt || a.readyAt || a.updatedAt || a.date || '')));
 
@@ -2364,7 +2418,10 @@
                                     <div class="mobile-field"><small>Peças</small><strong>${formatNumber(c.total)}</strong></div>
                                 </div>
                                 <div style="padding:9px;border-radius:9px;background:${w ? 'var(--success-light)' : 'var(--gray-100)'};font-size:12px;"><strong>Oficina:</strong> ${w || 'Sem oficina ainda'}</div>
-                                <button class="btn-primary" style="width:100%;" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i> Ver ficha</button>
+                                <div class="mobile-action-row">
+                                    <button class="btn-primary" style="width:100%;" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i> Ver ficha</button>
+                                    <button class="btn-primary" style="width:100%;background:#111827;" onclick="downloadFichaPDF('${c.number}')"><i class="fa-solid fa-download"></i> Baixar esta ficha</button>
+                                </div>
                             </div>`;
                         }).join('')}
                     </div>
