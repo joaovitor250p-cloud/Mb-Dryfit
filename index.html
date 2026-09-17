@@ -698,6 +698,10 @@
                 DB.production_orders = [];
                 ordersSnap.forEach(d => DB.production_orders.push(d.data()));
 
+                const shipmentsSnap = await getDocs(collection(db, "shipments"));
+                DB.shipments = [];
+                shipmentsSnap.forEach(d => DB.shipments.push(d.data()));
+
                 const logsSnap = await getDocs(collection(db, "auditLogs"));
                 DB.audit_logs = [];
                 logsSnap.forEach(d => DB.audit_logs.push(d.data()));
@@ -1028,16 +1032,19 @@
         }
 
         async function saveCutAsDraft() {
-            const ocVal = document.getElementById('cut-oc').value;
-            const refVal = document.getElementById('cut-ref').value;
+            const ocVal = document.getElementById('cut-oc').value.trim();
+            const refVal = document.getElementById('cut-ref').value.trim();
             if(!ocVal || !refVal) {
                 showToast('Preencha ao menos o número da OC e a Referência.', 'error');
                 return;
             }
-            const total = dynamicColors.reduce((acc, curr) => acc + curr.total, 0);
+
+            const total = dynamicColors.reduce((acc, curr) => acc + (curr.total || 0), 0);
             const volumesVal = parseInt(document.getElementById('cut-volumes').value) || 1;
+            const cutNumber = editingCutNumber || `C-${Date.now()}`;
+
             const cutData = {
-                number: editingCutNumber || `C-000${DB.cuts.length + 1}`,
+                number: cutNumber,
                 oc: ocVal,
                 date: new Date().toISOString().split('T')[0],
                 reference: refVal,
@@ -1046,28 +1053,26 @@
                 colors: JSON.parse(JSON.stringify(dynamicColors)),
                 volumes: volumesVal,
                 total: total,
-                sent: 0,
-                pending: total,
+                sent: editingCutNumber ? (DB.cuts.find(x => x.number === editingCutNumber)?.sent || 0) : 0,
+                pending: editingCutNumber ? (DB.cuts.find(x => x.number === editingCutNumber)?.pending ?? total) : total,
                 status: "📝 Rascunho",
                 responsible: currentUser.name,
-                obs: document.getElementById('cut-obs').value
+                responsibleUid: currentUser.id,
+                obs: document.getElementById('cut-obs').value,
+                updatedAt: new Date().toISOString()
             };
 
-            if (supabaseClient) {
-                await supabaseClient.from('cuts').upsert(cutData, { onConflict: 'number' });
-                await loadCloudData();
-            } else {
-                if(editingCutNumber) {
-                    let idx = DB.cuts.findIndex(x => x.number === editingCutNumber);
-                    if(idx >= 0) DB.cuts[idx] = cutData;
-                } else {
-                    DB.cuts.unshift(cutData);
-                }
-                saveDB();
+            try {
+                const { db, doc, setDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", cutNumber), cutData, { merge: true });
+                await loadFirestoreData();
+                closeModal();
+                showToast('✓ Rascunho salvo no Firebase com sucesso.');
+                renderCuts(document.getElementById('page-content'));
+            } catch (err) {
+                console.error("Erro ao salvar rascunho no Firestore:", err);
+                showToast('Não foi possível salvar o rascunho no Firebase.', 'error');
             }
-            closeModal();
-            showToast('✓ Rascunho salvo com sucesso.');
-            renderCuts(document.getElementById('page-content'));
         }
 
         function handleSaveCut(e) {
@@ -1128,19 +1133,19 @@
                 details: `${currentUser.name} marcou a OC ${ocVal} como corte pronto (${total} peças).`
             };
 
-            if (supabaseClient) {
-                await supabaseClient.from('cuts').upsert(cutData, { onConflict: 'number' });
-                await supabaseClient.from('audit_logs').insert([logData]);
-                await loadCloudData();
-            } else {
-                if(editingCutNumber) {
-                    let idx = DB.cuts.findIndex(x => x.number === editingCutNumber);
-                    if(idx >= 0) DB.cuts[idx] = cutData;
-                } else {
-                    DB.cuts.unshift(cutData);
-                }
-                DB.audit_logs.unshift({ id: Date.now(), date: logData.date, time: logData.time, user: logData.user_name, action: logData.action, target: logData.target, details: logData.details });
-                saveDB();
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", cutNumber), { ...cutData, responsibleUid: currentUser.id, updatedAt: new Date().toISOString() }, { merge: true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date: logData.date, time: logData.time, user: logData.user_name,
+                    action: logData.action, target: logData.target, details: logData.details,
+                    userUid: currentUser.id, createdAt: new Date().toISOString()
+                });
+                await loadFirestoreData();
+            } catch (err) {
+                console.error("Erro ao finalizar corte no Firestore:", err);
+                showToast('Não foi possível finalizar o corte no Firebase.', 'error');
+                return;
             }
             closeModal();
             showToast('✓ Corte marcado como pronto com sucesso.');
@@ -1179,13 +1184,19 @@
                 details: `${currentUser.name} marcou o corte ${c.number} (OC ${c.oc}) como pronto.`
             };
 
-            if (supabaseClient) {
-                await supabaseClient.from('cuts').update({ status: '✂️ Corte pronto' }).eq('number', c.number);
-                await supabaseClient.from('audit_logs').insert([logData]);
-                await loadCloudData();
-            } else {
-                DB.audit_logs.unshift({ id: Date.now(), date: logData.date, time: logData.time, user: logData.user_name, action: logData.action, target: logData.target, details: logData.details });
-                saveDB();
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", c.number), { ...c, updatedAt: new Date().toISOString() }, { merge: true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date: logData.date, time: logData.time, user: logData.user_name,
+                    action: logData.action, target: logData.target, details: logData.details,
+                    userUid: currentUser.id, createdAt: new Date().toISOString()
+                });
+                await loadFirestoreData();
+            } catch (err) {
+                console.error("Erro ao marcar corte pronto:", err);
+                showToast('Não foi possível atualizar o corte no Firebase.', 'error');
+                return;
             }
             closeModal();
             showToast(`✓ Corte ${c.number} marcado como pronto.`);
@@ -1206,16 +1217,17 @@
         }
 
         async function deleteDraft(num) {
-            if (supabaseClient) {
-                await supabaseClient.from('cuts').delete().eq('number', num);
-                await loadCloudData();
-            } else {
-                DB.cuts = DB.cuts.filter(x => x.number !== num);
-                saveDB();
+            try {
+                const { db, doc, deleteDoc } = window.mbFirebase;
+                await deleteDoc(doc(db, "cuts", num));
+                await loadFirestoreData();
+                closeModal();
+                showToast('Rascunho excluído com sucesso.');
+                renderCuts(document.getElementById('page-content'));
+            } catch (err) {
+                console.error("Erro ao excluir rascunho:", err);
+                showToast('Não foi possível excluir o rascunho do Firebase.', 'error');
             }
-            closeModal();
-            showToast('Rascunho excluído com sucesso.');
-            renderCuts(document.getElementById('page-content'));
         }
 
         function showCutDetails(num) {
@@ -1340,15 +1352,21 @@
                 details: `${currentUser.name} enviou ${qty} peças (${volumesVal} volumes) do corte ${c.number} para Oficina: ${workshop} (Status: 🏭 Em processo na oficina).`
             };
 
-            if (supabaseClient) {
-                await supabaseClient.from('cuts').update({ sent: c.sent, pending: c.pending, status: c.status }).eq('number', c.number);
-                await supabaseClient.from('shipments').insert([shipData]);
-                await supabaseClient.from('production_orders').upsert(ocData, { onConflict: 'number' });
-                await supabaseClient.from('audit_logs').insert([logData]);
-                await loadCloudData();
-            } else {
-                DB.audit_logs.unshift({ id: Date.now(), date: logData.date, time: logData.time, user: logData.user_name, action: logData.action, target: logData.target, details: logData.details });
-                saveDB();
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                await setDoc(doc(db, "cuts", c.number), { ...c, updatedAt: new Date().toISOString() }, { merge: true });
+                await addDoc(collection(db, "shipments"), { ...shipData, responsibleUid: currentUser.id, createdAt: new Date().toISOString() });
+                await setDoc(doc(db, "productionOrders", String(ocData.number)), { ...ocData, updatedAt: new Date().toISOString() }, { merge: true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date: logData.date, time: logData.time, user: logData.user_name,
+                    action: logData.action, target: logData.target, details: logData.details,
+                    userUid: currentUser.id, createdAt: new Date().toISOString()
+                });
+                await loadFirestoreData();
+            } catch (err) {
+                console.error("Erro ao registrar envio no Firestore:", err);
+                showToast('Não foi possível registrar o envio no Firebase.', 'error');
+                return;
             }
 
             closeModal();
@@ -1395,9 +1413,28 @@
         async function markFinishing(num) {
             const o = DB.production_orders.find(x => x.number === num);
             if (!o) return;
-            o.status = "🎨 Corte no acabamento";
-            showToast(`✓ OC ${o.number} marcada como corte no acabamento.`);
-            renderOrders(document.getElementById('page-content'));
+            try {
+                const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
+                o.status = "🎨 Corte no acabamento";
+                o.updatedAt = new Date().toISOString();
+                await setDoc(doc(db, "productionOrders", String(o.number)), o, { merge: true });
+                await addDoc(collection(db, "auditLogs"), {
+                    date: new Date().toLocaleDateString('pt-BR'),
+                    time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+                    user: currentUser.name,
+                    userUid: currentUser.id,
+                    action: "Corte no acabamento",
+                    target: `OC ${o.number}`,
+                    details: `${currentUser.name} marcou a OC ${o.number} como corte no acabamento.`,
+                    createdAt: new Date().toISOString()
+                });
+                await loadFirestoreData();
+                showToast(`✓ OC ${o.number} marcada como corte no acabamento.`);
+                renderOrders(document.getElementById('page-content'));
+            } catch (err) {
+                console.error("Erro ao marcar acabamento:", err);
+                showToast('Não foi possível atualizar a OC no Firebase.', 'error');
+            }
         }
 
         function confirmDevolucao(ocNum) {
@@ -1413,14 +1450,38 @@
             `);
         }
 
-        function executeDevolucao(e, ocNum) {
+        async function executeDevolucao(e, ocNum) {
             e.preventDefault();
-            let c = DB.cuts.find(x => x.oc === ocNum);
-            if(c) c.status = "📝 Rascunho";
-            DB.production_orders = DB.production_orders.filter(o => o.number !== ocNum);
-            closeModal();
-            showToast(`✓ OC ${ocNum} devolvida para Nildo como rascunho.`);
-            navigateTo('cuts');
+            const motivo = document.getElementById('dev-motivo').value.trim();
+            const c = DB.cuts.find(x => x.oc === ocNum);
+            if (!c) {
+                showToast('Corte não encontrado.', 'error');
+                return;
+            }
+            try {
+                const { db, doc, setDoc, deleteDoc, collection, addDoc } = window.mbFirebase;
+                c.status = "📝 Rascunho";
+                c.updatedAt = new Date().toISOString();
+                await setDoc(doc(db, "cuts", c.number), c, { merge: true });
+                await deleteDoc(doc(db, "productionOrders", String(ocNum)));
+                await addDoc(collection(db, "auditLogs"), {
+                    date: new Date().toLocaleDateString('pt-BR'),
+                    time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+                    user: currentUser.name,
+                    userUid: currentUser.id,
+                    action: "Devolução para correção",
+                    target: `OC ${ocNum}`,
+                    details: `${currentUser.name} devolveu a OC ${ocNum} para rascunho. Motivo: ${motivo}`,
+                    createdAt: new Date().toISOString()
+                });
+                await loadFirestoreData();
+                closeModal();
+                showToast(`✓ OC ${ocNum} devolvida para Nildo como rascunho.`);
+                navigateTo('cuts');
+            } catch (err) {
+                console.error("Erro ao devolver OC:", err);
+                showToast('Não foi possível devolver a OC no Firebase.', 'error');
+            }
         }
 
         function downloadOCPDF(num) {
