@@ -1201,10 +1201,11 @@
                                         <td>
                                             <div style="display:flex; gap:6px; flex-wrap:wrap;">
                                                 ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--warning); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="confirmDevolucao('${c.oc}')">Devolver</button>` : ''}
-                                                <button class="btn-primary" style="background:var(--success); padding:4px 8px; font-size:11px; min-height:30px; width:auto;" onclick="downloadOCPDF('${c.oc}')">Baixar OC</button>
+                                                
                                                 <div style="display:flex;gap:6px;">
                                     <button class="icon-btn" title="Ver ficha" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i></button>
                                     <button class="icon-btn" title="Baixar ficha" onclick="downloadFichaPDF('${c.number}')"><i class="fa-solid fa-download"></i></button>
+                                    ${currentUser.role === 'ADMIN' ? `<button class="icon-btn" title="Apagar ficha" style="color:var(--danger);" onclick="confirmDeleteFicha('${c.number}')"><i class="fa-solid fa-trash"></i></button>` : ''}
                                 </div>
                                             </div>
                                         </td>
@@ -1607,7 +1608,7 @@
                                         <td>${c.reference}</td><td>${c.product}</td><td>${c.fabric || '-'}</td><td>${c.volumes || 1} vls</td>
                                         <td>${formatNumber(availableQuantity(c))} peças</td><td><span class="badge badge-success">${c.status}</span></td>
                                         <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                            ${toQuantity(c.pending) < 0 ? `<button class="btn-primary" style="background:#7c3aed;padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir quantidade</button>` : ''}
+                                            ${(toQuantity(c.pending) < 0 || toQuantity(c.total) < 0 || (availableQuantity(c) <= 0 && Math.abs(toQuantity(c.total)) > 0)) ? `<button class="btn-primary" style="background:#7c3aed;padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir ficha</button>` : ''}
                                             <button class="btn-primary" style="padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar</button>
                                             ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver</button><button class="btn-primary" style="background:var(--danger);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar</button>` : ''}
                                         </div></td>
@@ -1632,7 +1633,7 @@
                                     <div class="mobile-field"><small>Situação</small><strong>Pronto para envio</strong></div>
                                 </div>
                                 <div class="mobile-action-row">
-                                    ${toQuantity(c.pending) < 0 ? `<button class="btn-primary" style="background:#7c3aed;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir quantidade</button>` : ''}
+                                    ${(toQuantity(c.pending) < 0 || toQuantity(c.total) < 0 || (availableQuantity(c) <= 0 && Math.abs(toQuantity(c.total)) > 0)) ? `<button class="btn-primary" style="background:#7c3aed;" onclick="repairLegacyCut('${c.number}')">🛠 Corrigir ficha</button>` : ''}
                                     <button class="btn-primary" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button>
                                     ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver ao Nildo</button><button class="btn-primary" style="background:var(--danger);" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar OC</button>` : ''}
                                 </div>
@@ -1697,21 +1698,23 @@
             const c = DB.cuts.find(x => x.number === cutNumber);
             if (!c) return;
 
+            const rawTotal = toQuantity(c.total);
             const rawPending = toQuantity(c.pending);
-            if (rawPending >= 0) {
-                showToast('Esta ficha não precisa de correção.');
+            const correctedTotal = Math.abs(rawTotal) || Math.abs(rawPending);
+            if (correctedTotal < 1) {
+                showToast('Não encontrei uma quantidade válida para recuperar esta ficha.', 'error');
                 return;
             }
 
-            const corrected = Math.abs(rawPending) || Math.abs(toQuantity(c.total));
             const now = new Date();
-
             try {
                 const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
                 await setDoc(doc(db, "cuts", c.number), {
-                    total: Math.abs(toQuantity(c.total)) || corrected,
-                    pending: corrected,
+                    total: correctedTotal,
+                    pending: correctedTotal,
                     sent: 0,
+                    status: "✂️ Corte pronto",
+                    currentWorkshop: "",
                     updatedAt: now.toISOString()
                 }, { merge:true });
 
@@ -1720,18 +1723,19 @@
                     time: now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
                     user: currentUser.name,
                     userUid: currentUser.id,
-                    action: "Quantidade corrigida",
+                    action: "Ficha recuperada",
                     target: `OC ${c.oc}`,
-                    details: `Quantidade disponível corrigida de ${rawPending} para ${corrected} peças. Ficha antiga recuperada sem exclusão.`,
+                    details: `Ficha recuperada para envio: total ${correctedTotal} peças, pendente ${correctedTotal}, enviado 0.`,
                     createdAt: now.toISOString()
                 });
 
                 await loadFirestoreData();
-                showToast(`✓ OC ${c.oc} corrigida para ${formatNumber(corrected)} peças.`);
+                showToast(`✓ OC ${c.oc} recuperada com ${formatNumber(correctedTotal)} peças.`);
+                currentPage = 'transport';
                 renderTransport(document.getElementById('page-content'));
             } catch (err) {
-                console.error("Erro ao corrigir ficha antiga:", err);
-                showToast('Não foi possível corrigir a ficha. Verifique as permissões do Firebase.', 'error');
+                console.error("ERRO RECUPERAR FICHA:", err);
+                showToast(`Não foi possível recuperar a ficha: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
             }
         }
 
@@ -1788,44 +1792,27 @@
 
         async function executeSaveShipment(cutNum, qty, volumesVal, workshop) {
             const c = DB.cuts.find(x => x.number === cutNum);
-            if (!c) {
-                showToast('Ficha não encontrada. Atualize a tela e tente novamente.', 'error');
-                return;
-            }
+            if (!c) { showToast('Ficha não encontrada.', 'error'); return; }
 
             qty = Math.abs(toQuantity(qty));
             volumesVal = Math.max(1, Math.abs(toQuantity(volumesVal)));
-            const available = Math.abs(availableQuantity(c));
+            let available = Math.abs(availableQuantity(c));
+            const total = Math.abs(toQuantity(c.total));
 
-            if (available < 1) {
-                showToast('Esta ficha está sem quantidade disponível. Use Corrigir quantidade e tente novamente.', 'error');
-                return;
-            }
+            // Recovery for old records such as -1126.
+            if (available < 1 && total > 0 && c.status === "✂️ Corte pronto") available = total;
+
             if (qty < 1 || qty > available) {
                 showToast(`Quantidade inválida. Disponível: ${formatNumber(available)} peças.`, 'error');
                 return;
             }
 
             const now = new Date();
-            const normalizedTotal = Math.abs(toQuantity(c.total)) || available;
-            const oldPendingWasNegative = toQuantity(c.pending) < 0;
-            const oldSent = oldPendingWasNegative ? 0 : Math.max(0, toQuantity(c.sent));
-            const newSent = oldSent + qty;
             const newPending = Math.max(0, available - qty);
             const newStatus = newPending === 0 ? "🚚 Enviado para oficina" : "🚚 Envio parcial";
-
-            const shipData = {
-                cut_number: c.number,
-                oc: c.oc,
-                workshop: workshop,
-                quantity: qty,
-                volumes: volumesVal,
-                date: now.toISOString().split('T')[0],
-                responsible: currentUser.name,
-                responsibleUid: currentUser.id,
-                observation: '',
-                createdAt: now.toISOString()
-            };
+            const normalizedTotal = total || available;
+            const oldSent = toQuantity(c.pending) < 0 ? 0 : Math.max(0, toQuantity(c.sent));
+            const newSent = oldSent + qty;
 
             const existingOC = DB.production_orders.find(o => String(o.number) === String(c.oc));
             const ocData = existingOC ? {
@@ -1833,67 +1820,58 @@
                 total: Math.max(0, toQuantity(existingOC.total)) + qty,
                 pending: Math.max(0, toQuantity(existingOC.pending)) + qty,
                 volumes: Math.max(0, toQuantity(existingOC.volumes)) + volumesVal,
-                workshop,
-                status: "🏭 Na oficina",
-                updatedAt: now.toISOString()
+                workshop, status:"🏭 Na oficina", updatedAt:now.toISOString()
             } : {
-                number: String(c.oc),
-                date: c.date,
-                reference: c.reference,
-                product: c.product,
-                fabric: c.fabric || "",
-                workshop,
-                colors: JSON.parse(JSON.stringify(c.colors || [])),
-                volumes: volumesVal,
-                total: qty,
-                produced: 0,
-                pending: qty,
-                status: "🏭 Na oficina",
-                obs: c.obs || "",
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString()
+                number:String(c.oc), date:c.date, reference:c.reference, product:c.product,
+                fabric:c.fabric || "", workshop, colors:JSON.parse(JSON.stringify(c.colors || [])),
+                volumes:volumesVal, total:qty, produced:0, pending:qty,
+                status:"🏭 Na oficina", obs:c.obs || "", createdAt:now.toISOString(), updatedAt:now.toISOString()
             };
 
             try {
                 const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
 
-                // Primeiro normaliza/salva o corte. Isso também recupera fichas antigas negativas.
-                await setDoc(doc(db, "cuts", c.number), {
-                    total: normalizedTotal,
-                    sent: newSent,
-                    pending: newPending,
-                    status: newStatus,
-                    currentWorkshop: workshop,
-                    updatedAt: now.toISOString()
-                }, { merge: true });
+                // Create/update destination first. Only then mark the cut as sent.
+                await setDoc(doc(db, "productionOrders", String(c.oc)), ocData, { merge:true });
 
-                await addDoc(collection(db, "shipments"), shipData);
-                await setDoc(doc(db, "productionOrders", String(c.oc)), ocData, { merge: true });
+                await addDoc(collection(db, "shipments"), {
+                    cut_number:c.number, oc:String(c.oc), workshop, quantity:qty, volumes:volumesVal,
+                    date:now.toISOString().split('T')[0], responsible:currentUser.name,
+                    responsibleUid:currentUser.id, observation:'', createdAt:now.toISOString()
+                });
+
+                await setDoc(doc(db, "cuts", c.number), {
+                    total:normalizedTotal, sent:newSent, pending:newPending, status:newStatus,
+                    currentWorkshop:workshop, updatedAt:now.toISOString()
+                }, { merge:true });
 
                 await addDoc(collection(db, "auditLogs"), {
-                    date: now.toLocaleDateString('pt-BR'),
-                    time: now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-                    user: currentUser.name,
-                    userUid: currentUser.id,
-                    action: "Enviado para oficina",
-                    target: `OC ${c.oc}`,
-                    details: `${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
-                    createdAt: now.toISOString()
+                    date:now.toLocaleDateString('pt-BR'),
+                    time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id,
+                    action:"Enviado para oficina", target:`OC ${c.oc}`,
+                    details:`${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
+                    createdAt:now.toISOString()
                 });
 
                 closeModal();
-                showToast(`✓ OC ${c.oc} enviada para ${workshop}.`);
                 await loadFirestoreData();
+                showToast(`✓ OC ${c.oc} enviada para ${workshop}.`);
                 currentPage = 'transport';
                 renderTransport(document.getElementById('page-content'));
             } catch (err) {
                 console.error("ERRO ENVIO OFICINA:", err);
-                const msg = String(err?.code || err?.message || err);
-                if (msg.includes('permission-denied')) {
-                    showToast('Firebase bloqueou o envio por permissão. A ficha não foi apagada.', 'error');
-                } else {
-                    showToast('Falha ao enviar para oficina. A ficha foi preservada. Tente novamente.', 'error');
-                }
+                // Keep the source cut usable. We do not erase its ficha.
+                try {
+                    const { db, doc, setDoc } = window.mbFirebase;
+                    await setDoc(doc(db, "cuts", c.number), {
+                        total:normalizedTotal, pending:available, sent:oldSent,
+                        status:"✂️ Corte pronto", updatedAt:new Date().toISOString()
+                    }, { merge:true });
+                } catch (_) {}
+
+                const code = err?.code || err?.message || 'erro desconhecido';
+                showToast(`Não enviou para oficina (${code}). A ficha foi preservada.`, 'error');
             }
         }
 
@@ -1901,7 +1879,6 @@
             const orders = DB.production_orders;
             const actionsFor = (o) => `
                 ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success);width:auto;" onclick="markFinishing('${o.number}')">🎨 Ir para Acabamento</button>` : ''}
-                <button class="btn-primary" style="background:var(--success);width:auto;" onclick="downloadOCPDF('${o.number}')">Baixar OC</button>
                 <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>`;
 
             container.innerHTML = `
@@ -2200,7 +2177,7 @@
                 <div class="modal-header">
                     <h2>Ficha da OC ${o.number}</h2>
                     <div style="display:flex; gap:8px; align-items:center;">
-                        <button class="btn-primary" style="background:var(--success); padding:6px 12px; font-size:12px; width:auto;" onclick="downloadOCPDF('${o.number}')">⬇ Baixar OC</button>
+                        
                         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
@@ -2246,6 +2223,35 @@
         function renderProducts(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>DESCRIÇÃO</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div></div>`;
         }
+        function generateFichaPeriodReport() {
+            const start = document.getElementById('report-start-date')?.value;
+            const end = document.getElementById('report-end-date')?.value;
+            const target = document.getElementById('ficha-period-report');
+            if (!start || !end || !target) { showToast('Escolha a data inicial e a data final.', 'error'); return; }
+            if (start > end) { showToast('A data inicial não pode ser maior que a final.', 'error'); return; }
+
+            const rows = DB.cuts.filter(c => {
+                let date = c.date;
+                if (!date && c.createdAt) date = String(c.createdAt).slice(0,10);
+                return date && date >= start && date <= end;
+            }).sort((a,b) => String(a.date||a.createdAt||'').localeCompare(String(b.date||b.createdAt||'')));
+
+            const totalPieces = rows.reduce((s,c)=>s+Math.abs(toQuantity(c.total)),0);
+            target.innerHTML = `
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                    <span class="badge badge-info">${rows.length} fichas</span>
+                    <span class="badge badge-success">${formatNumber(totalPieces)} peças</span>
+                    <span class="badge badge-gray">${start.split('-').reverse().join('/')} até ${end.split('-').reverse().join('/')}</span>
+                </div>
+                ${rows.length === 0 ? `<div style="padding:16px;text-align:center;color:var(--gray-500)">Nenhuma ficha nesse período.</div>` :
+                `<div class="table-responsive"><table class="data-table"><thead><tr><th>DATA</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>PEÇAS</th><th>OFICINA</th><th>STATUS</th></tr></thead>
+                <tbody>${rows.map(c=>{
+                    const order=DB.production_orders.find(o=>String(o.number)===String(c.oc));
+                    const w=order?.workshop||c.currentWorkshop||'Sem oficina ainda';
+                    return `<tr><td>${formatDate(c.date)}</td><td><strong>OC ${c.oc}</strong></td><td>${c.reference||'-'}</td><td>${c.product||'-'}</td><td>${c.fabric||'-'}</td><td>${formatNumber(c.total)}</td><td>${w}</td><td>${c.status||'-'}</td></tr>`;
+                }).join('')}</tbody></table></div>`}`;
+        }
+
         function renderReports(container) {
             const totalPiecesCut = DB.cuts.reduce((a,c) => a + c.total, 0);
             const totalPiecesSent = DB.shipments.reduce((a,s) => a + s.quantity, 0);
@@ -2265,6 +2271,17 @@
             });
 
             container.innerHTML = `
+                <div class="page-header"><div><h1>📊 Relatórios por Período</h1><span class="page-subtitle">Escolha a data inicial e final das fichas</span></div></div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header"><h3 class="card-title">Período das fichas</h3></div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;">
+                        <div class="form-group" style="margin:0;"><label>Data inicial</label><input type="date" id="report-start-date"></div>
+                        <div class="form-group" style="margin:0;"><label>Data final</label><input type="date" id="report-end-date"></div>
+                        <button class="btn-primary" onclick="generateFichaPeriodReport()">🔎 Gerar relatório</button>
+                    </div>
+                    <div id="ficha-period-report" style="margin-top:14px;"></div>
+                </div>
+
                 <div class="page-header">
                     <div><h1>Relatórios de Setembro/2026</h1><span class="page-subtitle">${currentUser.name} — Consolidado e status da produção</span></div>
                     <button class="btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir</button>
@@ -2379,6 +2396,100 @@
             win.document.close();
         }
 
+        function confirmDeleteFicha(cutNumber) {
+            if (currentUser.role !== 'ADMIN') return;
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c) return;
+            openModal(`
+                <div class="modal-header"><h2>Apagar OC ${c.oc}?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <p>Esta ação vai apagar a ficha/OC e os registros operacionais ligados a ela. O registro desta exclusão ficará no Histórico.</p>
+                <div class="modal-footer"><button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button class="btn-primary" style="background:var(--danger);width:auto;" onclick="deleteSingleFicha('${c.number}')">🗑️ Apagar definitivamente</button></div>
+            `);
+        }
+
+        async function deleteSingleFicha(cutNumber) {
+            if (currentUser.role !== 'ADMIN') return;
+            const c = DB.cuts.find(x => x.number === cutNumber);
+            if (!c) return;
+            const now = new Date();
+            try {
+                const { db, doc, deleteDoc, collection, getDocs, addDoc } = window.mbFirebase;
+
+                // Log BEFORE deletion so the action remains in permanent history.
+                await addDoc(collection(db, "auditLogs"), {
+                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id, action:"Ficha apagada", target:`OC ${c.oc}`,
+                    details:`${currentUser.name} apagou definitivamente a ficha ${c.number}, OC ${c.oc}, referência ${c.reference || '-'}.`,
+                    createdAt:now.toISOString()
+                });
+
+                // Remove production order with same OC.
+                try { await deleteDoc(doc(db, "productionOrders", String(c.oc))); } catch(e) {}
+
+                // Remove shipments linked to this cut/OC.
+                const shipSnap = await getDocs(collection(db, "shipments"));
+                for (const d of shipSnap.docs) {
+                    const s = d.data();
+                    if (String(s.cut_number) === String(c.number) || String(s.oc) === String(c.oc)) {
+                        await deleteDoc(doc(db, "shipments", d.id));
+                    }
+                }
+
+                await deleteDoc(doc(db, "cuts", c.number));
+                closeModal();
+                await loadFirestoreData();
+                showToast(`✓ OC ${c.oc} apagada.`);
+                renderFichas(document.getElementById('page-content'));
+            } catch(err) {
+                console.error("ERRO APAGAR FICHA:", err);
+                showToast(`Não foi possível apagar: ${err?.code || err?.message || 'erro'}`, 'error');
+            }
+        }
+
+        function confirmDeleteAllFichas() {
+            if (currentUser.role !== 'ADMIN') return;
+            openModal(`
+                <div class="modal-header"><h2>⚠️ Apagar TODAS as fichas?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <p style="margin-bottom:12px;">Isso apaga todas as fichas/OCs, ordens de produção e envios. <strong>Os usuários/perfis não serão apagados.</strong></p>
+                <div class="form-group"><label>Digite <strong>APAGAR TUDO</strong> para confirmar</label><input id="delete-all-confirm" autocomplete="off" placeholder="APAGAR TUDO"></div>
+                <div class="modal-footer"><button class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="closeModal()">Cancelar</button><button class="btn-primary" style="background:var(--danger);width:auto;" onclick="deleteAllFichas()">🗑️ Apagar tudo</button></div>
+            `);
+        }
+
+        async function deleteAllFichas() {
+            if (currentUser.role !== 'ADMIN') return;
+            if ((document.getElementById('delete-all-confirm')?.value || '').trim().toUpperCase() !== 'APAGAR TUDO') {
+                showToast('Digite APAGAR TUDO para confirmar.', 'error'); return;
+            }
+            const now = new Date();
+            try {
+                const { db, doc, deleteDoc, collection, getDocs, addDoc } = window.mbFirebase;
+                const cutsSnap = await getDocs(collection(db, "cuts"));
+                const ordersSnap = await getDocs(collection(db, "productionOrders"));
+                const shipmentsSnap = await getDocs(collection(db, "shipments"));
+
+                for (const d of cutsSnap.docs) await deleteDoc(doc(db, "cuts", d.id));
+                for (const d of ordersSnap.docs) await deleteDoc(doc(db, "productionOrders", d.id));
+                for (const d of shipmentsSnap.docs) await deleteDoc(doc(db, "shipments", d.id));
+
+                // Keep one audit entry documenting the reset; do not delete profiles/users.
+                await addDoc(collection(db, "auditLogs"), {
+                    date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id, action:"Produção zerada", target:"Todas as fichas",
+                    details:`${currentUser.name} apagou todas as fichas/OCs, ordens de produção e envios para iniciar uma nova base de produção.`,
+                    createdAt:now.toISOString()
+                });
+
+                closeModal();
+                await loadFirestoreData();
+                showToast('✓ Todas as fichas e OCs foram apagadas.');
+                renderFichas(document.getElementById('page-content'));
+            } catch(err) {
+                console.error("ERRO APAGAR TODAS:", err);
+                showToast(`Não foi possível apagar tudo: ${err?.code || err?.message || 'erro'}`, 'error');
+            }
+        }
+
         function renderFichas(container) {
             const fichas = [...DB.cuts].sort((a,b) => String(b.createdAt || b.readyAt || b.updatedAt || b.date || '').localeCompare(String(a.createdAt || a.readyAt || a.updatedAt || a.date || '')));
 
@@ -2395,7 +2506,10 @@
             };
 
             container.innerHTML = `
-                <div class="page-header"><div><h1>📁 Fichas</h1><span class="page-subtitle">Todas as fichas criadas no Controle de Produção</span></div></div>
+                <div class="page-header">
+                    <div><h1>📁 Fichas</h1><span class="page-subtitle">Todas as fichas criadas no Controle de Produção</span></div>
+                    ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="background:var(--danger);width:auto;" onclick="confirmDeleteAllFichas()">🗑️ Apagar todas as fichas</button>` : ''}
+                </div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
@@ -2421,6 +2535,7 @@
                                 <div class="mobile-action-row">
                                     <button class="btn-primary" style="width:100%;" onclick="showCutDetails('${c.number}')"><i class="fa-solid fa-eye"></i> Ver ficha</button>
                                     <button class="btn-primary" style="width:100%;background:#111827;" onclick="downloadFichaPDF('${c.number}')"><i class="fa-solid fa-download"></i> Baixar esta ficha</button>
+                                    ${currentUser.role === 'ADMIN' ? `<button class="btn-primary" style="width:100%;background:var(--danger);" onclick="confirmDeleteFicha('${c.number}')"><i class="fa-solid fa-trash"></i> Apagar esta ficha</button>` : ''}
                                 </div>
                             </div>`;
                         }).join('')}
