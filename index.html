@@ -654,7 +654,64 @@
         @media(max-width:900px){.workshop-directory{grid-template-columns:repeat(2,minmax(0,1fr))}.workshop-summary-grid{grid-template-columns:1fr 1fr}.workshop-summary-wide{grid-column:1/-1}}
         @media(max-width:600px){.workshop-directory{grid-template-columns:1fr;gap:9px}.workshop-directory-card{padding:13px;border-radius:14px}.workshop-oc-grid{grid-template-columns:1fr}.workshop-summary-grid{grid-template-columns:1fr 1fr;gap:8px}.workshop-summary-card{padding:11px}.workshop-summary-card>strong{font-size:21px}.workshop-page-head{gap:8px}.workshop-page-head h1{font-size:19px}.workshop-page-avatar{width:43px;height:43px}.woc-grid{grid-template-columns:1fr 1fr}.workshop-detail-grid{grid-template-columns:1fr 1fr}}
 
-    </style>
+    
+        /* ADMIN — Produtos sempre visível no celular */
+        @media (max-width: 768px) {
+            .admin-grid, .settings-grid, .management-grid, .admin-cards {
+                display:grid !important;
+                grid-template-columns:1fr !important;
+                gap:10px !important;
+            }
+            .admin-grid > *, .settings-grid > *, .management-grid > *, .admin-cards > * {
+                display:flex;
+                min-width:0;
+            }
+            [data-admin-section="products"], .admin-products, .products-admin-card {
+                display:flex !important;
+                visibility:visible !important;
+                opacity:1 !important;
+            }
+        }
+
+
+        /* ===== Notebook/Desktop refinado ===== */
+        @media (min-width: 769px) {
+            .main-content { min-width:0; }
+            .page-content-area {
+                width:100% !important;
+                max-width:1440px !important;
+                margin:0 auto !important;
+                padding:24px 28px 36px !important;
+            }
+            .topbar { padding-left:28px !important; padding-right:28px !important; }
+            .page-header { gap:16px; align-items:center; margin-bottom:20px; }
+            .stats-grid, .dashboard-grid { gap:14px !important; }
+            table { width:100%; }
+            .table-container, .card, .panel { border-radius:14px; }
+            .workshop-directory { grid-template-columns:repeat(3,minmax(230px,1fr)); }
+            .workshop-oc-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        }
+        @media (min-width: 1180px) {
+            .workshop-directory { grid-template-columns:repeat(3,minmax(0,1fr)); }
+        }
+
+        /* ===== Aviso de nova movimentação ===== */
+        .mb-live-alert {
+            position:fixed; right:22px; top:78px; z-index:99999;
+            width:min(370px,calc(100vw - 28px)); background:#111827; color:#fff;
+            border:1px solid rgba(255,255,255,.12); border-left:5px solid #f97316;
+            border-radius:15px; padding:14px 15px; box-shadow:0 18px 45px rgba(0,0,0,.25);
+            animation:mbAlertIn .22s ease-out;
+        }
+        .mb-live-alert strong{display:block;font-size:13px;margin-bottom:4px}
+        .mb-live-alert span{display:block;font-size:11px;line-height:1.45;color:#e5e7eb}
+        .mb-live-alert small{display:block;margin-top:7px;color:#fdba74;font-size:9px;font-weight:800}
+        @keyframes mbAlertIn{from{opacity:0;transform:translateY(-8px) translateX(10px)}to{opacity:1;transform:none}}
+        @media(max-width:768px){
+            .mb-live-alert{right:14px;left:14px;top:68px;width:auto}
+        }
+
+</style>
 </head>
 <body>
 
@@ -743,7 +800,7 @@
                         <div class="notifications-container" style="position:relative;">
                             <button class="icon-btn" onclick="toggleNotifications()">
                                 <i class="fa-solid fa-bell"></i>
-                                <span class="badge-counter" id="notif-count">3</span>
+                                <span class="badge-counter" id="notif-count" style="display:none;">0</span>
                             </button>
                             <div id="notifications-dropdown" class="notifications-dropdown hidden">
                                 <div class="notif-header">
@@ -1048,7 +1105,29 @@
             listen('cuts', rows => DB.cuts = rows);
             listen('productionOrders', rows => DB.production_orders = rows);
             listen('shipments', rows => DB.shipments = rows);
-            listen('auditLogs', rows => DB.audit_logs = rows);
+            let auditFirstSnapshot = true;
+            const auditUnsub = onSnapshot(
+                collection(db, 'auditLogs'),
+                { includeMetadataChanges: true },
+                snap => {
+                    const rows = [];
+                    snap.forEach(d => rows.push({...d.data(), __id:d.id}));
+                    DB.audit_logs = rows;
+
+                    if (!auditFirstSnapshot) {
+                        snap.docChanges().forEach(change => {
+                            if (change.type === 'added' && !change.doc.metadata.hasPendingWrites) {
+                                mbPushLiveNotification({...change.doc.data(), __id:change.doc.id});
+                            }
+                        });
+                    }
+                    auditFirstSnapshot = false;
+                    mbRenderNotificationBell();
+                    refreshCurrentPageFromRealtime();
+                },
+                err => console.error('Tempo real auditLogs:', err)
+            );
+            realtimeUnsubscribers.push(auditUnsub);
 
             // Fallback especially useful in mobile WebViews: refresh every 3 seconds.
             realtimeRefreshTimer = setInterval(forceRealtimeRefresh, 3000);
@@ -1061,6 +1140,99 @@
         });
         window.addEventListener('focus', forceRealtimeRefresh);
 
+
+        // =========================================================
+        // NOTIFICAÇÕES EM TEMPO REAL
+        // Nildo (CORTE) -> Jéssica: aviso + som
+        // Nildo (CORTE) -> Marcos: aviso sem som
+        // =========================================================
+        let mbAuditInitialSnapshotLoaded = false;
+        let mbLiveNotifications = [];
+        let mbAudioContext = null;
+
+        function mbUnlockNotificationAudio() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                if (!mbAudioContext) mbAudioContext = new AC();
+                if (mbAudioContext.state === 'suspended') mbAudioContext.resume();
+            } catch(e) {}
+        }
+        document.addEventListener('pointerdown', mbUnlockNotificationAudio, {passive:true});
+
+        function mbPlayTransportNotificationSound() {
+            if (currentUser?.role !== 'TRANSPORTE') return;
+            try {
+                mbUnlockNotificationAudio();
+                if (!mbAudioContext || mbAudioContext.state !== 'running') return;
+                const now = mbAudioContext.currentTime;
+                [0, .18].forEach((delay, i) => {
+                    const osc = mbAudioContext.createOscillator();
+                    const gain = mbAudioContext.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(i === 0 ? 740 : 920, now + delay);
+                    gain.gain.setValueAtTime(0.0001, now + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.16, now + delay + .02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + .14);
+                    osc.connect(gain); gain.connect(mbAudioContext.destination);
+                    osc.start(now + delay); osc.stop(now + delay + .16);
+                });
+            } catch(e) { console.warn('Som de notificação indisponível:', e); }
+        }
+
+        function mbRenderNotificationBell() {
+            const count = document.getElementById('notif-count');
+            const list = document.getElementById('notif-list');
+            if (!count || !list) return;
+            const unread = mbLiveNotifications.filter(n => !n.read);
+            count.textContent = unread.length;
+            count.style.display = unread.length ? '' : 'none';
+            list.innerHTML = mbLiveNotifications.length
+                ? mbLiveNotifications.slice(0,12).map(n => `
+                    <div class="notif-item">
+                        <strong style="display:block;">${n.title}</strong>
+                        <span>${n.message}</span>
+                        <small style="display:block;margin-top:4px;color:var(--gray-500);">${n.time}</small>
+                    </div>`).join('')
+                : '<div class="notif-item">Nenhuma notificação nova.</div>';
+        }
+
+        function mbPushLiveNotification(log) {
+            if (!currentUser || !log) return;
+
+            // Este alerta específico é somente quando o CORTE libera uma OC.
+            const isNildoReady =
+                log.action === 'Corte pronto' &&
+                (log.userUid !== currentUser.id);
+
+            if (!isNildoReady) return;
+            if (currentUser.role !== 'TRANSPORTE' && currentUser.role !== 'ADMIN') return;
+
+            const oc = String(log.target || '').replace(/^OC\s*/i,'') || '-';
+            const notification = {
+                id: log.__id || (Date.now() + '-' + oc),
+                title: '✂️ Nova OC pronta',
+                message: `${log.user || 'Corte'} liberou a OC ${oc}. Já está disponível para o Transporte.`,
+                time: log.time ? `${log.date || ''} ${log.time}`.trim() : new Date().toLocaleString('pt-BR'),
+                read:false
+            };
+            if (mbLiveNotifications.some(n => n.id === notification.id)) return;
+            mbLiveNotifications.unshift(notification);
+            mbLiveNotifications = mbLiveNotifications.slice(0,30);
+            mbRenderNotificationBell();
+
+            const old = document.querySelector('.mb-live-alert');
+            if (old) old.remove();
+            const alert = document.createElement('div');
+            alert.className = 'mb-live-alert';
+            alert.innerHTML = `<strong>✂️ Nova OC pronta para envio</strong><span>${notification.message}</span><small>${notification.time}</small>`;
+            document.body.appendChild(alert);
+            setTimeout(()=>alert.remove(), 6500);
+
+            // Som somente para Jéssica / TRANSPORTE.
+            if (currentUser.role === 'TRANSPORTE') mbPlayTransportNotificationSound();
+        }
+
         function initApp() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
@@ -1068,6 +1240,7 @@
             document.getElementById('sidebar-user-role').innerText = currentUser.role;
             document.getElementById('user-avatar-initials').innerText = currentUser.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
             buildSidebarNav();
+            mbRenderNotificationBell();
             navigateTo('dashboard');
             startRealtimeSync();
         }
@@ -1087,7 +1260,7 @@
                     <div class="nav-section">
                         <div class="nav-section-title">Cadastros</div>
                         <a href="#" class="nav-item" onclick="navigateTo('workshops', this)"><i class="fa-solid fa-building"></i> Oficinas</a>
-                        <a href="#" class="nav-item" onclick="navigateTo('references', this)"><i class="fa-solid fa-tag"></i> Referências</a>
+                        
                         <a href="#" class="nav-item" onclick="navigateTo('products', this)"><i class="fa-solid fa-shirt"></i> Produtos</a>
                     </div>
                     <div class="nav-section">
@@ -1547,7 +1720,7 @@
                     action: "Corte pronto",
                     target: `OC ${p.oc}`,
                     details: `${currentUser.name} liberou a OC ${p.oc} para o Transporte (${p.total} peças, ${p.volumes} volumes).`,
-                    createdAt: now.toISOString()
+                    createdAt: now.toISOString(), movementAt: now.toISOString()
                 });
 
                 pendingCutConfirmation = null;
@@ -1785,7 +1958,7 @@
                     action: "Ficha recuperada",
                     target: `OC ${c.oc}`,
                     details: `Ficha recuperada para envio: total ${correctedTotal} peças, pendente ${correctedTotal}, enviado 0.`,
-                    createdAt: now.toISOString()
+                    createdAt: now.toISOString(), movementAt: now.toISOString()
                 });
 
                 await loadFirestoreData();
@@ -1922,12 +2095,12 @@
                 total: Math.max(0, toQuantity(existingOC.total)) + qty,
                 pending: Math.max(0, toQuantity(existingOC.pending)) + qty,
                 volumes: Math.max(0, toQuantity(existingOC.volumes)) + volumesVal,
-                workshop, status:"🏭 Na oficina", updatedAt:now.toISOString()
+                workshop, status:"🏭 Na oficina", workshopArrivedAt: existingOC.workshopArrivedAt || now.toISOString(), updatedAt:now.toISOString()
             } : {
                 number:String(c.oc), date:c.date, reference:c.reference, product:c.product,
                 fabric:c.fabric || "", workshop, colors:JSON.parse(JSON.stringify(c.colors || [])),
                 volumes:volumesVal, total:qty, produced:0, pending:qty,
-                status:"🏭 Na oficina", obs:c.obs || "", createdAt:now.toISOString(), updatedAt:now.toISOString()
+                status:"🏭 Na oficina", obs:c.obs || "", createdAt:now.toISOString(), movementAt:now.toISOString(), updatedAt:now.toISOString()
             };
 
             try {
@@ -1939,7 +2112,7 @@
                 await addDoc(collection(db, "shipments"), {
                     cut_number:c.number, oc:String(c.oc), workshop, quantity:qty, volumes:volumesVal,
                     date:now.toISOString().split('T')[0], responsible:currentUser.name,
-                    responsibleUid:currentUser.id, observation:'', createdAt:now.toISOString()
+                    responsibleUid:currentUser.id, observation:'', createdAt:now.toISOString(), movementAt:now.toISOString()
                 });
 
                 await setDoc(doc(db, "cuts", c.number), {
@@ -1953,7 +2126,7 @@
                     user:currentUser.name, userUid:currentUser.id,
                     action:"Enviado para oficina", target:`OC ${c.oc}`,
                     details:`${currentUser.name} enviou ${formatNumber(qty)} peças (${volumesVal} volumes) para a oficina ${workshop}.`,
-                    createdAt:now.toISOString()
+                    createdAt:now.toISOString(), movementAt:now.toISOString()
                 });
 
                 closeModal();
@@ -2042,7 +2215,7 @@
                     user:currentUser.name, userUid:currentUser.id,
                     action:"Produção finalizada", target:`OC ${o.number}`,
                     details:`${currentUser.name} finalizou a OC ${o.number} no acabamento. Oficina: ${o.workshop || '-'}. Total produzido: ${formatNumber(totalFinal)} peças.`,
-                    createdAt:now.toISOString()
+                    createdAt:now.toISOString(), movementAt:now.toISOString()
                 });
 
                 await loadFirestoreData();
@@ -2387,7 +2560,7 @@
 
             function orderCard(o, finalized) {
                 const qty = finalized ? workshopOrderQty(o) : Math.max(0,toQuantity(o.pending));
-                const d = normalizeReportDate(finalized ? (o.finishedAt || o.updatedAt) : (o.createdAt || o.date));
+                const d = normalizeReportDate(finalized ? (o.finishedAt || o.updatedAt) : (o.workshopArrivedAt || o.createdAt || o.date));
                 const dateBR = d ? d.split('-').reverse().join('/') : '-';
                 return `
                     <button class="workshop-oc-card" onclick="showWorkshopOCDetails(${JSON.stringify(String(o.number)).replace(/"/g,'&quot;')})">
@@ -2454,7 +2627,7 @@
             const cut = DB.cuts.find(c => String(c.oc) === String(o.number));
             const finalized = o.status === '✅ Finalizado';
             const qty = finalized ? workshopOrderQty(o) : Math.max(0,toQuantity(o.pending));
-            const entry = normalizeReportDate(o.createdAt || o.date || '');
+            const entry = normalizeReportDate(o.workshopArrivedAt || o.createdAt || o.date || '');
             const finish = normalizeReportDate(o.finishedAt || '');
             const volumes = Math.abs(toQuantity(o.volumes || cut?.volumes || 0));
 
@@ -2472,7 +2645,7 @@
                     <div><small>TECIDO</small><strong>${o.fabric || cut?.fabric || '-'}</strong></div>
                     <div><small>QUANTIDADE</small><strong>${formatNumber(qty)} peças</strong></div>
                     <div><small>VOLUMES</small><strong>${volumes ? formatNumber(volumes) : '-'}</strong></div>
-                    <div><small>ENTRADA</small><strong>${entry ? entry.split('-').reverse().join('/') : '-'}</strong></div>
+                    <div><small>CHEGOU NA OFICINA</small><strong>${entry ? entry.split('-').reverse().join('/') : '-'}</strong></div>
                     ${finalized ? `<div><small>FINALIZAÇÃO</small><strong>${finish ? finish.split('-').reverse().join('/') : '-'}</strong></div>` : ''}
                 </div>
                 ${(o.obs || cut?.obs) ? `<div class="workshop-detail-note"><small>INFORMAÇÃO PARA OFICINA</small><p>${o.obs || cut?.obs}</p></div>` : ''}
@@ -2980,7 +3153,7 @@
                     date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
                     user:currentUser.name, userUid:currentUser.id, action:"Ficha apagada", target:`OC ${c.oc}`,
                     details:`${currentUser.name} apagou definitivamente a ficha ${c.number}, OC ${c.oc}, referência ${c.reference || '-'}.`,
-                    createdAt:now.toISOString()
+                    createdAt:now.toISOString(), movementAt:now.toISOString()
                 });
 
                 // Remove production order with same OC.
@@ -3037,7 +3210,7 @@
                     date:now.toLocaleDateString('pt-BR'), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
                     user:currentUser.name, userUid:currentUser.id, action:"Produção zerada", target:"Todas as fichas",
                     details:`${currentUser.name} apagou todas as fichas/OCs, ordens de produção e envios para iniciar uma nova base de produção.`,
-                    createdAt:now.toISOString()
+                    createdAt:now.toISOString(), movementAt:now.toISOString()
                 });
 
                 closeModal();
@@ -3189,6 +3362,21 @@
             }
         }
 
+        function mbMovementDateTime(item) {
+            const raw = item?.createdAt || item?.updatedAt || item?.finishedAt || '';
+            if (raw) {
+                const d = new Date(raw);
+                if (!isNaN(d.getTime())) {
+                    return d.toLocaleDateString('pt-BR') + ' às ' +
+                           d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+                }
+            }
+            const date = item?.date || '-';
+            const time = item?.time || '';
+            return time ? `${date} às ${time}` : date;
+        }
+
+
         function renderHistory(container) {
             const logs = [...DB.audit_logs].sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
             container.innerHTML = `
@@ -3244,18 +3432,10 @@
         }
 
         function toggleNotifications() { document.getElementById('notifications-dropdown').classList.toggle('hidden'); }
-        function clearNotifications() { document.getElementById('notif-count').innerText = '0'; document.getElementById('notifications-dropdown').classList.add('hidden'); showToast('Notificações marcadas como lidas.'); }
-    
-        // Inicialização: mostra a introdução e restaura automaticamente a sessão Firebase.
-        window.addEventListener('load', () => {
-            const splash = document.getElementById('mb-splash');
-
-            const hideSplash = () => {
-                setTimeout(() => {
-                    if (splash) {
-                        splash.classList.add('splash-out');
-                        setTimeout(() => splash.remove(), 650);
-                    }
+        function clearNotifications() {
+            mbLiveNotifications.forEach(n => n.read = true);
+            mbRenderNotificationBell();
+        }
                 }, 1850);
             };
 
