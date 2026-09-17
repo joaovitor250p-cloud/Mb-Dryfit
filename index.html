@@ -2435,128 +2435,148 @@
                 return;
             }
 
-            const cuts = DB.cuts.filter(c => {
-                const d = getCutReportDate(c);
+            // RELATÓRIO OFICIAL: somente produção realmente FINALIZADA no acabamento.
+            // A data usada é a data de finalização, não a data em que a ficha foi criada.
+            const finalizedOrders = DB.production_orders.filter(o => {
+                if (o.status !== "✅ Finalizado") return false;
+                const d = normalizeReportDate(o.finishedAt || "");
                 return d && d >= start && d <= end;
-            }).sort((a,b) => getCutReportDate(a).localeCompare(getCutReportDate(b)));
+            }).sort((a,b) => {
+                const wa = String(a.workshop || 'Sem oficina');
+                const wb = String(b.workshop || 'Sem oficina');
+                return wa.localeCompare(wb, 'pt-BR') ||
+                       normalizeReportDate(a.finishedAt).localeCompare(normalizeReportDate(b.finishedAt));
+            });
 
-            if (!cuts.length) {
-                showToast('Não existem fichas no período escolhido.', 'error');
+            if (!finalizedOrders.length) {
+                showToast('Não existem OCs finalizadas no acabamento nesse período.', 'error');
                 return;
             }
 
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-
-            const startBR = start.split('-').reverse().join('/');
-            const endBR = end.split('-').reverse().join('/');
-            const totalPieces = cuts.reduce((s,c)=>s+Math.abs(toQuantity(c.total)),0);
-
-            // Production by workshop/product. Prefer final production order data, but
-            // retain currentWorkshop so the report reflects the ficha's real workshop.
+            // Cada oficina tem seu próprio grupo e seus próprios produtos.
             const workshops = {};
-            cuts.forEach(c => {
-                const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
-                const workshop = order?.workshop || c.currentWorkshop || 'Sem oficina';
-                const product = (c.product || order?.product || 'Outros').trim();
-                const qty = Math.abs(toQuantity(c.total));
-                if (!workshops[workshop]) workshops[workshop] = {total:0, products:{}};
+            finalizedOrders.forEach(o => {
+                const workshop = (o.workshop || 'Sem oficina').trim();
+                const product = (o.product || 'Outros').trim();
+                const qty = Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total));
+
+                if (!workshops[workshop]) {
+                    workshops[workshop] = { total:0, products:{}, orders:[] };
+                }
                 workshops[workshop].total += qty;
-                workshops[workshop].products[product] = (workshops[workshop].products[product] || 0) + qty;
+                workshops[workshop].products[product] =
+                    (workshops[workshop].products[product] || 0) + qty;
+                workshops[workshop].orders.push({...o, reportQty:qty});
             });
 
-            // Header
-            pdf.setFillColor(234, 88, 12);
-            pdf.rect(0, 0, 210, 35, 'F');
-            pdf.setTextColor(255,255,255);
-            pdf.setFont('helvetica','bold');
-            pdf.setFontSize(22);
-            pdf.text('MB', 14, 15);
-            pdf.setFontSize(13);
-            pdf.text('RELATÓRIO DE PRODUÇÃO', 14, 24);
-            pdf.setFont('helvetica','normal');
-            pdf.setFontSize(9);
-            pdf.text(`Período: ${startBR} até ${endBR}`, 196, 15, {align:'right'});
-            pdf.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`, 196, 22, {align:'right'});
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+            const startBR = start.split('-').reverse().join('/');
+            const endBR = end.split('-').reverse().join('/');
+            const totalPieces = finalizedOrders.reduce(
+                (s,o)=>s+(Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total))), 0
+            );
+            const workshopNames = Object.keys(workshops).sort((a,b)=>a.localeCompare(b,'pt-BR'));
 
-            // Summary
+            function drawMainHeader() {
+                pdf.setFillColor(234,88,12);
+                pdf.rect(0,0,210,34,'F');
+                pdf.setTextColor(255,255,255);
+                pdf.setFont('helvetica','bold');
+                pdf.setFontSize(22);
+                pdf.text('MB',14,14);
+                pdf.setFontSize(12);
+                pdf.text('RELATÓRIO DE PRODUÇÃO FINALIZADA',14,23);
+                pdf.setFont('helvetica','normal');
+                pdf.setFontSize(8.5);
+                pdf.text(`${startBR} até ${endBR}`,196,14,{align:'right'});
+                pdf.text('Somente OCs finalizadas no acabamento',196,21,{align:'right'});
+            }
+
+            drawMainHeader();
             pdf.setTextColor(31,41,55);
             pdf.setFont('helvetica','bold');
-            pdf.setFontSize(11);
-            pdf.text(`Fichas: ${cuts.length}`, 14, 45);
-            pdf.text(`Total de peças: ${formatNumber(totalPieces)}`, 70, 45);
-            pdf.text(`Oficinas: ${Object.keys(workshops).filter(x=>x!=='Sem oficina').length}`, 145, 45);
+            pdf.setFontSize(10);
+            pdf.text(`Total finalizado: ${formatNumber(totalPieces)} peças`,14,44);
+            pdf.text(`Oficinas: ${workshopNames.length}`,115,44);
 
-            // Workshop summary
-            const workshopRows = [];
-            Object.keys(workshops).sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(w => {
-                const g = workshops[w];
-                Object.entries(g.products).sort((a,b)=>b[1]-a[1]).forEach(([product,qty], i) => {
-                    workshopRows.push([
-                        i === 0 ? w : '',
-                        product,
-                        formatNumber(qty),
-                        i === 0 ? formatNumber(g.total) : ''
-                    ]);
+            let y = 53;
+
+            workshopNames.forEach((workshopName, workshopIndex) => {
+                const group = workshops[workshopName];
+
+                // Cada oficina começa em uma área própria; se necessário, nova página.
+                if (workshopIndex > 0) {
+                    pdf.addPage();
+                    y = 18;
+                }
+
+                pdf.setFillColor(17,24,39);
+                pdf.roundedRect(10,y,190,16,2,2,'F');
+                pdf.setTextColor(255,255,255);
+                pdf.setFont('helvetica','bold');
+                pdf.setFontSize(14);
+                pdf.text(`OFICINA: ${workshopName.toUpperCase()}`,15,y+7);
+                pdf.setFontSize(9);
+                pdf.text(`${formatNumber(group.total)} peças finalizadas`,195,y+7,{align:'right'});
+                y += 22;
+
+                // Resumo de produtos SOMENTE desta oficina.
+                const productRows = Object.entries(group.products)
+                    .sort((a,b)=>b[1]-a[1])
+                    .map(([product,qty])=>[product, formatNumber(qty)]);
+
+                pdf.autoTable({
+                    startY:y,
+                    head:[['PRODUTO','PEÇAS FINALIZADAS']],
+                    body:productRows,
+                    theme:'grid',
+                    styles:{fontSize:9,cellPadding:3,textColor:[31,41,55]},
+                    headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},
+                    columnStyles:{1:{halign:'right',fontStyle:'bold'}},
+                    margin:{left:14,right:14}
+                });
+
+                y = pdf.lastAutoTable.finalY + 8;
+                pdf.setTextColor(31,41,55);
+                pdf.setFont('helvetica','bold');
+                pdf.setFontSize(10);
+                pdf.text(`OCs finalizadas — ${workshopName}`,14,y);
+
+                const orderRows = group.orders.map(o => {
+                    const d = normalizeReportDate(o.finishedAt);
+                    return [
+                        d ? d.split('-').reverse().join('/') : '-',
+                        String(o.number || '-'),
+                        o.reference || '-',
+                        o.product || '-',
+                        o.fabric || '-',
+                        formatNumber(o.reportQty)
+                    ];
+                });
+
+                pdf.autoTable({
+                    startY:y+4,
+                    head:[['FINALIZADO EM','OC','REFERÊNCIA','PRODUTO','TECIDO','PEÇAS']],
+                    body:orderRows,
+                    theme:'striped',
+                    styles:{fontSize:7.2,cellPadding:2,textColor:[31,41,55]},
+                    headStyles:{fillColor:[75,85,99],textColor:[255,255,255],fontStyle:'bold'},
+                    columnStyles:{5:{halign:'right',fontStyle:'bold'}},
+                    margin:{left:10,right:10},
+                    didDrawPage:function() {
+                        const page = pdf.internal.getNumberOfPages();
+                        pdf.setFontSize(7);
+                        pdf.setTextColor(107,114,128);
+                        pdf.text(`MB • Produção finalizada • ${startBR} a ${endBR}`,10,291);
+                        pdf.text(`Página ${page}`,200,291,{align:'right'});
+                    }
                 });
             });
 
-            pdf.autoTable({
-                startY: 53,
-                head: [['OFICINA','PRODUTO','PEÇAS','TOTAL OFICINA']],
-                body: workshopRows,
-                theme:'grid',
-                styles:{fontSize:8,cellPadding:2.4,textColor:[31,41,55]},
-                headStyles:{fillColor:[17,24,39],textColor:[255,255,255],fontStyle:'bold'},
-                alternateRowStyles:{fillColor:[249,250,251]},
-                columnStyles:{2:{halign:'right'},3:{halign:'right',fontStyle:'bold'}},
-                margin:{left:14,right:14}
-            });
-
-            let y = pdf.lastAutoTable.finalY + 10;
-            if (y > 245) { pdf.addPage(); y = 18; }
-            pdf.setFont('helvetica','bold');
-            pdf.setFontSize(12);
-            pdf.setTextColor(31,41,55);
-            pdf.text('Fichas do período', 14, y);
-
-            const detailRows = cuts.map(c => {
-                const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
-                const workshop = order?.workshop || c.currentWorkshop || 'Sem oficina';
-                const d = getCutReportDate(c);
-                return [
-                    d ? d.split('-').reverse().join('/') : '-',
-                    String(c.oc || '-'),
-                    c.reference || '-',
-                    c.product || '-',
-                    c.fabric || '-',
-                    formatNumber(c.total),
-                    workshop,
-                    (c.status || '-').replace(/[^\p{L}\p{N}\s\-]/gu,'').trim()
-                ];
-            });
-
-            pdf.autoTable({
-                startY:y+5,
-                head:[['DATA','OC','REF.','PRODUTO','TECIDO','PEÇAS','OFICINA','STATUS']],
-                body:detailRows,
-                theme:'striped',
-                styles:{fontSize:6.6,cellPadding:1.8,textColor:[31,41,55],overflow:'linebreak'},
-                headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},
-                columnStyles:{5:{halign:'right'}},
-                margin:{left:8,right:8},
-                didDrawPage:function(data){
-                    const page = pdf.internal.getNumberOfPages();
-                    pdf.setFontSize(7);
-                    pdf.setTextColor(107,114,128);
-                    pdf.text(`MB Controle de Produção • ${startBR} a ${endBR}`, 10, 291);
-                    pdf.text(`Página ${page}`, 200, 291, {align:'right'});
-                }
-            });
-
-            const filename = `MB_Relatorio_${start.replaceAll('-','')}_a_${end.replaceAll('-','')}.pdf`;
+            const filename = `MB_Producao_Finalizada_${start.replaceAll('-','')}_a_${end.replaceAll('-','')}.pdf`;
             pdf.save(filename);
-            showToast('✓ Relatório PDF gerado com sucesso.');
+            showToast('✓ Relatório das produções finalizadas baixado.');
         }
 
         function renderReports(container) {
@@ -2572,7 +2592,7 @@
                     <div class="card-header">
                         <div>
                             <h3 class="card-title">Período do relatório</h3>
-                            <small style="color:var(--gray-500);">O PDF será gerado somente com as fichas do período escolhido.</small>
+                            <small style="color:var(--gray-500);">O PDF terá somente OCs finalizadas no acabamento dentro do período escolhido.</small>
                         </div>
                     </div>
 
@@ -2590,7 +2610,7 @@
                         </button>
                     </div>
                     <div style="margin-top:14px;padding:12px;border-radius:10px;background:var(--gray-50);color:var(--gray-600);font-size:13px;">
-                        O relatório não imprime esta página. Ele cria um arquivo PDF separado, organizado por oficina e produto.
+                        O relatório não imprime esta página. Ele cria um PDF separado. Cada oficina terá sua própria parte, com seus produtos e quantidades finalizadas.
                     </div>
                 </div>
             `;
