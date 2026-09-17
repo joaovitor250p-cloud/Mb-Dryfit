@@ -636,6 +636,24 @@
         .ficha-field strong{display:block;margin-top:3px;font-size:12px;color:#111827;word-break:break-word}
         @media(max-width:420px){.ficha-main-info{grid-template-columns:1fr 1fr}.ficha-preview-body{padding:11px}.ficha-field{padding:8px}}
 
+    
+        /* Produção por Oficina — notebook + celular */
+        .workshop-directory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+        .workshop-directory-card{border:1px solid #e5e7eb;background:#fff;border-radius:17px;padding:16px;text-align:left;cursor:pointer;box-shadow:0 4px 18px rgba(15,23,42,.055);transition:.18s;min-width:0}
+        .workshop-directory-card:hover{transform:translateY(-2px);box-shadow:0 9px 25px rgba(15,23,42,.10);border-color:#fdba74}
+        .wd-top{display:flex;align-items:center;gap:11px}.wd-avatar,.workshop-page-avatar{background:#111827;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center}
+        .wd-avatar{width:44px;height:44px;border-radius:13px;flex:0 0 auto}.wd-title{min-width:0;flex:1}.wd-title strong{display:block;font-size:15px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wd-title small{display:block;font-size:10px;color:#6b7280;margin-top:3px}.wd-top>i{color:#9ca3af}
+        .wd-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.wd-stats>div{background:#f8fafc;border-radius:10px;padding:9px}.wd-stats span{display:block;font-size:9px;font-weight:800;color:#6b7280;text-transform:uppercase}.wd-stats strong{font-size:17px;color:#111827}.wd-stats small{font-size:9px;color:#6b7280;margin-left:3px}
+        .workshop-page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}.workshop-back{width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}.workshop-page-avatar{width:50px;height:50px;border-radius:15px;font-size:20px}.workshop-page-head h1{margin:0;font-size:23px}.workshop-page-head span{font-size:11px;color:#6b7280}
+        .workshop-summary-grid{display:grid;grid-template-columns:1fr 1fr 2fr;gap:12px;margin-bottom:20px}.workshop-summary-card{background:#fff;border:1px solid #e5e7eb;border-radius:15px;padding:14px;box-shadow:0 3px 14px rgba(15,23,42,.045)}.workshop-summary-card>span{display:block;font-size:9px;font-weight:850;color:#6b7280;text-transform:uppercase}.workshop-summary-card>strong{display:block;font-size:25px;margin-top:5px;color:#111827}.workshop-summary-card>small{color:#6b7280;font-size:10px}
+        .workshop-product-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.workshop-product-chips>div{background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:7px 9px}.workshop-product-chips strong,.workshop-product-chips span{display:block;font-size:10px}.workshop-product-chips span{color:#9a3412;margin-top:2px}
+        .workshop-section{margin-top:18px}.workshop-section-title{display:flex;justify-content:space-between;align-items:end;margin-bottom:10px}.workshop-section-title h2{font-size:16px;margin:0}.workshop-section-title span{font-size:10px;color:#6b7280}.workshop-section-title b{background:#111827;color:#fff;border-radius:20px;padding:5px 9px;font-size:10px}
+        .workshop-oc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.workshop-oc-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;text-align:left;cursor:pointer;min-width:0}.workshop-oc-card:hover{border-color:#fdba74}.woc-head{display:flex;justify-content:space-between;gap:8px;align-items:start}.woc-head>div{min-width:0}.woc-oc{display:block;color:#ea580c;font-size:10px;font-weight:900}.woc-head strong{display:block;font-size:14px;color:#111827;margin-top:2px}
+        .woc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}.woc-grid>div{background:#f8fafc;border-radius:8px;padding:7px}.woc-grid small,.workshop-detail-grid small,.workshop-detail-note small{display:block;font-size:8px;font-weight:850;color:#6b7280}.woc-grid span{display:block;font-size:10px;font-weight:700;color:#111827;margin-top:2px;word-break:break-word}.woc-open{text-align:right;margin-top:9px;font-size:9px;font-weight:800;color:#ea580c}.workshop-section-empty{grid-column:1/-1;padding:22px;text-align:center;border:1px dashed #d1d5db;border-radius:13px;color:#6b7280;font-size:11px;background:#fff}
+        .workshop-detail-status{margin-bottom:12px}.workshop-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.workshop-detail-grid>div{background:#f8fafc;border:1px solid #eef2f7;border-radius:9px;padding:9px}.workshop-detail-grid strong{display:block;font-size:11px;color:#111827;margin-top:3px}.workshop-detail-note{margin-top:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px}.workshop-detail-note p{font-size:11px;margin:5px 0 0;white-space:pre-wrap}
+        @media(max-width:900px){.workshop-directory{grid-template-columns:repeat(2,minmax(0,1fr))}.workshop-summary-grid{grid-template-columns:1fr 1fr}.workshop-summary-wide{grid-column:1/-1}}
+        @media(max-width:600px){.workshop-directory{grid-template-columns:1fr;gap:9px}.workshop-directory-card{padding:13px;border-radius:14px}.workshop-oc-grid{grid-template-columns:1fr}.workshop-summary-grid{grid-template-columns:1fr 1fr;gap:8px}.workshop-summary-card{padding:11px}.workshop-summary-card>strong{font-size:21px}.workshop-page-head{gap:8px}.workshop-page-head h1{font-size:19px}.workshop-page-avatar{width:43px;height:43px}.woc-grid{grid-template-columns:1fr 1fr}.workshop-detail-grid{grid-template-columns:1fr 1fr}}
+
     </style>
 </head>
 <body>
@@ -1969,10 +1987,10 @@
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>OFICINA</th><th>VOLUMES</th><th>QUANTIDADE</th><th>PRODUZIDO</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
+                            <thead><tr><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>OFICINA</th><th>VOLUMES</th><th>QUANTIDADE</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
                             <tbody>${orders.map(o=>`<tr>
                                 <td><strong>OC ${o.number}</strong></td><td>${o.reference}</td><td>${o.product}</td><td>Oficina: ${o.workshop || '-'}</td>
-                                <td>${toQuantity(o.volumes)||1} vls</td><td>${formatNumber(o.total)}</td><td>${formatNumber(o.produced)}</td>
+                                <td>${toQuantity(o.volumes)||1} vls</td><td>${formatNumber(o.total)}</td>
                                 <td><span class="badge badge-warning">${o.status}</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap;">${actionsFor(o)}</div></td>
                             </tr>`).join('')}</tbody>
                         </table>
@@ -1985,7 +2003,7 @@
                                     <div class="mobile-field"><small>Oficina</small><strong>${o.workshop || '-'}</strong></div>
                                     <div class="mobile-field"><small>Quantidade</small><strong>${formatNumber(o.total)} peças</strong></div>
                                     <div class="mobile-field"><small>Volumes</small><strong>${toQuantity(o.volumes)||1}</strong></div>
-                                    <div class="mobile-field"><small>Produzido</small><strong>${formatNumber(o.produced)}</strong></div>
+                                    
                                 </div>
                                 <div class="mobile-action-row">${actionsFor(o)}</div>
                             </div>`).join('')}
@@ -2292,48 +2310,172 @@
             `);
         }
 
+        function getWorkshopNames() {
+            const fixed = ['Francisca','Virgilio','Dario Medina','Rodrigo','Samuel','Mauro','Ramiro','Victor','Jhony'];
+            const fromOrders = DB.production_orders.map(o => String(o.workshop || '').trim()).filter(Boolean);
+            return [...new Set([...fixed, ...fromOrders])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+        }
+
+        function workshopOrderQty(o) {
+            return Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total));
+        }
+
         function renderWorkshops(container) {
-            const workshopNames = ['Francisca','Virgilio','Dario Medina','Rodrigo','Samuel','Mauro','Ramiro','Victor','Jhony'];
-
-            const cards = workshopNames.map(name => {
-                const orders = DB.production_orders.filter(o => o.workshop === name);
-                const active = orders.filter(o => o.status !== '✅ Finalizado');
-                const finished = orders.filter(o => o.status === '✅ Finalizado');
-                const activePieces = active.reduce((s,o)=>s+Math.max(0,toQuantity(o.pending)),0);
-                const finishedPieces = finished.reduce((s,o)=>s+(Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total))),0);
-
-                return `
-                    <div class="workshop-mobile-card">
-                        <div class="workshop-mobile-top">
-                            <div class="workshop-avatar">${name.charAt(0).toUpperCase()}</div>
-                            <div style="min-width:0;flex:1;">
-                                <div class="workshop-name">${name}</div>
-                                <div class="workshop-sub">${active.length} OC(s) em produção</div>
-                            </div>
-                            <span class="badge ${active.length ? 'badge-warning':'badge-success'}">${active.length ? 'Produzindo':'Livre'}</span>
-                        </div>
-                        <div class="workshop-numbers">
-                            <div><small>EM PRODUÇÃO</small><strong>${formatNumber(activePieces)}</strong><span>peças</span></div>
-                            <div><small>FINALIZADO</small><strong>${formatNumber(finishedPieces)}</strong><span>peças</span></div>
-                        </div>
-                        ${active.length ? `
-                            <div class="workshop-orders">
-                                ${active.map(o=>`
-                                    <div class="workshop-order-row">
-                                        <div><strong>OC ${o.number}</strong><small>${o.product || '-'} • ${o.reference || '-'}</small></div>
-                                        <strong>${formatNumber(Math.max(0,toQuantity(o.pending)))} pç</strong>
-                                    </div>`).join('')}
-                            </div>` : `<div class="workshop-empty">Nenhuma OC em produção nesta oficina.</div>`}
-                    </div>`;
-            }).join('');
+            const names = getWorkshopNames();
 
             container.innerHTML = `
                 <div class="page-header">
-                    <div><h1>🏭 Oficinas</h1><span class="page-subtitle">Acompanhamento das oficinas e produção atual</span></div>
+                    <div>
+                        <h1>🏭 Produção por Oficina</h1>
+                        <span class="page-subtitle">Acompanhe cada oficina separadamente</span>
+                    </div>
                 </div>
-                <div class="workshops-mobile-grid">${cards}</div>
+
+                <div class="workshop-directory">
+                    ${names.map(name => {
+                        const orders = DB.production_orders.filter(o => String(o.workshop || '').trim() === name);
+                        const active = orders.filter(o => o.status !== '✅ Finalizado');
+                        const finished = orders.filter(o => o.status === '✅ Finalizado');
+                        const activeQty = active.reduce((s,o)=>s+Math.max(0,toQuantity(o.pending)),0);
+                        const finishedQty = finished.reduce((s,o)=>s+workshopOrderQty(o),0);
+
+                        return `
+                            <button class="workshop-directory-card" onclick="openWorkshopPage(${JSON.stringify(name).replace(/"/g,'&quot;')})">
+                                <div class="wd-top">
+                                    <div class="wd-avatar">${name.charAt(0).toUpperCase()}</div>
+                                    <div class="wd-title">
+                                        <strong>${name}</strong>
+                                        <small>${active.length} em produção • ${finished.length} finalizadas</small>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </div>
+                                <div class="wd-stats">
+                                    <div><span>Em produção</span><strong>${formatNumber(activeQty)}</strong><small>peças</small></div>
+                                    <div><span>Finalizado</span><strong>${formatNumber(finishedQty)}</strong><small>peças</small></div>
+                                </div>
+                            </button>`;
+                    }).join('')}
+                </div>
             `;
         }
+
+        function openWorkshopPage(name) {
+            const container = document.getElementById('page-content');
+            if (!container) return;
+
+            const orders = DB.production_orders
+                .filter(o => String(o.workshop || '').trim() === name)
+                .sort((a,b)=>String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+
+            const active = orders.filter(o => o.status !== '✅ Finalizado');
+            const finished = orders.filter(o => o.status === '✅ Finalizado');
+            const activeQty = active.reduce((s,o)=>s+Math.max(0,toQuantity(o.pending)),0);
+            const finishedQty = finished.reduce((s,o)=>s+workshopOrderQty(o),0);
+
+            const products = {};
+            finished.forEach(o => {
+                const product = String(o.product || 'Outros').trim();
+                products[product] = (products[product] || 0) + workshopOrderQty(o);
+            });
+
+            function orderCard(o, finalized) {
+                const qty = finalized ? workshopOrderQty(o) : Math.max(0,toQuantity(o.pending));
+                const d = normalizeReportDate(finalized ? (o.finishedAt || o.updatedAt) : (o.createdAt || o.date));
+                const dateBR = d ? d.split('-').reverse().join('/') : '-';
+                return `
+                    <button class="workshop-oc-card" onclick="showWorkshopOCDetails(${JSON.stringify(String(o.number)).replace(/"/g,'&quot;')})">
+                        <div class="woc-head">
+                            <div>
+                                <span class="woc-oc">OC ${o.number || '-'}</span>
+                                <strong>${o.product || '-'}</strong>
+                            </div>
+                            <span class="badge ${finalized ? 'badge-success':'badge-warning'}">${finalized ? 'Finalizado':'Em produção'}</span>
+                        </div>
+                        <div class="woc-grid">
+                            <div><small>REFERÊNCIA</small><span>${o.reference || '-'}</span></div>
+                            <div><small>TECIDO</small><span>${o.fabric || '-'}</span></div>
+                            <div><small>${finalized ? 'FINALIZADO EM':'ENTRADA'}</small><span>${dateBR}</span></div>
+                            <div><small>PEÇAS</small><span>${formatNumber(qty)}</span></div>
+                        </div>
+                        <div class="woc-open">Ver detalhes <i class="fa-solid fa-arrow-right"></i></div>
+                    </button>`;
+            }
+
+            container.innerHTML = `
+                <div class="workshop-page-head">
+                    <button class="workshop-back" onclick="renderWorkshops(document.getElementById('page-content'))"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="workshop-page-avatar">${name.charAt(0).toUpperCase()}</div>
+                    <div>
+                        <h1>${name}</h1>
+                        <span>Produção da oficina</span>
+                    </div>
+                </div>
+
+                <div class="workshop-summary-grid">
+                    <div class="workshop-summary-card"><span>OCs em produção</span><strong>${active.length}</strong><small>${formatNumber(activeQty)} peças</small></div>
+                    <div class="workshop-summary-card"><span>OCs finalizadas</span><strong>${finished.length}</strong><small>${formatNumber(finishedQty)} peças</small></div>
+                    <div class="workshop-summary-card workshop-summary-wide">
+                        <span>Produção finalizada por produto</span>
+                        <div class="workshop-product-chips">
+                            ${Object.keys(products).length
+                                ? Object.entries(products).sort((a,b)=>b[1]-a[1]).map(([p,q])=>`<div><strong>${p}</strong><span>${formatNumber(q)} peças</span></div>`).join('')
+                                : '<small>Nenhuma produção finalizada ainda.</small>'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workshop-section">
+                    <div class="workshop-section-title"><div><h2>Em produção</h2><span>OCs que estão atualmente com ${name}</span></div><b>${active.length}</b></div>
+                    <div class="workshop-oc-grid">
+                        ${active.length ? active.map(o=>orderCard(o,false)).join('') : '<div class="workshop-section-empty">Nenhuma OC em produção.</div>'}
+                    </div>
+                </div>
+
+                <div class="workshop-section">
+                    <div class="workshop-section-title"><div><h2>Finalizadas</h2><span>Histórico concluído no acabamento</span></div><b>${finished.length}</b></div>
+                    <div class="workshop-oc-grid">
+                        ${finished.length ? finished.map(o=>orderCard(o,true)).join('') : '<div class="workshop-section-empty">Nenhuma OC finalizada ainda.</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showWorkshopOCDetails(orderNumber) {
+            const o = DB.production_orders.find(x => String(x.number) === String(orderNumber));
+            if (!o) { showToast('OC não encontrada.', 'error'); return; }
+
+            const cut = DB.cuts.find(c => String(c.oc) === String(o.number));
+            const finalized = o.status === '✅ Finalizado';
+            const qty = finalized ? workshopOrderQty(o) : Math.max(0,toQuantity(o.pending));
+            const entry = normalizeReportDate(o.createdAt || o.date || '');
+            const finish = normalizeReportDate(o.finishedAt || '');
+            const volumes = Math.abs(toQuantity(o.volumes || cut?.volumes || 0));
+
+            openModal(`
+                <div class="modal-header">
+                    <div><h2>OC ${o.number}</h2><small>${o.workshop || '-'}</small></div>
+                    <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="workshop-detail-status">
+                    <span class="badge ${finalized ? 'badge-success':'badge-warning'}">${finalized ? '✅ Finalizado':'🏭 Em produção'}</span>
+                </div>
+                <div class="workshop-detail-grid">
+                    <div><small>REFERÊNCIA</small><strong>${o.reference || '-'}</strong></div>
+                    <div><small>PRODUTO</small><strong>${o.product || '-'}</strong></div>
+                    <div><small>TECIDO</small><strong>${o.fabric || cut?.fabric || '-'}</strong></div>
+                    <div><small>QUANTIDADE</small><strong>${formatNumber(qty)} peças</strong></div>
+                    <div><small>VOLUMES</small><strong>${volumes ? formatNumber(volumes) : '-'}</strong></div>
+                    <div><small>ENTRADA</small><strong>${entry ? entry.split('-').reverse().join('/') : '-'}</strong></div>
+                    ${finalized ? `<div><small>FINALIZAÇÃO</small><strong>${finish ? finish.split('-').reverse().join('/') : '-'}</strong></div>` : ''}
+                </div>
+                ${(o.obs || cut?.obs) ? `<div class="workshop-detail-note"><small>INFORMAÇÃO PARA OFICINA</small><p>${o.obs || cut?.obs}</p></div>` : ''}
+                <div class="modal-footer">
+                    ${cut ? `<button class="btn-primary" style="width:auto;background:#111827;" onclick="downloadFichaPDF('${cut.number}')"><i class="fa-solid fa-download"></i> Baixar ficha</button>` : ''}
+                    <button class="btn-primary" style="width:auto;background:var(--gray-400);" onclick="closeModal()">Fechar</button>
+                </div>
+            `);
+        }
+
 
         function renderReferences(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Referências</h1><span class="page-subtitle">Modelos cadastrados</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>CÓDIGO</th><th>NOME</th><th>PRODUTO</th><th>TECIDO PADRÃO</th></tr></thead><tbody>${DB.references.map(r=>`<tr><td><strong>${r.code}</strong></td><td>${r.name}</td><td>${r.product}</td><td>${r.fabric}</td></tr>`).join('')}</tbody></table></div></div>`;
@@ -2679,87 +2821,128 @@
             if (!c) { showToast('Ficha não encontrada.', 'error'); return; }
 
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-            const qty = Math.abs(toQuantity(c.total));
-            const date = normalizeReportDate(c.createdAt || c.date || "");
-            const dateBR = date ? date.split('-').reverse().join('/') : (c.date || '-');
+            const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
 
-            // Cabeçalho limpo, semelhante a uma ficha de produção física.
-            pdf.setFillColor(17,24,39);
-            pdf.rect(0,0,210,30,'F');
-            pdf.setTextColor(255,255,255);
+            const order = DB.production_orders.find(o => String(o.number) === String(c.oc));
+            const oficina = order?.workshop || c.currentWorkshop || '';
+            const total = Math.abs(toQuantity(c.total));
+            const volumes = Math.max(0, Math.abs(toQuantity(c.volumes || order?.volumes || 0)));
+
+            // Cabeçalho simples, inspirado na ficha física enviada.
+            pdf.setDrawColor(55,65,81);
+            pdf.setLineWidth(.35);
+            pdf.setTextColor(17,24,39);
             pdf.setFont('helvetica','bold');
-            pdf.setFontSize(22);
-            pdf.text('MB',14,13);
-            pdf.setFontSize(11);
-            pdf.text('FICHA DE CORTE / PRODUÇÃO',14,21);
-            pdf.setFontSize(16);
-            pdf.text(`OC ${c.oc || '-'}`,196,17,{align:'right'});
+            pdf.setFontSize(18);
+            pdf.text('FICHA DE PRODUÇÃO', 14, 16);
+            pdf.setFontSize(13);
+            pdf.text(`OC ${c.oc || '-'}`, 196, 16, {align:'right'});
+            pdf.line(14, 21, 196, 21);
 
-            pdf.setTextColor(31,41,55);
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica','normal');
-            pdf.text(`Data: ${dateBR}`,14,40);
-            pdf.text(`Ficha: ${c.number || '-'}`,196,40,{align:'right'});
-
-            const info = [
+            // Informações principais: sem logo, sem quadrado grande, sem corte/estampa/data.
+            const infoRows = [
                 ['REFERÊNCIA', c.reference || '-'],
-                ['PRODUTO', c.product || '-'],
-                ['TIPO DE TECIDO', c.fabric || '-'],
-                ['QUANTIDADE TOTAL', `${formatNumber(qty)} peças`]
+                ['TECIDO', c.fabric || '-'],
+                ['OFICINA', oficina || 'A definir'],
+                ['QUANTIDADE', `${formatNumber(total)} peças`],
+                ['VOLUMES', volumes ? `${formatNumber(volumes)} volumes` : '-']
             ];
+
             pdf.autoTable({
-                startY:47,
-                body:info,
+                startY:27,
+                body:infoRows,
                 theme:'grid',
-                styles:{fontSize:10,cellPadding:4,textColor:[31,41,55]},
-                columnStyles:{0:{cellWidth:48,fontStyle:'bold',fillColor:[249,250,251]},1:{fontStyle:'bold'}},
+                styles:{fontSize:10,cellPadding:3.5,textColor:[17,24,39],lineColor:[107,114,128],lineWidth:.25},
+                columnStyles:{
+                    0:{cellWidth:43,fontStyle:'bold',fillColor:[245,245,245]},
+                    1:{fontStyle:'bold'}
+                },
                 margin:{left:14,right:14}
             });
 
-            let y = pdf.lastAutoTable.finalY + 10;
+            let y = pdf.lastAutoTable.finalY + 8;
+
+            // Informação para a oficina.
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(10);
+            pdf.text('INFORMAÇÃO PARA OFICINA', 14, y);
+            y += 4;
+
+            const officeInfo = String(c.obs || c.workshopInfo || c.infoWorkshop || '').trim();
+            pdf.setFont('helvetica','normal');
+            pdf.setFontSize(9);
+            pdf.setDrawColor(107,114,128);
+            pdf.rect(14, y, 182, 24);
+            if (officeInfo) {
+                pdf.text(pdf.splitTextToSize(officeInfo,174), 18, y+7);
+            }
+            y += 32;
+
+            // Grade de cores/tamanhos semelhante à ficha física.
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(10);
+            pdf.text('CORES / TAMANHOS / DETALHES', 14, y);
+            y += 4;
+
+            const sizeKeys = ['P','M','G','GG','XG','XGG'];
             const colors = Array.isArray(c.colors) ? c.colors : [];
-            if (colors.length) {
-                pdf.setFont('helvetica','bold');
-                pdf.setFontSize(11);
-                pdf.text('GRADE / CORES',14,y);
-                y += 4;
 
-                const colorRows = colors.map(item => {
-                    if (typeof item === 'string') return [item,''];
-                    const color = item.color || item.name || item.cor || '-';
-                    const q = item.quantity ?? item.qty ?? item.quantidade ?? '';
-                    return [String(color), q === '' ? '' : formatNumber(q)];
-                });
-
-                pdf.autoTable({
-                    startY:y,
-                    head:[['COR / VARIAÇÃO','QUANTIDADE']],
-                    body:colorRows,
-                    theme:'grid',
-                    styles:{fontSize:9,cellPadding:3,textColor:[31,41,55]},
-                    headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},
-                    columnStyles:{1:{halign:'right',fontStyle:'bold'}},
-                    margin:{left:14,right:14}
-                });
-                y = pdf.lastAutoTable.finalY + 10;
+            function readSize(item, key) {
+                if (!item || typeof item !== 'object') return '';
+                const candidates = [
+                    item[key], item[key.toLowerCase()],
+                    item.sizes?.[key], item.sizes?.[key.toLowerCase()],
+                    item.tamanhos?.[key], item.tamanhos?.[key.toLowerCase()]
+                ];
+                const v = candidates.find(x => x !== undefined && x !== null && x !== '');
+                return v === undefined ? '' : formatNumber(v);
             }
 
-            // Observação do corte somente se Nildo realmente escreveu algo.
-            if (c.obs && String(c.obs).trim()) {
-                pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.text('OBSERVAÇÃO',14,y);
-                pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
-                const lines = pdf.splitTextToSize(String(c.obs),180);
-                pdf.text(lines,14,y+6);
-            }
+            const body = colors.map(item => {
+                if (typeof item === 'string') return [item,'','','','','','','',''];
+                const cor = item.color || item.name || item.cor || '-';
+                const detalhes = item.details || item.detail || item.detalhes || '';
+                return [cor, ...sizeKeys.map(k => readSize(item,k)), detalhes];
+            });
 
-            // Sem oficina, status, timeline, usuário, histórico ou informações inúteis.
-            pdf.setDrawColor(209,213,219);
-            pdf.line(14,274,196,274);
-            pdf.setFontSize(7.5);
+            // Caso a estrutura antiga seja uma lista simples cor + quantidade.
+            if (!body.length) body.push(['','','','','','','','','']);
+
+            pdf.autoTable({
+                startY:y,
+                head:[['CORES', ...sizeKeys, 'DETALHES']],
+                body:body,
+                theme:'grid',
+                styles:{fontSize:7.5,cellPadding:2.2,textColor:[17,24,39],halign:'center',lineColor:[75,85,99],lineWidth:.25},
+                headStyles:{fillColor:[17,24,39],textColor:[255,255,255],fontStyle:'bold'},
+                columnStyles:{
+                    0:{halign:'left',cellWidth:29,fontStyle:'bold'},
+                    7:{halign:'left',cellWidth:40}
+                },
+                margin:{left:10,right:10}
+            });
+
+            y = pdf.lastAutoTable.finalY + 8;
+
+            // Rodapé/resumo da ficha.
+            pdf.autoTable({
+                startY:y,
+                body:[
+                    ['OC', String(c.oc || '-')],
+                    ['QUANTIDADE TOTAL', `${formatNumber(total)} peças`],
+                    ['QUANTIDADE DE VOLUMES', volumes ? formatNumber(volumes) : '-']
+                ],
+                theme:'grid',
+                styles:{fontSize:9,cellPadding:3,textColor:[17,24,39],lineColor:[107,114,128],lineWidth:.25},
+                columnStyles:{0:{cellWidth:55,fontStyle:'bold',fillColor:[245,245,245]},1:{fontStyle:'bold'}},
+                margin:{left:14,right:14}
+            });
+
+            // Nada de logo, foto/quadrado grande, Corte/Data, Estampa/Data ou timeline.
+            pdf.setFontSize(7);
             pdf.setTextColor(107,114,128);
-            pdf.text('MB • Controle de Produção',14,281);
-            pdf.text(`OC ${c.oc || '-'}`,196,281,{align:'right'});
+            pdf.text('MB • Ficha de Produção', 14, 286);
+            pdf.text(`OC ${c.oc || '-'}`, 196, 286, {align:'right'});
 
             pdf.save(`MB_Ficha_OC_${String(c.oc || c.number).replace(/[^a-zA-Z0-9_-]/g,'_')}.pdf`);
             showToast('✓ Ficha PDF baixada.');
