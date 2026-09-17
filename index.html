@@ -920,7 +920,10 @@
             else if (currentPage === 'workshops') renderWorkshops(content);
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
-            else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'reports') {
+                // Não recriar a página enquanto o usuário escolhe as datas.
+                // O relatório consulta DB atualizado ao clicar em Gerar relatório.
+            }
             else if (currentPage === 'fichas') renderFichas(content);
             else if (currentPage === 'history') renderHistory(content);
         }
@@ -948,7 +951,9 @@
             else if (currentPage === 'workshops') renderWorkshops(content);
             else if (currentPage === 'references') renderReferences(content);
             else if (currentPage === 'products') renderProducts(content);
-            else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'reports') {
+                // Preserva os campos de data do relatório durante atualizações em tempo real.
+            }
             else if (currentPage === 'fichas') renderFichas(content);
             else if (currentPage === 'history') renderHistory(content);
         }
@@ -1093,7 +1098,7 @@
             const rascunhosCount = DB.cuts.filter(c => c.status === '📝 Rascunho').length;
             const cutsReady = DB.cuts.filter(c => c.status === '✂️ Corte pronto').length;
             const ocsInProc = DB.production_orders.filter(o => o.status === '🏭 Na oficina').length;
-            const ocsFinishing = DB.production_orders.filter(o => o.status === '🎨 Corte no acabamento').length;
+            const ocsFinishing = DB.production_orders.filter(o => o.status === '✅ Finalizado').length;
 
             if (currentUser.role === 'ADMIN') {
                 container.innerHTML = `
@@ -1878,7 +1883,7 @@
         function renderOrders(container) {
             const orders = DB.production_orders;
             const actionsFor = (o) => `
-                ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success);width:auto;" onclick="markFinishing('${o.number}')">🎨 Ir para Acabamento</button>` : ''}
+                ${o.status === '🏭 Na oficina' && (currentUser.role === 'TRANSPORTE' || currentUser.role === 'ADMIN') ? `<button class="btn-primary" style="background:var(--success);width:auto;" onclick="markFinishing('${o.number}')">✅ Finalizar no Acabamento</button>` : ''}
                 <button class="icon-btn" onclick="showOrderDetails('${o.number}')"><i class="fa-solid fa-eye"></i></button>`;
 
             container.innerHTML = `
@@ -1911,29 +1916,44 @@
         }
 
         async function markFinishing(num) {
-            const o = DB.production_orders.find(x => x.number === num);
+            const o = DB.production_orders.find(x => String(x.number) === String(num));
             if (!o) return;
+            const now = new Date();
             try {
                 const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
-                o.status = "🎨 Corte no acabamento";
-                o.updatedAt = new Date().toISOString();
-                await setDoc(doc(db, "productionOrders", String(o.number)), o, { merge: true });
+                const totalFinal = Math.abs(toQuantity(o.total));
+                await setDoc(doc(db, "productionOrders", String(o.number)), {
+                    status: "✅ Finalizado",
+                    produced: totalFinal,
+                    pending: 0,
+                    finishedAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                }, { merge:true });
+
+                const cut = DB.cuts.find(c => String(c.oc) === String(o.number));
+                if (cut) {
+                    await setDoc(doc(db, "cuts", cut.number), {
+                        status: "✅ Finalizado",
+                        finishedAt: now.toISOString(),
+                        updatedAt: now.toISOString()
+                    }, { merge:true });
+                }
+
                 await addDoc(collection(db, "auditLogs"), {
-                    date: new Date().toLocaleDateString('pt-BR'),
-                    time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-                    user: currentUser.name,
-                    userUid: currentUser.id,
-                    action: "Corte no acabamento",
-                    target: `OC ${o.number}`,
-                    details: `${currentUser.name} marcou a OC ${o.number} como corte no acabamento.`,
-                    createdAt: new Date().toISOString()
+                    date:now.toLocaleDateString('pt-BR'),
+                    time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name, userUid:currentUser.id,
+                    action:"Produção finalizada", target:`OC ${o.number}`,
+                    details:`${currentUser.name} finalizou a OC ${o.number} no acabamento. Oficina: ${o.workshop || '-'}. Total produzido: ${formatNumber(totalFinal)} peças.`,
+                    createdAt:now.toISOString()
                 });
+
                 await loadFirestoreData();
-                showToast(`✓ OC ${o.number} marcada como corte no acabamento.`);
+                showToast(`✓ OC ${o.number} finalizada com ${formatNumber(totalFinal)} peças.`);
                 renderOrders(document.getElementById('page-content'));
-            } catch (err) {
-                console.error("Erro ao marcar acabamento:", err);
-                showToast('Não foi possível atualizar a OC no Firebase.', 'error');
+            } catch(e) {
+                console.error("ERRO FINALIZAR OC:", e);
+                showToast(`Não foi possível finalizar: ${e?.code || e?.message || 'erro'}`, 'error');
             }
         }
 
@@ -2223,6 +2243,52 @@
         function renderProducts(container) {
             container.innerHTML = `<div class="page-header"><div><h1>Produtos</h1><span class="page-subtitle">Tipos de vestuário</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>DESCRIÇÃO</th></tr></thead><tbody>${DB.products.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.description}</td></tr>`).join('')}</tbody></table></div></div>`;
         }
+        function renderWorkshopProductionReport(start = "", end = "") {
+            const target = document.getElementById('workshop-production-report');
+            if (!target) return;
+
+            const finalized = DB.production_orders.filter(o => {
+                if (o.status !== "✅ Finalizado") return false;
+                const raw = o.finishedAt || o.updatedAt || o.date || "";
+                const date = String(raw).slice(0,10);
+                if (start && date < start) return false;
+                if (end && date > end) return false;
+                return true;
+            });
+
+            const groups = {};
+            finalized.forEach(o => {
+                const workshop = o.workshop || "Sem oficina";
+                const product = (o.product || "Outros").trim();
+                const qty = Math.abs(toQuantity(o.produced)) || Math.abs(toQuantity(o.total));
+                if (!groups[workshop]) groups[workshop] = { total:0, products:{} };
+                groups[workshop].total += qty;
+                groups[workshop].products[product] = (groups[workshop].products[product] || 0) + qty;
+            });
+
+            const names = Object.keys(groups).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+            target.innerHTML = names.length === 0
+                ? `<div style="padding:18px;text-align:center;color:var(--gray-500);">Nenhuma produção finalizada${start && end ? ' nesse período' : ''}.</div>`
+                : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
+                    ${names.map(name => {
+                        const g = groups[name];
+                        const products = Object.entries(g.products).sort((a,b)=>b[1]-a[1]);
+                        return `<div class="mobile-data-card" style="display:flex;">
+                            <div class="mobile-data-head">
+                                <div><div class="mobile-data-title">🏭 ${name}</div><small>Produção finalizada</small></div>
+                                <span class="badge badge-success">${formatNumber(g.total)} peças</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:7px;">
+                                ${products.map(([product,qty])=>`
+                                    <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 10px;background:var(--gray-50);border-radius:8px;">
+                                        <strong>${product}</strong><span>${formatNumber(qty)} peças</span>
+                                    </div>`).join('')}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
         function generateFichaPeriodReport() {
             const start = document.getElementById('report-start-date')?.value;
             const end = document.getElementById('report-end-date')?.value;
@@ -2237,6 +2303,7 @@
             }).sort((a,b) => String(a.date||a.createdAt||'').localeCompare(String(b.date||b.createdAt||'')));
 
             const totalPieces = rows.reduce((s,c)=>s+Math.abs(toQuantity(c.total)),0);
+            renderWorkshopProductionReport(start, end);
             target.innerHTML = `
                 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
                     <span class="badge badge-info">${rows.length} fichas</span>
@@ -2280,6 +2347,15 @@
                         <button class="btn-primary" onclick="generateFichaPeriodReport()">🔎 Gerar relatório</button>
                     </div>
                     <div id="ficha-period-report" style="margin-top:14px;"></div>
+                </div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div><h3 class="card-title">🏭 Peças feitas por Oficina</h3>
+                        <small style="color:var(--gray-500);">Conta somente OCs finalizadas no acabamento e separa por produto.</small></div>
+                    </div>
+                    <div id="workshop-production-report">
+                        <div style="padding:14px;color:var(--gray-500);">Escolha o período acima e clique em Gerar relatório.</div>
+                    </div>
                 </div>
 
                 <div class="page-header">
