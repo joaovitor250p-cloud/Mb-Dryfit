@@ -11,7 +11,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // 🔥 COLE AQUI AS SUAS CHAVES REAIS DO FIREBASE (DA TELA DO PRINT)
         const firebaseConfig = {
@@ -29,7 +29,7 @@
         const db = getFirestore(app);
 
         setPersistence(auth, browserLocalPersistence).catch(err => console.error("Erro na persistência da sessão:", err));
-        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc };
+        window.mbFirebase = { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, setPersistence, browserLocalPersistence, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, orderBy, addDoc, onSnapshot };
     </script>
     <!-- jsPDF & AutoTable via CDN for professional PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -560,6 +560,47 @@
           .login-card .brand-logo{width:68px !important;height:68px !important}
         }
 
+    
+        /* ===== MOBILE: listas reais, histórico e relatórios ===== */
+        @media (max-width: 768px) {
+            .page-content-area { padding:12px; }
+            .card { padding:12px; border-radius:14px; }
+            .stats-grid { grid-template-columns:1fr 1fr; gap:9px; }
+            .stat-card { padding:12px; min-width:0; }
+            .stat-card-title { font-size:9px; line-height:1.25; }
+            .stat-card-value { font-size:18px; }
+            .mobile-card-list { display:flex !important; }
+            .mobile-action-row { display:grid; grid-template-columns:1fr; gap:7px; margin-top:5px; }
+            .mobile-action-row .btn-primary { width:100% !important; min-height:42px !important; }
+            .mobile-data-card {
+                background:#fff; border:1px solid var(--gray-200); border-radius:14px;
+                padding:13px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:9px;
+            }
+            .mobile-data-head { display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding-bottom:9px;border-bottom:1px solid var(--gray-100); }
+            .mobile-data-title { font-size:14px;font-weight:800;color:var(--gray-900); }
+            .mobile-data-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+            .mobile-field { background:var(--gray-50);padding:8px;border-radius:9px;min-width:0; }
+            .mobile-field small { display:block;color:var(--gray-500);font-size:9px;text-transform:uppercase;font-weight:700;margin-bottom:2px; }
+            .mobile-field strong,.mobile-field span { font-size:12px;word-break:break-word; }
+            .mobile-history { display:flex;flex-direction:column;gap:10px; }
+            .mobile-history-item { border-left:4px solid var(--primary);background:#fff;border-radius:12px;padding:12px;box-shadow:var(--shadow); }
+            .mobile-history-top { display:flex;justify-content:space-between;gap:8px;margin-bottom:7px; }
+            .mobile-history-meta { font-size:10px;color:var(--gray-500);margin-top:7px; }
+            .report-size-grid { grid-template-columns:repeat(3,1fr) !important; }
+            .table-responsive { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+            .table-responsive .data-table { min-width:560px; }
+        }
+
+    
+        /* MOBILE FIX FINAL — must remain after all previous rules */
+        @media screen and (max-width: 768px) {
+            .desktop-table-container { display:none !important; }
+            .mobile-card-list { display:flex !important; flex-direction:column !important; gap:10px !important; }
+            .page-content-area { width:100% !important; max-width:100vw !important; overflow-x:hidden !important; }
+            .card { width:100% !important; max-width:100% !important; overflow:visible !important; }
+            .mobile-data-card,.mobile-history-item,.mobile-card-item { display:flex !important; width:100% !important; max-width:100% !important; }
+        }
+
     </style>
 </head>
 <body>
@@ -712,6 +753,8 @@
         };
 
         let currentUser = null;
+        let currentPage = "dashboard";
+        let realtimeUnsubscribers = [];
 
         function formatNumber(num) { return num ? num.toLocaleString('pt-BR') : '0'; }
         function formatDate(dateStr) {
@@ -797,6 +840,7 @@
         }
 
         async function logout() {
+            stopRealtimeSync();
             if (window.mbFirebase) {
                 await window.mbFirebase.signOut(window.mbFirebase.auth);
             }
@@ -830,6 +874,102 @@
             }
         }
 
+        function stopRealtimeSync() {
+            realtimeUnsubscribers.forEach(unsub => { try { unsub(); } catch(e) {} });
+            realtimeUnsubscribers = [];
+        }
+
+        function refreshCurrentPageFromRealtime() {
+            if (!currentUser) return;
+            const content = document.getElementById('page-content');
+            if (!content || document.getElementById('app-container').classList.contains('hidden')) return;
+            if (currentPage === 'dashboard') renderDashboard(content);
+            else if (currentPage === 'cuts') renderCuts(content);
+            else if (currentPage === 'transport') renderTransport(content);
+            else if (currentPage === 'orders') renderOrders(content);
+            else if (currentPage === 'workshops') renderWorkshops(content);
+            else if (currentPage === 'references') renderReferences(content);
+            else if (currentPage === 'products') renderProducts(content);
+            else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'history') renderHistory(content);
+        }
+
+        let realtimeRefreshTimer = null;
+        let realtimeRefreshBusy = false;
+
+        function stopRealtimeSync() {
+            realtimeUnsubscribers.forEach(unsub => { try { unsub(); } catch(e) {} });
+            realtimeUnsubscribers = [];
+            if (realtimeRefreshTimer) {
+                clearInterval(realtimeRefreshTimer);
+                realtimeRefreshTimer = null;
+            }
+        }
+
+        function refreshCurrentPageFromRealtime() {
+            if (!currentUser) return;
+            const content = document.getElementById('page-content');
+            if (!content || document.getElementById('app-container').classList.contains('hidden')) return;
+            if (currentPage === 'dashboard') renderDashboard(content);
+            else if (currentPage === 'cuts') renderCuts(content);
+            else if (currentPage === 'transport') renderTransport(content);
+            else if (currentPage === 'orders') renderOrders(content);
+            else if (currentPage === 'workshops') renderWorkshops(content);
+            else if (currentPage === 'references') renderReferences(content);
+            else if (currentPage === 'products') renderProducts(content);
+            else if (currentPage === 'reports') renderReports(content);
+            else if (currentPage === 'history') renderHistory(content);
+        }
+
+        async function forceRealtimeRefresh() {
+            if (!currentUser || realtimeRefreshBusy || document.hidden) return;
+            realtimeRefreshBusy = true;
+            try {
+                await loadFirestoreData();
+                refreshCurrentPageFromRealtime();
+            } catch (e) {
+                console.error("Atualização automática:", e);
+            } finally {
+                realtimeRefreshBusy = false;
+            }
+        }
+
+        function startRealtimeSync() {
+            stopRealtimeSync();
+            if (!window.mbFirebase || !currentUser) return;
+
+            const { db, collection, onSnapshot } = window.mbFirebase;
+            const listen = (collectionName, assign) => {
+                const unsub = onSnapshot(
+                    collection(db, collectionName),
+                    { includeMetadataChanges: true },
+                    snap => {
+                        const rows = [];
+                        snap.forEach(d => rows.push(d.data()));
+                        assign(rows);
+                        refreshCurrentPageFromRealtime();
+                    },
+                    err => console.error(`Tempo real ${collectionName}:`, err)
+                );
+                realtimeUnsubscribers.push(unsub);
+            };
+
+            listen('cuts', rows => DB.cuts = rows);
+            listen('productionOrders', rows => DB.production_orders = rows);
+            listen('shipments', rows => DB.shipments = rows);
+            listen('auditLogs', rows => DB.audit_logs = rows);
+
+            // Fallback especially useful in mobile WebViews: refresh every 3 seconds.
+            realtimeRefreshTimer = setInterval(forceRealtimeRefresh, 3000);
+        }
+
+        // Mobile browsers can suspend network listeners in background.
+        // Refresh immediately when the user returns to the app/tab.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) forceRealtimeRefresh();
+        });
+        window.addEventListener('focus', forceRealtimeRefresh);
+
         function initApp() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
@@ -838,6 +978,7 @@
             document.getElementById('user-avatar-initials').innerText = currentUser.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
             buildSidebarNav();
             navigateTo('dashboard');
+            startRealtimeSync();
         }
 
         function buildSidebarNav() {
@@ -891,6 +1032,7 @@
         }
 
         function navigateTo(page, el) {
+            currentPage = page;
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             if(el) el.classList.add('active');
             if(window.innerWidth <= 768) {
@@ -1038,6 +1180,7 @@
 
         let dynamicColors = [{ color: "", p: 0, m: 0, g: 0, gg: 0, xg: 0, details: "", total: 0 }];
         let editingCutNumber = null;
+        let pendingCutConfirmation = null;
 
         function openNewCutModal() {
             editingCutNumber = null;
@@ -1198,79 +1341,118 @@
 
         function handleSaveCut(e) {
             e.preventDefault();
-            const total = dynamicColors.reduce((acc, curr) => acc + curr.total, 0);
+
+            const total = dynamicColors.reduce((acc, curr) => acc + (curr.total || 0), 0);
             if (total <= 0) {
                 showToast('Adicione pelo menos uma cor com quantidade maior que zero.', 'error');
                 return;
             }
-            const ocVal = document.getElementById('cut-oc').value;
-            const refVal = document.getElementById('cut-ref').value;
-            const volumesVal = parseInt(document.getElementById('cut-volumes').value) || 1;
+
+            // IMPORTANT: capture EVERYTHING before replacing the form with the confirmation modal.
+            pendingCutConfirmation = {
+                cutNumber: editingCutNumber || `C-${Date.now()}`,
+                oc: document.getElementById('cut-oc').value.trim(),
+                reference: document.getElementById('cut-ref').value.trim(),
+                product: document.getElementById('cut-prod').value,
+                obs: document.getElementById('cut-obs').value,
+                volumes: parseInt(document.getElementById('cut-volumes').value) || 1,
+                total,
+                colors: JSON.parse(JSON.stringify(dynamicColors)),
+                previous: editingCutNumber ? DB.cuts.find(x => x.number === editingCutNumber) : null
+            };
+
+            if (!pendingCutConfirmation.oc || !pendingCutConfirmation.reference) {
+                showToast('Preencha a OC e a referência.', 'error');
+                return;
+            }
 
             openModal(`
-                <div class="modal-header"><h2>Confirmar Corte Pronto?</h2><button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h2>Confirmar Corte Pronto?</h2><button class="modal-close" onclick="returnToCutFormFromConfirmation()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div style="font-size:14px; margin-bottom:16px;">
-                    <p><strong>OC:</strong> ${ocVal}</p>
-                    <p><strong>Referência:</strong> ${refVal}</p>
+                    <p><strong>OC:</strong> ${pendingCutConfirmation.oc}</p>
+                    <p><strong>Referência:</strong> ${pendingCutConfirmation.reference}</p>
+                    <p><strong>Produto:</strong> ${pendingCutConfirmation.product}</p>
                     <p><strong>Total:</strong> ${formatNumber(total)} peças</p>
-                    <p><strong>Volumes:</strong> ${volumesVal}</p>
-                    <p style="margin-top:10px; color:var(--warning);">Atenção: após confirmar, a ficha ficará definitiva e não poderá ser excluída por aqui.</p>
+                    <p><strong>Volumes:</strong> ${pendingCutConfirmation.volumes}</p>
+                    <p style="margin-top:10px;color:var(--warning);"><strong>Confira os dados.</strong> Se voltar, nada será apagado.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-primary" style="background:var(--gray-400); width:auto;" onclick="openNewCutModal()">Voltar e conferir</button>
-                    <button type="button" class="btn-primary" style="background:var(--success); width:auto;" onclick="executeFinalCortePronto('${ocVal}', '${refVal}', ${volumesVal}, ${total})">✓ Confirmar Corte Pronto</button>
+                    <button type="button" class="btn-primary" style="background:var(--gray-400);width:auto;" onclick="returnToCutFormFromConfirmation()">← Voltar e conferir</button>
+                    <button type="button" class="btn-primary" style="background:var(--success);width:auto;" onclick="executeFinalCortePronto()">✓ Confirmar Corte Pronto</button>
                 </div>
             `);
         }
 
-        async function executeFinalCortePronto(ocVal, refVal, volumesVal, total) {
-            const prodVal = document.getElementById('cut-prod').value;
-            const obsVal = document.getElementById('cut-obs').value;
-            const cutNumber = editingCutNumber || `C-000${DB.cuts.length + 1}`;
+        function returnToCutFormFromConfirmation() {
+            if (!pendingCutConfirmation) {
+                closeModal();
+                return;
+            }
+            const p = pendingCutConfirmation;
+            editingCutNumber = p.previous ? p.previous.number : null;
+            dynamicColors = JSON.parse(JSON.stringify(p.colors));
+            renderCutFormModal(
+                editingCutNumber ? "Editar Rascunho" : "Novo Corte (Rascunho)",
+                p.oc, p.reference, p.product, p.obs, p.volumes
+            );
+        }
 
+        async function executeFinalCortePronto() {
+            const p = pendingCutConfirmation;
+            if (!p) {
+                showToast('Os dados da ficha não estão disponíveis. Volte e confira.', 'error');
+                return;
+            }
+
+            const now = new Date();
             const cutData = {
-                number: cutNumber,
-                oc: ocVal,
-                date: new Date().toISOString().split('T')[0],
-                reference: refVal,
-                product: prodVal,
-                fabric: "Malha",
-                colors: JSON.parse(JSON.stringify(dynamicColors)),
-                volumes: volumesVal,
-                total: total,
-                sent: 0,
-                pending: total,
+                number: p.cutNumber,
+                oc: p.oc,
+                date: now.toISOString().split('T')[0],
+                reference: p.reference,
+                product: p.product,
+                fabric: p.previous?.fabric || "Malha",
+                colors: JSON.parse(JSON.stringify(p.colors)),
+                volumes: p.volumes,
+                total: p.total,
+                sent: p.previous?.sent || 0,
+                pending: p.total,
                 status: "✂️ Corte pronto",
                 responsible: currentUser.name,
-                obs: obsVal
-            };
-
-            const logData = {
-                date: new Date().toLocaleDateString('pt-BR'),
-                time: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                user_name: currentUser.name,
-                action: "Corte pronto",
-                target: `OC ${ocVal}`,
-                details: `${currentUser.name} marcou a OC ${ocVal} como corte pronto (${total} peças).`
+                responsibleUid: currentUser.id,
+                obs: p.obs,
+                updatedAt: now.toISOString()
             };
 
             try {
                 const { db, doc, setDoc, collection, addDoc } = window.mbFirebase;
-                await setDoc(doc(db, "cuts", cutNumber), { ...cutData, responsibleUid: currentUser.id, updatedAt: new Date().toISOString() }, { merge: true });
+
+                // Save the ready cut first.
+                await setDoc(doc(db, "cuts", p.cutNumber), cutData, { merge: true });
+
+                // Permanent history entry.
                 await addDoc(collection(db, "auditLogs"), {
-                    date: logData.date, time: logData.time, user: logData.user_name,
-                    action: logData.action, target: logData.target, details: logData.details,
-                    userUid: currentUser.id, createdAt: new Date().toISOString()
+                    date: now.toLocaleDateString('pt-BR'),
+                    time: now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+                    user: currentUser.name,
+                    userUid: currentUser.id,
+                    action: "Corte pronto",
+                    target: `OC ${p.oc}`,
+                    details: `${currentUser.name} liberou a OC ${p.oc} para o Transporte (${p.total} peças, ${p.volumes} volumes).`,
+                    createdAt: now.toISOString()
                 });
+
+                pendingCutConfirmation = null;
+                closeModal();
+                showToast(`✓ OC ${p.oc} enviada para Cortes Prontos.`);
+                // Snapshot will update all connected users. This local refresh is immediate too.
                 await loadFirestoreData();
+                currentPage = 'cuts';
+                renderCuts(document.getElementById('page-content'));
             } catch (err) {
                 console.error("Erro ao finalizar corte no Firestore:", err);
-                showToast('Não foi possível finalizar o corte no Firebase.', 'error');
-                return;
+                showToast('Não foi possível enviar o Corte Pronto. Confira sua conexão e tente novamente.', 'error');
             }
-            closeModal();
-            showToast('✓ Corte marcado como pronto com sucesso.');
-            renderCuts(document.getElementById('page-content'));
         }
 
         function confirmMarkReady(num) {
@@ -1360,32 +1542,51 @@
         function renderTransport(container) {
             const readyCuts = DB.cuts.filter(c => c.status === '✂️ Corte pronto' || c.status === '🚚 Envio parcial');
             container.innerHTML = `
-                <div class="page-header"><div><h1>Cortes Prontos para Envio</h1><span class="page-subtitle">Jéssica — Expedição exclusiva de material cortado</span></div></div>
+                <div class="page-header"><div><h1>Cortes Prontos para Envio</h1><span class="page-subtitle">Jéssica — atualiza automaticamente quando Nildo libera uma ficha</span></div></div>
                 <div class="card">
-                    <div class="card-header"><h3 class="card-title">Fila de Transporte</h3></div>
+                    <div class="card-header">
+                        <h3 class="card-title">Fila de Transporte</h3>
+                        <span class="badge badge-info">${readyCuts.length} aguardando</span>
+                    </div>
+
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
                             <thead><tr><th>CORTE</th><th>OC</th><th>REFERÊNCIA</th><th>PRODUTO</th><th>TECIDO</th><th>VOLUMES</th><th>QUANTIDADE</th><th>STATUS</th><th>AÇÃO</th></tr></thead>
                             <tbody>
-                                ${readyCuts.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum corte pronto no momento.</td></tr>` : readyCuts.map(c => `
+                                ${readyCuts.length === 0 ? `<tr><td colspan="9" style="text-align:center;color:var(--gray-500);padding:20px;">Nenhum corte pronto no momento.</td></tr>` : readyCuts.map(c => `
                                     <tr>
-                                        <td><strong>${c.number}</strong></td>
-                                        <td><span class="badge badge-info">OC ${c.oc}</span></td>
-                                        <td>${c.reference}</td>
-                                        <td>${c.product}</td>
-                                        <td>${c.fabric}</td>
-                                        <td>${c.volumes || 1} vls</td>
-                                        <td>${formatNumber(c.pending)} peças</td>
-                                        <td><span class="badge badge-success">${c.status}</span></td>
+                                        <td><strong>${c.number}</strong></td><td><span class="badge badge-info">OC ${c.oc}</span></td>
+                                        <td>${c.reference}</td><td>${c.product}</td><td>${c.fabric || '-'}</td><td>${c.volumes || 1} vls</td>
+                                        <td>${formatNumber(c.pending)} peças</td><td><span class="badge badge-success">${c.status}</span></td>
                                         <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
                                             <button class="btn-primary" style="padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="openShipModal('${c.number}')">🚚 Enviar</button>
-                                            ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver</button>
-                                            <button class="btn-primary" style="background:var(--danger);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar</button>` : ''}
+                                            ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver</button><button class="btn-primary" style="background:var(--danger);padding:8px 12px;font-size:12px;min-height:38px;width:auto;" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar</button>` : ''}
                                         </div></td>
-                                    </tr>
-                                `).join('')}
+                                    </tr>`).join('')}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div class="mobile-card-list">
+                        ${readyCuts.length === 0 ? `<div style="text-align:center;color:var(--gray-500);padding:22px 8px;">Nenhum corte pronto no momento.</div>` : readyCuts.map(c => `
+                            <div class="mobile-data-card">
+                                <div class="mobile-data-head">
+                                    <div><div class="mobile-data-title">OC ${c.oc}</div><small style="color:var(--gray-500);">Corte ${c.number}</small></div>
+                                    <span class="badge badge-success">${c.status}</span>
+                                </div>
+                                <div class="mobile-data-grid">
+                                    <div class="mobile-field"><small>Referência</small><strong>${c.reference}</strong></div>
+                                    <div class="mobile-field"><small>Produto</small><strong>${c.product}</strong></div>
+                                    <div class="mobile-field"><small>Quantidade</small><strong>${formatNumber(c.pending)} peças</strong></div>
+                                    <div class="mobile-field"><small>Volumes</small><strong>${c.volumes || 1}</strong></div>
+                                    <div class="mobile-field"><small>Tecido</small><strong>${c.fabric || '-'}</strong></div>
+                                    <div class="mobile-field"><small>Situação</small><strong>Pronto para envio</strong></div>
+                                </div>
+                                <div class="mobile-action-row">
+                                    <button class="btn-primary" onclick="openShipModal('${c.number}')">🚚 Enviar para Oficina</button>
+                                    ${c.status === '✂️ Corte pronto' ? `<button class="btn-primary" style="background:var(--warning);" onclick="confirmJessicaReturn('${c.number}')">↩️ Devolver ao Nildo</button><button class="btn-primary" style="background:var(--danger);" onclick="confirmJessicaDelete('${c.number}')">🗑️ Apagar OC</button>` : ''}
+                                </div>
+                            </div>`).join('')}
                     </div>
                 </div>
             `;
@@ -1427,7 +1628,16 @@
             if (currentUser.role !== 'TRANSPORTE' || !c || c.status !== '✂️ Corte pronto') return showToast('Ação não permitida.', 'error');
             try {
                 const { db, doc, deleteDoc, collection, addDoc } = window.mbFirebase;
-                await addDoc(collection(db, 'auditLogs'), { date:new Date().toLocaleDateString('pt-BR'), time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), user:currentUser.name, userUid:currentUser.id, action:'OC pronta excluída', target:`OC ${c.oc}`, details:`${currentUser.name} apagou a OC ${c.oc} que estava em Corte pronto.`, createdAt:new Date().toISOString() });
+                await addDoc(collection(db, 'auditLogs'), {
+                    date:new Date().toLocaleDateString('pt-BR'),
+                    time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+                    user:currentUser.name,
+                    userUid:currentUser.id,
+                    action:'OC apagada',
+                    target:`OC ${c.oc}`,
+                    details:`${currentUser.name} apagou a OC ${c.oc} (Ref. ${c.reference || '-'}, ${c.total || 0} peças) enquanto estava em Corte pronto.`,
+                    createdAt:new Date().toISOString()
+                });
                 await deleteDoc(doc(db, 'cuts', c.number));
                 await loadFirestoreData(); closeModal(); showToast(`✓ OC ${c.oc} apagada.`); navigateTo('transport');
             } catch(err) { console.error(err); showToast('Não foi possível apagar a OC. Verifique as regras do Firebase.', 'error'); }
@@ -1921,7 +2131,7 @@
                 </div>
                 <div class="card">
                     <h3 class="card-title" style="margin-bottom:12px;">Produção por Tamanho</h3>
-                    <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; text-align:center;">
+                    <div class="report-size-grid" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; text-align:center;">
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>P</strong><br>${formatNumber(totalP)}</div>
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>M</strong><br>${formatNumber(totalM)}</div>
                         <div style="background:var(--gray-50); padding:8px; border-radius:var(--radius);"><strong>G</strong><br>${formatNumber(totalG)}</div>
@@ -1969,16 +2179,23 @@
             container.innerHTML = `<div class="page-header"><div><h1>Usuários</h1><span class="page-subtitle">Acessos do sistema (Marcos, Jéssica, Nildo)</span></div></div><div class="card"><div class="desktop-table-container table-responsive"><table class="data-table"><thead><tr><th>NOME</th><th>E-MAIL</th><th>PERFIL</th><th>STATUS</th></tr></thead><tbody>${DB.users.map(u=>`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-info">${u.role}</span></td><td><span class="badge badge-success">${u.status}</span></td></tr>`).join('')}</tbody></table></div></div>`;
         }
         function renderHistory(container) {
+            const logs = [...DB.audit_logs].sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
             container.innerHTML = `
-                <div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Trilha de eventos limpa e organizada</span></div></div>
+                <div class="page-header"><div><h1>Histórico / Auditoria</h1><span class="page-subtitle">Todas as movimentações da produção</span></div></div>
                 <div class="card">
                     <div class="desktop-table-container table-responsive">
                         <table class="data-table">
                             <thead><tr><th>DATA</th><th>HORA</th><th>USUÁRIO</th><th>AÇÃO</th><th>ALVO</th><th>DETALHES</th></tr></thead>
-                            <tbody>
-                                ${DB.audit_logs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--gray-500); padding:20px;">Nenhum registro no histórico.</td></tr>` : DB.audit_logs.map(l=>`<tr><td>${l.date}</td><td>${l.time}</td><td>${l.user}</td><td><span class="badge badge-info">${l.action}</span></td><td><strong>${l.target}</strong></td><td>${l.details}</td></tr>`).join('')}
-                            </tbody>
+                            <tbody>${logs.length === 0 ? `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:20px;">Nenhum registro no histórico.</td></tr>` : logs.map(l=>`<tr><td>${l.date||'-'}</td><td>${l.time||'-'}</td><td>${l.user||'-'}</td><td><span class="badge badge-info">${l.action||'-'}</span></td><td><strong>${l.target||'-'}</strong></td><td>${l.details||'-'}</td></tr>`).join('')}</tbody>
                         </table>
+                    </div>
+                    <div class="mobile-card-list mobile-history">
+                        ${logs.length === 0 ? `<div style="text-align:center;color:var(--gray-500);padding:20px;">Nenhum registro no histórico.</div>` : logs.map(l=>`
+                            <div class="mobile-history-item">
+                                <div class="mobile-history-top"><strong>${l.target || 'Movimentação'}</strong><span class="badge badge-info">${l.action || '-'}</span></div>
+                                <div style="font-size:12px;line-height:1.5;">${l.details || '-'}</div>
+                                <div class="mobile-history-meta"><i class="fa-solid fa-user"></i> ${l.user || '-'} &nbsp; • &nbsp; ${l.date || '-'} ${l.time || ''}</div>
+                            </div>`).join('')}
                     </div>
                 </div>
             `;
