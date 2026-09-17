@@ -722,6 +722,29 @@
             .product-mobile-card span{display:block;font-size:10px;color:#6b7280;margin-top:2px}
         }
 
+
+        /* Rascunhos — versão própria para celular */
+        .mobile-drafts-section{display:none}
+        @media(max-width:768px){
+            .mobile-drafts-section{display:block !important;margin-bottom:16px}
+            .mobile-drafts-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+            .mobile-drafts-head strong{display:block;font-size:14px;color:#111827}
+            .mobile-drafts-head span{display:block;font-size:9px;color:#6b7280;margin-top:2px}
+            .mobile-drafts-head b{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:20px;padding:5px 9px;font-size:10px}
+            .mobile-drafts-list{display:grid;grid-template-columns:1fr;gap:9px}
+            .mobile-draft-card{display:block;width:100%;background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f97316;border-radius:13px;padding:12px;text-align:left;box-shadow:0 3px 12px rgba(15,23,42,.05)}
+            .mobile-draft-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+            .mobile-draft-top span{font-size:10px;font-weight:900;color:#ea580c}
+            .mobile-draft-top em{font-style:normal;font-size:8px;font-weight:850;background:#fff7ed;color:#c2410c;padding:4px 7px;border-radius:10px}
+            .mobile-draft-card>strong{display:block;font-size:13px;color:#111827}
+            .mobile-draft-info{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+            .mobile-draft-info span{background:#f8fafc;border-radius:8px;padding:7px;font-size:10px;font-weight:700;color:#111827;overflow:hidden;text-overflow:ellipsis}
+            .mobile-draft-info small{display:block;font-size:7px;color:#6b7280;font-weight:850;margin-bottom:2px}
+            .mobile-draft-info span:last-child{grid-column:1/-1}
+            .mobile-draft-open{text-align:right;margin-top:9px;color:#ea580c;font-size:9px;font-weight:850}
+            .mobile-drafts-empty{background:#fff;border:1px dashed #d1d5db;border-radius:12px;padding:18px;text-align:center;color:#6b7280;font-size:10px}
+        }
+
 </style>
 </head>
 <body>
@@ -1390,7 +1413,34 @@
             const myDrafts = DB.cuts.filter(c => c.status === '📝 Rascunho');
             const otherCuts = DB.cuts.filter(c => c.status !== '📝 Rascunho');
 
+            const mobileDrafts = DB.cuts
+                .filter(c => c.status === '📝 Rascunho')
+                .sort((a,b) => String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || '')));
+
             container.innerHTML = `
+                <div class="mobile-drafts-section">
+                    <div class="mobile-drafts-head">
+                        <div><strong>📝 Rascunhos</strong><span>Fichas salvas para continuar depois</span></div>
+                        <b>${mobileDrafts.length}</b>
+                    </div>
+                    <div class="mobile-drafts-list">
+                        ${mobileDrafts.length ? mobileDrafts.map(c => `
+                            <button class="mobile-draft-card" onclick="editCut('${c.number}')">
+                                <div class="mobile-draft-top">
+                                    <span>OC ${c.oc || '-'}</span>
+                                    <em>Rascunho</em>
+                                </div>
+                                <strong>${c.product || 'Produto não informado'}</strong>
+                                <div class="mobile-draft-info">
+                                    <span><small>REFERÊNCIA</small>${c.reference || '-'}</span>
+                                    <span><small>PEÇAS</small>${formatNumber(Math.abs(toQuantity(c.total)))}</span>
+                                    <span><small>TECIDO</small>${c.fabric || '-'}</span>
+                                </div>
+                                <div class="mobile-draft-open">Continuar ficha <i class="fa-solid fa-chevron-right"></i></div>
+                            </button>`).join('') :
+                            '<div class="mobile-drafts-empty">Nenhum rascunho salvo.</div>'}
+                    </div>
+                </div>
                 <div class="page-header">
                     <div><h1>Cortes & Rascunhos</h1><span class="page-subtitle">Gerenciamento de fichas de corte</span></div>
                     ${currentUser.role !== 'TRANSPORTE' ? `<button class="btn-primary" onclick="openNewCutModal()"><i class="fa-solid fa-plus"></i> Novo Corte</button>` : ''}
