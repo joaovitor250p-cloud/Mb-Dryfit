@@ -1760,6 +1760,30 @@
             );
         }
 
+        function openJessicaWhatsAppForReadyCut(cut) {
+            if (!cut) return;
+
+            const phone = '5511990104313';
+            const total = Math.abs(toQuantity(cut.total || 0));
+            const message =
+`✂️ *FICHA PRONTA — MB*
+
+OC: ${cut.oc || '-'}
+Referência: ${cut.reference || '-'}
+Produto: ${cut.product || '-'}
+Tecido: ${cut.fabric || '-'}
+Quantidade: ${formatNumber(total)} peças
+Volumes: ${cut.volumes || 1}
+
+Corte finalizado e pronto para o próximo processo.`;
+
+            const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+            // On mobile this opens WhatsApp; on notebook it opens WhatsApp Web/app.
+            // The user still taps "Enviar", because this is the free wa.me flow.
+            window.location.href = url;
+        }
+
         async function executeFinalCortePronto() {
             const p = pendingCutConfirmation;
             if (!p) {
@@ -1814,6 +1838,9 @@
                 await loadFirestoreData();
                 currentPage = 'cuts';
                 renderCuts(document.getElementById('page-content'));
+
+                // Abre o WhatsApp da Jéssica somente depois que o Corte Pronto foi salvo com sucesso.
+                setTimeout(() => openJessicaWhatsAppForReadyCut(cutData), 250);
             } catch (err) {
                 console.error("Erro ao finalizar corte no Firestore:", err);
                 showToast('Não foi possível enviar o Corte Pronto. Confira sua conexão e tente novamente.', 'error');
@@ -1869,6 +1896,9 @@
             closeModal();
             showToast(`✓ Corte ${c.number} marcado como pronto.`);
             renderCuts(document.getElementById('page-content'));
+
+            // Também funciona quando um rascunho é marcado como Corte Pronto pelo card.
+            setTimeout(() => openJessicaWhatsAppForReadyCut(c), 250);
         }
 
         function confirmDeleteDraft(num) {
