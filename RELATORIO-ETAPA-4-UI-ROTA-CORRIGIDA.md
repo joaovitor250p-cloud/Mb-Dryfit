@@ -1,220 +1,212 @@
-# Relatório — ETAPA 4 UI Rota + Navegação Simplificada
+# Relatório — ETAPA 4 UI ROTA CORRIGIDA
 
-Base obrigatória utilizada: `Pacote-Em-Mato-ETAPA-4-UI-ROTA-CORRIGIDA.zip`.
+## Base utilizada
 
-Esta revisão foi feita de forma incremental. Não houve reconstrução do aplicativo, alteração do Cloudflare Worker ou refatoração do núcleo legado de login/PDF/bipagem.
+A correção foi feita sobre `Pacote-Em-Mato-ETAPA-4-FINAL-CORRIGIDA.zip`. O projeto não foi reconstruído do zero.
 
-## 1. Ajustes de navegação e simplicidade
+## Diagnóstico
 
-### Início
+### 1. Excesso de controles antes do mapa
 
-A tela Início possuía dois atalhos para Roteirização e dois para Bipagem (`home-actions` + `quick-actions`), além de um atalho adicional para Histórico.
+A Roteirização possuía barra de preferências, duas fileiras de comandos, mensagem de importação e oito métricas antes da área principal. No celular isso empurrava o mapa para baixo e o deixava com aparência de painel técnico.
 
-Agora a área de tarefas principais contém somente:
+**Correção:** o mapa passou a ocupar toda a tela mobile; as paradas ficam em um bottom sheet e as ferramentas secundárias ficam em um menu de ações.
 
-- **Planejar rota**
-- **Abrir Bipagem**
+### 2. Mapa pequeno / pouco útil
 
-O resumo da rota ativa continua no Início quando houver paradas reais. Uma rota vazia de planejamento não é apresentada como rota ativa no resumo.
+O contêiner do mapa ficava dentro de um workspace com altura limitada após todos os componentes superiores. Em celulares, o sistema alternava mapa/lista como blocos separados em vez de manter o mapa como contexto principal.
 
-### Histórico
+**Correção:** no celular, `#mapaRoteirizacao` ocupa 100% do viewport da Roteirização. A lista sobrepõe o mapa como painel inferior recolhível. No desktop, o mapa permanece dominante à direita e a lista à esquerda.
 
-O único acesso de navegação para Histórico fica na barra lateral. O módulo, os registros, a persistência e o botão interno de Histórico anterior foram preservados.
+### 3. Tela clara sem ruas quando o estilo não responde
 
-### Configurações
+O estilo principal é OpenFreeMap Liberty. A versão anterior exibia fallback apenas como mensagem após timeout, podendo deixar o usuário vendo uma área clara durante falha de carregamento do estilo.
 
-A opção Configurações foi removida somente do menu de três pontos da Roteirização. A tela Configurações e o botão correspondente na barra lateral continuam intactos.
+**Correção:** o mapa tenta Liberty primeiro e possui fallback raster OSM sem chave. Se ambos falharem, mostra uma mensagem clara em vez de fingir que existe um mapa carregado.
 
-### Menu de três pontos
+### 4. Importação
 
-O menu passou a conter apenas ações secundárias:
+O fluxo de importação já possuía correções da versão-base: leitor XLSX nativo, detecção de cabeçalho e mapeamento de colunas. Nesta revisão foram validados o botão, o file chooser, a leitura real do XLSX, a criação da rota e o mapeamento manual.
 
-- Usar rota da Bipagem
-- Inverter ordem (quando aplicável)
-- Exportar PDF (quando houver paradas)
+Quando não existe serviço externo, a importação agora termina de forma útil: cria as paradas e abre a lista para revisão. Ela não manda o usuário configurar Cloudflare nesta etapa.
 
-Importar planilha, Adicionar endereço, Localizar/Otimizar e Iniciar rota não dependem mais desse menu.
+### 5. Coordenadas inválidas
 
-## 2. Fluxo de Planejar rota
+A base recebida já continha validações para impedir `null` de virar `0`. Esta revisão manteve essas validações e acrescentou proteção da geometria antes de desenhar a linha da rota.
 
-Ao entrar em Roteirização sem paradas, a tela mostra diretamente:
+Nenhuma coordenada é inventada.
 
-- **Importar planilha XLSX**
-- **Adicionar endereço manualmente**
-- mapa
-- painel inferior de paradas
+## Interface implementada
 
-Quando já existe rota, ela é carregada e preservada. O painel expandido oferece ações visíveis de **Importar XLSX** e **Adicionar endereço**. Selecionar uma nova planilha pede confirmação antes de abrir o seletor; a rota anterior só é substituída depois que a nova planilha é lida com sucesso.
+### Mobile
 
-O botão principal da Roteirização muda conforme o estado real:
+- mapa ocupa todo o viewport;
+- menu lateral aparece como botão flutuante circular;
+- painel inferior recolhido: resumo da rota;
+- painel inferior expandido: busca + lista de paradas;
+- arraste/click no puxador abre e recolhe o painel;
+- menu de ações abre como bottom sheet;
+- ações dependentes de serviço externo são ocultadas quando o serviço não existe;
+- ação principal muda conforme o estado da rota;
+- parada selecionada aparece em ficha sobre o mapa sem misturar scanner/bipagem.
 
-- sem paradas → Importar planilha XLSX;
-- paradas sem coordenadas → Localizar/Tentar localizar;
-- coordenadas prontas e serviço de rota configurado → Otimizar rota;
-- coordenadas prontas e serviço não configurado → Otimizar rota desabilitado, com motivo;
-- rota calculada → Iniciar rota.
+### Desktop
 
-Não há otimização simulada.
+- painel de paradas com cerca de 370 px;
+- mapa ocupa o restante da largura;
+- lista permanece rolável;
+- menu de ações centralizado;
+- mapa e lista usam a mesma parada selecionada.
 
-## 3. Correções mantidas de XLSX, mapa e localização
+## Configurações
 
-Esta revisão incorpora as correções sobre a mesma base UI:
+A interface para configurar/testar Cloudflare Worker foi removida desta revisão, conforme solicitado.
 
-- leitura de Latitude/Longitude quando existirem na planilha;
-- coordenadas ausentes/inválidas permanecem `null`, nunca `0,0`;
-- paradas importadas sem coordenadas continuam na lista;
-- tentativa de geocodificação pode ser repetida sem reimportar o XLSX;
-- localização atual automática é separada do ponto inicial da rota;
-- localização recente da sessão evita pedidos repetidos ao GPS;
-- permissão negada é respeitada.
+Continuam em Configurações:
 
-### Causa do erro `Cannot read properties of undefined (reading 'lng')`
+- navegação preferida;
+- veículo;
+- tempo por parada;
+- retorno ao início;
+- ponto de partida;
+- tema;
+- voz.
 
-O marcador do ponto inicial era anexado ao MapLibre com `.addTo(mapa)` antes de receber `.setLngLat(...)`. O MapLibre podia tentar atualizar um marcador cuja coordenada interna ainda era indefinida.
+Sem serviço externo, a validação de ponto de partida por endereço fica indisponível; a localização atual via GPS continua disponível quando o navegador/dispositivo autoriza.
 
-A ordem agora é:
+Os arquivos `cloudflare/geocodificacao-worker.js` e `cloudflare/wrangler.toml` não foram modificados.
 
-```text
-new Marker(...)
-→ setLngLat([lon, lat])
-→ addTo(mapa)
-```
+## Arquivos modificados
 
-O erro acontece no mapa/renderização, antes de qualquer necessidade de otimização ou chamada ao Worker.
-
-## 4. Cloudflare
-
-`cloudflare/geocodificacao-worker.js` e `cloudflare/wrangler.toml` permaneceram byte a byte iguais à base recebida.
-
-Nenhum Worker foi publicado, reconfigurado ou alterado.
-
-Sem serviço externo configurado, o aplicativo preserva os endereços e informa a limitação. Ele não inventa coordenadas ou uma rota otimizada.
-
-## 5. Arquivos criados
-
-- `js/mapa/localizacao-atual.js`
-
-## 6. Arquivos modificados
-
-- `README.md`
-- `RELATORIO-ETAPA-4-UI-ROTA-CORRIGIDA.md`
 - `index.html`
-- `css/mapa.css`
+- `README.md`
 - `css/roteirizacao.css`
-- `js/state.js`
-- `js/importacao/xlsx.js`
-- `js/mapa/mapa.js`
-- `js/roteirizacao/roteirizacao.js`
+- `css/mapa.css`
 - `js/ui/app-shell.js`
+- `js/roteirizacao/roteirizacao.js`
+- `js/mapa/config.js`
+- `js/mapa/mapa.js`
+- `js/configuracoes/configuracoes.js`
 
-Nenhum arquivo foi removido.
-
-## 7. Arquivos críticos preservados byte a byte
-
-SHA-256 comparado com o ZIP-base:
+## Arquivos preservados byte a byte
 
 - `js/app.js`
 - `js/bipagem/rota-ativa-bridge.js`
 - `js/suporte.js`
-- `js/historico/historico-rotas.js`
 - `manifest.json`
 - `politica-privacidade.html`
 - `cloudflare/geocodificacao-worker.js`
 - `cloudflare/wrangler.toml`
 
-## 8. Testes realmente executados
+## Testes executados
 
-### Navegação/UI em Chromium automatizado
+### Sintaxe / estrutura
 
-Viewport mobile 412 × 915 e desktop 1365 × 768.
+- todos os JS de `js/`: `node --check` aprovado;
+- Worker: `node --check` aprovado, sem modificação;
+- 325 IDs HTML inspecionados: nenhum duplicado;
+- referências locais de scripts/CSS: nenhuma ausente;
+- IDs essenciais da Roteirização: presentes.
 
-Resultados:
+### XLSX real
 
-- Início possui exatamente 2 cartões de tarefa: Planejar rota e Abrir Bipagem;
-- não existe atalho de Histórico na tela Início;
-- existe exatamente 1 acesso de navegação a Histórico, na barra lateral;
-- Configurações não aparece no menu de três pontos;
-- Importar planilha e Adicionar parada não aparecem no menu de três pontos;
-- Planejar rota abre `moduloRoteirizacao`;
-- Importar planilha XLSX aparece sem abrir menu;
-- Adicionar endereço manualmente aparece sem abrir menu;
-- o menu de três pontos contém somente ações secundárias;
-- mapa mobile ocupa 412 × 915 atrás do painel inferior;
-- no desktop o mapa mediu 957 px de largura e a lista 370 px.
-
-### Importação XLSX real
-
-Foi criado e enviado ao `input[type=file]` um XLSX real com:
+Planilha criada com:
 
 - linha de título antes do cabeçalho;
-- Endereço;
-- Número;
-- Cidade;
+- endereço;
+- número;
+- cidade;
 - UF;
-- Código de pacote;
-- Observação.
+- complemento;
+- pacote;
+- observação.
 
 Resultado:
 
-- 2 linhas → 2 paradas;
-- números preservados;
-- códigos BR preservados;
-- cards renderizados na lista;
-- nenhum erro de página no teste.
+- engine: `xlsx-nativo`;
+- 2 linhas válidas -> 2 paradas;
+- números incorporados aos endereços;
+- códigos de pacote preservados.
 
-### Adicionar endereço
+### File chooser + evento de importação no navegador
 
-Foi aberto o formulário pela ação visível, preenchido `Rua Manual, 55 - São Paulo` e salvo sem serviço de geocodificação configurado.
+Teste via Playwright usando Chromium e o HTML real da Roteirização com dependências de armazenamento/mapa isoladas:
 
-Resultado:
+- botão de importação abriu um `FileChooser` real;
+- seleção do XLSX disparou o `change` do input;
+- foram renderizados 2 cards de parada;
+- métrica de paradas passou para 2;
+- rota salva continha as mesmas 2 paradas/pacotes;
+- painel inferior abriu automaticamente para revisão.
 
-- parada adicionada à rota;
-- rota passou de 2 para 3 paradas;
-- endereço ficou preservado mesmo sem coordenada.
+### Mapeamento de colunas
 
-### Rota ativa
+CSV com colunas genéricas (`Coluna A`, `Coluna B` etc.):
 
-Depois de importar e adicionar a parada, foi feita navegação Início → Planejar rota novamente.
+- nenhuma rota foi substituída antes da confirmação;
+- modal de mapeamento abriu;
+- associação manual Logradouro/Número/Cidade/Pacote funcionou;
+- após confirmar: 1 parada criada com endereço e pacote corretos.
 
-Resultado:
+### Mapa/lista
 
-- mesmo ID de rota;
-- mesmas 3 paradas;
-- rota ativa não foi apagada ao entrar no planejamento.
+- viewport mobile simulado em 412 × 915;
+- workspace do mapa: 412 × 915;
+- painel recolhido: 118 px de altura;
+- painel expandido: aproximadamente 65% da tela;
+- desktop 1365 × 768: lista 370 px / mapa 957 px;
+- seleção na lista atualizou `appState.roteirizacao.paradaSelecionadaId` e chamou centralização;
+- seleção originada do mapa marcou o mesmo card da lista;
+- `latitude:null/longitude:null` retorna `false` na validação de coordenadas.
 
-### Localização atual
+### Menu de ações / ausência do Worker
 
-Teste isolado do módulo real:
+Com serviço externo ausente:
 
-- permissão concedida → posição armazenada;
-- duas atualizações automáticas consecutivas → apenas 1 chamada ao GPS por causa do cache recente da sessão;
-- permissão negada → nenhuma chamada ao GPS e status `negada`.
+- Validar endereços oculto;
+- Otimizar rota oculto;
+- nota explicativa exibida;
+- nenhuma otimização fictícia é executada;
+- interface de URL/teste do Worker não existe em Configurações.
 
-### Regressão do erro `.lng`
+### Regressão do núcleo
 
-Foi usado um `Marker` de teste que lança exatamente `Cannot read properties of undefined (reading 'lng')` se `addTo()` for chamado antes de `setLngLat()`.
+SHA-256 comparado com o ZIP-base:
 
-Resultado com o código corrigido:
+- `js/app.js`: preservado;
+- `js/bipagem/rota-ativa-bridge.js`: preservado;
+- `js/suporte.js`: preservado;
+- `manifest.json`: preservado;
+- `politica-privacidade.html`: preservado;
+- Worker Cloudflare: preservado;
+- `wrangler.toml`: preservado.
 
-- marcador do ponto inicial criado;
-- nenhuma exceção `.lng`;
-- nenhum `pageerror`.
+## Limitações reais de teste
 
-### Estrutura/sintaxe
+O Chromium do ambiente bloqueia navegação para `localhost`/`file://` por política administrativa. Para contornar somente os testes de layout/eventos, foi utilizado `page.set_content()` do Playwright com o HTML/CSS/JS reais envolvidos na Roteirização.
 
-- todos os arquivos em `js/` passaram em `node --check`;
-- Worker passou na checagem de sintaxe como ES Module sem ser modificado;
-- 321 IDs HTML, sem duplicatas;
-- nenhuma referência local ausente além do `tutorial-pacote-e-mato.mp4`, que já estava ausente na base recebida.
+Por isso não foi possível testar neste ambiente:
 
-## 9. Limitações reais
+- tiles reais do OpenFreeMap renderizados pela rede dentro do navegador;
+- GPS físico de um Android;
+- câmera física/scanner;
+- login Firebase contra a conta de produção;
+- geocodificação real;
+- otimização real por ruas;
+- Cloudflare Worker;
+- navegação em trânsito real.
 
-Não foram testados contra produção nesta sessão:
+A URL oficial do estilo OpenFreeMap Liberty continua configurada no projeto. O mapa-base externo depende de conexão de internet no dispositivo do usuário.
 
-- Firebase real da conta;
-- câmera/scanner em Android físico;
-- GPS em dispositivo físico;
-- tiles externos no site publicado;
-- geocodificação/otimização reais, pois o Worker não foi configurado por solicitação do usuário.
+## Publicação
 
-Essas partes não são declaradas como aprovadas em produção apenas porque o código existe.
+Nenhuma configuração manual de Cloudflare é necessária para publicar esta revisão de UI.
+
+Para publicar:
+
+1. extrair o ZIP;
+2. abrir `Pacote-Em-Mato/`;
+3. enviar a pasta/estrutura completa para o repositório;
+4. preservar os diretórios e caminhos relativos.
+
+Geocodificação e otimização real por ruas devem permanecer para uma etapa futura, quando o serviço externo for deliberadamente configurado.

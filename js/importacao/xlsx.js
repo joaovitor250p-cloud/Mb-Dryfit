@@ -22,9 +22,7 @@
     observacao: ['observacao', 'observação', 'obs', 'nota', 'notas', 'notes', 'instructions', 'instrucoes', 'instruções', 'observacoes', 'observações'],
     id: ['id', 'stop id', 'parada id', 'codigo parada', 'código parada', 'id parada', 'numero parada', 'número parada'],
     pacote: ['pacote', 'codigo pacote', 'código pacote', 'codigo', 'código', 'tracking', 'tracking code', 'etiqueta', 'package', 'codigo de rastreio', 'código de rastreio'],
-    pacotes: ['pacotes', 'codigos pacotes', 'códigos pacotes', 'trackings', 'packages', 'etiquetas'],
-    latitude: ['latitude', 'lat', 'latitud', 'coord lat', 'coordenada latitude'],
-    longitude: ['longitude', 'lon', 'lng', 'long', 'coord lon', 'coord lng', 'coordenada longitude']
+    pacotes: ['pacotes', 'codigos pacotes', 'códigos pacotes', 'trackings', 'packages', 'etiquetas']
   };
 
   const CAMPOS_MAPEAVEIS = [
@@ -42,8 +40,6 @@
     ['pacote', 'Código de pacote'],
     ['pacotes', 'Códigos de pacotes'],
     ['observacao', 'Observação'],
-    ['latitude', 'Latitude'],
-    ['longitude', 'Longitude'],
     ['id', 'ID da parada']
   ];
 
@@ -99,7 +95,6 @@
     if (columns.numero != null) score += 3;
     if (columns.cidade != null || columns.cep != null) score += 2;
     if (columns.pacote != null || columns.pacotes != null) score += 2;
-    if (columns.latitude != null && columns.longitude != null) score += 2;
     if (nonEmpty >= 2) score += Math.min(4, nonEmpty);
     return { score, columns, nonEmpty, headers };
   }
@@ -142,16 +137,6 @@
   function valor(row, columns, key) {
     const idx = columns[key];
     return idx == null ? '' : String(row?.[idx] ?? '').trim();
-  }
-
-  function numeroCoordenada(valorBruto, minimo, maximo) {
-    if (valorBruto === null || valorBruto === undefined) return null;
-    let texto = String(valorBruto).trim();
-    if (!texto) return null;
-    // Planilhas brasileiras frequentemente usam vírgula decimal.
-    if (/^-?\d+,\d+$/.test(texto)) texto = texto.replace(',', '.');
-    const n = Number(texto);
-    return Number.isFinite(n) && n >= minimo && n <= maximo ? n : null;
   }
 
   function extrairPacotes(row, columns) {
@@ -216,7 +201,6 @@
 
     const paradas = [];
     const erros = [];
-    const avisos = [];
     const porIdExplicito = new Map();
     for (let i = headerIndex + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -235,9 +219,7 @@
         cidade: valor(row, columns, 'cidade'),
         estado: valor(row, columns, 'estado'),
         cep: valor(row, columns, 'cep'),
-        observacao: valor(row, columns, 'observacao'),
-        latitude: valor(row, columns, 'latitude'),
-        longitude: valor(row, columns, 'longitude')
+        observacao: valor(row, columns, 'observacao')
       };
       const enderecoOriginal = montarEndereco(campos);
       if (!enderecoOriginal) {
@@ -264,14 +246,6 @@
         erros.push({ linha: i + 1, motivo: `ID de parada repetido com endereço diferente: ${idPlanilha}` });
       }
 
-      const latitude = numeroCoordenada(campos.latitude, -90, 90);
-      const longitude = numeroCoordenada(campos.longitude, -180, 180);
-      const possuiAlgumaCoordenada = String(campos.latitude || '').trim() || String(campos.longitude || '').trim();
-      const coordenadasValidas = latitude !== null && longitude !== null;
-      if (possuiAlgumaCoordenada && !coordenadasValidas) {
-        avisos.push({ linha: i + 1, motivo: 'Latitude/longitude incompletas ou inválidas; a parada foi importada sem coordenadas.' });
-      }
-
       const parada = {
         id: idPlanilha && porIdExplicito.has(idBase) ? `${idBase}-linha-${i + 1}` : idBase,
         ordemOriginal: paradas.length + 1,
@@ -294,11 +268,9 @@
         quantidadePacotes: pacotes.length,
         quantidadeBipada: 0,
         statusEntrega: 'pendente',
-        statusGeocodificacao: coordenadasValidas ? 'ok' : 'pendente',
-        latitude: coordenadasValidas ? latitude : null,
-        longitude: coordenadasValidas ? longitude : null,
-        fonteCoordenada: coordenadasValidas ? 'planilha' : null,
-        geocodificadoEm: coordenadasValidas ? Date.now() : null,
+        statusGeocodificacao: 'pendente',
+        latitude: null,
+        longitude: null,
         origem: 'xlsx',
         fonte: { arquivo: nomeArquivo || '', linha: i + 1 }
       };
@@ -307,7 +279,7 @@
     }
 
     if (!paradas.length) throw new Error('Nenhuma parada válida foi encontrada na planilha. Revise as colunas associadas.');
-    return { paradas, erros, avisos, headers, columns, headerIndex };
+    return { paradas, erros, headers, columns, headerIndex };
   }
 
   function parseCsv(texto) {

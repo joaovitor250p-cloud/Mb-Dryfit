@@ -162,17 +162,32 @@
   .route-decision-actions{grid-template-columns:1fr}.route-import-mapping-grid{grid-template-columns:1fr}.route-import-meta{flex-direction:column}
 }
 
-/* Ajuste de simplicidade: ações principais visíveis, ações secundárias no menu */
-.routing-list-main-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.routing-list-main-btn{min-height:32px;border:1px solid rgba(5,150,105,.24);border-radius:9px;background:#ecfdf5;color:#047857;padding:6px 9px;font:inherit;font-size:.55rem;font-weight:850;cursor:pointer}
-.routing-list-main-btn.secondary{border-color:var(--route-line);background:#fff;color:#475569}
-.routing-list-main-btn:hover{filter:brightness(.98)}
-.routing-empty-actions{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
-.routing-empty-actions .pemato-primary,.routing-empty-actions .pemato-secondary{width:100%;min-height:44px}
-.routing-sheet-primary .pemato-primary:disabled{opacity:.58;cursor:not-allowed;background:#94a3b8}
+/* ETAPA 4 — roteirização/navegação própria: controles e ações principais */
+.routing-primary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.routing-primary-grid .pemato-primary,.routing-primary-grid .pemato-secondary{min-height:42px;font-weight:850}
+.routing-start-route-btn{margin-top:8px}
+.routing-map-controls{display:flex;flex-direction:column;gap:7px}
+.routing-map-controls .routing-map-icon{width:42px;height:42px;border-radius:12px;font-weight:900;font-size:1rem}
+.routing-map-controls .routing-map-icon span{line-height:1}
+.routing-sheet-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.routing-sheet-metrics strong{white-space:normal;line-height:1.2}
+/* Os antigos HTML Markers não são mais usados para paradas. Evita qualquer animação de transform caso um plugin externo crie um. */
+.pemato-stop-marker{transition:none!important}
 
 @media(max-width:820px){
-  .routing-list-head{align-items:flex-start;flex-direction:column}
-  .routing-list-main-actions{width:100%;justify-content:stretch}
-  .routing-list-main-btn{flex:1 1 0;min-height:36px}
+  .routing-map-topbar{right:10px}
+  .routing-map-controls{display:flex!important;flex-direction:column}
+  .routing-map-controls .routing-map-icon{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.96)}
+  .routing-primary-grid{grid-template-columns:1fr 1fr}
+  .routing-workspace.sheet-expanded .routing-sheet-primary{display:block}
+}
+@media(max-width:420px){.routing-primary-grid{grid-template-columns:1fr 1fr}.routing-primary-grid button{font-size:.68rem}}
+@media(max-width:820px){
+  .routing-list-pane{height:168px}
+  .routing-sheet-body{display:none}
+  .routing-sheet-primary{display:block;padding:7px 12px max(8px,env(safe-area-inset-bottom))}
+  .routing-workspace.sheet-expanded .routing-list-pane{height:min(72dvh,680px)}
+  .routing-workspace.sheet-expanded .routing-sheet-body{display:flex}
+  .routing-selected-stop{bottom:180px}
+  .routing-map-empty-state{bottom:196px}
 }

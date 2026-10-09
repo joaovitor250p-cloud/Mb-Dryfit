@@ -76,6 +76,7 @@
     geocodificacaoResumo: null,
     localizacaoAtual: null,
     localizacaoAtualStatus: 'desconhecida',
+    localizacaoAtualAtualizadaEm: null,
     alteradoEm: null,
     sujo: false
   };
@@ -99,7 +100,12 @@
     ultimaAtualizacaoEm: null,
     distanciaAteProximaMetros: null,
     etaAteProximaSegundos: null,
-    recalculando: false
+    recalculando: false,
+    vozAtiva: true,
+    seguirPosicao: true,
+    foraDaRota: false,
+    ultimaInstrucaoId: null,
+    conclusaoPendente: false
   };
   Object.keys(navegacaoPadrao).forEach((chave) => {
     if (!(chave in state.navegacao)) state.navegacao[chave] = navegacaoPadrao[chave];

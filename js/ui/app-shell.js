@@ -25,6 +25,8 @@
 
   async function abrirModulo(nome) {
     if (!modulos.includes(nome)) nome = 'inicio';
+    const anterior = document.body.dataset.pematoModule || global.appState?.ui?.moduloAtual || 'inicio';
+    if (anterior === 'navegacao' && nome !== 'navegacao') global.PacoteEMatoNavegacao?.pausar?.();
     document.body.dataset.pematoModule = nome;
     modulos.forEach(m => {
       const el = $(idModulo(m));
@@ -37,8 +39,6 @@
     if (nome === 'roteirizacao') {
       await global.PacoteEMatoRoteirizacao?.carregarRotaAtiva?.();
       setTimeout(() => global.PacoteEMatoMapa?.renderizar({ fit: true }), 100);
-      // Localização atual é apenas contexto do mapa; não substitui o ponto inicial configurado.
-      global.PacoteEMatoLocalizacaoAtual?.atualizarAutomaticamente?.();
     } else if (nome === 'bipagem') {
       await global.PacoteEMatoBipagemBridge?.prepararRotaAtivaParaBipagem?.({ iniciarScanner: true });
     } else if (nome === 'historico') {
@@ -67,7 +67,7 @@
     const rota = await global.PacoteEMatoRotaStore?.obterRotaAtiva?.();
     const card = $('homeActiveRouteCard');
     const empty = $('homeNoRoute');
-    if (!rota || !Array.isArray(rota.paradas) || rota.paradas.length === 0) {
+    if (!rota) {
       if (card) card.style.display = 'none';
       if (empty) empty.style.display = 'block';
       return;
@@ -89,6 +89,8 @@
     document.querySelectorAll('[data-pemato-nav]').forEach(btn => {
       btn.addEventListener('click', () => abrirModulo(btn.dataset.pematoNav));
     });
+    $('homeOpenRouting')?.addEventListener('click', () => abrirModulo('roteirizacao'));
+    $('homeOpenScanning')?.addEventListener('click', () => abrirModulo('bipagem'));
     $('homeOpenNavigation')?.addEventListener('click', () => abrirModulo('navegacao'));
     global.addEventListener('pemato:rota:salva', atualizarInicio);
     global.addEventListener('pemato:rota:ativa-limpa', atualizarInicio);

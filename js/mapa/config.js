@@ -21,6 +21,7 @@
     // Fallback sem chave para evitar tela vazia caso o estilo vetorial não carregue.
     fallbackMapStyle: {
       version: 8,
+      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
       sources: {
         osm: {
           type: 'raster',

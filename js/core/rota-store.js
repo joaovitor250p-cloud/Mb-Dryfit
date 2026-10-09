@@ -77,6 +77,8 @@
     p.motivoNaoEntrega = String(p.motivoNaoEntrega || '');
     p.observacaoNaoEntrega = String(p.observacaoNaoEntrega || '');
     p.entregueEm = p.entregueEm || null;
+    p.naoEntregueEm = p.naoEntregueEm || null;
+    p.statusAtualizadoEm = p.statusAtualizadoEm || null;
     p.origem = String(p.origem || 'manual');
     p.criadoEm = p.criadoEm || agora();
     p.alteradoEm = p.alteradoEm || p.criadoEm;
@@ -114,7 +116,7 @@
     r.origem = String(r.origem || 'manual');
     r.criadoEm = created;
     r.alteradoEm = r.alteradoEm || created;
-    r.status = ['planejamento', 'ativa', 'concluida', 'arquivada'].includes(r.status) ? r.status : 'planejamento';
+    r.status = ['planejamento', 'ativa', 'aguardando_finalizacao', 'concluida', 'arquivada'].includes(r.status) ? r.status : 'planejamento';
     r.veiculo = ['carro', 'moto', 'caminhao'].includes(r.veiculo) ? r.veiculo : 'carro';
     r.modoRoteamento = String(r.modoRoteamento || modoPorVeiculo(r.veiculo));
     r.tempoParadaSegundos = Math.max(0, numero(r.tempoParadaSegundos, 180));
@@ -141,6 +143,9 @@
     r.otimizadoEm = r.otimizadoEm || null;
     r.iniciadoEm = r.iniciadoEm || null;
     r.concluidoEm = r.concluidoEm || null;
+    r.conclusaoPendente = r.conclusaoPendente === true;
+    r.recalculadoEm = r.recalculadoEm || null;
+    r.duracaoPlanejadorSegundos = Number.isFinite(Number(r.duracaoPlanejadorSegundos)) ? Number(r.duracaoPlanejadorSegundos) : null;
     return r;
   }
 

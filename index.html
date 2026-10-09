@@ -758,7 +758,7 @@
         <div id="homeNoRoute">
           <div class="module-kicker">Nenhuma rota ativa</div>
           <h2 style="margin:6px 0 5px;font-size:1rem;color:var(--text-main)">Comece pela Roteirização</h2>
-          <p class="module-copy">Importe uma planilha ou adicione um endereço manualmente para preparar a próxima rota.</p>
+          <p class="module-copy">Importe uma planilha, valide os endereços e calcule a ordem pelas ruas reais antes de iniciar a operação.</p>
         </div>
         <div id="homeActiveRouteCard" class="home-route-card">
           <div class="home-route-head">
@@ -773,11 +773,15 @@
             <div class="home-metric"><strong id="homeRouteProgress">0 de 0</strong><span>Entregues</span></div>
           </div>
         </div>
-
+        <div class="home-actions">
+          <button class="pemato-primary" id="homeOpenRouting" type="button">Abrir Roteirização</button>
+          <button class="pemato-secondary" id="homeOpenScanning" type="button">Abrir Bipagem</button>
+        </div>
       </section>
-      <aside class="home-panel quick-actions" aria-label="Tarefas principais">
-        <button class="quick-card" type="button" data-pemato-nav="roteirizacao"><strong>Planejar rota</strong><span>Importe uma planilha, confira as paradas e prepare a rota.</span></button>
-        <button class="quick-card" type="button" data-pemato-nav="bipagem"><strong>Abrir Bipagem</strong><span>Conferir os pacotes da rota ativa ou continuar com o PDF já suportado.</span></button>
+      <aside class="home-panel quick-actions">
+        <button class="quick-card" type="button" data-pemato-nav="roteirizacao"><strong>Planejar rota</strong><span>Importar XLSX, localizar paradas, editar e otimizar.</span></button>
+        <button class="quick-card" type="button" data-pemato-nav="bipagem"><strong>Conferir pacotes</strong><span>Usar a rota ativa ou continuar com o PDF já suportado.</span></button>
+        <button class="quick-card" type="button" data-pemato-nav="historico"><strong>Histórico de rotas</strong><span>Consultar rotas realizadas, entregues e não entregues.</span></button>
       </aside>
     </div>
   </main>
@@ -820,10 +824,6 @@
               <strong>Paradas</strong>
               <span><b id="routingImportedCount">0</b> importadas · <b id="routingLocatedCount">0</b> localizadas · <b id="routingProblemCount">0</b> a revisar</span>
             </div>
-            <div class="routing-list-main-actions">
-              <button id="routingVisibleImportBtn" class="routing-list-main-btn" type="button">Importar XLSX</button>
-              <button id="routingAddStopInlineBtn" class="routing-list-main-btn secondary" type="button">Adicionar endereço</button>
-            </div>
           </div>
 
           <div class="routing-stop-search-wrap">
@@ -837,18 +837,24 @@
 
           <div class="routing-sheet-metrics" aria-label="Resumo da rota">
             <div><span>Paradas</span><strong id="routeMetricStops">0</strong></div>
-            <div><span>Distância</span><strong id="routeMetricDistance">—</strong></div>
-            <div><span>Direção</span><strong id="routeMetricDrive">—</strong></div>
-            <div><span>Atendimento</span><strong id="routeMetricStopTime">—</strong></div>
-            <div><span>Total</span><strong id="routeMetricTotal">—</strong></div>
-            <div><span>Término</span><strong id="routeMetricEnd">—</strong></div>
+            <div><span>Concluídas</span><strong id="routeMetricDelivered">0</strong></div>
+            <div><span>Pendentes</span><strong id="routeMetricPending">0</strong></div>
+            <div><span>Distância</span><strong id="routeMetricDistance">Aguardando cálculo</strong></div>
+            <div><span>Direção</span><strong id="routeMetricDrive">Aguardando cálculo</strong></div>
+            <div><span>Atendimento</span><strong id="routeMetricStopTime">Aguardando cálculo</strong></div>
+            <div><span>Total</span><strong id="routeMetricTotal">Aguardando cálculo</strong></div>
+            <div><span>Término</span><strong id="routeMetricEnd">Aguardando cálculo</strong></div>
           </div>
 
           <div id="routePlannerStops" class="routing-stop-list"></div>
         </div>
 
         <div class="routing-sheet-primary">
-          <button id="routingPrimaryActionBtn" class="pemato-primary" type="button">Importar planilha XLSX</button>
+          <div class="routing-primary-grid">
+            <button id="routingMainImportBtn" class="pemato-secondary" type="button">Importar XLSX</button>
+            <button id="routingMainOptimizeBtn" class="pemato-primary" type="button">Otimizar rota</button>
+          </div>
+          <button id="routingPrimaryActionBtn" class="pemato-primary routing-start-route-btn" type="button" style="display:none">Iniciar rota</button>
         </div>
       </aside>
 
@@ -858,14 +864,11 @@
             <strong id="routingMapTitle">Rota de hoje</strong>
             <span id="routingOptimizedFlag" class="routing-optimized-flag">Rota em planejamento</span>
           </div>
-          <div class="routing-map-tools">
-            <span id="routingLocationStatus" class="routing-location-status" role="status" aria-live="polite" hidden></span>
-            <button id="routingMyLocationBtn" class="routing-map-icon" type="button" aria-label="Atualizar minha localização" title="Minha localização">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
-            </button>
-            <button id="routingFitMapBtn" class="routing-map-icon" type="button" aria-label="Ver todas as paradas" title="Ver todas as paradas">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
-            </button>
+          <div class="routing-map-tools routing-map-controls" aria-label="Controles do mapa">
+            <button id="routingMyLocationBtn" class="routing-map-icon" type="button" aria-label="Minha localização" title="Minha localização"><span>●</span></button>
+            <button id="routingFitMapBtn" class="routing-map-icon" type="button" aria-label="Enquadrar rota" title="Enquadrar rota"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg></button>
+            <button id="routingZoomInBtn" class="routing-map-icon" type="button" aria-label="Aproximar" title="Aproximar"><span>+</span></button>
+            <button id="routingZoomOutBtn" class="routing-map-icon" type="button" aria-label="Afastar" title="Afastar"><span>−</span></button>
           </div>
         </div>
 
@@ -873,12 +876,9 @@
         <div id="mapaRoteirizacaoFallback" class="route-map-fallback"></div>
 
         <div id="routingEmptyState" class="routing-map-empty-state">
-          <strong>Importe sua planilha para começar</strong>
-          <span>Crie a rota com um XLSX ou adicione um endereço manualmente. Nenhuma rota existente será substituída sem você escolher um novo arquivo.</span>
-          <div class="routing-empty-actions">
-            <button id="routingEmptyImportBtn" class="pemato-primary" type="button">Importar planilha XLSX</button>
-            <button id="routingEmptyAddBtn" class="pemato-secondary" type="button">Adicionar endereço manualmente</button>
-          </div>
+          <strong>Planeje sua rota</strong>
+          <span>Importe uma planilha para criar a lista de paradas.</span>
+          <button id="routingEmptyImportBtn" class="pemato-primary" type="button">Importar planilha</button>
         </div>
 
         <aside id="routingSelectedStopCard" class="routing-selected-stop" style="display:none">
@@ -898,8 +898,8 @@
         <div class="routing-actions-grabber"></div>
         <div class="routing-actions-head">
           <div>
-            <strong id="routingActionsTitle">Mais ações</strong>
-            <span>Ferramentas secundárias da rota</span>
+            <strong id="routingActionsTitle">Ações da rota</strong>
+            <span>Ferramentas de planejamento</span>
           </div>
           <button id="routingActionsCloseBtn" class="routing-actions-close" type="button" aria-label="Fechar menu">×</button>
         </div>
@@ -910,9 +910,25 @@
         </div>
 
         <div class="routing-action-list">
+          <button id="routingImportBtn" class="routing-action-row" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5"></path></svg>
+            <span><strong>Importar planilha</strong><small>XLSX, XLS ou CSV</small></span>
+          </button>
+          <button id="routingAddStopBtn" class="routing-action-row" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+            <span><strong>Adicionar parada</strong><small>Criar uma parada manualmente</small></span>
+          </button>
           <button id="routingUseLegacyBtn" class="routing-action-row" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 4v6M6 13h12M6 17h8"></path></svg>
             <span><strong>Usar rota da Bipagem</strong><small>Trazer as paradas já carregadas pelo PDF</small></span>
+          </button>
+          <button id="routingGeocodeBtn" class="routing-action-row routing-service-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"></path><circle cx="12" cy="10" r="2"></circle></svg>
+            <span><strong>Validar endereços</strong><small>Localizar paradas ainda sem coordenadas</small></span>
+          </button>
+          <button id="routingOptimizeBtn" class="routing-action-row routing-service-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5zM14 14h5v5h-5zM8 14c2-5 5-3 8-7"></path></svg>
+            <span><strong>Otimizar rota</strong><small>Calcular ordem e trajeto pelas ruas</small></span>
           </button>
           <button id="routingInvertBtn" class="routing-action-row routing-route-ready-action" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>
@@ -922,22 +938,47 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 14h6M9 17h5"></path></svg>
             <span><strong>Exportar PDF</strong><small>Gerar uma cópia para conferência</small></span>
           </button>
+          <button id="routingStartNavBtn" class="routing-action-row routing-route-ready-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 19 6-14 2 6 6 2Z"></path></svg>
+            <span><strong>Iniciar rota</strong><small>Abrir a navegação preferida</small></span>
+          </button>
+        </div>
+
+        <div id="routingServiceDeferredNote" class="routing-service-deferred-note">
+          Geocodificação e otimização rodoviária exigem o serviço seguro já previsto. Se ele não estiver configurado, o aplicativo preserva as paradas e não simula resultados.
         </div>
       </section>
     </div>
   </main>
 
-  <main id="moduloNavegacao" class="pemato-module" style="display:none;">
-    <div class="module-head"><div><div class="module-kicker">Deslocamento</div><h1 class="module-title">Navegação</h1><p class="module-copy">Mapa 2D, posição GPS, próxima parada e recálculo da rota ativa.</p></div></div>
-    <div class="navigation-layout">
-      <div class="navigation-map"><div id="mapaNavegacao"></div></div>
+  <main id="moduloNavegacao" class="pemato-module navigation-module" style="display:none;">
+    <div class="navigation-shell">
+      <div class="navigation-map-wrap">
+        <div id="mapaNavegacao"></div>
+        <div id="navMapFallback" class="nav-map-fallback" style="display:none"></div>
+        <div class="nav-maneuver-card">
+          <div class="nav-maneuver-distance" id="navManeuverDistance">—</div>
+          <div class="nav-maneuver-copy"><strong id="navManeuverText">Aguardando GPS</strong><span id="navManeuverStreet">A rota calculada fornecerá as instruções.</span></div>
+        </div>
+        <div class="nav-map-controls">
+          <button id="navFollowBtn" type="button" aria-label="Acompanhar minha posição" title="Acompanhar minha posição">◎</button>
+          <button id="navVoiceBtn" type="button" aria-label="Ativar ou silenciar voz" title="Ativar ou silenciar voz">Voz</button>
+        </div>
+        <div id="navGpsStatus" class="nav-gps-status">Aguardando localização</div>
+      </div>
+
       <aside class="navigation-panel">
-        <section class="nav-next-card"><div class="eyebrow">PRÓXIMA PARADA</div><h3 id="navNextAddress">Aguardando rota</h3><p id="navNextComplement"></p></section>
+        <section class="nav-next-card"><div class="eyebrow">PRÓXIMA PARADA</div><h3 id="navNextAddress">Aguardando rota</h3><p id="navNextComplement"></p><div class="nav-next-packages" id="navNextPackages">0 pacotes</div></section>
         <section class="nav-stats"><div class="nav-stat"><strong id="navDistanceNext">—</strong><span>Até a próxima</span></div><div class="nav-stat"><strong id="navEtaNext">—</strong><span>ETA próxima</span></div><div class="nav-stat"><strong id="navRemaining">0</strong><span>Restantes</span></div><div class="nav-stat"><strong id="navRouteTotal">—</strong><span>Rota restante</span></div><div class="nav-stat"><strong id="navRouteTime">—</strong><span>Tempo de direção</span></div></section>
-        <div class="nav-actions"><button id="navDeliveredBtn" class="pemato-primary" type="button">Marcar entregue</button><button id="navNotDeliveredBtn" class="pemato-danger" type="button">Não entregue</button><button id="navAdvanceBtn" class="pemato-secondary" type="button">Próxima parada</button><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular</button><button id="navOpenWazeBtn" class="pemato-secondary" type="button">Abrir Waze</button><button id="navOpenGoogleBtn" class="pemato-secondary" type="button">Abrir Google Maps</button><button id="navEndBtn" class="pemato-danger wide" type="button">Encerrar navegação</button></div>
+        <div class="nav-delivery-actions"><button id="navDeliveredBtn" class="pemato-primary" type="button">Entregue</button><button id="navNotDeliveredBtn" class="pemato-danger" type="button">Não entregue</button></div>
+        <div class="nav-secondary-actions"><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular rota</button><button id="navOpenWazeBtn" class="pemato-secondary" type="button">Waze</button><button id="navOpenGoogleBtn" class="pemato-secondary" type="button">Google Maps</button><button id="navEndBtn" class="pemato-danger" type="button">Sair da navegação</button></div>
         <section id="navFailurePanel" class="nav-failure-panel" style="display:none"><h4>Registrar não entrega</h4><label>Motivo<select id="navFailureReason" class="pemato-field"><option value="cliente_ausente">Cliente ausente</option><option value="endereco_incorreto">Endereço incorreto</option><option value="estabelecimento_fechado">Estabelecimento fechado</option><option value="recusado">Recusado</option><option value="outro">Outro</option></select></label><label>Observação<textarea id="navFailureNote" class="pemato-field" rows="2" placeholder="Detalhes opcionais"></textarea></label><div class="nav-failure-actions"><button id="navFailureConfirmBtn" class="pemato-danger" type="button">Confirmar não entrega</button><button id="navFailureCancelBtn" class="pemato-secondary" type="button">Cancelar</button></div></section>
-        <section class="nav-instructions-card"><h4>Instruções da rota</h4><div id="navInstructions"></div></section>
+        <section class="nav-instructions-card"><h4>Próximas instruções</h4><div id="navInstructions"></div></section>
       </aside>
+    </div>
+
+    <div id="navCompletionBackdrop" class="modal-backdrop" style="display:none;z-index:12400">
+      <section class="nav-completion-card" role="dialog" aria-modal="true" aria-labelledby="navCompletionTitle"><div class="module-kicker">Rota percorrida</div><h2 id="navCompletionTitle">Todas as paradas foram tratadas</h2><div class="nav-completion-stats"><div><strong id="navCompletionDelivered">0</strong><span>Entregues</span></div><div><strong id="navCompletionFailed">0</strong><span>Não entregues</span></div><div><strong id="navCompletionTotal">0</strong><span>Total</span></div><div><strong id="navCompletionDistance">—</strong><span>Distância</span></div><div><strong id="navCompletionTime">—</strong><span>Tempo</span></div></div><div class="nav-completion-actions"><button id="navCompletionReviewBtn" class="pemato-secondary" type="button">Revisar resultados</button><button id="navCompletionFinishBtn" class="pemato-primary" type="button">Finalizar rota</button></div></section>
     </div>
   </main>
 
@@ -1239,8 +1280,8 @@
   <script src="js/mapa/config.js"></script>
   <script src="js/mapa/cache-geocodificacao.js"></script>
   <script src="js/mapa/geocodificacao.js"></script>
-  <script src="js/mapa/mapa.js"></script>
   <script src="js/mapa/localizacao-atual.js"></script>
+  <script src="js/mapa/mapa.js"></script>
 
   <script src="js/core/rota-store.js"></script>
   <script src="js/configuracoes/configuracoes.js"></script>

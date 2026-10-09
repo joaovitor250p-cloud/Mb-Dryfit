@@ -1,178 +1,127 @@
-(function iniciarLocalizacaoAtualPacoteEMato(global) {
+(function iniciarLocalizacaoAtual(global) {
   'use strict';
 
-  const FRESH_MS = 90 * 1000;
-  const RETRY_MS = 45 * 1000;
-  let ultimaTentativaEm = 0;
-  let requisicaoAtual = null;
-  let negadaNestaSessao = false;
+  const MAX_IDADE_MS = 45000;
+  let solicitacaoEmAndamento = null;
+  let ultima = null;
+  let bloqueada = false;
 
   function state() { return global.appState?.roteirizacao || null; }
-  function $(id) { return document.getElementById(id); }
 
-  function coordenadaValida(lat, lon) {
-    if (lat === null || lat === undefined || lon === null || lon === undefined) return false;
-    if (String(lat).trim() === '' || String(lon).trim() === '') return false;
-    const a = Number(lat), o = Number(lon);
-    return Number.isFinite(a) && a >= -90 && a <= 90 && Number.isFinite(o) && o >= -180 && o <= 180;
-  }
-
-  function segura() {
-    if (global.isSecureContext) return true;
+  function contextoSeguro() {
+    if (global.isSecureContext === true) return true;
     const host = String(global.location?.hostname || '');
-    return host === 'localhost' || host === '127.0.0.1';
+    return global.location?.protocol === 'https:' || host === 'localhost' || host === '127.0.0.1';
   }
 
-  function status(texto, tom) {
-    const el = $('routingLocationStatus');
-    if (!el) return;
-    el.textContent = texto || '';
-    el.hidden = !texto;
-    if (tom) el.dataset.tone = tom; else delete el.dataset.tone;
+  function normalizarPosition(pos) {
+    const lat = Number(pos?.coords?.latitude);
+    const lon = Number(pos?.coords?.longitude);
+    const accuracy = Number(pos?.coords?.accuracy);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return {
+      lat,
+      lon,
+      accuracy: Number.isFinite(accuracy) ? accuracy : null,
+      timestamp: Number(pos?.timestamp || Date.now()),
+      capturadaEm: Date.now()
+    };
   }
 
-  function emitir(detail) {
-    try { global.dispatchEvent(new CustomEvent('pemato:localizacao:update', { detail: detail || {} })); } catch (_) {}
+  function salvar(posicao, status) {
+    const s = state();
+    if (posicao) ultima = posicao;
+    if (s) {
+      s.localizacaoAtual = posicao || s.localizacaoAtual || null;
+      s.localizacaoAtualStatus = status || (posicao ? 'ok' : 'indisponivel');
+      s.localizacaoAtualAtualizadaEm = posicao?.capturadaEm || s.localizacaoAtualAtualizadaEm || null;
+    }
+    try {
+      global.dispatchEvent(new CustomEvent('pemato:localizacao-atual', { detail: { posicao: posicao || null, status: status || 'indisponivel' } }));
+    } catch (_) {}
   }
 
-  function atualValida() {
-    const atual = state()?.localizacaoAtual;
-    return atual && coordenadaValida(atual.lat, atual.lon) ? atual : null;
-  }
-
-  function idade(atual) {
-    return atual ? Math.max(0, Date.now() - Number(atual.capturadoEm || atual.timestamp || 0)) : Infinity;
+  function recente(posicao) {
+    return !!posicao && Number.isFinite(Number(posicao.capturadaEm)) && (Date.now() - Number(posicao.capturadaEm)) <= MAX_IDADE_MS;
   }
 
   async function permissao() {
     try {
       if (!navigator.permissions?.query) return 'desconhecida';
-      const r = await navigator.permissions.query({ name: 'geolocation' });
-      return String(r?.state || 'desconhecida');
+      const p = await navigator.permissions.query({ name: 'geolocation' });
+      return p?.state || 'desconhecida';
     } catch (_) { return 'desconhecida'; }
   }
 
-  function salvarPosicao(pos, opts) {
-    const lat = pos?.coords?.latitude;
-    const lon = pos?.coords?.longitude;
-    if (!coordenadaValida(lat, lon)) throw new Error('O navegador retornou uma localização sem coordenadas válidas.');
+  async function obter(opcoes) {
+    const force = opcoes?.forcar === true;
+    if (!force && recente(ultima)) return ultima;
     const s = state();
-    if (!s) return null;
-    s.localizacaoAtual = {
-      lat: Number(lat),
-      lon: Number(lon),
-      accuracy: Number.isFinite(Number(pos.coords.accuracy)) ? Number(pos.coords.accuracy) : null,
-      timestamp: Number(pos.timestamp || Date.now()),
-      capturadoEm: Date.now(),
-      desatualizada: false
-    };
-    s.localizacaoAtualStatus = 'ok';
-    status('Localização atual disponível.', 'ok');
-    emitir({ localizacao: s.localizacaoAtual, centralizar: opts?.centralizar === true });
-    return s.localizacaoAtual;
-  }
-
-  function manterAnteriorComAviso(mensagem) {
-    const s = state();
-    const anterior = atualValida();
-    if (anterior) {
-      anterior.desatualizada = true;
-      s.localizacaoAtualStatus = 'desatualizada';
-      status(`${mensagem} Exibindo apenas a última localização desta sessão.`, 'warning');
-      emitir({ localizacao: anterior, desatualizada: true });
-      return anterior;
+    if (!force && recente(s?.localizacaoAtual)) {
+      ultima = s.localizacaoAtual;
+      return ultima;
     }
-    s && (s.localizacaoAtualStatus = 'erro');
-    status(mensagem, 'warning');
-    emitir({ erro: mensagem });
-    return null;
-  }
-
-  function pedirPosicao(opts) {
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        pos => { try { resolve(salvarPosicao(pos, opts)); } catch (e) { resolve(manterAnteriorComAviso(e.message)); } },
-        err => {
-          const code = Number(err?.code || 0);
-          if (code === 1) {
-            negadaNestaSessao = true;
-            if (state()) state().localizacaoAtualStatus = 'negada';
-            status('Localização bloqueada. Autorize o acesso no navegador ou use o botão de localização quando quiser tentar novamente.', 'warning');
-            emitir({ negada: true });
-            return resolve(atualValida());
-          }
-          const msg = code === 3
-            ? 'Tempo limite ao obter sua localização.'
-            : 'Não foi possível obter sua localização atual.';
-          resolve(manterAnteriorComAviso(msg));
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    });
-  }
-
-  async function obter(opts) {
-    const op = opts || {};
-    const s = state();
-    if (!s) return null;
-
-    if (!segura()) {
-      s.localizacaoAtualStatus = 'contexto_inseguro';
-      status('A localização automática exige HTTPS. Use um endereço manual para o ponto de partida.', 'warning');
-      return atualValida();
+    if (!contextoSeguro()) {
+      salvar(null, 'contexto_inseguro');
+      throw Object.assign(new Error('A localização exige HTTPS ou um contexto seguro.'), { code: 'CONTEXTO_INSEGURO' });
     }
     if (!navigator.geolocation) {
-      s.localizacaoAtualStatus = 'indisponivel';
-      status('Este navegador não oferece geolocalização. Use um endereço manual.', 'warning');
-      return atualValida();
+      salvar(null, 'indisponivel');
+      throw Object.assign(new Error('Geolocalização não disponível neste navegador.'), { code: 'GEO_INDISPONIVEL' });
     }
-
-    const atual = atualValida();
-    if (!op.forcar && atual && idade(atual) <= FRESH_MS) {
-      atual.desatualizada = false;
-      s.localizacaoAtualStatus = 'ok';
-      emitir({ localizacao: atual, centralizar: op.centralizar === true, cacheSessao: true });
-      return atual;
-    }
-
-    if (!op.forcar && requisicaoAtual) return requisicaoAtual;
-    if (!op.forcar && Date.now() - ultimaTentativaEm < RETRY_MS) return atual;
-
     const p = await permissao();
-    if (p === 'denied' && !op.forcar) {
-      negadaNestaSessao = true;
-      s.localizacaoAtualStatus = 'negada';
-      status('Localização bloqueada pelo navegador. Você pode continuar usando a rota e informar o ponto de partida manualmente.', 'warning');
-      return atual;
+    if (p === 'denied' || bloqueada) {
+      bloqueada = true;
+      salvar(null, 'negada');
+      throw Object.assign(new Error('Permissão de localização bloqueada. Libere o acesso nas configurações do navegador para usar sua posição.'), { code: 'GEO_NEGADA' });
     }
-    if (negadaNestaSessao && !op.forcar) return atual;
+    if (solicitacaoEmAndamento) return solicitacaoEmAndamento;
 
-    ultimaTentativaEm = Date.now();
-    status(p === 'prompt' ? 'Aguardando permissão para usar sua localização...' : 'Atualizando sua localização...', null);
-    requisicaoAtual = pedirPosicao(op).finally(() => { requisicaoAtual = null; });
-    return requisicaoAtual;
+    solicitacaoEmAndamento = new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const valor = normalizarPosition(pos);
+        solicitacaoEmAndamento = null;
+        if (!valor) {
+          salvar(null, 'invalida');
+          reject(Object.assign(new Error('O navegador retornou uma localização inválida.'), { code: 'GEO_INVALIDA' }));
+          return;
+        }
+        salvar(valor, 'ok');
+        resolve(valor);
+      }, erro => {
+        solicitacaoEmAndamento = null;
+        const code = Number(erro?.code || 0);
+        if (code === 1) bloqueada = true;
+        const status = code === 1 ? 'negada' : (code === 3 ? 'timeout' : 'erro');
+        salvar(null, status);
+        const msg = code === 1
+          ? 'Permissão de localização negada.'
+          : code === 3 ? 'Tempo limite ao obter sua localização.' : (erro?.message || 'Não foi possível obter sua localização.');
+        reject(Object.assign(new Error(msg), { code: `GEO_${status.toUpperCase()}` }));
+      }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 12000 });
+    });
+    return solicitacaoEmAndamento;
   }
 
-  function atualizarAutomaticamente() {
-    return obter({ forcar: false, centralizar: false });
+  async function iniciarAutomaticamente() {
+    const p = await permissao();
+    if (p === 'denied') {
+      bloqueada = true;
+      salvar(null, 'negada');
+      return null;
+    }
+    try { return await obter({ forcar: false }); }
+    catch (erro) {
+      console.info('Pacote É Mato: localização automática não disponível.', erro?.message || erro);
+      return null;
+    }
   }
 
-  function atualizarAgora() {
-    negadaNestaSessao = false;
-    return obter({ forcar: true, centralizar: true });
+  function ultimaValida() {
+    const s = state();
+    const pos = ultima || s?.localizacaoAtual || null;
+    return pos && Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon)) ? pos : null;
   }
 
-  function bind() {
-    $('routingMyLocationBtn')?.addEventListener('click', atualizarAgora);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
-  else bind();
-
-  global.PacoteEMatoLocalizacaoAtual = Object.freeze({
-    atualizarAutomaticamente,
-    atualizarAgora,
-    obter,
-    atualValida,
-    coordenadaValida
-  });
+  global.PacoteEMatoLocalizacaoAtual = Object.freeze({ obter, iniciarAutomaticamente, ultimaValida, permissao, recente });
 })(window);
