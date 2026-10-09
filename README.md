@@ -140,3 +140,7 @@ https://joaovitor250p-cloud.github.io
 A evolução continua separada do núcleo legado. Login/Firebase, PDF, agrupamento físico do PDF, scanner, câmera, Bipagem e integrações antigas continuam nos módulos existentes.
 
 Consulte `RELATORIO-SPX-OTIMIZACAO-NAVEGACAO.md` para as alterações e testes desta entrega.
+
+
+## Recuperação de sessão e navegação (atualização)
+O aplicativo registra a última seção em sessionStorage/localStorage e a rota ativa no armazenamento já existente. O retorno por `pageshow`/`visibilitychange` não refaz o login nem reimporta a rota. Quando o sistema operacional mata o processo, a restauração depende de o navegador manter o armazenamento e de o login ainda ser válido. GPS e voz não são garantidos em segundo plano.

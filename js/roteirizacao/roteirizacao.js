@@ -11,7 +11,7 @@
   let resolverDecisaoReotimizacao = null;
   let importacaoPendente = null;
   let resolverMapeamentoImportacao = null;
-  let estadoPainel = 'collapsed';
+  let estadoPainel = (()=>{try{return sessionStorage.getItem('pemato_route_sheet')||'collapsed';}catch(_){return 'collapsed';}})();
   let sheetDragStartY = null;
   let sheetDragLastY = null;
 
@@ -359,9 +359,11 @@
   function definirEstadoPainel(estado) {
     const root = $('routingWorkspace');
     if (!root) return;
-    estadoPainel = estado === 'expanded' ? 'expanded' : 'collapsed';
+    estadoPainel = ['expanded','intermediate','collapsed'].includes(estado) ? estado : 'collapsed';
     root.classList.toggle('sheet-expanded', estadoPainel === 'expanded');
-    root.classList.toggle('sheet-collapsed', estadoPainel !== 'expanded');
+    root.classList.toggle('sheet-intermediate', estadoPainel === 'intermediate');
+    root.classList.toggle('sheet-collapsed', estadoPainel === 'collapsed');
+    try{sessionStorage.setItem('pemato_route_sheet',estadoPainel);}catch(_){}
     $('routingSheetToggle')?.setAttribute('aria-expanded', estadoPainel === 'expanded' ? 'true' : 'false');
     if (estadoPainel === 'expanded') setTimeout(() => $('routingStopSearch')?.focus?.({ preventScroll: true }), 180);
     else setTimeout(() => global.PacoteEMatoMapa?.renderizar?.(), 220);
@@ -450,7 +452,9 @@
       sheetDragStartY = null;
       sheetDragLastY = null;
       if (Math.abs(delta) < 18) return alternarPainel();
-      definirEstadoPainel(delta < 0 ? 'expanded' : 'collapsed');
+      const estados=['collapsed','intermediate','expanded'];
+      const indice=estados.indexOf(estadoPainel);
+      definirEstadoPainel(estados[Math.max(0,Math.min(2,indice+(delta<0?1:-1)))]);
     };
     handle.addEventListener('pointerup', concluir);
     handle.addEventListener('pointercancel', concluir);
@@ -1048,6 +1052,8 @@
     const byId = new Map(rotaAtual.paradas.map(p => [p.id, p]));
     const concluidas = rotaAtual.ordem.filter(id => ['entregue', 'concluida', 'nao_entregue'].includes(byId.get(id)?.statusEntrega));
     const pendentes = rotaAtual.ordem.filter(id => !concluidas.includes(id)).reverse();
+    if(rotaAtual.status==='em_andamento'&&!global.confirm('Inverter a ordem das paradas pendentes? Os resultados concluídos serão preservados.'))return;
+    const ordemAnterior=[...rotaAtual.ordem];
     rotaAtual.ordem = [...concluidas, ...pendentes];
     rotaAtual.ordem.forEach((id, index) => { const p = byId.get(id); if (p) p.ordemOtimizada = index + 1; });
     try {
@@ -1066,6 +1072,7 @@
       renderizarTudo({ fit: true });
       notificar('Ordem invertida e rota pelas ruas recalculada.');
     } catch (erro) {
+      rotaAtual.ordem=ordemAnterior;rotaAtual.ordem.forEach((id,index)=>{const p=byId.get(id);if(p)p.ordemOtimizada=index+1;});
       notificar(erro?.message || 'Não foi possível recalcular a rota invertida.');
     }
   }
@@ -1386,7 +1393,7 @@
     });
     global.addEventListener('resize', () => {
       if (!ambienteMobile()) definirEstadoPainel('expanded');
-      else if (!['expanded','collapsed'].includes(estadoPainel)) definirEstadoPainel('collapsed');
+      else if (!['expanded','intermediate','collapsed'].includes(estadoPainel)) definirEstadoPainel('collapsed');
       setTimeout(() => global.PacoteEMatoMapa?.renderizar?.(), 80);
     });
   }

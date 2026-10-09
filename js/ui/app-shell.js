@@ -1,6 +1,8 @@
 (function iniciarAppShell(global) {
   'use strict';
 
+  const CHAVE_UI = 'pemato_ui_resume_v1';
+  let iniciando = true;
   const modulos = ['inicio', 'roteirizacao', 'bipagem', 'navegacao', 'historico', 'configuracoes'];
 
   function $(id) { return document.getElementById(id); }
@@ -43,6 +45,7 @@
 
   async function abrirModulo(nome) {
     if (!modulos.includes(nome)) nome = 'inicio';
+    if(!iniciando && document.body.dataset.pematoModule===nome){fecharSidebar();return;}
     liberarTravasVisuais();
     const anterior = document.body.dataset.pematoModule || global.appState?.ui?.moduloAtual || 'inicio';
     if (anterior === 'navegacao' && nome !== 'navegacao') global.PacoteEMatoNavegacao?.pausar?.();
@@ -53,6 +56,7 @@
       document.querySelectorAll(`[data-pemato-nav="${m}"]`).forEach(btn => btn.classList.toggle('active', m === nome));
     });
     if (global.appState?.ui) global.appState.ui.moduloAtual = nome;
+    salvarEstadoUI();
     fecharSidebar();
     if (nome !== 'navegacao') liberarTravasVisuais();
 
@@ -105,6 +109,12 @@
     if ($('homeRoutePackages')) $('homeRoutePackages').textContent = String(packages);
   }
 
+  function salvarEstadoUI(){
+    try{const dados={modulo:document.body.dataset.pematoModule||'inicio',painel:document.getElementById('routingBottomSheet')?.dataset?.state||null,atualizadoEm:Date.now()};sessionStorage.setItem(CHAVE_UI,JSON.stringify(dados));localStorage.setItem(CHAVE_UI,JSON.stringify(dados));}catch(_){}
+  }
+  function recuperarEstadoUI(){
+    try{const s=sessionStorage.getItem(CHAVE_UI)||localStorage.getItem(CHAVE_UI);const d=JSON.parse(s||'null');return d&&modulos.includes(d.modulo)?d.modulo:null;}catch(_){return null;}
+  }
   function bind() {
     document.querySelectorAll('[data-pemato-nav]').forEach(btn => {
       btn.addEventListener('click', () => abrirModulo(btn.dataset.pematoNav));
@@ -114,7 +124,13 @@
     $('homeOpenNavigation')?.addEventListener('click', () => abrirModulo('navegacao'));
     global.addEventListener('pemato:rota:salva', atualizarInicio);
     global.addEventListener('pemato:rota:ativa-limpa', atualizarInicio);
-    abrirModulo(global.appState?.ui?.moduloAtual || 'inicio');
+    // pageshow/focus/visibilitychange não reinicializam o aplicativo.
+    // Se o sistema encerrar o processo, a última seção será recuperada somente após o login existente.
+    global.addEventListener('pagehide',salvarEstadoUI);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)salvarEstadoUI();});
+    global.addEventListener('pageshow',e=>{if(e.persisted){const m=document.body.dataset.pematoModule;if(m==='navegacao')global.PacoteEMatoNavegacao?.retomar?.();}});
+    const restaurado=recuperarEstadoUI();
+    abrirModulo(restaurado||global.appState?.ui?.moduloAtual||'inicio').finally(()=>{iniciando=false;});
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
