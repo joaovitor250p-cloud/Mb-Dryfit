@@ -23,8 +23,10 @@
   const SOURCE_DRIVER = 'pemato-nav-driver';
   const SOURCE_NEXT = 'pemato-nav-next';
   const SOURCE_STOPS = 'pemato-nav-all-stops';
-  const LAYER_STOPS = 'pemato-nav-all-stops-layer';
-  const LAYER_STOPS_TEXT = 'pemato-nav-all-stops-numbers';
+  const LAYER_STOPS = 'pemato-nav-stops-simple';
+  const LAYER_STOPS_MULTI = 'pemato-nav-stops-multi';
+  const LAYER_STOPS_ACTIVE = 'pemato-nav-stops-active';
+  const LAYER_STOPS_MULTI_ACTIVE = 'pemato-nav-stops-multi-active';
   let cartaoSelecionadoId = null;
   const LAYER_ROUTE_CASE = 'pemato-nav-route-case';
   const LAYER_ROUTE = 'pemato-nav-route-layer';
@@ -135,52 +137,24 @@
     if (!mapa) return;
     const criarMarcador = (nome, largura, fundo, borda) => {
       if (mapa.hasImage?.(nome)) return;
-      const altura = 76;
+      const altura = 50;
       const canvas = document.createElement('canvas');
-      canvas.width = largura;
-      canvas.height = altura;
-      const c = canvas.getContext('2d');
-      if (!c) return;
-
-      c.clearRect(0, 0, largura, altura);
-      const x = 5, y = 5, w = largura - 10, corpoH = 56, r = 15;
-      const pontaX = Math.round(largura / 2), pontaY = 71;
-      c.save();
-      c.shadowColor = 'rgba(15, 23, 42, .18)';
-      c.shadowBlur = 5;
-      c.shadowOffsetY = 2;
-      c.fillStyle = fundo;
-      c.strokeStyle = borda;
-      c.lineWidth = 4;
-      c.beginPath();
-      c.moveTo(x + r, y);
-      c.lineTo(x + w - r, y);
-      c.quadraticCurveTo(x + w, y, x + w, y + r);
-      c.lineTo(x + w, y + corpoH - r);
-      c.quadraticCurveTo(x + w, y + corpoH, x + w - r, y + corpoH);
-      c.lineTo(pontaX + 9, y + corpoH);
-      c.lineTo(pontaX, pontaY);
-      c.lineTo(pontaX - 9, y + corpoH);
-      c.lineTo(x + r, y + corpoH);
-      c.quadraticCurveTo(x, y + corpoH, x, y + corpoH - r);
-      c.lineTo(x, y + r);
-      c.quadraticCurveTo(x, y, x + r, y);
-      c.closePath();
-      c.fill();
-      c.stroke();
-      c.restore();
-      mapa.addImage(nome, c.getImageData(0, 0, largura, altura), { pixelRatio: 2 });
+      canvas.width = largura; canvas.height = altura;
+      const c = canvas.getContext('2d'); if (!c) return;
+      c.clearRect(0,0,largura,altura); c.fillStyle=fundo; c.strokeStyle=borda; c.lineWidth=2.4;
+      const x=2.5,y=2.5,w=largura-5,bodyH=36,r=11,cx=largura/2,tipY=47;
+      c.beginPath(); c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+      c.lineTo(x+w,y+bodyH-r); c.quadraticCurveTo(x+w,y+bodyH,x+w-r,y+bodyH);
+      c.lineTo(cx+6,y+bodyH); c.lineTo(cx,tipY); c.lineTo(cx-6,y+bodyH); c.lineTo(x+r,y+bodyH);
+      c.quadraticCurveTo(x,y+bodyH,x,y+bodyH-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath(); c.fill(); c.stroke();
+      mapa.addImage(nome,c.getImageData(0,0,largura,altura));
     };
-
     try {
-      criarMarcador('pemato-nav-pin', 64, '#ffffff', '#39a978');
-      criarMarcador('pemato-nav-pin-active', 64, '#2f9e6f', '#2f9e6f');
-      criarMarcador('pemato-nav-pin-multi', 96, '#ffffff', '#39a978');
-      criarMarcador('pemato-nav-pin-multi-active', 96, '#2f9e6f', '#2f9e6f');
-      if (!mapa.hasImage?.('pemato-driver-arrow')) {
-        const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');
-        if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}
-      }
+      criarMarcador('pemato-nav-v8-simple',38,'#ffffff','#159766');
+      criarMarcador('pemato-nav-v8-multi',58,'#ffffff','#159766');
+      criarMarcador('pemato-nav-v8-active',38,'#159766','#159766');
+      criarMarcador('pemato-nav-v8-multi-active',58,'#159766','#159766');
+      if (!mapa.hasImage?.('pemato-driver-arrow')) { const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#159766';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56));}}
     } catch(_){}
   }
 
@@ -194,42 +168,29 @@
     if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#2563eb','line-width':6,'line-opacity':.88}}, before);
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':13,'circle-color':'rgba(37,99,235,.22)'} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
-    // Ícone e número no mesmo símbolo evita marcador sem fundo e números soltos.
-    if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
-      id: LAYER_STOPS,
-      type: 'symbol',
-      source: SOURCE_STOPS,
-      layout: {
-        'icon-image': ['case',
-          ['>', ['get', 'multi'], 1],
-          ['case', ['==', ['get', 'current'], true], 'pemato-nav-pin-multi-active', 'pemato-nav-pin-multi'],
-          ['case', ['==', ['get', 'current'], true], 'pemato-nav-pin-active', 'pemato-nav-pin']
-        ],
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 8, .88, 12, .98, 16, 1.08],
-        'icon-anchor': 'bottom',
-        'text-field': ['format',
-          ['to-string', ['get', 'order']], { 'font-scale': 1 },
-          ['case', ['>', ['get', 'multi'], 1], ['concat', ' ', ['to-string', ['get', 'multi']], 'x'], ''], { 'font-scale': .64 }
-        ],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10.5, 16, 12],
-        'text-font': ['literal', ['Open Sans Semibold']],
-        'text-anchor': 'bottom',
-        'text-offset': [0, -1.56],
-        'icon-allow-overlap': false,
-        'icon-ignore-placement': false,
-        'text-allow-overlap': false,
-        'text-ignore-placement': false,
-        'icon-optional': false,
-        'text-optional': false,
-        'symbol-sort-key': ['case', ['==', ['get', 'current'], true], 0, ['+', 10, ['get', 'order']]]
-      },
-      paint: {
-        'icon-opacity': .99,
-        'text-color': ['case', ['==', ['get', 'current'], true], '#ffffff', '#17885c'],
-        'text-halo-color': ['case', ['==', ['get', 'current'], true], 'rgba(0,0,0,0)', 'rgba(255,255,255,.7)'],
-        'text-halo-width': ['case', ['==', ['get', 'current'], true], 0, .35]
-      }
-    });
+    const textoMultiplo=['format',['to-string',['get','order']],{'font-scale':1},'  ',{'font-scale':.35},['to-string',['get','multi']],{'font-scale':.72},'x',{'font-scale':.58}];
+    const layoutBase={
+      'icon-anchor':'bottom','text-anchor':'bottom','text-offset':[0,-1.53],'text-size':12,
+      'text-font':['literal',['Open Sans Semibold']],
+      'icon-allow-overlap':false,'icon-ignore-placement':false,'text-allow-overlap':false,'text-ignore-placement':false,
+      'icon-optional':false,'text-optional':false
+    };
+    if(!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({id:LAYER_STOPS,type:'symbol',source:SOURCE_STOPS,
+      filter:['all',['<=',['get','multi'],1],['!=',['get','current'],true]],
+      layout:{...layoutBase,'icon-image':'pemato-nav-v8-simple','text-field':['to-string',['get','order']]},
+      paint:{'text-color':'#087a51','text-halo-color':'rgba(255,255,255,.45)','text-halo-width':.25}});
+    if(!mapa.getLayer(LAYER_STOPS_MULTI)) mapa.addLayer({id:LAYER_STOPS_MULTI,type:'symbol',source:SOURCE_STOPS,
+      filter:['all',['>',['get','multi'],1],['!=',['get','current'],true]],
+      layout:{...layoutBase,'icon-image':'pemato-nav-v8-multi','text-field':textoMultiplo},
+      paint:{'text-color':'#087a51','text-halo-color':'rgba(255,255,255,.45)','text-halo-width':.25}});
+    if(!mapa.getLayer(LAYER_STOPS_ACTIVE)) mapa.addLayer({id:LAYER_STOPS_ACTIVE,type:'symbol',source:SOURCE_STOPS,
+      filter:['all',['<=',['get','multi'],1],['==',['get','current'],true]],
+      layout:{...layoutBase,'icon-image':'pemato-nav-v8-active','text-field':['to-string',['get','order']],'icon-allow-overlap':true,'text-allow-overlap':true},
+      paint:{'text-color':'#ffffff'}});
+    if(!mapa.getLayer(LAYER_STOPS_MULTI_ACTIVE)) mapa.addLayer({id:LAYER_STOPS_MULTI_ACTIVE,type:'symbol',source:SOURCE_STOPS,
+      filter:['all',['>',['get','multi'],1],['==',['get','current'],true]],
+      layout:{...layoutBase,'icon-image':'pemato-nav-v8-multi-active','text-field':textoMultiplo,'icon-allow-overlap':true,'text-allow-overlap':true},
+      paint:{'text-color':'#ffffff'}});
 
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
@@ -251,10 +212,25 @@
 
   function setSource(id, data) { if (!mapa || !mapReady) return; garantirCamadas(); mapa.getSource(id)?.setData?.(data); }
 
+  function geometriaVisualSegura(g){
+    if(!geometriaValida(g)) return null;
+    const orig=g.type==='LineString'?[g.coordinates]:g.coordinates, linhas=[];
+    orig.forEach(linha=>{
+      let atual=[];
+      linha.forEach(coord=>{
+        if(!Array.isArray(coord)||coord.length<2) return;
+        if(atual.length && haversine(atual[atual.length-1],coord)>1800){ if(atual.length>=2) linhas.push(atual); atual=[]; }
+        const prev=atual[atual.length-1]; if(!prev||prev[0]!==coord[0]||prev[1]!==coord[1]) atual.push(coord);
+      });
+      if(atual.length>=2) linhas.push(atual);
+    });
+    if(!linhas.length) return null;
+    return linhas.length===1?{type:'LineString',coordinates:linhas[0]}:{type:'MultiLineString',coordinates:linhas};
+  }
   function desenharRota() {
     if (!mapa || !mapReady) return;
-    const g = rota?.geometria;
-    setSource(SOURCE_ROUTE, fc(geometriaValida(g) ? [{type:'Feature',properties:{},geometry:g}] : []));
+    const g = geometriaVisualSegura(rota?.geometria);
+    setSource(SOURCE_ROUTE, fc(g ? [{type:'Feature',properties:{},geometry:g}] : []));
   }
 
   function atualizarFontesPontos() {
