@@ -201,14 +201,30 @@
   function garantirImagemBalao() {
     if (!mapa || mapa.hasImage?.('pemato-stop-balloon')) return;
     try {
-      const canvas = document.createElement('canvas'); canvas.width = 92; canvas.height = 48;
-      const c = canvas.getContext('2d'); if (!c) return;
-      c.clearRect(0,0,92,48); c.fillStyle = '#334155';
-      const x=2,y=2,w=88,h=36,r=16; c.beginPath();
-      c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r); c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-      c.lineTo(43,y+h); c.lineTo(38,46); c.lineTo(32,y+h); c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath(); c.fill();
-      c.strokeStyle='#fff'; c.lineWidth=3; c.stroke();
-      mapa.addImage('pemato-stop-balloon', c.getImageData(0,0,92,48), { pixelRatio: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = 116;
+      canvas.height = 52;
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      c.clearRect(0, 0, 116, 52);
+      c.fillStyle = '#334155';
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 3;
+      const x = 2, y = 5, w = 112, h = 40, r = 20;
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.lineTo(x + w - r, y);
+      c.quadraticCurveTo(x + w, y, x + w, y + r);
+      c.lineTo(x + w, y + h - r);
+      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(x + r, y + h);
+      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x, y + r);
+      c.quadraticCurveTo(x, y, x + r, y);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      mapa.addImage('pemato-stop-balloon', c.getImageData(0, 0, 116, 52), { pixelRatio: 2 });
     } catch (e) { console.warn('Pacote É Mato: balão de parada indisponível', e); }
   }
 
@@ -244,13 +260,50 @@
     });
     if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
       id: LAYER_STOPS, type: 'symbol', source: SOURCE_STOPS,
-      layout: { 'icon-image': 'pemato-stop-balloon', 'icon-size': ['interpolate',['linear'],['zoom'],8,.72,16,1], 'icon-anchor':'bottom', 'icon-offset': ['case',['==',['get','stackIndex'],0],['literal',[0,0]],['==',['get','stackIndex'],1],['literal',[1.15,0]],['==',['get','stackIndex'],2],['literal',[-1.15,0]],['==',['get','stackIndex'],3],['literal',[2.3,0]],['==',['get','stackIndex'],4],['literal',[-2.3,0]],['literal',[0,1.15]]], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'symbol-sort-key': ['get','order'] },
+      layout: {
+        'icon-image': 'pemato-stop-balloon',
+        'icon-size': ['interpolate',['linear'],['zoom'],8,.76,16,1.02],
+        'icon-anchor':'center',
+        'icon-offset': ['case',
+          ['==',['get','stackIndex'],0],['literal',[0,0]],
+          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
+          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
+          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
+          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
+          ['literal',[0,2.35]]
+        ],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'symbol-sort-key': ['get','order']
+      },
       paint: { 'icon-opacity': .98 }
     });
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
-      layout: { 'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.72}], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 16, 12], 'text-allow-overlap': true, 'text-ignore-placement': true, 'text-anchor':'bottom', 'text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.1]],['==',['get','stackIndex'],1],['literal',[1.15,-1.1]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.1]],['==',['get','stackIndex'],3],['literal',[2.3,-1.1]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.1]],['literal',[0,0.05]]] },
-      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.18)', 'text-halo-width': .5 }
+      layout: {
+        'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.72}],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.5, 16, 12.5],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        'text-anchor':'center',
+        'text-offset':['case',
+          ['==',['get','stackIndex'],0],['literal',[0,0]],
+          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
+          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
+          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
+          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
+          ['literal',[0,2.35]]
+        ]
+      },
+      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.12)', 'text-halo-width': .35 }
     });
 
     if (!mapa.getLayer(LAYER_START)) mapa.addLayer({ id: LAYER_START, type: 'circle', source: SOURCE_START, paint: { 'circle-radius': 11, 'circle-color': '#111827', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });

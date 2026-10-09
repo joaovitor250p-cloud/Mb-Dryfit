@@ -134,7 +134,33 @@
   function garantirImagemBalao() {
     if (!mapa) return;
     try {
-      if (!mapa.hasImage?.('pemato-nav-balloon')) { const canvas=document.createElement('canvas'); canvas.width=92;canvas.height=48; const c=canvas.getContext('2d'); if(c){c.clearRect(0,0,92,48);c.fillStyle='#334155'; const x=2,y=2,w=88,h=36,r=16;c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(43,y+h);c.lineTo(38,46);c.lineTo(32,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();c.fill();c.strokeStyle='#fff';c.lineWidth=3;c.stroke();mapa.addImage('pemato-nav-balloon',c.getImageData(0,0,92,48),{pixelRatio:2});}}
+      if (!mapa.hasImage?.('pemato-nav-balloon')) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 116;
+        canvas.height = 52;
+        const c = canvas.getContext('2d');
+        if (c) {
+          c.clearRect(0, 0, 116, 52);
+          c.fillStyle = '#334155';
+          c.strokeStyle = '#fff';
+          c.lineWidth = 3;
+          const x = 2, y = 5, w = 112, h = 40, r = 20;
+          c.beginPath();
+          c.moveTo(x + r, y);
+          c.lineTo(x + w - r, y);
+          c.quadraticCurveTo(x + w, y, x + w, y + r);
+          c.lineTo(x + w, y + h - r);
+          c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          c.lineTo(x + r, y + h);
+          c.quadraticCurveTo(x, y + h, x, y + h - r);
+          c.lineTo(x, y + r);
+          c.quadraticCurveTo(x, y, x + r, y);
+          c.closePath();
+          c.fill();
+          c.stroke();
+          mapa.addImage('pemato-nav-balloon', c.getImageData(0, 0, 116, 52), { pixelRatio: 2 });
+        }
+      }
       if (!mapa.hasImage?.('pemato-driver-arrow')) { const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}}
     } catch(_){}
   }
@@ -149,8 +175,57 @@
     if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#2563eb','line-width':6,'line-opacity':.88}}, before);
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':13,'circle-color':'rgba(37,99,235,.22)'} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
-    if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({id:LAYER_STOPS,type:'symbol',source:SOURCE_STOPS,layout:{'icon-image':'pemato-nav-balloon','icon-size':['case',['==',['get','current'],true],1.08,.9],'icon-anchor':'bottom','icon-offset':['case',['==',['get','stackIndex'],0],['literal',[0,0]],['==',['get','stackIndex'],1],['literal',[1.15,0]],['==',['get','stackIndex'],2],['literal',[-1.15,0]],['==',['get','stackIndex'],3],['literal',[2.3,0]],['==',['get','stackIndex'],4],['literal',[-2.3,0]],['literal',[0,1.15]]],'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-sort-key':['get','order']},paint:{'icon-opacity':.98}});
-    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({id:LAYER_STOPS_TEXT,type:'symbol',source:SOURCE_STOPS,layout:{'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.72}],'text-size':12,'text-allow-overlap':true,'text-ignore-placement':true,'text-anchor':'bottom','text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.15]],['==',['get','stackIndex'],1],['literal',[1.15,-1.15]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.15]],['==',['get','stackIndex'],3],['literal',[2.3,-1.15]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.15]],['literal',[0,0]]]},paint:{'text-color':'#fff'}});
+    if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
+      id:LAYER_STOPS,
+      type:'symbol',
+      source:SOURCE_STOPS,
+      layout:{
+        'icon-image':'pemato-nav-balloon',
+        'icon-size':['case',['==',['get','current'],true],1.02,.9],
+        'icon-anchor':'center',
+        'icon-offset':['case',
+          ['==',['get','stackIndex'],0],['literal',[0,0]],
+          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
+          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
+          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
+          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
+          ['literal',[0,2.35]]
+        ],
+        'icon-allow-overlap':true,
+        'icon-ignore-placement':true,
+        'symbol-sort-key':['get','order']
+      },
+      paint:{'icon-opacity':.98}
+    });
+    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
+      id:LAYER_STOPS_TEXT,
+      type:'symbol',
+      source:SOURCE_STOPS,
+      layout:{
+        'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.72}],
+        'text-size':12,
+        'text-allow-overlap':true,
+        'text-ignore-placement':true,
+        'text-anchor':'center',
+        'text-offset':['case',
+          ['==',['get','stackIndex'],0],['literal',[0,0]],
+          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
+          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
+          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
+          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
+          ['literal',[0,2.35]]
+        ]
+      },
+      paint:{'text-color':'#fff'}
+    });
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
