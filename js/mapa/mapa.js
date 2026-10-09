@@ -32,8 +32,8 @@
   let ponteiroDesenho = null;
   let overlayDesenho = null;
   let pathDesenho = null;
-  let marcadoresAtivos = [];
-  let assinaturaMarcadores = '';
+  let marcadoresDom = new Map();
+  let organizarMarcadoresRaf = 0;
 
   function $(id) { return document.getElementById(id); }
   function cfg() { return global.PEMATO_MAP_CONFIG || {}; }
@@ -142,6 +142,134 @@
     return featureCollection(features);
   }
 
+  function caixasColidem(a, b, margem) {
+    const m = Number(margem || 0);
+    return !(a.right + m <= b.left || a.left >= b.right + m || a.bottom + m <= b.top || a.top >= b.bottom + m);
+  }
+
+  function offsetsMarcador() {
+    return [
+      [0,0], [0,-38], [36,0], [-36,0], [0,38],
+      [28,-30], [-28,-30], [28,30], [-28,30],
+      [60,0], [-60,0], [0,-68], [0,68],
+      [52,-42], [-52,-42], [52,42], [-52,42]
+    ];
+  }
+
+  function atualizarConteudoMarcador(el, feature) {
+    const props = feature?.properties || {};
+    const ordemAtual = Number(props.order || 0) || 0;
+    const multi = Math.max(1, Number(props.multi || 1) || 1);
+    const selecionado = Number(props.selected || 0) === 1;
+    const grupoSelecionado = Number(props.groupSelected || 0) === 1;
+    el.classList.toggle('is-multi', multi > 1);
+    el.classList.toggle('is-active', selecionado);
+    el.classList.toggle('is-group-selected', grupoSelecionado);
+    el.dataset.paradaId = String(props.id || '');
+    el.dataset.ordem = String(ordemAtual);
+    el.setAttribute('aria-label', multi > 1 ? `Parada ${ordemAtual}, ${multi} pacotes` : `Parada ${ordemAtual}`);
+    const corpo = el.querySelector('.pemato-spoke-marker__body');
+    if (!corpo) return;
+    corpo.replaceChildren();
+    const num = document.createElement('span');
+    num.className = 'pemato-spoke-marker__num';
+    num.textContent = String(ordemAtual);
+    corpo.appendChild(num);
+    if (multi > 1) {
+      const qtd = document.createElement('span');
+      qtd.className = 'pemato-spoke-marker__multi';
+      qtd.textContent = `${multi}x`;
+      corpo.appendChild(qtd);
+    }
+    el.style.zIndex = selecionado ? '9999' : String(Math.max(100, 6000 - ordemAtual));
+  }
+
+  function criarElementoMarcador(feature) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'pemato-spoke-marker';
+    const corpo = document.createElement('span');
+    corpo.className = 'pemato-spoke-marker__body';
+    el.appendChild(corpo);
+    atualizarConteudoMarcador(el, feature);
+    el.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const id = String(el.dataset.paradaId || '');
+      if (!id) return;
+      if (selecaoDesenhoAtiva) alternarIdSelecao(id);
+      else global.PacoteEMatoRoteirizacao?.selecionarParada?.(id, 'mapa');
+    });
+    return el;
+  }
+
+  function organizarMarcadoresDom() {
+    if (!mapa || !pronto || !marcadoresDom.size) return;
+    if (organizarMarcadoresRaf) cancelAnimationFrame(organizarMarcadoresRaf);
+    organizarMarcadoresRaf = requestAnimationFrame(() => {
+      organizarMarcadoresRaf = 0;
+      const ocupadas = [];
+      const candidatos = offsetsMarcador();
+      const registros = [...marcadoresDom.values()].sort((a,b) => {
+        const aa = Number(a.feature?.properties?.selected || 0) === 1 ? 0 : 1;
+        const bb = Number(b.feature?.properties?.selected || 0) === 1 ? 0 : 1;
+        return aa - bb || Number(a.feature?.properties?.order || 0) - Number(b.feature?.properties?.order || 0);
+      });
+      registros.forEach((registro, indice) => {
+        const feature = registro.feature;
+        const coord = feature?.geometry?.coordinates;
+        if (!Array.isArray(coord) || coord.length < 2) return;
+        const pt = mapa.project(coord);
+        const multi = Number(feature?.properties?.multi || 1) > 1;
+        const w = multi ? 54 : 36;
+        const h = 43;
+        let escolhido = candidatos[0];
+        let caixaEscolhida = null;
+        for (const off of candidatos) {
+          const caixa = { left:pt.x + off[0] - w/2, right:pt.x + off[0] + w/2, top:pt.y + off[1] - h, bottom:pt.y + off[1] + 2 };
+          if (!ocupadas.some(c => caixasColidem(c, caixa, 3))) { escolhido = off; caixaEscolhida = caixa; break; }
+        }
+        if (!caixaEscolhida) caixaEscolhida = { left:pt.x + escolhido[0] - w/2, right:pt.x + escolhido[0] + w/2, top:pt.y + escolhido[1] - h, bottom:pt.y + escolhido[1] + 2 };
+        ocupadas.push(caixaEscolhida);
+        try { registro.marker.setOffset(escolhido); } catch (_) {}
+      });
+    });
+  }
+
+  function renderizarMarcadoresDom(data) {
+    if (!mapa || !pronto || !global.maplibregl?.Marker) return;
+    const features = Array.isArray(data?.features) ? data.features : [];
+    const vivos = new Set();
+    features.forEach(feature => {
+      const id = String(feature?.properties?.id || feature?.id || '');
+      const coord = feature?.geometry?.coordinates;
+      if (!id || !Array.isArray(coord) || coord.length < 2) return;
+      vivos.add(id);
+      let registro = marcadoresDom.get(id);
+      if (!registro) {
+        const element = criarElementoMarcador(feature);
+        const marker = new global.maplibregl.Marker({ element, anchor:'bottom' }).setLngLat(coord).addTo(mapa);
+        registro = { marker, element, feature };
+        marcadoresDom.set(id, registro);
+      } else {
+        registro.feature = feature;
+        atualizarConteudoMarcador(registro.element, feature);
+        try { registro.marker.setLngLat(coord); } catch (_) {}
+      }
+    });
+    [...marcadoresDom.entries()].forEach(([id, registro]) => {
+      if (vivos.has(id)) return;
+      try { registro.marker.remove(); } catch (_) {}
+      marcadoresDom.delete(id);
+    });
+    organizarMarcadoresDom();
+  }
+
+  function limparMarcadoresDom() {
+    marcadoresDom.forEach(registro => { try { registro.marker.remove(); } catch (_) {} });
+    marcadoresDom.clear();
+  }
+
   function pointGeoJSON(p, props) {
     return featureCollection(pontoValido(p) ? [{
       type: 'Feature', geometry: { type: 'Point', coordinates: [Number(p.lon), Number(p.lat)] }, properties: props || {}
@@ -204,7 +332,47 @@
     return (mapa.getStyle()?.layers || []).find(layer => layer.type === 'symbol')?.id;
   }
 
-  function garantirImagemBalao() { /* V9 usa marcadores HTML nativos do MapLibre. */ }
+  function garantirImagemBalao() {
+    if (!mapa) return;
+    const criarMarcador = (nome, largura, fundo, borda) => {
+      if (mapa.hasImage?.(nome)) return;
+      const altura = 50;
+      const canvas = document.createElement('canvas');
+      canvas.width = largura;
+      canvas.height = altura;
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      c.clearRect(0, 0, largura, altura);
+      c.fillStyle = fundo;
+      c.strokeStyle = borda;
+      c.lineWidth = 2.4;
+      const x = 2.5, y = 2.5, w = largura - 5, bodyH = 36, r = 11;
+      const cx = largura / 2, tipY = 47;
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.lineTo(x + w - r, y);
+      c.quadraticCurveTo(x + w, y, x + w, y + r);
+      c.lineTo(x + w, y + bodyH - r);
+      c.quadraticCurveTo(x + w, y + bodyH, x + w - r, y + bodyH);
+      c.lineTo(cx + 6, y + bodyH);
+      c.lineTo(cx, tipY);
+      c.lineTo(cx - 6, y + bodyH);
+      c.lineTo(x + r, y + bodyH);
+      c.quadraticCurveTo(x, y + bodyH, x, y + bodyH - r);
+      c.lineTo(x, y + r);
+      c.quadraticCurveTo(x, y, x + r, y);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      mapa.addImage(nome, c.getImageData(0, 0, largura, altura));
+    };
+    try {
+      criarMarcador('pemato-stop-v8-simple', 38, '#ffffff', '#159766');
+      criarMarcador('pemato-stop-v8-multi', 58, '#ffffff', '#159766');
+      criarMarcador('pemato-stop-v8-active', 38, '#159766', '#159766');
+      criarMarcador('pemato-stop-v8-multi-active', 58, '#159766', '#159766');
+    } catch (e) { console.warn('Pacote É Mato: marcador de parada indisponível', e); }
+  }
 
   function garantirCamadas() {
     if (!mapa || !pronto) return;
@@ -236,7 +404,53 @@
       filter: ['==', ['get', 'selected'], 1],
       paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 16, 18], 'circle-color': '#ffffff', 'circle-opacity': .94 }
     });
-    // V9: os marcadores de parada são elementos HTML. As camadas de símbolo antigas não são mais criadas.
+    const textoMultiplo = ['format',
+      ['to-string', ['get', 'order']], { 'font-scale': 1 },
+      '  ', { 'font-scale': .35 },
+      ['to-string', ['get', 'multi']], { 'font-scale': .72 },
+      'x', { 'font-scale': .58 }
+    ];
+    const layoutBase = {
+      'icon-anchor': 'bottom',
+      'text-anchor': 'bottom',
+      'text-offset': [0, -1.53],
+      'text-size': 12,
+      'text-font': ['literal', ['Open Sans Semibold']],
+      'icon-allow-overlap': false,
+      'icon-ignore-placement': false,
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
+      'icon-optional': false,
+      'text-optional': false
+    };
+    if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
+      id: LAYER_STOPS, type: 'symbol', source: SOURCE_STOPS,
+      filter: ['all', ['<=', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
+      layout: { ...layoutBase, 'icon-image':'pemato-stop-v8-simple', 'text-field':['to-string',['get','order']] },
+      paint: { 'text-color':'#087a51', 'text-halo-color':'rgba(255,255,255,.45)', 'text-halo-width':.25 }
+    });
+    if (!mapa.getLayer(LAYER_STOPS_MULTI)) mapa.addLayer({
+      id: LAYER_STOPS_MULTI, type: 'symbol', source: SOURCE_STOPS,
+      filter: ['all', ['>', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
+      layout: { ...layoutBase, 'icon-image':'pemato-stop-v8-multi', 'text-field':textoMultiplo },
+      paint: { 'text-color':'#087a51', 'text-halo-color':'rgba(255,255,255,.45)', 'text-halo-width':.25 }
+    });
+    if (!mapa.getLayer(LAYER_STOPS_ACTIVE)) mapa.addLayer({
+      id: LAYER_STOPS_ACTIVE, type: 'symbol', source: SOURCE_STOPS,
+      filter: ['all', ['<=', ['get','multi'], 1], ['==', ['get','selected'], 1]],
+      layout: { ...layoutBase, 'icon-image':'pemato-stop-v8-active', 'text-field':['to-string',['get','order']], 'icon-allow-overlap':true, 'text-allow-overlap':true },
+      paint: { 'text-color':'#ffffff' }
+    });
+    if (!mapa.getLayer(LAYER_STOPS_MULTI_ACTIVE)) mapa.addLayer({
+      id: LAYER_STOPS_MULTI_ACTIVE, type: 'symbol', source: SOURCE_STOPS,
+      filter: ['all', ['>', ['get','multi'], 1], ['==', ['get','selected'], 1]],
+      layout: { ...layoutBase, 'icon-image':'pemato-stop-v8-multi-active', 'text-field':textoMultiplo, 'icon-allow-overlap':true, 'text-allow-overlap':true },
+      paint: { 'text-color':'#ffffff' }
+    });
+
+    [LAYER_STOPS_GROUP_RING, LAYER_STOPS_RING, LAYER_STOPS, LAYER_STOPS_MULTI, LAYER_STOPS_ACTIVE, LAYER_STOPS_MULTI_ACTIVE].forEach(id => {
+      try { if (mapa.getLayer(id)) mapa.setLayoutProperty(id, 'visibility', 'none'); } catch (_) {}
+    });
 
     if (!mapa.getLayer(LAYER_START)) mapa.addLayer({ id: LAYER_START, type: 'circle', source: SOURCE_START, paint: { 'circle-radius': 11, 'circle-color': '#111827', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });
     if (!mapa.getLayer(LAYER_START_TEXT)) mapa.addLayer({ id: LAYER_START_TEXT, type: 'symbol', source: SOURCE_START, layout: { 'text-field': 'P', 'text-size': 10, 'text-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
@@ -247,6 +461,20 @@
   function bindEventosMapa() {
     if (!mapa || mapa.__pematoBound) return;
     mapa.__pematoBound = true;
+    const selecionar = event => {
+      const id = event?.features?.[0]?.properties?.id;
+      if (!id) return;
+      if (selecaoDesenhoAtiva) {
+        alternarIdSelecao(String(id));
+        return;
+      }
+      global.PacoteEMatoRoteirizacao?.selecionarParada?.(String(id), 'mapa');
+    };
+    [LAYER_STOPS, LAYER_STOPS_MULTI, LAYER_STOPS_ACTIVE, LAYER_STOPS_MULTI_ACTIVE].forEach(layerId => {
+      mapa.on('click', layerId, selecionar);
+      mapa.on('mouseenter', layerId, () => { try { mapa.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
+      mapa.on('mouseleave', layerId, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
+    });
   }
 
   function garantirMapa() {
@@ -261,6 +489,8 @@
         pitch: 0, bearing: 0, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 120
       });
       mapa.touchZoomRotate?.disableRotation?.();
+      mapa.on('moveend', organizarMarcadoresDom);
+      mapa.on('zoomend', organizarMarcadoresDom);
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
         garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
@@ -321,106 +551,7 @@
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
   }
 
-  function limparMarcadoresHtml() {
-    marcadoresAtivos.forEach(marker => { try { marker.remove(); } catch (_) {} });
-    marcadoresAtivos = [];
-    assinaturaMarcadores = '';
-  }
-
-  function dispersaoEspiral(indice) {
-    if (indice <= 0) return { dLat: 0, dLon: 0, px: 0, py: 0 };
-    const angulo = ((indice + 1) * 137.5) * (Math.PI / 180);
-    const raioGeo = 0.00012 * Math.sqrt(indice);
-    const raioPx = 25 * Math.sqrt(indice);
-    return {
-      dLat: raioGeo * Math.cos(angulo),
-      dLon: raioGeo * Math.sin(angulo),
-      px: Math.round(raioPx * Math.sin(angulo)),
-      py: Math.round(raioPx * Math.cos(angulo))
-    };
-  }
-
-  function criarElementoMarcador(feature) {
-    const props = feature?.properties || {};
-    const wrapper = document.createElement('div');
-    wrapper.className = 'marker-parada-wrapper';
-    wrapper.dataset.paradaId = String(props.id || '');
-    wrapper.style.zIndex = String(Math.max(1, 10000 - Number(props.order || 0)));
-    if (Number(props.selected || 0) === 1) wrapper.classList.add('is-active');
-    if (Number(props.groupSelected || 0) === 1) wrapper.classList.add('is-group-selected');
-
-    const pill = document.createElement('div');
-    pill.className = 'marker-parada-pill';
-    pill.setAttribute('role', 'button');
-    pill.setAttribute('aria-label', Number(props.multi || 1) > 1
-      ? `Parada ${props.order}, ${props.multi} pacotes`
-      : `Parada ${props.order}`);
-
-    const num = document.createElement('span');
-    num.className = 'num-parada';
-    num.textContent = String(props.order || '');
-    pill.appendChild(num);
-
-    if (Number(props.multi || 1) > 1) {
-      const badge = document.createElement('span');
-      badge.className = 'multi-badge';
-      badge.textContent = `${Number(props.multi)}x`;
-      pill.appendChild(badge);
-    }
-    wrapper.appendChild(pill);
-
-    const elevar = () => wrapper.classList.add('is-pressed');
-    const baixar = () => wrapper.classList.remove('is-pressed');
-    wrapper.addEventListener('pointerdown', elevar, { passive: true });
-    wrapper.addEventListener('pointerup', baixar, { passive: true });
-    wrapper.addEventListener('pointercancel', baixar, { passive: true });
-    wrapper.addEventListener('pointerleave', baixar, { passive: true });
-    wrapper.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      const id = String(props.id || '');
-      if (!id) return;
-      if (selecaoDesenhoAtiva) alternarIdSelecao(id);
-      else global.PacoteEMatoRoteirizacao?.selecionarParada?.(id, 'mapa');
-    });
-    return wrapper;
-  }
-
-  function renderizarMarcadores() {
-    if (!mapa || !pronto || !global.maplibregl?.Marker) return;
-    const dados = stopsGeoJSON();
-    atualizarSource(SOURCE_STOPS, dados); // preserva os anéis de seleção/refino existentes.
-    const novaAssinatura = JSON.stringify((dados.features || []).map(f => [f?.properties?.id, f?.properties?.order, f?.properties?.multi, f?.properties?.selected, f?.properties?.groupSelected, f?.geometry?.coordinates]));
-    if (novaAssinatura === assinaturaMarcadores && marcadoresAtivos.length) return;
-    limparMarcadoresHtml();
-    assinaturaMarcadores = novaAssinatura;
-
-    const ocupacao = Object.create(null);
-    const ordenadas = [...(dados.features || [])].sort((a, b) => Number(a?.properties?.order || 0) - Number(b?.properties?.order || 0));
-    ordenadas.forEach(feature => {
-      const coord = feature?.geometry?.coordinates;
-      if (!Array.isArray(coord) || coord.length < 2) return;
-      let lng = Number(coord[0]);
-      let lat = Number(coord[1]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      // Aproximação de ~11 m para detectar endereços/coordenadas praticamente iguais.
-      const geoKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
-      const indice = ocupacao[geoKey] || 0;
-      ocupacao[geoKey] = indice + 1;
-      const spread = dispersaoEspiral(indice);
-      lat += spread.dLat;
-      lng += spread.dLon;
-
-      const el = criarElementoMarcador(feature);
-      const marker = new global.maplibregl.Marker({
-        element: el,
-        anchor: 'center',
-        offset: [spread.px, spread.py]
-      }).setLngLat([lng, lat]).addTo(mapa);
-      marcadoresAtivos.push(marker);
-    });
-  }
+  function renderizarMarcadores() { const data = stopsGeoJSON(); atualizarSource(SOURCE_STOPS, data); renderizarMarcadoresDom(data); }
   function renderizarPartida() { atualizarSource(SOURCE_START, pointGeoJSON(state()?.pontoInicial, { type: 'start' })); }
   function renderizarMotorista() { atualizarSource(SOURCE_DRIVER, driverGeoJSON()); }
 
@@ -687,10 +818,10 @@
   }
 
   function destruir() {
-    limparMarcadoresHtml();
     clearTimeout(loadTimer); loadTimer = null;
     if (resizeObserver) { try { resizeObserver.disconnect(); } catch (_) {} resizeObserver = null; }
     if (mapa) { try { mapa.remove(); } catch (_) {} }
+    limparMarcadoresDom();
     selecaoDesenhoAtiva = false; idsSelecaoDesenho.clear(); pontosDesenho = []; ponteiroDesenho = null;
     mapa = null; pronto = false; fitFeito = false; fallbackBaseAtivo = false;
   }

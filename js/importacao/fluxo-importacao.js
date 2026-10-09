@@ -78,21 +78,12 @@
     $('routeImportFlow')?.classList.remove('is-open');
   }
 
-  async function concluirOtimizacaoEIrParaRota() {
-    fechar();
-    if (global.PacoteEMatoRoteirizacao?.abrirNavegacao) {
-      return global.PacoteEMatoRoteirizacao.abrirNavegacao();
-    }
-    return global.PacoteEMatoAppShell?.abrirModulo?.('navegacao');
-  }
-
   global.PacoteEMatoFluxoImportacao = Object.freeze({
     iniciar,
     atualizarEtapa,
     mostrarConferencia,
     mostrarErro,
     fechar,
-    concluirOtimizacaoEIrParaRota,
     atualizar: () => {}
   });
 })(window);
