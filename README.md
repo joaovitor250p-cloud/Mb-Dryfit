@@ -1,82 +1,70 @@
-# Pacote É Mato — Roteirização e Navegação Própria
+# Pacote É Mato
 
-Esta versão é uma evolução incremental de `Pacote-Em-Mato-ETAPA-4-UI-ROTA-CORRIGIDA.zip`. O núcleo legado de login/Firebase, PDF, agrupamento físico, scanner e Bipagem não foi reescrito.
+Aplicativo web/PWA de logística com Roteirização, Navegação, Bipagem e Histórico compartilhando uma única Rota Ativa.
 
-## Principais mudanças
-
-- Marcadores de parada migrados de elementos HTML `Marker` para uma fonte GeoJSON e camadas nativas do MapLibre.
-- Marcadores compactos, numerados e com estados pendente, parcial, concluída e não entregue.
-- O ponto inicial e a localização do motorista também são camadas geográficas, evitando o erro de marcador sem coordenada.
-- Controles do mapa organizados em grupo vertical: Minha localização, Enquadrar rota, Aproximar e Afastar.
-- `Importar XLSX` e `Otimizar rota` permanecem visíveis na Roteirização; Importar XLSX também permanece no menu de ações.
-- A linha da rota aceita `LineString` e `MultiLineString` reais retornadas pelo serviço rodoviário.
-- Métricas da rota só são exibidas como calculadas quando há geometria e cálculo rodoviário válidos.
-- Navegação interna com GPS, linha planejada, progresso percorrido, próxima manobra, próxima parada, voz pt-BR, controle de acompanhamento e detecção de desvio.
-- Entregue e Não entregue persistem status, data/hora e motivo; o fluxo avança para a próxima parada pendente.
-- Ao tratar todas as paradas, a rota fica aguardando confirmação de encerramento; não é finalizada automaticamente.
-
-## Arquitetura do serviço de rotas
-
-O frontend usa a base segura já prevista pelo projeto. Quando `pemato_worker_base_url` está configurado, os endpoints derivados são:
+## Fluxo principal desta versão
 
 ```text
-/geocode  -> geocodificação
-/optimize -> Geoapify Route Planner
-/route    -> Geoapify Routing API, geometria e instruções
-/health   -> disponibilidade do Worker/provedor
+Importar XLSX
+    ↓
+Processamento com logo do Pacote É Mato
+    ↓
+Conferência das paradas
+    ↓
+Corrigir/adicionar endereços se necessário
+    ↓
+Confirmar
+    ↓
+Mapa e planejamento
+    ↓
+Geocodificação / otimização / rota pelas ruas (quando Worker estiver configurado)
+    ↓
+Navegação própria / Waze / Google Maps
+    ↓
+Entregue ou Não entregue
+    ↓
+Histórico
 ```
 
-O Worker existente em `cloudflare/geocodificacao-worker.js` não foi modificado nem publicado nesta revisão. A chave `GEOAPIFY_API_KEY` permanece prevista somente no ambiente do Worker.
+A Rota Ativa anterior não é substituída apenas por selecionar um arquivo. A nova rota só é salva depois da conferência.
 
-Sem um Worker configurado, o sistema não inventa coordenadas, ordem otimizada, distância, linha rodoviária ou instruções.
+## Importação
 
-## Fluxo de roteirização
+- XLSX e CSV continuam suportados; XLS antigo depende do SheetJS carregado pela aplicação.
+- Cabeçalho pode estar depois de linhas introdutórias.
+- Colunas desconhecidas podem ser associadas manualmente.
+- Pacotes, observações, complemento, cidade e UF são preservados.
+- Latitude/longitude são opcionais. Se existirem e forem válidas, a parada já pode aparecer no mapa sem nova geocodificação.
+- Coordenadas ausentes ou inválidas nunca viram `(0,0)`.
+
+## Serviço seguro de rotas
+
+O Worker já previsto no projeto fornece:
 
 ```text
-XLSX / parada manual / rota da Bipagem
-                ↓
-            Paradas
-                ↓
-       Geocodificação segura
-                ↓
-        Coordenadas válidas
-                ↓
-      /optimize (ordem real)
-                ↓
-       /route (ruas reais)
-                ↓
-   geometria + distância + tempo
-                ↓
-           Rota Ativa
-                ↓
-      Navegação / Bipagem
+GET  /health
+POST /geocode
+POST /optimize
+POST /route
 ```
 
-## Navegação interna
+A chave `GEOAPIFY_API_KEY` deve permanecer apenas no ambiente do Cloudflare Worker.
 
-A navegação própria é uma PWA/web app e usa `navigator.geolocation.watchPosition()` apenas enquanto a navegação está ativa. Ela:
+Sem Worker configurado, importação, conferência, edição, persistência local, mapa-base e Bipagem continuam disponíveis, mas o sistema não inventa geocodificação ou otimização.
 
-- acompanha a posição do motorista;
-- não move os marcadores das paradas;
-- mantém linha planejada e progresso em camadas separadas;
-- usa os índices das instruções retornadas pela Routing API para orientar o progresso;
-- usa `speechSynthesis` em português quando disponível;
-- evita repetir a mesma instrução por limiar de distância;
-- identifica desvio significativo e tenta recalcular quando o endpoint `/route` estiver disponível;
-- preserva Waze e Google Maps como alternativas.
+### Configuração futura
 
-Limitação: navegadores móveis podem suspender GPS, JavaScript e áudio quando a página vai para segundo plano. Esta versão não promete comportamento equivalente a um navegador GPS nativo em background.
+```bash
+cd cloudflare
+npx wrangler login
+npx wrangler secret put GEOAPIFY_API_KEY --config wrangler.toml
+npx wrangler deploy --config wrangler.toml
+```
+
+Depois cole a URL publicada em **Configurações → Serviço de rotas** e use **Testar conexão**.
 
 ## Preservação do núcleo
 
-Comparados por SHA-256 com a base recebida, permaneceram byte a byte iguais:
+Esta atualização não reescreve o núcleo legado de login/Firebase, PDF, agrupamento físico, câmera, scanner e Bipagem. O Worker também não foi alterado.
 
-- `js/app.js`
-- `js/bipagem/rota-ativa-bridge.js`
-- `js/suporte.js`
-- `cloudflare/geocodificacao-worker.js`
-- `cloudflare/wrangler.toml`
-- `manifest.json`
-- `politica-privacidade.html`
-
-Consulte `RELATORIO-ETAPA-4-ROTEIRIZACAO-NAVEGACAO-PROPRIA.md` para auditoria, testes e limitações.
+Consulte `RELATORIO-FLUXO-IMPORTACAO-ENTREGA.md` para detalhes, testes e limitações.

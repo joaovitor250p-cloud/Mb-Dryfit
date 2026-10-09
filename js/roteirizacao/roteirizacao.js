@@ -5,6 +5,9 @@
   let salvamentoTimer = null;
   let stopEmEdicao = null;
   let modoEdicaoNovo = false;
+  let contextoEditor = 'rota';
+  let rotaImportacaoPendente = null;
+  let resultadoImportacaoPendente = null;
   let resolverDecisaoReotimizacao = null;
   let importacaoPendente = null;
   let resolverMapeamentoImportacao = null;
@@ -607,61 +610,79 @@
 
   async function importarArquivo(file) {
     if (!file) return;
+    const fluxo = global.PacoteEMatoFluxoImportacao;
+    fluxo?.iniciar?.(file.name, 'Lendo a planilha e identificando as colunas.');
     definirStatusImportacao('Lendo a planilha e identificando as colunas...', null);
     try {
       if (!global.PacoteEMatoImportacaoXLSX) throw new Error('Módulo de importação não carregado. Recarregue a página e tente novamente.');
+      fluxo?.atualizarEtapa?.('Analisando o cabeçalho e os campos disponíveis.');
       const inspecao = await global.PacoteEMatoImportacaoXLSX.inspecionarArquivo(file);
       let opcoes = { inspecao };
       if (inspecao.columns.endereco == null && inspecao.columns.logradouro == null) {
+        fluxo?.atualizarEtapa?.('A planilha foi lida. Associe as colunas para continuar.');
         definirStatusImportacao('A planilha foi lida, mas preciso saber quais colunas contêm os endereços.', 'warning');
         const mapeamento = await abrirMapeamentoImportacao(inspecao);
         if (!mapeamento) {
+          fluxo?.fechar?.();
           definirStatusImportacao('Importação cancelada. Nenhuma parada foi alterada.', 'warning');
           return;
         }
         opcoes = Object.assign(opcoes, mapeamento);
       }
 
+      fluxo?.atualizarEtapa?.('Convertendo as linhas em paradas e preservando pacotes e observações.');
       const resultado = await global.PacoteEMatoImportacaoXLSX.lerArquivo(file, opcoes);
       const cfg = global.PacoteEMatoConfiguracoes?.obter?.() || {};
-      rotaAtual = global.PacoteEMatoRotaStore.criarRota({
+      const candidata = global.PacoteEMatoRotaStore.criarRota({
         nome: file.name.replace(/\.(xlsx|xls|csv)$/i, ''),
-        origem: 'xlsx',
-        status: 'planejamento',
-        veiculo: cfg.veiculo || 'carro',
+        origem: 'xlsx', status: 'planejamento', veiculo: cfg.veiculo || 'carro',
         modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-        tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180),
-        pontoInicial: cfg.pontoInicial || null,
-        retornarAoInicio: cfg.retornarAoInicio === true,
-        paradas: resultado.paradas,
-        ordem: resultado.paradas.map(p => p.id)
+        tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180), pontoInicial: cfg.pontoInicial || null,
+        retornarAoInicio: cfg.retornarAoInicio === true, paradas: resultado.paradas, ordem: resultado.paradas.map(p => p.id)
       });
-      await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
-      renderizarTudo({ fit: true });
-
-      const avisos = resultado.erros?.length ? ` ${resultado.erros.length} linha(s) foram ignoradas por problema de dados.` : '';
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s) da aba “${resultado.sheetName || 'Planilha'}”.${avisos}`, resultado.erros?.length ? 'warning' : 'success');
-      definirEstadoPainel('expanded');
-
-      if (!workerConfigurado() || !global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
-        definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). A localização automática e a otimização por ruas dependem do serviço externo, que ficará para uma etapa futura. Revise as paradas importadas pela lista.`, 'warning');
-        definirEstadoPainel('expanded');
-        return;
-      }
-
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). Localizando endereços...`, null);
-      const resumoGeo = await geocodificarTodas({ silencioso: true });
-      if (resumoGeo) {
-        const problemas = resumoGeo.total - resumoGeo.ok;
-        definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s): ${resumoGeo.ok} localizada(s) e ${problemas} precisando de correção.`, problemas ? 'warning' : 'success');
-      }
+      rotaImportacaoPendente = candidata;
+      resultadoImportacaoPendente = resultado;
+      fluxo?.atualizarEtapa?.('Preparando a conferência das paradas.');
+      fluxo?.mostrarConferencia?.(rotaImportacaoPendente, resultado.erros || []);
+      definirStatusImportacao(`${candidata.paradas.length} parada(s) lida(s). Revise os dados antes de substituir a rota ativa.`, resultado.erros?.length ? 'warning' : 'success');
     } catch (erro) {
       console.error('Pacote É Mato: falha na importação XLSX.', erro);
+      fluxo?.mostrarErro?.(erro?.message || 'Não foi possível importar a planilha.', file.name);
       definirStatusImportacao(erro?.message || 'Não foi possível importar a planilha.', 'error');
       notificar(erro?.message || 'Falha ao importar planilha.');
     } finally {
       if ($('routingXlsxInput')) $('routingXlsxInput').value = '';
     }
+  }
+
+  async function confirmarImportacaoPendente() {
+    if (!rotaImportacaoPendente) return;
+    rotaAtual = rotaImportacaoPendente;
+    rotaImportacaoPendente = null;
+    const resultado = resultadoImportacaoPendente;
+    resultadoImportacaoPendente = null;
+    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+    global.PacoteEMatoFluxoImportacao?.fechar?.();
+    renderizarTudo({ fit: true });
+    definirEstadoPainel('expanded');
+    const avisos = resultado?.erros?.length || 0;
+    if (!workerConfigurado() || !global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
+      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). ${avisos ? `${avisos} linha(s) exigem revisão. ` : ''}A lista foi preservada. Para localizar endereços e otimizar pelas ruas, configure o serviço seguro quando estiver disponível.`, 'warning');
+      return;
+    }
+    definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). Localizando endereços...`, null);
+    const resumoGeo = await geocodificarTodas({ silencioso: true });
+    if (resumoGeo) {
+      const problemas = resumoGeo.total - resumoGeo.ok;
+      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s): ${resumoGeo.ok} localizada(s) e ${problemas} precisando de correção.`, problemas ? 'warning' : 'success');
+    }
+  }
+
+  function cancelarImportacaoPendente() {
+    rotaImportacaoPendente = null;
+    resultadoImportacaoPendente = null;
+    global.PacoteEMatoFluxoImportacao?.fechar?.();
+    definirStatusImportacao('Importação cancelada. A rota ativa anterior foi preservada.', 'warning');
   }
 
   function hashTexto(texto) {
@@ -907,11 +928,13 @@
     if (card && origem === 'mapa') card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function abrirEditor(id) {
+  function abrirEditor(id, contexto = 'rota') {
     const modal = $('routeStopEditorModal');
     if (!modal) return;
+    contextoEditor = contexto === 'conferencia' ? 'conferencia' : 'rota';
+    const alvo = contextoEditor === 'conferencia' ? rotaImportacaoPendente : rotaAtual;
     modoEdicaoNovo = !id;
-    stopEmEdicao = id ? rotaAtual?.paradas.find(p => p.id === id) : null;
+    stopEmEdicao = id ? alvo?.paradas.find(p => p.id === id) : null;
     const p = stopEmEdicao || {
       id: idNovo('manual'), logradouro: '', numero: '', complemento: '', apartamento: '', bloco: '', sala: '', loja: '',
       bairro: '', cidade: '', estado: '', cep: '', observacao: '', pacotes: [], statusEntrega: 'pendente', motivoNaoEntrega: '', observacaoNaoEntrega: ''
@@ -931,6 +954,7 @@
     if (modal) modal.style.display = 'none';
     stopEmEdicao = null;
     modoEdicaoNovo = false;
+    contextoEditor = 'rota';
   }
 
   function pacotesDoCampo(texto) {
@@ -940,7 +964,9 @@
   }
 
   async function salvarEditor() {
-    if (!rotaAtual) return;
+    const contextoSalvo = contextoEditor;
+    const alvo = contextoSalvo === 'conferencia' ? rotaImportacaoPendente : rotaAtual;
+    if (!alvo) return;
     const fields = ['logradouro','numero','complemento','apartamento','bloco','sala','loja','bairro','cidade','estado','cep','observacao'];
     const dados = {};
     fields.forEach(key => { dados[key] = String($(`routeEdit_${key}`)?.value || '').trim(); });
@@ -950,16 +976,16 @@
     dados.observacaoNaoEntrega = dados.statusEntrega === 'nao_entregue' ? String($('routeEdit_observacaoNaoEntrega')?.value || '') : '';
     if (!dados.logradouro) return notificar('Informe o endereço/logradouro da parada.');
 
-    const eraOtimizada = rotaAtual.rotaOtimizada === true || !!rotaAtual.geometria;
+    const eraOtimizada = contextoSalvo === 'rota' && (alvo.rotaOtimizada === true || !!alvo.geometria);
     const eraNova = !stopEmEdicao;
     let p = stopEmEdicao;
     const enderecoAnterior = p?.enderecoOriginal || '';
     if (!p) {
       p = global.PacoteEMatoRotaStore.normalizarParada({
-        id: idNovo('manual'), ordemOriginal: rotaAtual.paradas.length + 1, origem: 'manual', ...dados
-      }, rotaAtual.paradas.length);
-      rotaAtual.paradas.push(p);
-      rotaAtual.ordem.push(p.id);
+        id: idNovo('manual'), ordemOriginal: alvo.paradas.length + 1, origem: 'manual', ...dados
+      }, alvo.paradas.length);
+      alvo.paradas.push(p);
+      alvo.ordem.push(p.id);
     } else {
       Object.assign(p, dados);
       p.alteradoEm = Date.now();
@@ -978,9 +1004,13 @@
       p.geocodificadoEm = null;
       p.confiabilidade = null;
       p.confiabilidadeRua = null;
-      invalidarRotaCalculada();
+      if (contextoSalvo === 'rota') invalidarRotaCalculada();
     }
     fecharEditor();
+    if (contextoSalvo === 'conferencia') {
+      global.PacoteEMatoFluxoImportacao?.mostrarConferencia?.(alvo, resultadoImportacaoPendente?.erros || []);
+      return;
+    }
     await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
     renderizarTudo();
 
@@ -1172,6 +1202,12 @@
       const headerIndex = Number($('routeImportHeaderRow')?.value ?? importacaoPendente.headerIndex);
       preencherMapeamentoImportacao(importacaoPendente, headerIndex);
     });
+
+    global.addEventListener('pemato:import:confirmar', () => confirmarImportacaoPendente());
+    global.addEventListener('pemato:import:cancelar', cancelarImportacaoPendente);
+    global.addEventListener('pemato:import:tentar-outro', () => $('routingXlsxInput')?.click());
+    global.addEventListener('pemato:import:editar', event => { if (rotaImportacaoPendente && event.detail?.id) abrirEditor(event.detail.id, 'conferencia'); });
+    global.addEventListener('pemato:import:adicionar', () => { if (rotaImportacaoPendente) abrirEditor(null, 'conferencia'); });
 
     global.addEventListener('pemato:config:update', event => aplicarConfiguracoesNaRota(event.detail));
     global.addEventListener('pemato:worker:update', () => { renderizarPreferencias(); atualizarDisponibilidadeAcoes(); atualizarAcaoPrincipal(); });

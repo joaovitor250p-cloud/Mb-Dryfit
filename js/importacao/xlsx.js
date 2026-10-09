@@ -22,7 +22,9 @@
     observacao: ['observacao', 'observação', 'obs', 'nota', 'notas', 'notes', 'instructions', 'instrucoes', 'instruções', 'observacoes', 'observações'],
     id: ['id', 'stop id', 'parada id', 'codigo parada', 'código parada', 'id parada', 'numero parada', 'número parada'],
     pacote: ['pacote', 'codigo pacote', 'código pacote', 'codigo', 'código', 'tracking', 'tracking code', 'etiqueta', 'package', 'codigo de rastreio', 'código de rastreio'],
-    pacotes: ['pacotes', 'codigos pacotes', 'códigos pacotes', 'trackings', 'packages', 'etiquetas']
+    pacotes: ['pacotes', 'codigos pacotes', 'códigos pacotes', 'trackings', 'packages', 'etiquetas'],
+    latitude: ['latitude', 'lat', 'coord lat', 'coordenada latitude'],
+    longitude: ['longitude', 'lon', 'lng', 'long', 'coord lon', 'coordenada longitude']
   };
 
   const CAMPOS_MAPEAVEIS = [
@@ -40,7 +42,9 @@
     ['pacote', 'Código de pacote'],
     ['pacotes', 'Códigos de pacotes'],
     ['observacao', 'Observação'],
-    ['id', 'ID da parada']
+    ['id', 'ID da parada'],
+    ['latitude', 'Latitude'],
+    ['longitude', 'Longitude']
   ];
 
   function normalizarCabecalho(v) {
@@ -219,7 +223,9 @@
         cidade: valor(row, columns, 'cidade'),
         estado: valor(row, columns, 'estado'),
         cep: valor(row, columns, 'cep'),
-        observacao: valor(row, columns, 'observacao')
+        observacao: valor(row, columns, 'observacao'),
+        latitude: valor(row, columns, 'latitude'),
+        longitude: valor(row, columns, 'longitude')
       };
       const enderecoOriginal = montarEndereco(campos);
       if (!enderecoOriginal) {
@@ -246,6 +252,13 @@
         erros.push({ linha: i + 1, motivo: `ID de parada repetido com endereço diferente: ${idPlanilha}` });
       }
 
+      const latTexto = String(campos.latitude || '').replace(',', '.').trim();
+      const lonTexto = String(campos.longitude || '').replace(',', '.').trim();
+      const latNumero = latTexto === '' ? null : Number(latTexto);
+      const lonNumero = lonTexto === '' ? null : Number(lonTexto);
+      const coordenadaPlanilhaValida = latNumero !== null && lonNumero !== null && Number.isFinite(latNumero) && Number.isFinite(lonNumero) && Math.abs(latNumero) <= 90 && Math.abs(lonNumero) <= 180;
+      if ((latTexto || lonTexto) && !coordenadaPlanilhaValida) erros.push({ linha: i + 1, motivo: 'Latitude/longitude incompletas ou inválidas; a parada foi importada sem coordenadas.' });
+
       const parada = {
         id: idPlanilha && porIdExplicito.has(idBase) ? `${idBase}-linha-${i + 1}` : idBase,
         ordemOriginal: paradas.length + 1,
@@ -268,9 +281,10 @@
         quantidadePacotes: pacotes.length,
         quantidadeBipada: 0,
         statusEntrega: 'pendente',
-        statusGeocodificacao: 'pendente',
-        latitude: null,
-        longitude: null,
+        statusGeocodificacao: coordenadaPlanilhaValida ? 'ok' : 'pendente',
+        latitude: coordenadaPlanilhaValida ? latNumero : null,
+        longitude: coordenadaPlanilhaValida ? lonNumero : null,
+        fonteCoordenada: coordenadaPlanilhaValida ? 'xlsx' : null,
         origem: 'xlsx',
         fonte: { arquivo: nomeArquivo || '', linha: i + 1 }
       };

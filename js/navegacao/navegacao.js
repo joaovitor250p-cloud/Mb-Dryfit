@@ -11,6 +11,7 @@
   let seguirPosicao = true;
   let vozAtiva = true;
   let processandoStatus = false;
+  let ultimoIdNota = '';
   let ultimoRecalculo = 0;
   let eventosForaRota = 0;
   let ultimaCentralizacao = 0;
@@ -197,6 +198,8 @@
     if($('navNextAddress')) $('navNextAddress').textContent=p?.enderecoOriginal||'Nenhuma parada pendente';
     if($('navNextComplement')) $('navNextComplement').textContent=p?[p.bloco&&`Bloco ${p.bloco}`,p.apartamento&&`Apartamento ${p.apartamento}`,p.sala&&`Sala ${p.sala}`,p.observacao].filter(Boolean).join(' · '):'';
     if($('navNextPackages')) $('navNextPackages').textContent=`${p?.pacotes?.length||0} pacote(s)`;
+    const idNota=String(p?.id||'');
+    if(idNota!==ultimoIdNota){ultimoIdNota=idNota;if($('navDeliveryNote'))$('navDeliveryNote').value=String(p?.observacaoEntrega||'');}
     if($('navRemaining')) $('navRemaining').textContent=String(ordemPendente.length);
     const leg=rota?.pernas?.[0]||null;
     if($('navDistanceNext')) $('navDistanceNext').textContent=formatarDistancia(leg?.distance);
@@ -294,11 +297,14 @@
   async function salvarStatusParadaAtual(status,motivo,observacao){
     if(processandoStatus) return; const atual=proxima(); if(!rota||!atual)return; const parada=rota.paradas.find(p=>String(p.id)===String(atual.id)); if(!parada||['entregue','concluida','nao_entregue'].includes(parada.statusEntrega))return;
     processandoStatus=true; try{
-      const timestamp=Date.now(); parada.statusEntrega=status; parada.statusAtualizadoEm=timestamp;
+      if(!['entregue','nao_entregue'].includes(status)) return;
+      const motivoFinal=status==='nao_entregue'?String(motivo||'').trim():'';
+      if(status==='nao_entregue'&&!motivoFinal){global.notificar?.('Selecione o motivo da não entrega.');return;}
+      const timestamp=Date.now(); parada.statusEntrega=status; parada.statusAtualizadoEm=timestamp; parada.observacaoEntrega=String($('navDeliveryNote')?.value||'').trim();
       if(status==='entregue'){parada.motivoNaoEntrega='';parada.observacaoNaoEntrega='';parada.entregueEm=timestamp;parada.naoEntregueEm=null;}
-      else if(status==='nao_entregue'){parada.motivoNaoEntrega=String(motivo||'outro');parada.observacaoNaoEntrega=String(observacao||'').trim();parada.entregueEm=null;parada.naoEntregueEm=timestamp;} else return;
+      else {parada.motivoNaoEntrega=motivoFinal;parada.observacaoNaoEntrega=String(observacao||'').trim();parada.entregueEm=null;parada.naoEntregueEm=timestamp;}
       parada.alteradoEm=timestamp; await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
-      if($('navFailurePanel'))$('navFailurePanel').style.display='none'; if($('navFailureNote'))$('navFailureNote').value='';
+      if($('navFailurePanel'))$('navFailurePanel').style.display='none'; if($('navFailureNote'))$('navFailureNote').value=''; if($('navDeliveryNote'))$('navDeliveryNote').value=''; ultimoIdNota='';
       falasFeitas.clear(); atualizarPendentes(); atualizarPainel(); global.PacoteEMatoHistorico?.renderizar?.(); global.PacoteEMatoAppShell?.atualizarInicio?.();
       if(ordemPendente.length){if(global.PacoteEMatoServicoRota?.endpoint?.('route'))await recalcular('proxima');else atualizarFontesPontos();}
       else{rota.status='aguardando_finalizacao';rota.conclusaoPendente=true;await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});mostrarConclusao();}
@@ -325,7 +331,7 @@
   function bind(){
     $('navDeliveredBtn')?.addEventListener('click',()=>salvarStatusParadaAtual('entregue'));
     $('navNotDeliveredBtn')?.addEventListener('click',abrirNaoEntrega); $('navFailureCancelBtn')?.addEventListener('click',cancelarNaoEntrega);
-    $('navFailureConfirmBtn')?.addEventListener('click',()=>salvarStatusParadaAtual('nao_entregue',$('navFailureReason')?.value||'outro',$('navFailureNote')?.value||''));
+    $('navFailureConfirmBtn')?.addEventListener('click',()=>{const motivo=String($('navFailureReason')?.value||'').trim();if(!motivo){global.notificar?.('Selecione o motivo da não entrega.');return;}salvarStatusParadaAtual('nao_entregue',motivo,$('navFailureNote')?.value||'');});
     $('navRecalculateBtn')?.addEventListener('click',()=>recalcular('manual')); $('navOpenWazeBtn')?.addEventListener('click',()=>abrirExterno('waze')); $('navOpenGoogleBtn')?.addEventListener('click',()=>abrirExterno('google')); $('navEndBtn')?.addEventListener('click',encerrar);
     $('navFollowBtn')?.addEventListener('click',()=>{seguirPosicao=true;if(global.appState?.navegacao)global.appState.navegacao.seguirPosicao=true;atualizarBotaoFollow();if(ultimaPosicao&&mapa&&mapReady)mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:16,duration:350});});
     $('navVoiceBtn')?.addEventListener('click',()=>{vozAtiva=!vozAtiva;if(global.appState?.navegacao)global.appState.navegacao.vozAtiva=vozAtiva;if(!vozAtiva)try{global.speechSynthesis?.cancel?.();}catch(_){};atualizarBotaoVoz();});

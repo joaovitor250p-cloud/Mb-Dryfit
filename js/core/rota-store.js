@@ -76,6 +76,7 @@
       : 'pendente';
     p.motivoNaoEntrega = String(p.motivoNaoEntrega || '');
     p.observacaoNaoEntrega = String(p.observacaoNaoEntrega || '');
+    p.observacaoEntrega = String(p.observacaoEntrega || '');
     p.entregueEm = p.entregueEm || null;
     p.naoEntregueEm = p.naoEntregueEm || null;
     p.statusAtualizadoEm = p.statusAtualizadoEm || null;
