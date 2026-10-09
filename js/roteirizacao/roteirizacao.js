@@ -1259,10 +1259,15 @@
 
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
-      definirStatusImportacao('Rota calculada. Confira a sequência antes de iniciar.', 'success');
+      definirStatusImportacao('Rota calculada e pronta para navegação.', 'success');
       esconderProcessamento();
-      abrirRevisaoOtimizacao();
-      if (!opcoes?.refinamento) notificar('Rota calculada. Confira a sequência e confirme.');
+      if (opcoes?.refinamento) {
+        abrirRevisaoOtimizacao();
+      } else {
+        rotaAtual.confirmadaEm = Date.now();
+        await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+        await global.PacoteEMatoFluxoImportacao?.concluirOtimizacaoEIrParaRota?.();
+      }
     } catch (erro) {
       console.error(erro);
       esconderProcessamento();
