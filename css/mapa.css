@@ -1,0 +1,45 @@
+/* Pacote É Mato — mapa 2D legível, com controles discretos */
+.maplibregl-map{font-family:'Plus Jakarta Sans',sans-serif;background:#dfe7ec}
+.maplibregl-canvas{outline:none}
+.maplibregl-ctrl-top-right{top:64px;right:10px}
+.maplibregl-ctrl-group{overflow:hidden!important;border:1px solid rgba(15,23,42,.12)!important;border-radius:12px!important;box-shadow:0 4px 14px rgba(15,23,42,.12)!important}
+.maplibregl-ctrl-group button{width:36px!important;height:36px!important;background-color:rgba(255,255,255,.97)!important}
+.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(255,255,255,.88)!important}
+.maplibregl-marker{will-change:transform}
+.pemato-start-marker{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;border:3px solid #fff;background:#2563eb;color:#fff;font:900 10px/1 'JetBrains Mono',monospace;box-shadow:0 4px 13px rgba(37,99,235,.32)}
+@media(max-width:820px){.maplibregl-ctrl-top-right{top:max(128px,calc(env(safe-area-inset-top) + 120px));right:12px}.maplibregl-ctrl-group button{width:42px!important;height:42px!important}.maplibregl-ctrl-attrib{max-width:65vw}}
+
+
+/* ETAPA 4 - localização atual controlada pelo app (separada do ponto inicial da rota) */
+.pemato-current-location-marker {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .28), 0 3px 10px rgba(15, 23, 42, .28);
+}
+.pemato-current-location-marker.is-stale {
+  opacity: .55;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, .2);
+}
+.routing-location-status {
+  max-width: min(42vw, 310px);
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #334155;
+  border: 1px solid rgba(148,163,184,.35);
+  box-shadow: 0 4px 14px rgba(15,23,42,.08);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.routing-location-status[data-tone="warning"] { color: #92400e; background: rgba(255,251,235,.96); border-color: rgba(245,158,11,.3); }
+.routing-location-status[data-tone="ok"] { color: #065f46; background: rgba(236,253,245,.96); border-color: rgba(16,185,129,.25); }
+@media (max-width: 820px) {
+  .routing-location-status { position: absolute; top: 52px; right: 0; max-width: 76vw; }
+}

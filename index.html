@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pacote É Mato</title>
+  
+  <!-- Ícone Favicon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230b0b0d' stroke='%2334d399' stroke-width='2'/%3E%3Cpath d='M22 68 Q10 46 28 32 Q38 50 22 68 Z' fill='%2310b981'/%3E%3Cpath d='M78 68 Q90 46 72 32 Q62 50 78 68 Z' fill='%2310b981'/%3E%3Cpolygon points='50,22 78,36 50,50 22,36' fill='%2310b981' stroke='%2334d399' stroke-width='1.5'/%3E%3Cpolygon points='22,36 50,50 50,78 22,64' fill='%23059669' stroke='%23047857' stroke-width='1.5'/%3E%3Cpolygon points='78,36 50,50 50,78 78,64' fill='%23047857' stroke='%23065f46' stroke-width='1.5'/%3E%3Cpath d='M50 22 L50 50 M36 43 L64 43' stroke='%23a7f3d0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50 78 Q40 60 50 42 Q60 60 50 78 Z' fill='%2334d399'/%3E%3Cpath d='M50 56 Q44 48 38 52 Q42 60 50 56 Z' fill='%236ee7b7'/%3E%3Cpath d='M50 50 Q56 42 62 46 Q58 54 50 50 Z' fill='%236ee7b7'/%3E%3C/svg%3E">
+  
+  <!-- PWA Setup -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000" id="metaThemeColor">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PacoteÉMato">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Chakra+Petch:wght@700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="css/mapa.css">
+    <link rel="stylesheet" href="css/app-shell.css">
+    <link rel="stylesheet" href="css/roteirizacao.css">
+    <link rel="stylesheet" href="css/navegacao.css">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body>
+
+  <div id="pdfLoadingScreen" aria-live="polite" aria-busy="true">
+    <div class="pdf-loading-card">
+      <div class="pdf-loading-error-icon">!</div>
+
+      <div class="pdf-loading-logo-wrap">
+        <svg width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <linearGradient id="pdfLoadBoxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#059669"/>
+              <stop offset="100%" stop-color="#047857"/>
+            </linearGradient>
+            <linearGradient id="pdfLoadPlantGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#34d399"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+          <path d="M22 68 Q10 46 28 32 Q38 50 22 68 Z" fill="url(#pdfLoadPlantGrad)"/>
+          <path d="M78 68 Q90 46 72 32 Q62 50 78 68 Z" fill="url(#pdfLoadPlantGrad)"/>
+          <polygon points="50,22 78,36 50,50 22,36" fill="#10b981" stroke="#34d399" stroke-width="1.5"/>
+          <polygon points="22,36 50,50 50,78 22,64" fill="url(#pdfLoadBoxGrad)" stroke="#047857" stroke-width="1.5"/>
+          <polygon points="78,36 50,50 50,78 78,64" fill="#047857" stroke="#065f46" stroke-width="1.5"/>
+          <path d="M50 22 L50 50 M36 43 L64 43" stroke="#a7f3d0" stroke-width="2" stroke-linecap="round"/>
+          <path d="M50 78 Q40 60 50 42 Q60 60 50 78 Z" fill="#34d399"/>
+          <path d="M50 56 Q44 48 38 52 Q42 60 50 56 Z" fill="#6ee7b7"/>
+          <path d="M50 50 Q56 42 62 46 Q58 54 50 50 Z" fill="#6ee7b7"/>
+        </svg>
+      </div>
+
+      <div class="pdf-loading-brand">PACOTE É MATO</div>
+      <div class="pdf-loading-title" id="pdfLoadingTitle">Preparando sua rota</div>
+      <div class="pdf-loading-subtitle" id="pdfLoadingSubtitle">
+        Aguarde enquanto conferimos os pacotes e organizamos as paradas.
+      </div>
+
+      <div class="pdf-loading-track">
+        <div class="pdf-loading-bar" id="pdfLoadingBar"></div>
+      </div>
+      <div class="pdf-loading-status" id="pdfLoadingStatus">Iniciando leitura...</div>
+      <div class="pdf-loading-file" id="pdfLoadingFile"></div>
+
+      <button type="button" class="pdf-loading-back" onclick="voltarUploadAposErroPdf()">
+        Voltar e escolher outro PDF
+      </button>
+    </div>
+  </div>
+
+
+    <!-- ABERTURA PS2 COM A CAIXA E MATO -->
+    <div id="splashScreenPs2">
+
+        <svg class="ps2-cube-rotating" viewBox="0 0 100 100">
+            <defs>
+                <linearGradient id="splashBoxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#10b981"/>
+                    <stop offset="100%" stop-color="#047857"/>
+                </linearGradient>
+                <linearGradient id="splashPlantGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#34d399"/>
+                    <stop offset="100%" stop-color="#059669"/>
+                </linearGradient>
+            </defs>
+            <path d="M18 70 Q5 45 25 30 Q35 50 18 70 Z" fill="url(#splashPlantGrad)"/>
+            <path d="M82 70 Q95 45 75 30 Q65 50 82 70 Z" fill="url(#splashPlantGrad)"/>
+            <polygon points="50,18 82,34 50,50 18,34" fill="#34d399" stroke="#6ee7b7" stroke-width="2"/>
+            <polygon points="18,34 50,50 50,82 18,66" fill="url(#splashBoxGrad)" stroke="#065f46" stroke-width="2"/>
+            <polygon points="82,34 50,50 50,82 82,66" fill="#047857" stroke="#064e3b" stroke-width="2"/>
+            <path d="M50 18 L50 50 M34 42 L66 42" stroke="#d1fae5" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M50 82 Q38 60 50 38 Q62 60 50 82 Z" fill="#34d399"/>
+        </svg>
+        <h1 class="ps2-title">PACOTE É MATO</h1>
+        <p class="ps2-subtitle">SISTEMA INTELIGENTE DE LOGÍSTICA</p>
+    </div>
+
+  <div id="toastNotificacao"></div>
+
+  <div id="telaBloqueio">
+    <div class="auth-wrapper auth-wrapper-premium">
+      <div class="auth-header-center auth-hero-premium">
+        <div class="auth-logo-shell">
+          <svg class="app-logo-pro" viewBox="0 0 100 100" onclick="registrarCliqueAdmin(event)">
+            <defs>
+              <linearGradient id="logoBoxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#059669"/>
+                <stop offset="100%" stop-color="#047857"/>
+              </linearGradient>
+              <linearGradient id="logoPlantGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#34d399"/>
+                <stop offset="100%" stop-color="#10b981"/>
+              </linearGradient>
+            </defs>
+
+            <path d="M22 68 Q10 46 28 32 Q38 50 22 68 Z" fill="url(#logoPlantGrad)"/>
+            <path d="M78 68 Q90 46 72 32 Q62 50 78 68 Z" fill="url(#logoPlantGrad)"/>
+            <polygon points="50,22 78,36 50,50 22,36" fill="#10b981" stroke="#34d399" stroke-width="1.5"/>
+            <polygon points="22,36 50,50 50,78 22,64" fill="url(#logoBoxGrad)" stroke="#047857" stroke-width="1.5"/>
+            <polygon points="78,36 50,50 50,78 78,64" fill="#047857" stroke="#065f46" stroke-width="1.5"/>
+            <path d="M50 22 L50 50 M36 43 L64 43" stroke="#a7f3d0" stroke-width="2" stroke-linecap="round"/>
+            <path d="M50 78 Q40 60 50 42 Q60 60 50 78 Z" fill="#34d399"/>
+            <path d="M50 56 Q44 48 38 52 Q42 60 50 56 Z" fill="#6ee7b7"/>
+            <path d="M50 50 Q56 42 62 46 Q58 54 50 50 Z" fill="#6ee7b7"/>
+          </svg>
+        </div>
+        <div class="auth-kicker">LOGÍSTICA INTELIGENTE NA PALMA DA MÃO</div>
+        <h1 class="brand-title-pro auth-title-premium">PACOTE É MATO</h1>
+        <p class="auth-copy-premium">Sistema inteligente para organizar pacotes, conferir entregas e deixar sua rota mais segura e eficiente.</p>
+        
+      </div>
+
+      <div class="auth-access-card">
+        <div class="auth-section-heading">
+          <div>
+            <span class="auth-section-eyebrow">ACESSO SEGURO</span>
+            <h2 id="tituloAuthModo">Acesse sua conta</h2>
+          </div>
+          <span class="auth-secure-badge">● Segurança</span>
+        </div>
+
+        <div class="auth-mode-tabs" role="tablist" aria-label="Acesso da conta">
+          <button type="button" class="auth-mode-btn active" id="tabEntrar" onclick="mostrarModoAuth('login')">Entrar</button>
+          <button type="button" class="auth-mode-btn" id="tabCadastro" onclick="mostrarModoAuth('cadastro')">Criar conta</button>
+        </div>
+
+        <div id="paneLogin" class="auth-pane active">
+          <label class="form-label-pro">WhatsApp / Acesso</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="tel" id="inputTel" class="input-auth" placeholder="(00) 00000-0000" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" oninput="normalizarCampoTelefone(this)" onblur="validarCampoTelefone(this)">
+          </div>
+          <div id="avisoNumero" role="status" style="color:#d97706;font-size:.74rem;margin:0 0 10px;"></div>
+
+          <label class="form-label-pro">Sua senha</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="password" id="inputSenha" class="input-auth com-icone-direita" placeholder="Digite sua senha" autocomplete="current-password">
+            <span class="input-icon-right" id="toggleSenhaVisivel" onclick="alternarVisibilidadeSenha()">VER</span>
+          </div>
+
+          <button type="button" class="auth-inline-link" onclick="toggleRecuperarSenha()">Esqueci minha senha</button>
+
+          <div id="boxRecuperarSenha" class="auth-recovery-box recovery-premium">
+            <div class="recovery-brand">
+              <div class="recovery-logo-mini" aria-hidden="true">
+                <svg viewBox="0 0 100 100">
+                  <polygon points="50,18 82,34 50,50 18,34" fill="#34d399"/>
+                  <polygon points="18,34 50,50 50,80 18,64" fill="#059669"/>
+                  <polygon points="82,34 50,50 50,80 82,64" fill="#047857"/>
+                  <path d="M50 80 Q40 61 50 43 Q60 61 50 80 Z" fill="#6ee7b7"/>
+                </svg>
+              </div>
+              <div>
+                <div class="recovery-kicker">PACOTE É MATO</div>
+                <div class="recovery-title">Redefinir sua senha</div>
+              </div>
+            </div>
+            <p class="recovery-copy">Informe o e-mail cadastrado. O Firebase enviará um link para você criar uma nova senha.</p>
+            <label class="form-label-pro">E-mail cadastrado</label>
+            <div class="input-group">
+              <span class="input-icon-left"></span>
+              <input type="email" id="inputEmailRecuperacao" class="input-auth" placeholder="seuemail@exemplo.com" autocomplete="email">
+            </div>
+            <button type="button" class="btn-action-primary recovery-send-btn" id="btnEnviarReset" onclick="recuperarSenhaFirebase()">Enviar e-mail para redefinir</button>
+
+            <div id="recoverySuccessCard" class="recovery-success-card" style="display:none;">
+              <div class="recovery-success-icon"></div>
+              <div>
+                <strong>E-mail enviado com segurança</strong>
+                <p>Verifique a Caixa de entrada. Se não encontrar, confira Spam, Lixo eletrônico e Promoções. Se estiver no Spam, marque como “Não é spam”.</p>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-action-primary auth-main-button" id="btnEntrarAuth" onclick="autenticarUsuarioFirebase()">
+            Entrar no Sistema <span aria-hidden="true">→</span>
+          </button>
+
+          <div id="boxContaAntiga" class="auth-legacy-box">
+            <p><strong>Conta antiga encontrada.</strong> Vá em “Criar conta”, informe este mesmo WhatsApp, adicione um e-mail e use sua senha antiga. Seu plano e vencimento serão preservados.</p>
+            <button type="button" class="auth-secondary-button" onclick="prepararMigracaoContaAntiga()">Vincular e-mail agora</button>
+          </div>
+        </div>
+
+        <div id="paneCadastro" class="auth-pane">
+          <label class="form-label-pro">WhatsApp</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="tel" id="cadastroTel" class="input-auth" placeholder="(00) 00000-0000" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" oninput="normalizarCampoTelefone(this)" onblur="validarCampoTelefone(this)">
+          </div>
+
+          <label class="form-label-pro">E-mail</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="email" id="cadastroEmail" class="input-auth" placeholder="seuemail@exemplo.com" autocomplete="email">
+          </div>
+
+          <label class="form-label-pro">Crie sua senha</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="password" id="cadastroSenha" class="input-auth" placeholder="Mínimo de 6 caracteres" autocomplete="new-password">
+          </div>
+
+          <label class="form-label-pro">Confirme sua senha</label>
+          <div class="input-group">
+            <span class="input-icon-left"></span>
+            <input type="password" id="cadastroSenha2" class="input-auth" placeholder="Repita a senha" autocomplete="new-password">
+          </div>
+
+          <details class="referral-details">
+            <summary> Tenho um código de indicação</summary>
+            <div class="referral-content">
+              <label class="form-label-pro" style="color:#34d399;">Código de indicação <span style="color:var(--text-muted);font-weight:600;">(opcional)</span></label>
+              <div class="input-group" style="margin-bottom:0;">
+                <span class="input-icon-left"></span>
+                <input type="tel" id="inputCupomIndicacao" class="input-auth" placeholder="WhatsApp de quem indicou" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" oninput="normalizarCampoTelefone(this)" onblur="validarCampoTelefone(this)">
+              </div>
+            </div>
+          </details>
+
+          <p class="auth-helper">Crie uma nova senha com no mínimo 6 caracteres. Se este WhatsApp for de uma conta antiga, o sistema pedirá separadamente a senha antiga apenas para confirmar a vinculação.</p>
+          <button type="button" class="btn-action-primary auth-main-button" id="btnCriarConta" onclick="criarContaFirebase()">Criar minha conta</button>
+          <button type="button" class="btn-action-trial auth-trial-button" id="btnTesteGratis" onclick="ativarTesteGratis()"> TESTE GRÁTIS — 10 DIAS</button>
+        </div>
+
+        <div id="avisoRenovacao" role="status" style="display:none;"><strong>Sua assinatura expirou</strong><p>Renove para continuar. Você mantém a mesma conta e o mesmo número.</p><button type="button" onclick="document.getElementById('areaPlanosRenovacao').scrollIntoView({behavior:'smooth',block:'start'})">Ver planos de renovação</button></div>
+        <div id="msgSucessoAuth" class="auth-success-message"></div>
+        <div id="msgErro" class="auth-error-message" style="display:none;"></div>
+      </div>
+
+      <div class="auth-plans-card" id="areaPlanosRenovacao">
+        <div class="auth-plans-header">
+          <div>
+            <span class="auth-section-eyebrow">ASSINATURA</span>
+            <h3>Escolha seu plano</h3>
+          </div>
+          <span class="auth-plans-note">Acesso completo</span>
+        </div>
+
+        <div class="plan-stack auth-plan-stack">
+          <div class="plan-item" id="cardPlano7" onclick="selecionarPlano(7, 4.99, '7 Dias (Semanal)', 'cardPlano7')">
+            <div>
+              <div class="plan-name" data-i18n="plan_weekly_name">Plano Semanal</div>
+              <div class="plan-meta" data-i18n="plan_weekly_meta">7 dias de acesso total</div>
+            </div>
+            <div class="plan-val">R$ 4,99</div>
+          </div>
+
+          
+          <div class="plan-item featured" id="cardPlano30" onclick="selecionarPlano(30, 9.99, '30 Dias (Mensal)', 'cardPlano30')">
+            <div>
+              <div class="plan-name" data-i18n="plan_monthly_name">Plano Mensal (1 Mês)</div>
+              <div class="plan-meta" data-i18n="plan_monthly_meta">30 dias • Melhor custo-benefício</div>
+            </div>
+            <div class="plan-val">R$ 9,99</div>
+            <div class="plan-badge-top">POPULAR</div>
+          </div>
+
+          <div class="plan-item" id="cardPlano90" onclick="selecionarPlano(90, 24.99, '90 Dias (3 Meses)', 'cardPlano90')">
+            <div>
+              <div class="plan-name" data-i18n="plan_quarterly_name">Plano Trimestral (3 Meses)</div>
+              <div class="plan-meta" data-i18n="plan_quarterly_meta">90 dias com desconto</div>
+            </div>
+            <div class="plan-val">R$ 24,99</div>
+          </div>
+        </div>
+
+        <button id="btnConfirmarPagamento" class="btn-gerar-pix-confirm auth-payment-button" onclick="iniciarPixPlanoSelecionado()">
+           <span data-i18n="generate_pix">Gerar Pagamento Pix</span>
+        </button>
+      </div>
+
+      <div class="auth-footer-premium">
+        <button type="button" class="auth-support-link" onclick="abrirSuporteWhatsApp()"> Precisa de ajuda? <strong>Falar com o suporte</strong></button>
+        <div class="auth-footer-status"><span></span> Sistema online • Pacote É Mato</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TUTORIAL EM VÍDEO -->
+  <div id="modalTutorialVideo" class="modal-backdrop" onclick="if(event.target===this) fecharTutorialVideo()">
+    <div class="modal-card tutorial-video-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div class="tutorial-video-title">▶ Como usar o Pacote É Mato</div>
+        <button onclick="fecharTutorialVideo()" aria-label="Fechar tutorial" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:4px 8px;"></button>
+      </div>
+      <video id="videoTutorialApp" class="tutorial-video" controls playsinline preload="metadata">
+        <source src="tutorial-pacote-e-mato.mp4" type="video/mp4">
+        Seu navegador não suporta reprodução de vídeo.
+      </video>
+      <button class="btn-action-primary" onclick="fecharTutorialVideo()" style="margin-top:10px;">Entendi, começar a usar</button>
+    </div>
+  </div>
+
+  <!-- AVISO DE TUTORIAL NO PRIMEIRO ACESSO -->
+  <div id="modalPrimeiroTutorial" class="modal-backdrop">
+    <div class="modal-card tutorial-video-card" style="text-align:center;">
+      <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,.14);border:1px solid rgba(52,211,153,.28);font-size:1.45rem;">▶</div>
+      <div class="tutorial-video-title" style="font-size:1.08rem;">Bem-vindo ao Pacote É Mato</div>
+      <p style="color:var(--text-muted);font-size:.82rem;line-height:1.5;margin:0 0 14px;">Antes da sua primeira rota, recomendamos assistir ao tutorial rápido para conhecer as principais funções do aplicativo.</p>
+      <button class="btn-action-primary" onclick="assistirTutorialPrimeiroAcesso()">▶ Assistir tutorial</button>
+      <button class="btn-action-trial" onclick="fecharAvisoPrimeiroTutorial()" style="margin-top:8px;">Agora não</button>
+    </div>
+  </div>
+
+  <!-- MODAL INDIQUE E GANHE DIAS GRÁTIS -->
+  <div id="modalIndicacao" class="modal-backdrop">
+    <div class="modal-card" style="max-width:390px; text-align:left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="color:#34d399; font-weight:800; font-size:1.05rem;"> Indique e Ganhe Dias</h3>
+        <span onclick="fecharModalIndicacao()" style="cursor:pointer; color:var(--text-muted); font-weight:bold;"></span>
+      </div>
+      
+      <div style="font-size:0.75rem; color:#fff; line-height:1.4; margin-bottom:12px;">
+        Compartilhe seu link com outros motoristas. Quando eles ativarem ou pagarem uma assinatura, **você ganha +7 dias grátis** e seu amigo ganha **+3 dias de bônus**!
+      </div>
+
+      <div style="background:var(--surface-2); padding:10px; border-radius:10px; border:1px solid var(--surface-border); text-align:center; margin-bottom:12px;">
+        <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Seu Código de Indicação</div>
+        <div style="font-size:1.15rem; font-weight:900; color:#34d399; font-family:'JetBrains Mono',monospace;" id="txtMeuCodigoIndicacao">00000000000</div>
+      </div>
+
+      <button onclick="copiarLinkConviteIndicacao()" class="btn-action-primary" style="background:var(--accent-green-gradient); margin-bottom:8px;">
+         Copiar Link para WhatsApp
+      </button>
+      <button onclick="fecharModalIndicacao()" style="background:none; border:none; color:var(--text-muted); font-size:0.75rem; font-weight:700; cursor:pointer; width:100%;">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL HISTÓRICO DE ROTAS DO MOTORISTA -->
+  <div id="modalHistoricoRotas" class="modal-backdrop">
+    <div class="modal-card" style="max-width:420px; text-align:left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="color:var(--primary); font-weight:800; font-size:1.05rem;"> Histórico de Rotas</h3>
+        <span onclick="fecharModalHistorico()" style="cursor:pointer; color:var(--text-muted); font-weight:bold;"></span>
+      </div>
+      <div id="listaHistoricoRotas" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+      <button onclick="fecharModalHistorico()" class="btn-action-primary" style="margin-top:12px;">Fechar</button>
+    </div>
+  </div>
+
+  <!-- MODAL PIX COM BOTÃO DE FORÇAR VERIFICAÇÃO -->
+  <div id="modalPix" class="modal-backdrop">
+    <div id="toastPix" class="context-toast"></div>
+    <div class="modal-card">
+      <div style="font-size:0.7rem; font-weight:800; color:#34d399; text-transform:uppercase; letter-spacing:1px;" data-i18n="secure_payment">Pagamento Seguro Pix</div>
+      <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-main); margin-top:2px;" id="pixPlanoNome">Plano Mensal - R$ 9,99</h3>
+      
+      <div class="qr-placeholder" id="qrContainer"></div>
+      
+      <div style="font-size:0.8rem; font-weight:700; color:var(--text-main); margin-bottom:2px;" data-i18n="waiting_confirmation">Aguardando confirmação... </div>
+      <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="auto_unlock">O sistema destrava sozinho após o pagamento.</div>
+
+      <input type="text" id="pixCopiaColaOut" readonly style="width:100%; padding:10px; background:var(--surface-2); color:#34d399; border:1px solid var(--surface-border); border-radius:10px; font-size:0.68rem; text-align:center; outline:none;">
+      
+      <button class="btn-action-primary" style="background:var(--accent-green-gradient); margin-top:10px;" onclick="copiarPixCopiaCola()">
+         <span data-i18n="copy_pix">Copiar Código Pix</span>
+      </button>
+
+      <!-- NOVO BOTÃO DE FORÇAR VERIFICAÇÃO MANUALMENTE -->
+      <button class="btn-action-primary" style="background:#3b82f6; margin-top:6px;" onclick="forcarChecagemPagamentoManual()">
+         Já fiz o pagamento, liberar acesso!
+      </button>
+
+      <button onclick="fecharModalPix()" style="margin-top:8px; background:none; border:none; color:var(--text-muted); font-size:0.78rem; font-weight:700; cursor:pointer;" data-i18n="cancel">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <div id="modalVisualizarRota" class="modal-backdrop">
+    <div class="modal-card" style="max-width:420px; text-align:left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="color:var(--primary); font-weight:800; font-size:1.05rem;"> Paradas & Endereços</h3>
+        <span onclick="fecharModalRota()" style="cursor:pointer; color:var(--text-muted); font-weight:bold;"></span>
+      </div>
+      
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; margin-bottom:8px;">
+        <button class="segmented-btn active" id="filtroTabTodos" onclick="filtrarParadasModal('todos')"> Paradas (<span id="contadorTodos">0</span>)</button>
+        <button class="segmented-btn" id="filtroTabDuplos" onclick="filtrarParadasModal('duplos')"> Pacotes Múltiplos (<span id="contadorDuplos">0</span>)</button>
+      </div>
+
+      <div id="resumoMultiplosRota" style="font-size:.68rem;color:var(--text-muted);font-weight:700;margin:0 2px 10px;text-align:center;"></div>
+
+      <div class="modal-rota-conteudo" id="listaParadasModal"></div>
+
+      <button onclick="fecharModalRota()" class="btn-action-primary" style="margin-top:14px;">Fechar</button>
+    </div>
+  </div>
+
+
+  <div id="modalResumoFinalRota" class="modal-backdrop" style="display:none; z-index:1000300;">
+    <div class="modal-card" style="max-width:390px;text-align:left;">
+      <div style="text-align:center;margin-bottom:12px;">
+        <div style="font-size:2rem;margin-bottom:4px;"></div>
+        <div style="font-size:.64rem;color:#34d399;font-weight:900;letter-spacing:1px;text-transform:uppercase;">Rota finalizada</div>
+        <h3 style="font-size:1.18rem;font-weight:900;color:var(--text-main);margin-top:3px;">Resumo da rota</h3>
+      </div>
+
+      <div class="final-summary-grid">
+        <div class="final-summary-item">
+          <div class="final-summary-value" id="finalPacotes">0</div>
+          <div class="final-summary-label">Pacotes</div>
+        </div>
+        <div class="final-summary-item">
+          <div class="final-summary-value" id="finalParadas">0</div>
+          <div class="final-summary-label">Paradas</div>
+        </div>
+        <div class="final-summary-item">
+          <div class="final-summary-value" id="finalMultiplas">0</div>
+          <div class="final-summary-label">Paradas múltiplas</div>
+        </div>
+        <div class="final-summary-item">
+          <div class="final-summary-value" id="finalDuracao">0 min</div>
+          <div class="final-summary-label">Duração</div>
+        </div>
+      </div>
+
+      <div style="padding:11px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--surface-border);font-size:.72rem;color:var(--text-muted);line-height:1.6;">
+        <div>Início: <strong id="finalInicio" style="color:var(--text-main);">--:--</strong></div>
+        <div>Fim: <strong id="finalFim" style="color:var(--text-main);">--:--</strong></div>
+      </div>
+
+      <button onclick="fecharResumoFinalRota()" class="btn-action-primary" style="margin-top:14px;">Concluir</button>
+    </div>
+  </div>
+
+  <div id="modalEscolhaGps" class="modal-backdrop">
+    <div class="modal-card" style="max-width:330px;">
+      <div style="font-size:0.7rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Navegação GPS</div>
+      <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-main); margin-bottom:12px;" id="tituloGpsParada">Parada</h3>
+      
+      <button class="gps-option-btn" style="background:linear-gradient(135deg, #059669, #10b981); color:#fff;" onclick="abrirGpsSelecionado('waze')">
+         Abrir no Waze
+      </button>
+      <button class="gps-option-btn" style="background:var(--surface-2); color:var(--text-main); border:1px solid var(--surface-border);" onclick="abrirGpsSelecionado('maps')">
+         Abrir no Google Maps
+      </button>
+      
+      <button onclick="fecharModalGps()" style="margin-top:6px; background:none; border:none; color:var(--text-muted); font-size:0.78rem; font-weight:700; cursor:pointer;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL MODO DONO / PAINEL MASTER -->
+
+  <!-- MODAL DONO - ALTERAR SENHA COM VISUALIZAÇÃO -->
+  <div id="modalSenhaAdmin" class="modal-backdrop" style="display:none; z-index:1000200;">
+    <div class="modal-card" style="max-width:380px;text-align:left; position:relative; z-index:1000201;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="color:var(--primary);font-size:1.05rem;font-weight:800;"> Alterar senha</h3>
+        <span onclick="fecharModalSenhaAdmin()" style="cursor:pointer;color:var(--text-muted);font-weight:bold;"></span>
+      </div>
+
+      <div id="senhaAdminContaLabel" style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;"></div>
+
+      <label class="form-label-pro">Nova senha</label>
+      <div class="input-group">
+        <span class="input-icon-left"></span>
+        <input id="adminNovaSenha" type="password" class="input-auth com-icone-direita" placeholder="Mínimo de 6 caracteres">
+        <span class="input-icon-right" onclick="alternarSenhaAdminVisivel('adminNovaSenha', this)">VER</span>
+      </div>
+
+      <label class="form-label-pro">Confirmar nova senha</label>
+      <div class="input-group">
+        <span class="input-icon-left"></span>
+        <input id="adminConfirmarSenha" type="password" class="input-auth com-icone-direita" placeholder="Digite novamente">
+        <span class="input-icon-right" onclick="alternarSenhaAdminVisivel('adminConfirmarSenha', this)">VER</span>
+      </div>
+
+      <div style="font-size:.70rem;color:var(--text-muted);line-height:1.4;margin:4px 0 14px;">
+        Você pode visualizar a <strong>nova senha que está definindo</strong>. A senha atual do Firebase não pode ser recuperada ou exibida.
+      </div>
+
+      <button class="btn-action-primary" onclick="confirmarNovaSenhaAdmin()">Salvar nova senha</button>
+      <button onclick="fecharModalSenhaAdmin()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-muted);font-weight:700;cursor:pointer;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+
+  <!-- MODAL DONO - EDITAR E-MAIL -->
+  <div id="modalEmailAdmin" class="modal-backdrop" style="display:none; z-index:1000210;">
+    <div class="modal-card" style="max-width:390px;text-align:left;position:relative;z-index:1000211;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:.62rem;color:#34d399;font-weight:900;letter-spacing:.8px;text-transform:uppercase;">Modo Dono</div>
+          <h3 style="color:var(--text-main);font-size:1.08rem;font-weight:900;margin-top:2px;"> Editar e-mail</h3>
+        </div>
+        <span onclick="fecharModalEmailAdmin()" style="cursor:pointer;color:var(--text-muted);font-weight:bold;font-size:1.05rem;"></span>
+      </div>
+
+      <div id="emailAdminContaInfo" style="padding:10px 12px;background:var(--surface-2);border:1px solid var(--surface-border);border-radius:12px;font-size:.74rem;color:var(--text-muted);line-height:1.5;margin-bottom:14px;"></div>
+
+      <label class="form-label-pro">E-mail atual</label>
+      <div class="input-group">
+        <span class="input-icon-left"></span>
+        <input id="emailAdminAtual" type="email" class="input-auth" readonly style="opacity:.78;">
+      </div>
+
+      <label class="form-label-pro">Novo e-mail</label>
+      <div class="input-group">
+        <span class="input-icon-left"></span>
+        <input id="emailAdminNovo" type="email" class="input-auth" placeholder="novoemail@exemplo.com">
+      </div>
+
+      <label class="form-label-pro">Confirmar novo e-mail</label>
+      <div class="input-group">
+        <span class="input-icon-left"></span>
+        <input id="emailAdminConfirmar" type="email" class="input-auth" placeholder="Digite novamente">
+      </div>
+
+      <div style="font-size:.70rem;color:var(--text-muted);line-height:1.45;margin:4px 0 14px;">
+        O novo e-mail será usado no login e na recuperação de senha. Plano, dias e vencimento não serão alterados.
+      </div>
+
+      <button id="btnSalvarEmailAdmin" class="btn-action-primary" onclick="confirmarEmailAdmin()">Salvar novo e-mail</button>
+      <button onclick="fecharModalEmailAdmin()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-muted);font-weight:700;cursor:pointer;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <div id="modalAdmin" class="modal-backdrop">
+    <div id="toastAdmin" class="context-toast"></div>
+    <div class="modal-card" style="max-width:1100px; text-align:left; max-height:92vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="color:var(--primary); font-weight:800; font-size:1.05rem;">Central de administração</h3>
+        <button class="adm-close" onclick="fecharModalAdmin()" aria-label="Fechar painel"></button>
+      </div>
+      
+      <div id="areaLoginAdmin">
+        <input type="password" id="passAdmin" placeholder="Senha Mestre" class="input-auth" style="margin-bottom:10px; padding-left:14px;">
+        <button onclick="autenticarAdmin()" class="btn-action-primary">Entrar no Modo Dono</button>
+      </div>
+
+      <div id="areaGeradorAdmin" style="display:none; flex-direction:column;">
+        
+        <p class="adm-subheading">Contas, assinaturas e operações em um só lugar.</p><div class="adm-metrics"><div class="adm-metric"><span>Faturamento registrado</span><strong id="txtTotalFaturamento">R$ 0,00</strong></div><div class="adm-metric"><span>Pagantes ativos</span><strong id="txtTotalPagantesAtivos">0</strong></div><div class="adm-metric"><span>Acessos vitalícios</span><strong id="txtAdminVitalicios">0</strong></div><div class="adm-metric"><span>Contas expiradas</span><strong id="txtAdminExpirados">0</strong></div></div>
+        <!-- BUSCA RÁPIDA E EXPORTAÇÃO -->
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <input type="text" id="buscaAdminUser" placeholder=" Buscar por WhatsApp..." oninput="filtrarListaAdminLocal()" class="input-auth" style="padding-left:14px; flex:1; font-size:0.8rem; margin-bottom:0;">
+          <button onclick="exportarRelatorioCSV()" class="btn-action-primary" style="width:auto; padding:0 10px; font-size:0.75rem; margin-bottom:0; background:var(--surface-2); border:1px solid var(--surface-border);">
+             CSV
+          </button>
+        </div>
+
+<div class="adm-section-label">ASSINATURAS</div><div class="admin-nav-tabs"><button class="admin-tab active" id="tab30d" onclick="alternarTabAdmin('30d')">Mensal <span id="countAdmin30d" class="adm-count">0</span></button><button class="admin-tab " id="tab90d" onclick="alternarTabAdmin('90d')">Trimestral <span id="countAdmin90d" class="adm-count">0</span></button><button class="admin-tab " id="tabTeste" onclick="alternarTabAdmin('teste')">Teste grátis <span id="countAdminTeste" class="adm-count">0</span></button><button class="admin-tab " id="tabVitalicio" onclick="alternarTabAdmin('vitalicio')">Vitalício <span id="countAdminVitalicio" class="adm-count">0</span></button><button class="admin-tab " id="tabOutros" onclick="alternarTabAdmin('outros')">Outros acessos <span id="countAdminOutros" class="adm-count">0</span></button><button class="admin-tab " id="tabExpirados" onclick="alternarTabAdmin('expirados')">Expirados <span id="countAdminExpirados" class="adm-count">0</span></button><button class="admin-tab " id="tabBloqueados" onclick="alternarTabAdmin('bloqueados')">Bloqueados <span id="countAdminBloqueados" class="adm-count">0</span></button></div><div class="adm-tools"><button class="admin-tab" id="tabPagos" onclick="alternarTabAdmin('pagos')">Histórico financeiro</button><button class="admin-tab" id="tabAdd" onclick="alternarTabAdmin('add')">Liberar / renovar acesso</button><button class="admin-tab" id="tabAviso" onclick="alternarTabAdmin('aviso')">Comunicados</button><button class="admin-tab" onclick="carregarUsuariosAdmin();carregarPagamentosAdmin()">Atualizar dados</button></div><div id="admListSummary" class="adm-list-summary"></div><div class="adm-user-list" id="viewAdmin30d" style="display:flex; flex-direction:column;"></div><div class="adm-user-list" id="viewAdmin90d" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminTeste" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminVitalicio" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminOutros" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminExpirados" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminBloqueados" style="display:none; flex-direction:column;"></div><div class="adm-user-list" id="viewAdminPagos" style="display:none; flex-direction:column;"></div>
+        <!-- ABA LIBERAR ACESSO COM QUALQUER QUANTIDADE DE DIAS -->
+        <div id="viewAdminAdd" style="display:none; flex-direction:column; gap:8px;">
+          <label class="form-label-pro">WhatsApp do Entregador (DDD + Número)</label>
+          <input type="tel" id="inputClienteZap" placeholder="Ex: 11999998888" class="input-auth" style="padding-left:14px;" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" oninput="normalizarCampoTelefone(this)" onblur="validarCampoTelefone(this)">
+
+          <div style="padding:10px 12px;border-radius:10px;background:rgba(16,185,129,.08);border:1px solid rgba(52,211,153,.18);font-size:.68rem;color:var(--text-muted);line-height:1.45;">
+             A senha não é mais definida pelo Modo Dono. A conta precisa ser criada pelo usuário no acesso seguro; aqui você apenas libera ou renova o período.
+          </div>
+
+          <label class="form-label-pro">Duração do acesso</label><p class="adm-subheading">Escolha 30 dias para Mensal, 90 para Trimestral ou o atalho Vitalício. Outros valores ficam em Outros acessos.</p>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="inputDiasCustom" placeholder="Ex: 1, 15, 45, 180" class="input-auth" style="padding-left:14px; flex:1;" min="1" value="30">
+            <select id="selAtalhosDias" onchange="if(this.value) document.getElementById('inputDiasCustom').value = this.value" class="input-auth" style="width:130px; padding:0 8px;">
+              <option value="">Atalhos...</option>
+              <option value="1">1 Dia</option>
+              <option value="7">7 Dias</option>
+              <option value="15">15 Dias</option>
+              <option value="30">30 Dias</option>
+              <option value="90">90 Dias</option>
+              <option value="365">365 Dias</option><option value="1000000">Vitalício</option>
+            </select>
+          </div>
+
+          <button onclick="liberarClienteManual()" class="btn-action-primary" style="background:var(--accent-green); color:#fff; margin-top:6px;">
+             Salvar e Ativar Acesso
+          </button>
+        </div>
+
+        <!-- ABA AVISO BROADCAST COM DURAÇÃO -->
+        <div id="viewAdminAviso" style="display:none; flex-direction:column; gap:8px;">
+          <label class="form-label-pro">Mensagem para todos os motoristas</label>
+          <textarea id="inputBroadcastTexto" class="input-auth" style="height:75px; padding-left:14px; resize:none;" placeholder="Ex: Servidor em manutenção rápida hoje às 23h..."></textarea>
+          
+          <label class="form-label-pro">Duração do Aviso na Tela</label>
+          <select id="selDuracaoAviso" class="input-auth" style="padding-left:10px; margin-bottom:4px;">
+            <option value="1">1 Hora</option>
+            <option value="3">3 Horas</option>
+            <option value="6">6 Horas</option>
+            <option value="12">12 Horas</option>
+            <option value="24" selected>24 Horas (1 Dia)</option>
+            <option value="72">3 Dias</option>
+            <option value="99999">Permanente (Até eu apagar)</option>
+          </select>
+
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <button onclick="salvarBroadcastGlobal(true)" class="btn-action-primary" style="background:#f59e0b; color:#000;">
+               Publicar Aviso
+            </button>
+            <button onclick="salvarBroadcastGlobal(false)" class="btn-action-primary" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444;">
+               Apagar
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="top-nav" id="elTopNav">
+    <button class="nav-btn" id="btnMenuReal" onclick="toggleSidebar()">
+      <span aria-hidden="true"></span> <span data-i18n="menu">Menu</span>
+    </button>
+    <span class="access-badge" id="diasRestantes">Acesso Ativo</span>
+  </div>
+
+  <div class="drawer-mask" id="overlay" onclick="toggleSidebar()"></div>
+
+  <div class="drawer-panel" id="sidebar">
+    <div style="font-weight:900;font-size:1.05rem;margin-bottom:2px;color:var(--text-main);">PACOTE É MATO</div>
+    <div style="font-size:.68rem;color:#34d399;font-weight:800;margin-bottom:12px;">Plataforma de Logística</div>
+    <nav class="sidebar-nav" aria-label="Navegação principal">
+      <button type="button" data-pemato-nav="inicio">Início</button>
+      <button type="button" data-pemato-nav="roteirizacao">Roteirização</button>
+      <button type="button" data-pemato-nav="bipagem">Bipagem</button>
+      <div class="sidebar-separator"></div>
+      <button type="button" data-pemato-nav="historico">Histórico de rotas</button>
+      <button type="button" data-pemato-nav="configuracoes">Configurações</button>
+      <div class="sidebar-separator"></div>
+      <button type="button" onclick="abrirTutorialVideo(); PacoteEMatoAppShell.fecharSidebar();">Vídeo tutorial</button>
+      <a href="termos-de-uso.html" target="_blank" rel="noopener">Termos de uso</a>
+      <a href="politica-privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>
+      <a href="licencas.html" target="_blank" rel="noopener">Licenças</a>
+    </nav>
+    <div class="sidebar-version">Versão 4 corrigida</div>
+    <div style="display:grid;gap:7px;margin-top:10px">
+      <a href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato" style="text-decoration:none"><button class="pemato-secondary" style="width:100%" type="button">Suporte</button></a>
+      <button onclick="zerarRota()" class="pemato-secondary" type="button">Zerar bipagens</button>
+      <button onclick="sairDoApp()" class="pemato-danger" type="button">Desconectar conta</button>
+    </div>
+  </div>
+
+  <main id="moduloInicio" class="pemato-module">
+    <div class="module-head">
+      <div>
+        <div class="module-kicker">Painel operacional</div>
+        <h1 class="module-title">Início</h1>
+        <p class="module-copy">Prepare a rota, faça a conferência dos pacotes e acompanhe a operação sem misturar planejamento com bipagem.</p>
+      </div>
+    </div>
+    <div class="home-grid">
+      <section class="home-panel">
+        <div id="homeNoRoute">
+          <div class="module-kicker">Nenhuma rota ativa</div>
+          <h2 style="margin:6px 0 5px;font-size:1rem;color:var(--text-main)">Comece pela Roteirização</h2>
+          <p class="module-copy">Importe uma planilha ou adicione um endereço manualmente para preparar a próxima rota.</p>
+        </div>
+        <div id="homeActiveRouteCard" class="home-route-card">
+          <div class="home-route-head">
+            <div><div class="module-kicker">Rota ativa</div><strong id="homeRouteName">Rota</strong></div>
+            <span class="home-route-status" id="homeRouteStatus">Em planejamento</span>
+          </div>
+          <div class="home-metrics">
+            <div class="home-metric"><strong id="homeRouteStops">0</strong><span>Paradas</span></div>
+            <div class="home-metric"><strong id="homeRoutePackages">0</strong><span>Pacotes</span></div>
+            <div class="home-metric"><strong id="homeRouteDistance">—</strong><span>Distância</span></div>
+            <div class="home-metric"><strong id="homeRouteTime">—</strong><span>Tempo total</span></div>
+            <div class="home-metric"><strong id="homeRouteProgress">0 de 0</strong><span>Entregues</span></div>
+          </div>
+        </div>
+
+      </section>
+      <aside class="home-panel quick-actions" aria-label="Tarefas principais">
+        <button class="quick-card" type="button" data-pemato-nav="roteirizacao"><strong>Planejar rota</strong><span>Importe uma planilha, confira as paradas e prepare a rota.</span></button>
+        <button class="quick-card" type="button" data-pemato-nav="bipagem"><strong>Abrir Bipagem</strong><span>Conferir os pacotes da rota ativa ou continuar com o PDF já suportado.</span></button>
+      </aside>
+    </div>
+  </main>
+
+  <main id="moduloRoteirizacao" class="pemato-module routing-module" style="display:none;">
+    <header class="routing-page-header">
+      <div class="routing-desktop-heading">
+        <div>
+          <div class="module-kicker">Planejamento da operação</div>
+          <h1 class="module-title">Roteirização</h1>
+        </div>
+        <div class="routing-route-name-wrap">
+          <label for="routingRouteName">Nome da rota</label>
+          <input id="routingRouteName" class="pemato-field" type="text" placeholder="Rota de hoje">
+        </div>
+      </div>
+    </header>
+
+    <input id="routingXlsxInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
+
+    <section id="routingWorkspace" class="routing-workspace sheet-collapsed">
+      <aside id="routingBottomSheet" class="routing-list-pane" aria-label="Paradas da rota">
+        <button id="routingSheetHandle" class="routing-sheet-handle" type="button" aria-label="Expandir ou recolher lista de paradas">
+          <span></span>
+        </button>
+
+        <div class="routing-sheet-summary">
+          <button id="routingSheetToggle" class="routing-sheet-summary-main" type="button" aria-expanded="false">
+            <strong id="routingSheetHeadline">Rota em planejamento</strong>
+            <span id="routingSheetMeta">0 paradas</span>
+          </button>
+          <button id="routingActionsBtn" class="routing-icon-button" type="button" aria-label="Ações da rota" title="Ações da rota">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
+          </button>
+        </div>
+
+        <div class="routing-sheet-body">
+          <div class="routing-list-head">
+            <div>
+              <strong>Paradas</strong>
+              <span><b id="routingImportedCount">0</b> importadas · <b id="routingLocatedCount">0</b> localizadas · <b id="routingProblemCount">0</b> a revisar</span>
+            </div>
+            <div class="routing-list-main-actions">
+              <button id="routingVisibleImportBtn" class="routing-list-main-btn" type="button">Importar XLSX</button>
+              <button id="routingAddStopInlineBtn" class="routing-list-main-btn secondary" type="button">Adicionar endereço</button>
+            </div>
+          </div>
+
+          <div class="routing-stop-search-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"></path></svg>
+            <input id="routingStopSearch" type="search" placeholder="Buscar endereço ou pacote" autocomplete="off">
+          </div>
+
+          <div id="routingImportStatus" class="routing-import-status" role="status" aria-live="polite" style="display:none">
+            Importe uma planilha para começar. Se as colunas forem diferentes, o sistema permitirá associá-las.
+          </div>
+
+          <div class="routing-sheet-metrics" aria-label="Resumo da rota">
+            <div><span>Paradas</span><strong id="routeMetricStops">0</strong></div>
+            <div><span>Distância</span><strong id="routeMetricDistance">—</strong></div>
+            <div><span>Direção</span><strong id="routeMetricDrive">—</strong></div>
+            <div><span>Atendimento</span><strong id="routeMetricStopTime">—</strong></div>
+            <div><span>Total</span><strong id="routeMetricTotal">—</strong></div>
+            <div><span>Término</span><strong id="routeMetricEnd">—</strong></div>
+          </div>
+
+          <div id="routePlannerStops" class="routing-stop-list"></div>
+        </div>
+
+        <div class="routing-sheet-primary">
+          <button id="routingPrimaryActionBtn" class="pemato-primary" type="button">Importar planilha XLSX</button>
+        </div>
+      </aside>
+
+      <div class="routing-map-pane">
+        <div class="routing-map-topbar">
+          <div class="routing-map-status-chip">
+            <strong id="routingMapTitle">Rota de hoje</strong>
+            <span id="routingOptimizedFlag" class="routing-optimized-flag">Rota em planejamento</span>
+          </div>
+          <div class="routing-map-tools">
+            <span id="routingLocationStatus" class="routing-location-status" role="status" aria-live="polite" hidden></span>
+            <button id="routingMyLocationBtn" class="routing-map-icon" type="button" aria-label="Atualizar minha localização" title="Minha localização">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+            </button>
+            <button id="routingFitMapBtn" class="routing-map-icon" type="button" aria-label="Ver todas as paradas" title="Ver todas as paradas">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="mapaRoteirizacao"></div>
+        <div id="mapaRoteirizacaoFallback" class="route-map-fallback"></div>
+
+        <div id="routingEmptyState" class="routing-map-empty-state">
+          <strong>Importe sua planilha para começar</strong>
+          <span>Crie a rota com um XLSX ou adicione um endereço manualmente. Nenhuma rota existente será substituída sem você escolher um novo arquivo.</span>
+          <div class="routing-empty-actions">
+            <button id="routingEmptyImportBtn" class="pemato-primary" type="button">Importar planilha XLSX</button>
+            <button id="routingEmptyAddBtn" class="pemato-secondary" type="button">Adicionar endereço manualmente</button>
+          </div>
+        </div>
+
+        <aside id="routingSelectedStopCard" class="routing-selected-stop" style="display:none">
+          <div class="routing-selected-stop-order" id="routingSelectedStopOrder">1</div>
+          <div class="routing-selected-stop-body">
+            <strong id="routingSelectedStopAddress">Parada selecionada</strong>
+            <span id="routingSelectedStopComplement"></span>
+            <small id="routingSelectedStopMeta"></small>
+          </div>
+          <button id="routingSelectedStopEdit" class="routing-selected-edit" type="button">Editar</button>
+        </aside>
+      </div>
+    </section>
+
+    <div id="routingActionsBackdrop" class="routing-actions-backdrop" style="display:none">
+      <section id="routingActionsMenu" class="routing-actions-menu" role="dialog" aria-modal="true" aria-labelledby="routingActionsTitle">
+        <div class="routing-actions-grabber"></div>
+        <div class="routing-actions-head">
+          <div>
+            <strong id="routingActionsTitle">Mais ações</strong>
+            <span>Ferramentas secundárias da rota</span>
+          </div>
+          <button id="routingActionsCloseBtn" class="routing-actions-close" type="button" aria-label="Fechar menu">×</button>
+        </div>
+
+        <div class="routing-actions-route-name">
+          <label for="routingRouteNameMirror">Nome da rota</label>
+          <input id="routingRouteNameMirror" class="pemato-field" type="text" placeholder="Rota de hoje">
+        </div>
+
+        <div class="routing-action-list">
+          <button id="routingUseLegacyBtn" class="routing-action-row" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 4v6M6 13h12M6 17h8"></path></svg>
+            <span><strong>Usar rota da Bipagem</strong><small>Trazer as paradas já carregadas pelo PDF</small></span>
+          </button>
+          <button id="routingInvertBtn" class="routing-action-row routing-route-ready-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>
+            <span><strong>Inverter ordem</strong><small>Inverter a sequência da rota calculada</small></span>
+          </button>
+          <button id="routingExportPdfBtn" class="routing-action-row" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 14h6M9 17h5"></path></svg>
+            <span><strong>Exportar PDF</strong><small>Gerar uma cópia para conferência</small></span>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <main id="moduloNavegacao" class="pemato-module" style="display:none;">
+    <div class="module-head"><div><div class="module-kicker">Deslocamento</div><h1 class="module-title">Navegação</h1><p class="module-copy">Mapa 2D, posição GPS, próxima parada e recálculo da rota ativa.</p></div></div>
+    <div class="navigation-layout">
+      <div class="navigation-map"><div id="mapaNavegacao"></div></div>
+      <aside class="navigation-panel">
+        <section class="nav-next-card"><div class="eyebrow">PRÓXIMA PARADA</div><h3 id="navNextAddress">Aguardando rota</h3><p id="navNextComplement"></p></section>
+        <section class="nav-stats"><div class="nav-stat"><strong id="navDistanceNext">—</strong><span>Até a próxima</span></div><div class="nav-stat"><strong id="navEtaNext">—</strong><span>ETA próxima</span></div><div class="nav-stat"><strong id="navRemaining">0</strong><span>Restantes</span></div><div class="nav-stat"><strong id="navRouteTotal">—</strong><span>Rota restante</span></div><div class="nav-stat"><strong id="navRouteTime">—</strong><span>Tempo de direção</span></div></section>
+        <div class="nav-actions"><button id="navDeliveredBtn" class="pemato-primary" type="button">Marcar entregue</button><button id="navNotDeliveredBtn" class="pemato-danger" type="button">Não entregue</button><button id="navAdvanceBtn" class="pemato-secondary" type="button">Próxima parada</button><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular</button><button id="navOpenWazeBtn" class="pemato-secondary" type="button">Abrir Waze</button><button id="navOpenGoogleBtn" class="pemato-secondary" type="button">Abrir Google Maps</button><button id="navEndBtn" class="pemato-danger wide" type="button">Encerrar navegação</button></div>
+        <section id="navFailurePanel" class="nav-failure-panel" style="display:none"><h4>Registrar não entrega</h4><label>Motivo<select id="navFailureReason" class="pemato-field"><option value="cliente_ausente">Cliente ausente</option><option value="endereco_incorreto">Endereço incorreto</option><option value="estabelecimento_fechado">Estabelecimento fechado</option><option value="recusado">Recusado</option><option value="outro">Outro</option></select></label><label>Observação<textarea id="navFailureNote" class="pemato-field" rows="2" placeholder="Detalhes opcionais"></textarea></label><div class="nav-failure-actions"><button id="navFailureConfirmBtn" class="pemato-danger" type="button">Confirmar não entrega</button><button id="navFailureCancelBtn" class="pemato-secondary" type="button">Cancelar</button></div></section>
+        <section class="nav-instructions-card"><h4>Instruções da rota</h4><div id="navInstructions"></div></section>
+      </aside>
+    </div>
+  </main>
+
+  <main id="moduloHistorico" class="pemato-module" style="display:none;">
+    <div class="module-head"><div><div class="module-kicker">Consulta</div><h1 class="module-title">Histórico de rotas</h1><p class="module-copy">Rotas salvas no armazenamento persistente da nova arquitetura, com espelhamento no Firestore quando permitido.</p></div></div>
+    <div class="routing-toolbar"><select id="historyFilter" class="pemato-field" style="max-width:180px"><option value="semana">Esta semana</option><option value="data">Uma data</option><option value="periodo">Período</option><option value="todos">Todas</option></select><input id="historyDate" class="pemato-field" type="date" style="max-width:170px"><input id="historyStart" class="pemato-field" type="date" style="max-width:170px"><input id="historyEnd" class="pemato-field" type="date" style="max-width:170px"><button id="historyRefreshBtn" class="pemato-secondary" type="button">Atualizar</button><button id="historyLegacyBtn" class="pemato-secondary" type="button">Histórico anterior</button></div>
+    <div id="historyRoutesList" class="history-routes-list"></div>
+  </main>
+
+  <main id="moduloConfiguracoes" class="pemato-module" style="display:none;">
+    <div class="module-head">
+      <div>
+        <div class="module-kicker">Preferências operacionais</div>
+        <h1 class="module-title">Configurações</h1>
+        <p class="module-copy">Estas preferências são salvas e aplicadas de verdade às novas rotas e à rota ativa quando houver alteração.</p>
+      </div>
+    </div>
+
+    <div class="settings-grid settings-grid-professional">
+      <section class="settings-card">
+        <div class="settings-card-head"><strong>Navegação</strong><span>Aplicativo usado ao iniciar o deslocamento</span></div>
+        <label for="settingsNavigation">Navegação preferida</label>
+        <select id="settingsNavigation" class="pemato-field"><option value="pacote_emato">Pacote É Mato</option><option value="waze">Waze</option><option value="google">Google Maps</option></select>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-head"><strong>Veículo</strong><span>Perfil usado pelo serviço de roteamento</span></div>
+        <label for="settingsVehicle">Tipo de veículo</label>
+        <select id="settingsVehicle" class="pemato-field"><option value="carro">Carro</option><option value="moto">Moto</option><option value="caminhao">Caminhão</option></select>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-head"><strong>Tempo nas paradas</strong><span>Entra no cálculo do tempo total estimado</span></div>
+        <label for="settingsStopMinutes">Tempo médio por parada (minutos)</label>
+        <input id="settingsStopMinutes" class="pemato-field" type="number" min="0" max="180" step="1" value="3">
+        <label class="settings-check"><input id="settingsReturnStart" type="checkbox"> Retornar ao ponto inicial ao finalizar a rota</label>
+      </section>
+
+      <section class="settings-card settings-card-wide">
+        <div class="settings-card-head"><strong>Ponto de partida</strong><span>Use um endereço validado ou a localização atual</span></div>
+        <label for="settingsStartPoint">Endereço de partida</label>
+        <div class="settings-start-row">
+          <input id="settingsStartPoint" class="pemato-field" type="text" placeholder="Ex.: Rua Exemplo, 100, São Paulo - SP">
+          <button id="settingsGeocodeStartBtn" class="pemato-secondary" type="button">Validar endereço</button>
+          <button id="settingsUseGpsStartBtn" class="pemato-secondary" type="button">Usar minha localização</button>
+          <button id="settingsClearStartBtn" class="pemato-tertiary" type="button">Limpar</button>
+        </div>
+        <div id="settingsStartStatus" class="settings-inline-status">Nenhum ponto validado.</div>
+      </section>
+
+
+
+      <section class="settings-card">
+        <div class="settings-card-head"><strong>Aparência</strong><span>Tema da interface</span></div>
+        <label>Tema</label>
+        <div class="segmented-control-grid3"><button class="segmented-btn active" id="theme_black_Preto" onclick="mudarTema('black_Preto')">Preto</button><button class="segmented-btn" id="theme_Branco" onclick="mudarTema('Branco')">Branco</button><button class="segmented-btn" id="theme_gray" onclick="mudarTema('gray')">Cinza</button></div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-head"><strong>Voz</strong><span>Feedback sonoro do aplicativo</span></div>
+        <label>Voz do sistema</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px"><button class="segmented-btn active" id="voice_navegacao_feminina" onclick="salvarVoz('navegacao_feminina', true)">Navegação</button><button class="segmented-btn" id="voice_mudo" onclick="salvarVoz('mudo', false)">Silencioso</button></div>
+      </section>
+    </div>
+    <div class="settings-save-row"><button id="settingsSaveBtn" class="pemato-primary" type="button">Salvar configurações</button></div>
+  </main>
+
+  <div class="container pemato-module" id="moduloBipagem" style="display:none;">
+    <!-- BANNER DE AVISO GERAL (BROADCAST) COM ANIMAÇÃO -->
+    <div id="bannerBroadcast"></div>
+    
+    <div class="hero-banner hero-banner-compacto">
+      <svg class="app-logo-pro" viewBox="0 0 100 100" style="width:38px; height:38px; margin:0 auto 2px;">
+        <defs>
+          <linearGradient id="logoBoxGradBanner" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#059669"/>
+            <stop offset="100%" stop-color="#047857"/>
+          </linearGradient>
+          <linearGradient id="logoPlantGradBanner" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#10b981"/>
+          </linearGradient>
+        </defs>
+
+        <path d="M22 68 Q10 46 28 32 Q38 50 22 68 Z" fill="url(#logoPlantGradBanner)"/>
+        <path d="M78 68 Q90 46 72 32 Q62 50 78 68 Z" fill="url(#logoPlantGradBanner)"/>
+        <polygon points="50,22 78,36 50,50 22,36" fill="#10b981" stroke="#34d399" stroke-width="1.5"/>
+        <polygon points="22,36 50,50 50,78 22,64" fill="url(#logoBoxGradBanner)" stroke="#047857" stroke-width="1.5"/>
+        <polygon points="78,36 50,50 50,78 78,64" fill="#047857" stroke="#065f46" stroke-width="1.5"/>
+        <path d="M50 22 L50 50 M36 43 L64 43" stroke="#a7f3d0" stroke-width="2" stroke-linecap="round"/>
+        <path d="M50 78 Q40 60 50 42 Q60 60 50 78 Z" fill="#34d399"/>
+        <path d="M50 56 Q44 48 38 52 Q42 60 50 56 Z" fill="#6ee7b7"/>
+        <path d="M50 50 Q56 42 62 46 Q58 54 50 50 Z" fill="#6ee7b7"/>
+      </svg>
+      <div style="font-size:.92rem; font-weight:900; color:var(--text-main);">PACOTE É MATO</div>
+    </div>
+
+
+    <div id="toolbarRotaAtiva" class="toolbar-rota-ativa" style="display:none;">
+      <button type="button" class="toolbar-rota-btn toolbar-rota-home" onclick="voltarAoInicioRota()">
+        ← Voltar ao início
+      </button>
+      <button type="button" class="toolbar-rota-btn" onclick="abrirModalRota()">
+       Visualizar Paradas
+      </button>
+    </div>
+
+    <div id="activeRouteBipagemCard" class="home-panel" style="display:none;margin-bottom:12px;padding:12px">
+      <div class="home-route-head"><div><div class="module-kicker">Rota ativa</div><strong id="activeRouteBipagemName">Rota</strong></div></div>
+      <div id="activeRouteBipagemMeta" class="module-copy" style="margin-top:5px"></div>
+      <button id="activeRouteBipagemUseBtn" class="pemato-primary" type="button" style="margin-top:9px">Usar rota ativa na Bipagem</button>
+    </div>
+
+    <div class="upload-section" id="elSecaoUpload">
+      <div style="font-size:0.9rem; font-weight:800; color:var(--text-main); margin-bottom:2px;" data-i18n="load_pdf_title">Carregar Rota em PDF</div>
+      <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;" data-i18n="load_pdf_subtitle">Importe a folha da sua rota para sincronizar as paradas</div>
+      
+      <button class="btn-upload-trigger" onclick="document.getElementById('pdfInput').click()" id="btnUploadTxt" style="margin-bottom:8px;">
+       Escolher Arquivo PDF
+      </button>
+<button id="btnVerParadasModal" type="button" style="display:none;" onclick="abrirModalRota()"></button>
+<input type="file" id="pdfInput" accept="application/pdf" style="display:none;">
+    </div>
+
+    
+
+<div class="card-retomar-rota" id="cardRetomarRota">
+      <div style="font-size:0.75rem; font-weight:800; color:#34d399; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;" data-i18n="saved_route_found"> ROTA ANTERIOR IDENTIFICADA</div>
+      <div id="txtNomeRotaSalva" style="font-size:0.88rem; font-weight:900; color:#fff; margin-bottom:8px;">Rota em andamento</div>
+      <button class="btn-action-primary" style="margin-bottom:0; padding:10px;" onclick="retomarRotaAnterior()">
+         <span data-i18n="resume_route">Voltar para rota anterior</span>
+      </button>
+    </div>
+
+    
+<div id="resumoRotaHome" class="home-route-summary" style="display:none;">
+      <div class="home-route-summary-head">
+        <div>
+          <div class="home-route-summary-kicker" id="resumoRotaTitulo">RESUMO DA ROTA ATUAL</div>
+          <div class="home-route-summary-file" id="resumoRotaArquivo">Rota</div>
+        </div>
+        <div class="home-route-status" id="resumoRotaStatus">Rota em andamento</div>
+      </div>
+
+      <div class="home-route-summary-grid">
+        <div class="home-route-summary-item">
+          <strong id="resumoRotaBipados">0 / 0</strong>
+          <span>Bipados</span>
+        </div>
+        <div class="home-route-summary-item">
+          <strong id="resumoRotaParadas">0</strong>
+          <span>Paradas</span>
+        </div>
+        <div class="home-route-summary-item">
+          <strong id="resumoRotaFaltam">0</strong>
+          <span>Faltam</span>
+        </div>
+      </div>
+
+      <div class="home-route-progress-row">
+        <span id="resumoRotaPercentual">0% concluído</span>
+      </div>
+      <div class="home-route-progress-track">
+        <div class="home-route-progress-fill" id="resumoRotaBarra"></div>
+      </div>
+
+      <div class="home-route-summary-footer" id="resumoRotaRodape">
+       Rota em andamento
+      </div>
+    </div>
+
+    <div id="areaExecucao" style="display:none;">
+<div class="metrics-board" id="elMetricsBoard">
+        <div class="metric-cell">
+          <div class="metric-val" id="valPacotes">0 / 0</div>
+          <div class="metric-lbl" data-i18n="metric_scanned">Bipados</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-val" id="valParadas" style="color:#34d399;">0</div>
+          <div class="metric-lbl" data-i18n="metric_stops">Paradas</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-val" id="valFaltam" style="color:#10b981;">0</div>
+          <div class="metric-lbl" data-i18n="metric_remaining">Faltam</div>
+        </div>
+      </div>
+
+      <!-- CARD DE RESULTADO COM PARADA E ENDEREÇO EMBAIXO -->
+      <div class="result-panel" id="cardResult">
+        <div class="stop-number" id="resStop">P1</div>
+        <div class="stop-address" id="resEndereco"> Carregando endereço...</div>
+        <div class="stop-package-id" id="resPacote">Pacote: BR...</div>
+
+        <div class="route-focus-card" id="progressoParadaAtual" style="display:none;">
+          <div class="route-focus-top">
+            <div class="route-focus-title">Progresso desta parada</div>
+            <div class="route-focus-count" id="progressoParadaContador">0 de 0</div>
+          </div>
+          <div class="route-progress-track">
+            <div class="route-progress-fill" id="progressoParadaBarra"></div>
+          </div>
+          <div class="route-focus-text" id="progressoParadaTexto"></div>
+        </div>
+      </div>
+
+      <div id="boxAviso" style="background:rgba(16, 185, 129, 0.12); border:1px solid var(--primary); color:#34d399; border-radius:12px; padding:10px; font-size:0.78rem; font-weight:800; text-align:center; margin-bottom:14px; display:none;"></div>
+
+      <div class="camera-viewport" id="elCameraViewport">
+        <button class="cam-overlay-btn" style="top:10px; left:10px;" onclick="alternarCamera()">
+          <svg viewBox="0 0 24 24"><path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm5 14H4V6h3.17l1.83-2h6l1.83 2H20v12zM12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+          <span data-i18n="cam_flip">Virar</span>
+        </button>
+        <button class="cam-overlay-btn" id="btn-flash" style="top:10px; right:10px;" onclick="alternarFlash()">
+          <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l3-8z"/></svg>
+          <span id="txt-flash">Flash</span>
+        </button>
+        <div id="reader"></div>
+      </div>
+
+      <input type="text" class="input-auth" id="inputManual" placeholder="Digite o código manualmente..." style="margin-bottom:8px; font-size:0.82rem; padding:10px 12px;" onchange="processarCodigo(this.value)" data-i18n-placeholder="manual_placeholder">
+    </div>
+  </div>
+
+  <div id="routeImportMappingModal" class="modal-backdrop" style="display:none;z-index:12200">
+    <div class="route-import-modal-card" role="dialog" aria-modal="true" aria-labelledby="routeImportMappingTitle">
+      <div class="route-editor-modal-head">
+        <div><div class="module-kicker">Importação de planilha</div><h3 id="routeImportMappingTitle">Associar colunas</h3></div>
+        <button id="routeImportMappingClose" class="route-editor-close" type="button" aria-label="Fechar">×</button>
+      </div>
+      <p class="route-import-explainer">Não foi possível identificar automaticamente todas as colunas necessárias. Escolha onde estão os dados da rota; nenhum endereço será inventado.</p>
+      <div class="route-import-meta"><strong id="routeImportFileName">Planilha</strong><span id="routeImportSheetInfo"></span></div>
+      <div class="route-import-header-row">
+        <label for="routeImportHeaderRow">Linha de cabeçalho</label>
+        <select id="routeImportHeaderRow" class="pemato-field"></select>
+      </div>
+      <div id="routeImportMappingFields" class="route-import-mapping-grid"></div>
+      <div class="route-import-preview-wrap">
+        <div class="route-import-preview-title">Pré-visualização</div>
+        <div class="route-import-preview-scroll"><table id="routeImportPreview" class="route-import-preview"></table></div>
+      </div>
+      <div id="routeImportMappingError" class="route-import-error" style="display:none"></div>
+      <div class="route-editor-footer">
+        <button id="routeImportMappingCancel" class="pemato-secondary" type="button">Cancelar</button>
+        <button id="routeImportMappingConfirm" class="pemato-primary" type="button">Importar com estas colunas</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="routeStopEditorModal" class="modal-backdrop" style="display:none;z-index:12000">
+    <div class="route-editor-modal-card">
+      <div class="route-editor-modal-head"><h3 id="routeStopEditorTitle">Editar parada</h3><button id="routeStopEditorClose" class="route-editor-close" type="button" aria-label="Fechar">×</button></div>
+      <div class="route-editor-grid">
+        <div class="route-editor-double"><label class="form-label-pro">Endereço / logradouro</label><input id="routeEdit_logradouro" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Número</label><input id="routeEdit_numero" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Complemento</label><input id="routeEdit_complemento" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Apartamento</label><input id="routeEdit_apartamento" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Bloco</label><input id="routeEdit_bloco" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Sala</label><input id="routeEdit_sala" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Loja</label><input id="routeEdit_loja" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Bairro</label><input id="routeEdit_bairro" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Cidade</label><input id="routeEdit_cidade" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">Estado</label><input id="routeEdit_estado" class="pemato-field" type="text"></div>
+        <div><label class="form-label-pro">CEP</label><input id="routeEdit_cep" class="pemato-field" type="text"></div>
+        <div class="route-editor-wide"><label class="form-label-pro">Observação</label><textarea id="routeEdit_observacao" class="pemato-field" rows="2"></textarea></div>
+        <div class="route-editor-wide"><label class="form-label-pro">Códigos de pacote (um por linha)</label><textarea id="routeEdit_pacotes" class="pemato-field" rows="3"></textarea></div>
+        <div class="route-editor-wide route-editor-status-grid">
+          <div><label class="form-label-pro">Status</label><select id="routeEdit_status" class="pemato-field"><option value="pendente">Pendente</option><option value="entregue">Entregue</option><option value="nao_entregue">Não entregue</option></select></div>
+          <div><label class="form-label-pro">Motivo de não entrega</label><select id="routeEdit_motivo" class="pemato-field"><option value="">Selecione</option><option value="cliente_ausente">Cliente ausente</option><option value="endereco_incorreto">Endereço incorreto</option><option value="estabelecimento_fechado">Estabelecimento fechado</option><option value="recusado">Recusado</option><option value="outro">Outro</option></select></div>
+        </div>
+        <div class="route-editor-wide"><label class="form-label-pro">Observação da não entrega</label><textarea id="routeEdit_observacaoNaoEntrega" class="pemato-field" rows="2"></textarea></div>
+      </div>
+      <div class="route-editor-footer"><button id="routeStopEditorCancel" class="pemato-secondary" type="button">Cancelar</button><button id="routeStopEditorSave" class="pemato-primary" type="button">Salvar parada</button></div>
+    </div>
+  </div>
+
+  <div id="routeHistoryDetailModal" class="modal-backdrop" style="display:none;z-index:12000"><div class="route-editor-modal-card"><div class="route-editor-modal-head"><h3>Detalhes da rota</h3><button id="routeHistoryDetailClose" class="route-editor-close" type="button">×</button></div><div id="routeHistoryDetailBody"></div></div></div>
+
+
+  <div id="routeReoptDecisionModal" class="modal-backdrop" style="display:none;z-index:12100">
+    <div class="route-decision-card" role="dialog" aria-modal="true" aria-labelledby="routeReoptDecisionTitle">
+      <div class="module-kicker">Atualização da rota</div>
+      <h3 id="routeReoptDecisionTitle">Rota alterada</h3>
+      <p id="routeReoptDecisionText">Escolha como deseja atualizar a rota.</p>
+      <div class="route-decision-actions">
+        <button id="routeKeepOrderBtn" class="pemato-secondary" type="button">Manter ordem atual</button>
+        <button id="routeReoptBtn" class="pemato-primary" type="button">Otimizar novamente</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/state.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/suporte.js"></script>
+  <script src="js/diagnosticos/diagnostico-rota.js"></script>
+  <script src="js/diagnosticos/diagnostico-ui.js"></script>
+  <script src="js/paradas/compatibilidade-enderecos.js"></script>
+
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script src="js/mapa/config.js"></script>
+  <script src="js/mapa/cache-geocodificacao.js"></script>
+  <script src="js/mapa/geocodificacao.js"></script>
+  <script src="js/mapa/mapa.js"></script>
+  <script src="js/mapa/localizacao-atual.js"></script>
+
+  <script src="js/core/rota-store.js"></script>
+  <script src="js/configuracoes/configuracoes.js"></script>
+  <script src="js/importacao/xlsx.js"></script>
+  <script src="js/roteirizacao/servico-rota.js"></script>
+  <script src="js/exportacao/pdf-rota.js"></script>
+  <script src="js/roteirizacao/roteirizacao.js"></script>
+  <script src="js/historico/historico-rotas.js"></script>
+  <script src="js/bipagem/rota-ativa-bridge.js"></script>
+  <script src="js/navegacao/navegacao.js"></script>
+  <script src="js/ui/app-shell.js"></script>
+
+</body>
+</html>

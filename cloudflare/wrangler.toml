@@ -1,0 +1,11 @@
+name = "pacote-emato-geocodificacao"
+main = "geocodificacao-worker.js"
+compatibility_date = "2026-10-08"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://joaovitor250p-cloud.github.io"
+
+# Nunca coloque GEOAPIFY_API_KEY aqui.
+# Configure como secret:
+# npx wrangler secret put GEOAPIFY_API_KEY --config wrangler.toml
