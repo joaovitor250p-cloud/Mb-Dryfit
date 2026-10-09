@@ -66,7 +66,9 @@
         const linhas = doc.splitTextToSize(`Observação: ${p.observacao}`, 176);
         texto(linhas, margin + 4, y); y += linhas.length * 4;
       }
-      texto(`Pacotes: ${(p.pacotes || []).length} | Status: ${p.statusEntrega || 'pendente'}`, margin + 4, y); y += 5;
+      texto(`Pacotes: ${(p.pacotes || []).length} | Status: ${p.statusEntrega || 'pendente'}`, margin + 4, y); y += 4.5;
+      const codigos = (p.pacotes || []).map(String).filter(Boolean);
+      if (codigos.length) { const linhasCodigos = doc.splitTextToSize(`SPX TN: ${codigos.join(' | ')}`, 176); garantir(linhasCodigos.length * 4 + 2); texto(linhasCodigos, margin + 4, y); y += linhasCodigos.length * 4 + 1; }
       doc.setDrawColor(225);
       doc.line(margin, y, 196, y); y += 5;
     });

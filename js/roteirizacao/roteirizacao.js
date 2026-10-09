@@ -174,7 +174,8 @@
         num.textContent = String(index + 1);
         const copy = document.createElement('div');
         const strong = document.createElement('strong');
-        strong.textContent = parada.enderecoFonte || parada.enderecoOriginal || 'Parada';
+        const qtdMesmoEndereco = contagemMultiplos().get(chaveEnderecoMultiplo(parada)) || 1;
+        strong.textContent = `${parada.enderecoFonte || parada.enderecoOriginal || 'Parada'}${qtdMesmoEndereco > 1 ? ` · ${qtdMesmoEndereco}x` : ''}`;
         const small = document.createElement('small');
         small.textContent = [detalheComplemento(parada), parada.bairro, parada.cidade, `${parada.pacotes?.length || 0} pacote(s)`].filter(Boolean).join(' · ');
         copy.append(strong, small);
@@ -195,7 +196,7 @@
   function fecharRevisaoOtimizacao() {
     const backdrop = $('routingOptimizationReviewBackdrop');
     if (backdrop) backdrop.style.display = 'none';
-    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none';
+    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none'; document.querySelector('.routing-review-card')?.classList.remove('is-refining');
   }
 
   async function confirmarRevisaoOtimizacao() {
@@ -210,7 +211,7 @@
   function alternarRefino() {
     const panel = $('routingRefinePanel');
     if (!panel) return;
-    panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
+    const abrir = panel.style.display === 'none'; panel.style.display = abrir ? 'grid' : 'none'; panel.closest('.routing-review-card')?.classList.toggle('is-refining', abrir);
   }
 
 
@@ -576,6 +577,8 @@
     const empty = $('routingEmptyState');
     const total = rotaAtual?.paradas?.length || 0;
     if (empty) empty.style.display = total ? 'none' : 'flex';
+    const primaryGrid = document.querySelector('.routing-primary-grid');
+    if (primaryGrid) primaryGrid.style.display = rotaAtual?.geometria ? 'none' : 'grid';
     if (!btn) return;
     if (rotaAtual?.geometria) {
       btn.textContent = 'Iniciar rota';
@@ -668,6 +671,9 @@
     if ($('routeMetricStopTime')) $('routeMetricStopTime').textContent = calculada ? formatarTempo(rotaAtual.duracaoParadasSegundos) : 'Aguardando cálculo';
     if ($('routeMetricTotal')) $('routeMetricTotal').textContent = calculada ? formatarTempo(rotaAtual.duracaoTotalSegundos) : 'Aguardando cálculo';
     if ($('routeMetricEnd')) $('routeMetricEnd').textContent = calculada ? horaLocal(rotaAtual.horarioTerminoEstimado) : 'Aguardando cálculo';
+    if ($('routingEtaChip')) $('routingEtaChip').style.display = calculada ? 'grid' : 'none';
+    if ($('routingEtaTime')) $('routingEtaTime').textContent = calculada ? horaLocal(rotaAtual.horarioTerminoEstimado) : '—';
+    if ($('routingEtaRemaining')) $('routingEtaRemaining').textContent = calculada ? `aprox. ${formatarTempo(rotaAtual.duracaoTotalSegundos)} restantes` : 'Calculando previsão';
     if ($('routingRouteName') && document.activeElement !== $('routingRouteName')) $('routingRouteName').value = rotaAtual.nome || '';
     if ($('routingRouteNameMirror') && document.activeElement !== $('routingRouteNameMirror')) $('routingRouteNameMirror').value = rotaAtual.nome || '';
     if ($('routingMapTitle')) $('routingMapTitle').textContent = rotaAtual.nome || 'Rota de hoje';
@@ -702,6 +708,18 @@
     return b;
   }
 
+  function chaveEnderecoMultiplo(p) {
+    const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(rua|r\.|avenida|av\.|av|travessa|tv\.|estrada|rodovia)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const numero = String(p?.numero || '').trim() || (String(p?.enderecoOriginal || '').match(/,?\s+(\d+[a-z]?)\b/i)?.[1] || '');
+    const log = p?.logradouro || String(p?.enderecoOriginal || '').split(/,\s*\d/)[0] || '';
+    return `${norm(log)}|${norm(numero)}`;
+  }
+  function contagemMultiplos() {
+    const mapa = new Map();
+    (rotaAtual?.paradas || []).forEach(p => { const k=chaveEnderecoMultiplo(p); if(k && !k.endsWith('|')) mapa.set(k,(mapa.get(k)||0)+1); });
+    return mapa;
+  }
+
   function renderizarLista() {
     const container = $('routePlannerStops');
     if (!container) return;
@@ -715,6 +733,7 @@
     }
 
     const termoBusca = String($('routingStopSearch')?.value || '').trim().toLowerCase();
+    const multiplos = contagemMultiplos();
     const listaFiltrada = obterParadasOrdenadas().filter(p => {
       if (!termoBusca) return true;
       const alvo = [p.enderecoOriginal, p.cidade, p.observacao, ...(p.pacotes || [])].join(' ').toLowerCase();
@@ -737,7 +756,8 @@
       const body = document.createElement('div');
       body.className = 'routing-stop-body';
       const address = document.createElement('strong');
-      address.textContent = p.enderecoOriginal || 'Endereço não informado';
+      const qtdMesmoEndereco = multiplos.get(chaveEnderecoMultiplo(p)) || 1;
+      address.textContent = `${p.enderecoOriginal || 'Endereço não informado'}${qtdMesmoEndereco > 1 ? ` · ${qtdMesmoEndereco}x` : ''}`;
       const complement = document.createElement('span');
       complement.className = 'routing-stop-complement';
       complement.textContent = detalheComplemento(p) || p.observacao || '';
@@ -773,7 +793,8 @@
     const index = obterParadasOrdenadas().findIndex(item => item.id === p.id);
     card.style.display = 'grid';
     if ($('routingSelectedStopOrder')) $('routingSelectedStopOrder').textContent = String(p.ordemOtimizada || p.ordemOriginal || index + 1);
-    if ($('routingSelectedStopAddress')) $('routingSelectedStopAddress').textContent = p.enderecoOriginal || 'Endereço não informado';
+    const qtdMesmoEndereco = contagemMultiplos().get(chaveEnderecoMultiplo(p)) || 1;
+    if ($('routingSelectedStopAddress')) $('routingSelectedStopAddress').textContent = `${p.enderecoOriginal || 'Endereço não informado'}${qtdMesmoEndereco > 1 ? ` · ${qtdMesmoEndereco}x` : ''}`;
     if ($('routingSelectedStopComplement')) $('routingSelectedStopComplement').textContent = detalheComplemento(p) || p.observacao || '';
     if ($('routingSelectedStopMeta')) $('routingSelectedStopMeta').textContent = `${p.pacotes?.length || 0} pacote(s) · ${statusGeoTexto(p)} · ${statusEntregaTexto(p)}`;
   }
@@ -813,8 +834,15 @@
   }
 
   function camposMapeamentoVisiveis() {
-    const permitidos = new Set(['endereco','logradouro','numero','cidade','estado','cep','complemento','apartamento','bloco','sala','loja','pacote','pacotes','observacao','id']);
-    return (global.PacoteEMatoImportacaoXLSX?.camposMapeaveis || []).filter(([campo]) => permitidos.has(campo));
+    const disponiveis = new Map(global.PacoteEMatoImportacaoXLSX?.camposMapeaveis || []);
+    const ordem = [
+      ['atId','AT ID'], ['sequenceOrigem','Sequence'], ['stopOrigem','Stop'], ['pacote','SPX TN / código do pacote'],
+      ['endereco','Destination Address / endereço completo'], ['bairro','Bairro'], ['cidade','City / cidade'], ['cep','Zipcode / Postal code'],
+      ['latitude','Latitude'], ['longitude','Longitude'], ['logradouro','Logradouro / rua'], ['numero','Número'], ['estado','Estado / UF'],
+      ['complemento','Complemento'], ['apartamento','Apartamento'], ['bloco','Bloco'], ['sala','Sala'], ['loja','Loja'], ['observacao','Observação'],
+      ['pacotes','Outros códigos de pacotes'], ['id','ID da parada']
+    ];
+    return ordem.filter(([campo]) => disponiveis.has(campo)).map(([campo,label]) => [campo,label]);
   }
 
   function renderizarPreviewImportacao(inspecao, headerIndex) {
@@ -916,17 +944,15 @@
       fluxo?.atualizarEtapa?.('Analisando o cabeçalho e os campos disponíveis.');
       const inspecao = await global.PacoteEMatoImportacaoXLSX.inspecionarArquivo(file);
       let opcoes = { inspecao };
-      if (inspecao.columns.endereco == null && inspecao.columns.logradouro == null) {
-        fluxo?.atualizarEtapa?.('A planilha foi lida. Associe as colunas para continuar.');
-        definirStatusImportacao('A planilha foi lida, mas preciso saber quais colunas contêm os endereços.', 'warning');
-        const mapeamento = await abrirMapeamentoImportacao(inspecao);
-        if (!mapeamento) {
-          fluxo?.fechar?.();
-          definirStatusImportacao('Importação cancelada. Nenhuma parada foi alterada.', 'warning');
-          return;
-        }
-        opcoes = Object.assign(opcoes, mapeamento);
+      fluxo?.atualizarEtapa?.('A planilha foi lida. Confira a associação das colunas antes de continuar.');
+      definirStatusImportacao('Confira AT ID, Sequence, Stop, SPX TN, endereço, bairro, cidade, CEP, latitude e longitude.', null);
+      const mapeamento = await abrirMapeamentoImportacao(inspecao);
+      if (!mapeamento) {
+        fluxo?.fechar?.();
+        definirStatusImportacao('Importação cancelada. Nenhuma parada foi alterada.', 'warning');
+        return;
       }
+      opcoes = Object.assign(opcoes, mapeamento);
 
       fluxo?.atualizarEtapa?.('Convertendo as linhas em paradas e preservando pacotes e observações.');
       const resultado = await global.PacoteEMatoImportacaoXLSX.lerArquivo(file, opcoes);
@@ -1248,6 +1274,8 @@
     };
     const fields = ['logradouro','numero','complemento','apartamento','bloco','sala','loja','bairro','cidade','estado','cep','observacao'];
     fields.forEach(key => { const el = $(`routeEdit_${key}`); if (el) el.value = p[key] || ''; });
+    if ($('routeEdit_busca')) $('routeEdit_busca').value = p.enderecoOriginal || [p.logradouro,p.numero,p.complemento,p.observacao].filter(Boolean).join(' ');
+    if ($('routeEditAdvanced')) $('routeEditAdvanced').open = !modoEdicaoNovo;
     if ($('routeEdit_pacotes')) $('routeEdit_pacotes').value = (p.pacotes || []).join('\n');
     if ($('routeEdit_status')) $('routeEdit_status').value = p.statusEntrega || 'pendente';
     if ($('routeEdit_motivo')) $('routeEdit_motivo').value = p.motivoNaoEntrega || '';
@@ -1277,6 +1305,13 @@
     const fields = ['logradouro','numero','complemento','apartamento','bloco','sala','loja','bairro','cidade','estado','cep','observacao'];
     const dados = {};
     fields.forEach(key => { dados[key] = String($(`routeEdit_${key}`)?.value || '').trim(); });
+    const buscaLivre = String($('routeEdit_busca')?.value || '').trim();
+    if (buscaLivre && !dados.logradouro) {
+      const m = buscaLivre.match(/^(.+?)[,\s]+(\d+[A-Za-z]?)(?:\s+|,\s*)?(.*)$/);
+      dados.logradouro = String(m?.[1] || buscaLivre).trim();
+      dados.numero = dados.numero || String(m?.[2] || '').trim();
+      dados.complemento = dados.complemento || String(m?.[3] || '').trim();
+    }
     dados.pacotes = pacotesDoCampo($('routeEdit_pacotes')?.value || '');
     dados.statusEntrega = String($('routeEdit_status')?.value || 'pendente');
     dados.motivoNaoEntrega = dados.statusEntrega === 'nao_entregue' ? String($('routeEdit_motivo')?.value || '') : '';
@@ -1512,6 +1547,8 @@
     });
     $('routingOpenSettingsBtn')?.addEventListener('click', () => { fecharMenuAcoes(); global.PacoteEMatoAppShell?.abrirModulo?.('configuracoes'); });
     $('routingActionsBtn')?.addEventListener('click', abrirMenuAcoes);
+    $('routingRefineMenuBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirRevisaoOtimizacao(); setTimeout(() => { const p=$('routingRefinePanel'); if(p){p.style.display='grid';p.closest('.routing-review-card')?.classList.add('is-refining');} }, 0); });
+    $('routingMapSettingsBtn')?.addEventListener('click', () => global.PacoteEMatoAppShell?.abrirModulo?.('configuracoes'));
     $('routingActionsCloseBtn')?.addEventListener('click', fecharMenuAcoes);
     $('routingActionsBackdrop')?.addEventListener('click', event => { if (event.target === $('routingActionsBackdrop')) fecharMenuAcoes(); });
     $('routingSheetToggle')?.addEventListener('click', alternarPainel);

@@ -15,6 +15,15 @@
     return (rota?.paradas || []).flatMap(p => Array.isArray(p.pacotes) ? p.pacotes : []);
   }
 
+
+  function chaveFisicaBipagem(p) {
+    const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(rua|r\.|avenida|av\.|av|travessa|tv\.|estrada|rodovia)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const numero = String(p?.numero || '').trim() || (String(p?.enderecoOriginal || '').match(/,?\s+(\d+[a-z]?)\b/i)?.[1] || '');
+    const logradouro = p?.logradouro || String(p?.enderecoOriginal || '').split(/,\s*\d/)[0] || '';
+    const chave = `${norm(logradouro)}|${norm(numero)}`;
+    return chave.endsWith('|') ? `id:${p.id}` : chave;
+  }
+
   function validarPacotesUnicos(rota) {
     const owner = new Map();
     const duplicados = [];
@@ -69,22 +78,30 @@
     const todos = new Set();
     const bipados = new Set();
     const byOrder = new Map();
-    (rota.ordem || []).forEach((id, i) => byOrder.set(id, i + 1));
+    (rota.ordem || []).forEach((id, i) => byOrder.set(String(id), i + 1));
 
+    // Bipagem agrupa por endereço físico (logradouro + número). Complementos como
+    // apartamento, casa, loja, bloco e sala NÃO criam uma nova parada física.
+    const grupos = new Map();
     rota.paradas.forEach((p, index) => {
       const lista = Array.isArray(p.pacotes) ? p.pacotes.slice() : [];
       if (!lista.length) return;
-      const key = `rotaativa_${String(p.id).replace(/[^A-Za-z0-9_-]/g, '_')}`;
+      const chave = chaveFisicaBipagem(p);
+      if (!grupos.has(chave)) grupos.set(chave, { paradas: [], pacotes: [], primeira: p, ordem: byOrder.get(String(p.id)) || p.ordemOtimizada || p.ordemOriginal || index + 1 });
+      const grupo = grupos.get(chave);
+      grupo.paradas.push(p);
+      grupo.pacotes.push(...lista);
+      grupo.ordem = Math.min(Number(grupo.ordem || Infinity), Number(byOrder.get(String(p.id)) || p.ordemOtimizada || p.ordemOriginal || index + 1));
+    });
+
+    [...grupos.entries()].sort((a,b)=>a[1].ordem-b[1].ordem).forEach(([chave, grupo], index) => {
+      const lista = [...new Set(grupo.pacotes.map(String).filter(Boolean))];
+      const key = `rotaativa_fisica_${index + 1}_${chave.replace(/[^A-Za-z0-9_-]/g, '_').slice(0,60)}`;
       mapa[key] = lista;
-      nomes[key] = p.enderecoOriginal || 'Endereço não informado';
-      const stopNumero = byOrder.get(p.id) || p.ordemOtimizada || p.ordemOriginal || index + 1;
-      lista.forEach(codigo => {
-        todos.add(codigo);
-        stops[codigo] = stopNumero;
-      });
-      (p.pacotesBipados || []).forEach(codigo => {
-        if (lista.includes(codigo)) bipados.add(codigo);
-      });
+      const base = grupo.primeira?.enderecoOriginal || 'Endereço não informado';
+      nomes[key] = grupo.paradas.length > 1 ? `${base} · ${grupo.paradas.length}x` : base;
+      lista.forEach(codigo => { todos.add(codigo); stops[codigo] = index + 1; });
+      grupo.paradas.forEach(p => (p.pacotesBipados || []).forEach(codigo => { if (lista.includes(codigo)) bipados.add(codigo); }));
     });
 
     global.mapaRotas = mapa;
@@ -107,7 +124,7 @@
     if (typeof global.atualizarStats === 'function') global.atualizarStats();
     if (opcoes?.iniciarScanner !== false && typeof global.iniciarScanner === 'function') global.iniciarScanner();
 
-    atualizarCard(rota, `${rota.paradas.length} paradas · ${todos.size} pacotes · rota ativa pronta para bipagem`);
+    atualizarCard(rota, `${Object.keys(mapa).length} paradas físicas · ${todos.size} pacotes · rota ativa pronta para bipagem`);
     return { ok: true, rota };
   }
 

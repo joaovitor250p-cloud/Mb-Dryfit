@@ -30,6 +30,7 @@
   let ponteiroDesenho = null;
   let overlayDesenho = null;
   let pathDesenho = null;
+  const marcadoresMultiplosDom = new Map();
 
   function $(id) { return document.getElementById(id); }
   function cfg() { return global.PEMATO_MAP_CONFIG || {}; }
@@ -68,6 +69,16 @@
     return 'pendente';
   }
 
+  function chaveEnderecoMultiplo(p) {
+    const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(rua|r\.|avenida|av\.|av|travessa|tv\.|estrada|rodovia)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const numero = String(p?.numero || '').trim() || (String(p?.enderecoOriginal || '').match(/,?\s+(\d+[a-z]?)\b/i)?.[1] || '');
+    const log = p?.logradouro || String(p?.enderecoOriginal || '').split(/,\s*\d/)[0] || '';
+    return `${norm(log)}|${norm(numero)}`;
+  }
+  function indiceVisualMesmoEndereco(lista, p) {
+    const k=chaveEnderecoMultiplo(p); const grupo=lista.filter(x=>chaveEnderecoMultiplo(x)===k); return {count:grupo.length,index:Math.max(0,grupo.findIndex(x=>String(x.id)===String(p.id)))};
+  }
+
   function featureCollection(features) { return { type: 'FeatureCollection', features: features || [] }; }
 
   function stopsGeoJSON() {
@@ -76,13 +87,16 @@
       type: 'Feature',
       id: String(p.id),
       geometry: { type: 'Point', coordinates: [Number(p.longitude), Number(p.latitude)] },
-      properties: {
+      properties: (() => { const multi=indiceVisualMesmoEndereco(paradas(),p); return {
         id: String(p.id),
         order: ordem(p),
+        label: `${ordem(p)}${multi.count>1?` · ${multi.count}x`:''}`,
+        multiCount: multi.count,
+        visualIndex: multi.index,
         status: statusEntrega(p),
         selected: String(p.id) === String(selectedId) ? 1 : 0,
         groupSelected: idsSelecaoDesenho.has(String(p.id)) ? 1 : 0
-      }
+      }; })()
     })));
   }
 
@@ -179,15 +193,17 @@
     });
     if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
       id: LAYER_STOPS, type: 'circle', source: SOURCE_STOPS,
+      filter: ['<=', ['get', 'multiCount'], 1],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 9, 16, 13],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 8, 16, 11],
         'circle-color': ['match', ['get', 'status'], 'concluida', '#059669', 'nao_entregue', '#b91c1c', 'parcial', '#d97706', '#334155'],
         'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': .98
       }
     });
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
-      layout: { 'text-field': ['to-string', ['get', 'order']], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 16, 12], 'text-allow-overlap': true, 'text-ignore-placement': true },
+      filter: ['<=', ['get', 'multiCount'], 1],
+      layout: { 'text-field': ['get', 'label'], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 8, 16, 10], 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.18)', 'text-halo-width': .5 }
     });
 
@@ -261,7 +277,37 @@
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
   }
 
-  function renderizarMarcadores() { atualizarSource(SOURCE_STOPS, stopsGeoJSON()); }
+  function limparMarcadoresMultiplosDom(){
+    for(const marker of marcadoresMultiplosDom.values()){ try{marker.remove();}catch(_){} }
+    marcadoresMultiplosDom.clear();
+  }
+
+  function renderizarMarcadoresMultiplosDom(){
+    if(!mapa||!pronto||!global.maplibregl?.Marker)return;
+    limparMarcadoresMultiplosDom();
+    const lista=paradas().filter(coordenadaValida);
+    const grupos=new Map();
+    lista.forEach(p=>{const k=chaveEnderecoMultiplo(p);if(!k||k.endsWith('|'))return;if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(p);});
+    for(const grupo of grupos.values()){
+      if(grupo.length<2)continue;
+      grupo.sort((a,b)=>ordem(a)-ordem(b));
+      const raio=Math.min(32,16+grupo.length*2);
+      grupo.forEach((p,i)=>{
+        const angle=(Math.PI*2*i/grupo.length)-Math.PI/2;
+        const dx=Math.round(Math.cos(angle)*raio), dy=Math.round(Math.sin(angle)*raio);
+        const el=document.createElement('button');el.type='button';el.className='pemato-map-pin-multi';
+        el.dataset.stopId=String(p.id);el.dataset.status=statusEntrega(p);el.style.setProperty('--pin-x',`${dx}px`);el.style.setProperty('--pin-y',`${dy}px`);
+        el.innerHTML=`<span class="pemato-map-pin-bubble"><b>${ordem(p)}</b><small>${grupo.length}x</small></span><span class="pemato-map-pin-tail"></span>`;
+        if(String(state()?.paradaSelecionadaId||'')===String(p.id))el.classList.add('is-selected');
+        if(idsSelecaoDesenho.has(String(p.id)))el.classList.add('is-group-selected');
+        el.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();if(selecaoDesenhoAtiva)alternarIdSelecao(String(p.id));else global.PacoteEMatoRoteirizacao?.selecionarParada?.(String(p.id),'mapa');});
+        const marker=new global.maplibregl.Marker({element:el,anchor:'center'}).setLngLat([Number(p.longitude),Number(p.latitude)]).addTo(mapa);
+        marcadoresMultiplosDom.set(String(p.id),marker);
+      });
+    }
+  }
+
+  function renderizarMarcadores() { atualizarSource(SOURCE_STOPS, stopsGeoJSON()); renderizarMarcadoresMultiplosDom(); }
   function renderizarPartida() { atualizarSource(SOURCE_START, pointGeoJSON(state()?.pontoInicial, { type: 'start' })); }
   function renderizarMotorista() { atualizarSource(SOURCE_DRIVER, driverGeoJSON()); }
 
@@ -507,6 +553,7 @@
   function destruir() {
     clearTimeout(loadTimer); loadTimer = null;
     if (resizeObserver) { try { resizeObserver.disconnect(); } catch (_) {} resizeObserver = null; }
+    limparMarcadoresMultiplosDom();
     if (mapa) { try { mapa.remove(); } catch (_) {} }
     selecaoDesenhoAtiva = false; idsSelecaoDesenho.clear(); pontosDesenho = []; ponteiroDesenho = null;
     mapa = null; pronto = false; fitFeito = false; fallbackBaseAtivo = false;
