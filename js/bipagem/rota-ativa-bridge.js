@@ -15,15 +15,6 @@
     return (rota?.paradas || []).flatMap(p => Array.isArray(p.pacotes) ? p.pacotes : []);
   }
 
-
-  function chaveFisicaBipagem(p) {
-    const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(rua|r\.|avenida|av\.|av|travessa|tv\.|estrada|rodovia)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-    const numero = String(p?.numero || '').trim() || (String(p?.enderecoOriginal || '').match(/,?\s+(\d+[a-z]?)\b/i)?.[1] || '');
-    const logradouro = p?.logradouro || String(p?.enderecoOriginal || '').split(/,\s*\d/)[0] || '';
-    const chave = `${norm(logradouro)}|${norm(numero)}`;
-    return chave.endsWith('|') ? `id:${p.id}` : chave;
-  }
-
   function validarPacotesUnicos(rota) {
     const owner = new Map();
     const duplicados = [];
@@ -38,6 +29,25 @@
     return [...new Set(duplicados)];
   }
 
+
+  function chaveFisicaBipagem(p) {
+    const endereco = String(p?.logradouro || p?.enderecoFonte || p?.enderecoOriginal || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const numero = String(p?.numero || (endereco.match(/\b\d+[a-z]?\b/i) || [''])[0] || '').toLowerCase();
+    let rua = endereco;
+    if (numero) rua = rua.replace(new RegExp(`\\b${numero.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b.*$`,'i'),'');
+    rua = rua.replace(/\b(ap|apto|apartamento|casa|bloco|sala|loja|suite|fundos|frente)\b.*$/i,'').replace(/[^a-z0-9]+/g,' ').trim();
+    return rua && numero ? `${rua}_${numero}` : `parada_${String(p?.id || '')}`;
+  }
+
+  function nomeFisicoBipagem(p) {
+    const logradouro = String(p?.logradouro || p?.enderecoFonte || p?.enderecoOriginal || '').trim();
+    const numero = String(p?.numero || (logradouro.match(/\b\d+[A-Za-z]?\b/) || [''])[0] || '').trim();
+    if (!numero) return logradouro || 'Endereço não informado';
+    const pos = logradouro.toLowerCase().indexOf(numero.toLowerCase());
+    const rua = pos >= 0 ? logradouro.slice(0, pos).replace(/[\s,;-]+$/,'').trim() : logradouro;
+    return [rua, numero].filter(Boolean).join(', ');
+  }
+
   function atualizarCard(rota, mensagem) {
     const card = $('activeRouteBipagemCard');
     if (!card) return;
@@ -48,8 +58,9 @@
     card.style.display = 'block';
     if ($('activeRouteBipagemName')) $('activeRouteBipagemName').textContent = rota.nome || 'Rota ativa';
     const pacotes = pacotesDaRota(rota).length;
+    const paradasFisicas = new Set((rota.paradas || []).map(chaveFisicaBipagem)).size;
     if ($('activeRouteBipagemMeta')) {
-      $('activeRouteBipagemMeta').textContent = mensagem || `${rota.paradas.length} paradas · ${pacotes} pacotes · ${rota.rotaOtimizada ? 'otimizada' : 'não otimizada'}`;
+      $('activeRouteBipagemMeta').textContent = mensagem || `${paradasFisicas} paradas físicas · ${pacotes} pacotes · ${rota.rotaOtimizada ? 'otimizada' : 'não otimizada'}`;
     }
   }
 
@@ -78,30 +89,25 @@
     const todos = new Set();
     const bipados = new Set();
     const byOrder = new Map();
-    (rota.ordem || []).forEach((id, i) => byOrder.set(String(id), i + 1));
+    (rota.ordem || []).forEach((id, i) => byOrder.set(id, i + 1));
 
-    // Bipagem agrupa por endereço físico (logradouro + número). Complementos como
-    // apartamento, casa, loja, bloco e sala NÃO criam uma nova parada física.
     const grupos = new Map();
     rota.paradas.forEach((p, index) => {
       const lista = Array.isArray(p.pacotes) ? p.pacotes.slice() : [];
       if (!lista.length) return;
-      const chave = chaveFisicaBipagem(p);
-      if (!grupos.has(chave)) grupos.set(chave, { paradas: [], pacotes: [], primeira: p, ordem: byOrder.get(String(p.id)) || p.ordemOtimizada || p.ordemOriginal || index + 1 });
-      const grupo = grupos.get(chave);
+      const keyBase = chaveFisicaBipagem(p);
+      if (!grupos.has(keyBase)) grupos.set(keyBase, { paradas: [], pacotes: [], nome: nomeFisicoBipagem(p), ordem: Infinity });
+      const grupo = grupos.get(keyBase);
       grupo.paradas.push(p);
       grupo.pacotes.push(...lista);
-      grupo.ordem = Math.min(Number(grupo.ordem || Infinity), Number(byOrder.get(String(p.id)) || p.ordemOtimizada || p.ordemOriginal || index + 1));
+      grupo.ordem = Math.min(grupo.ordem, Number(byOrder.get(p.id) || p.ordemOtimizada || p.ordemOriginal || index + 1));
+      (p.pacotesBipados || []).forEach(codigo => { if (lista.includes(codigo)) bipados.add(codigo); });
     });
-
-    [...grupos.entries()].sort((a,b)=>a[1].ordem-b[1].ordem).forEach(([chave, grupo], index) => {
+    [...grupos.entries()].sort((a,b)=>a[1].ordem-b[1].ordem).forEach(([keyBase, grupo], idx) => {
+      const key = `rotaativa_${keyBase.replace(/[^A-Za-z0-9_-]/g,'_')}`;
       const lista = [...new Set(grupo.pacotes.map(String).filter(Boolean))];
-      const key = `rotaativa_fisica_${index + 1}_${chave.replace(/[^A-Za-z0-9_-]/g, '_').slice(0,60)}`;
-      mapa[key] = lista;
-      const base = grupo.primeira?.enderecoOriginal || 'Endereço não informado';
-      nomes[key] = grupo.paradas.length > 1 ? `${base} · ${grupo.paradas.length}x` : base;
-      lista.forEach(codigo => { todos.add(codigo); stops[codigo] = index + 1; });
-      grupo.paradas.forEach(p => (p.pacotesBipados || []).forEach(codigo => { if (lista.includes(codigo)) bipados.add(codigo); }));
+      mapa[key] = lista; nomes[key] = grupo.nome;
+      lista.forEach(codigo => { todos.add(codigo); stops[codigo] = idx + 1; });
     });
 
     global.mapaRotas = mapa;

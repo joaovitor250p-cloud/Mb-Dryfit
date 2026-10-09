@@ -38,7 +38,7 @@
     texto(`Veículo: ${rota.veiculo || 'carro'}`, margin, y); y += line;
     texto(`Paradas: ${rota.paradas?.length || 0}`, margin, y); y += line;
     texto(`Distância: ${formatarDistancia(rota.distanciaTotalMetros)}`, margin, y); y += line;
-    texto(`Direção: ${formatarTempo(rota.duracaoDirecaoSegundos)} | Paradas: ${formatarTempo(rota.duracaoParadasSegundos)} | Total: ${formatarTempo(rota.duracaoTotalSegundos)}`, margin, y); y += 8;
+    texto(`Duração estimada restante: ${formatarTempo(rota.duracaoTotalSegundos)}${rota.horarioTerminoEstimado ? ` | Término previsto: ${new Date(rota.horarioTerminoEstimado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : ''}`, margin, y); y += 8;
 
     doc.setDrawColor(180);
     doc.line(margin, y, 196, y); y += 6;
@@ -67,8 +67,8 @@
         texto(linhas, margin + 4, y); y += linhas.length * 4;
       }
       texto(`Pacotes: ${(p.pacotes || []).length} | Status: ${p.statusEntrega || 'pendente'}`, margin + 4, y); y += 4.5;
-      const codigos = (p.pacotes || []).map(String).filter(Boolean);
-      if (codigos.length) { const linhasCodigos = doc.splitTextToSize(`SPX TN: ${codigos.join(' | ')}`, 176); garantir(linhasCodigos.length * 4 + 2); texto(linhasCodigos, margin + 4, y); y += linhasCodigos.length * 4 + 1; }
+      const codigos = (p.pacotes || []).join(', ');
+      if (codigos) { const linhasCodigos = doc.splitTextToSize(`SPX TN: ${codigos}`, 176); texto(linhasCodigos, margin + 4, y); y += linhasCodigos.length * 4; }
       doc.setDrawColor(225);
       doc.line(margin, y, 196, y); y += 5;
     });
