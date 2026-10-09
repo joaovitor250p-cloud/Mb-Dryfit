@@ -309,12 +309,23 @@
           ['==',['get','stackIndex'],8],['literal',[-1.25,-1.05]],
           ['literal',[0,2.15]]
         ],
+        'icon-allow-overlap': false,
+        'icon-ignore-placement': false,
+        'symbol-sort-key': ['get','order']
+      },
+      paint: { 'icon-opacity': .99 }
+    });
+    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
+      id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
+      layout: {
         'text-field': ['format',
           ['to-string',['get','order']], {'font-scale': 1},
           ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale': .62}
         ],
         'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.3, 16, 11.4],
         'text-font': ['literal', ['Open Sans Semibold']],
+        'text-allow-overlap': false,
+        'text-ignore-placement': false,
         'text-anchor': 'bottom',
         'text-offset': ['case',
           ['==',['get','stackIndex'],0],['literal',[0,-1.42]],
@@ -327,15 +338,9 @@
           ['==',['get','stackIndex'],7],['literal',[1.25,-2.47]],
           ['==',['get','stackIndex'],8],['literal',[-1.25,-2.47]],
           ['literal',[0,.73]]
-        ],
-        'icon-allow-overlap': false,
-        'icon-ignore-placement': false,
-        'text-allow-overlap': false,
-        'text-ignore-placement': false,
-        'symbol-sort-key': ['case', ['==', ['get','selected'], 1], 0, ['+', 100, ['get','order']]]
+        ]
       },
       paint: {
-        'icon-opacity': .99,
         'text-color': ['case', ['==', ['get', 'selected'], 1], '#ffffff', '#087a54'],
         'text-halo-color': ['case', ['==', ['get', 'selected'], 1], 'rgba(0,0,0,0)', '#ffffff'],
         'text-halo-width': ['case', ['==', ['get', 'selected'], 1], 0, .35]
@@ -361,7 +366,8 @@
       global.PacoteEMatoRoteirizacao?.selecionarParada?.(String(id), 'mapa');
     };
     mapa.on('click', LAYER_STOPS, selecionar);
-    [LAYER_STOPS].forEach(layer => {
+    mapa.on('click', LAYER_STOPS_TEXT, selecionar);
+    [LAYER_STOPS, LAYER_STOPS_TEXT].forEach(layer => {
       mapa.on('mouseenter', layer, () => { try { mapa.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
       mapa.on('mouseleave', layer, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
     });
