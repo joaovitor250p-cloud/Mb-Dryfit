@@ -145,3 +145,6 @@ Nenhum serviço externo é publicado ou alterado automaticamente por estes arqui
 Login/Firebase, usuários, permissões, importação, scanner, câmera, Bipagem, histórico, sons, vibração, voz e demais módulos existentes permanecem integrados ao projeto.
 
 Consulte `RELATORIO-IMPLEMENTACAO-REFINO-DESENHO.md` para os testes realmente executados, limitações de ambiente e detalhes desta entrega.
+
+## Atualização V12 — marcadores do mapa
+A V12 unifica o desenho dos marcadores de planejamento e navegação em `js/mapa/marcadores.js`, usa símbolos nativos do MapLibre, clustering em zoom distante e cápsulas compactas com número sequencial + multiplicador somente para paradas múltiplas. Consulte `RELATORIO-AJUSTE-V12-MARCADORES-DEFINITIVOS.md`.
