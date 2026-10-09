@@ -2,6 +2,8 @@
   'use strict';
 
   const KEY = 'pemato_config_v2';
+  let autoSaveTimer = null;
+
   const DEFAULTS = {
     navegacao: 'pacote_emato',
     veiculo: 'carro',
@@ -148,7 +150,7 @@
     }
   }
 
-  function salvarFormulario() {
+  function salvarFormulario(opcoes) {
     const atual = obter();
     const navegacao = $('settingsNavigation')?.value || 'pacote_emato';
     const veiculo = $('settingsVehicle')?.value || 'carro';
@@ -156,25 +158,54 @@
     const retornarAoInicio = $('settingsReturnStart')?.checked === true;
     const textoPonto = String($('settingsStartPoint')?.value || '').trim();
     let pontoInicial = atual.pontoInicial;
+
     if (textoPonto !== descricaoPonto(atual.pontoInicial)) {
-      // Endereço alterado não pode herdar silenciosamente coordenada antiga.
+      // Um texto alterado nunca herda as coordenadas anteriores.
       pontoInicial = null;
-      if (textoPonto) status($('settingsStartStatus'), 'Endereço alterado. Clique em “Validar endereço” antes de usar este ponto.', 'warning');
+      if (textoPonto) status($('settingsStartStatus'), 'Endereço alterado. Valide o endereço ou use sua localização antes de otimizar.', 'warning');
     }
+
     const workerField = $('settingsWorkerUrl');
     if (workerField) global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.(String(workerField.value || '').trim());
-    salvar({ navegacao, veiculo, tempoParadaSegundos, retornarAoInicio, pontoInicial });
-    if (typeof global.notificar === 'function') global.notificar('Configurações salvas e aplicadas à rota ativa.');
+
+    const cfg = salvar({ navegacao, veiculo, tempoParadaSegundos, retornarAoInicio, pontoInicial });
+    const hint = $('settingsAutosaveStatus');
+    if (hint) {
+      hint.textContent = 'Alterações salvas automaticamente.';
+      hint.dataset.status = 'ok';
+    }
+    if (opcoes?.notificar === true && typeof global.notificar === 'function') {
+      global.notificar('Configurações salvas e aplicadas à rota ativa.');
+    }
+    return cfg;
+  }
+
+  function agendarAutoSave(delay) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => salvarFormulario({ notificar: false }), Number(delay || 250));
   }
 
   function bind() {
-    $('settingsSaveBtn')?.addEventListener('click', salvarFormulario);
+    // Compatibilidade com versões anteriores: o botão pode existir, mas não é mais necessário.
+    $('settingsSaveBtn')?.addEventListener('click', () => salvarFormulario({ notificar: true }));
     $('settingsGeocodeStartBtn')?.addEventListener('click', validarEnderecoPartida);
     $('settingsUseGpsStartBtn')?.addEventListener('click', usarGpsPartida);
     $('settingsClearStartBtn')?.addEventListener('click', limparPonto);
     $('settingsWorkerTestBtn')?.addEventListener('click', testarWorker);
-    $('settingsWorkerUrl')?.addEventListener('change', () => global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.($('settingsWorkerUrl')?.value || ''));
+
+    ['settingsNavigation', 'settingsVehicle', 'settingsReturnStart'].forEach(id => {
+      $(id)?.addEventListener('change', () => salvarFormulario({ notificar: false }));
+    });
+    $('settingsStopMinutes')?.addEventListener('input', () => agendarAutoSave(350));
+    $('settingsStartPoint')?.addEventListener('input', () => agendarAutoSave(500));
+    $('settingsWorkerUrl')?.addEventListener('change', () => {
+      global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.($('settingsWorkerUrl')?.value || '');
+      salvarFormulario({ notificar: false });
+    });
+
     renderizar();
+    const hint = $('settingsAutosaveStatus');
+    if (hint) hint.textContent = 'Salvamento automático ativo.';
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });

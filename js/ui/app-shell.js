@@ -23,8 +23,27 @@
     if (ov) ov.style.display = 'none';
   }
 
+
+  function liberarTravasVisuais() {
+    try {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      ['modal-open','no-scroll','overflow-hidden','sheet-open'].forEach(cls => {
+        document.body.classList.remove(cls);
+        document.documentElement.classList.remove(cls);
+      });
+      ['routingActionsBackdrop','routeImportMappingModal','routingOptimizationReviewBackdrop','routeStopEditorModal','routeReoptDecisionModal','navCompletionBackdrop'].forEach(id => {
+        const el = $(id);
+        if (el) el.style.display = 'none';
+      });
+      const importFlow = $('routeImportFlow');
+      if (importFlow) importFlow.classList.remove('is-open');
+    } catch (_) {}
+  }
+
   async function abrirModulo(nome) {
     if (!modulos.includes(nome)) nome = 'inicio';
+    liberarTravasVisuais();
     const anterior = document.body.dataset.pematoModule || global.appState?.ui?.moduloAtual || 'inicio';
     if (anterior === 'navegacao' && nome !== 'navegacao') global.PacoteEMatoNavegacao?.pausar?.();
     document.body.dataset.pematoModule = nome;
@@ -35,6 +54,7 @@
     });
     if (global.appState?.ui) global.appState.ui.moduloAtual = nome;
     fecharSidebar();
+    if (nome !== 'navegacao') liberarTravasVisuais();
 
     if (nome === 'roteirizacao') {
       await global.PacoteEMatoRoteirizacao?.carregarRotaAtiva?.();
@@ -100,5 +120,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
   else bind();
 
-  global.PacoteEMatoAppShell = Object.freeze({ abrirModulo, atualizarInicio, fecharSidebar });
+  global.PacoteEMatoAppShell = Object.freeze({ abrirModulo, atualizarInicio, fecharSidebar, liberarTravasVisuais });
 })(window);

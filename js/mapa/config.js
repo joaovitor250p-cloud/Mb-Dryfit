@@ -2,6 +2,7 @@
   'use strict';
 
   const STORAGE_KEY = 'pemato_worker_base_url';
+  const DEFAULT_WORKER_BASE_URL = 'https://pacote-emato-rotas.joaovitor250p.workers.dev';
   const existente = global.PEMATO_MAP_CONFIG || {};
 
   function limparBase(url) {
@@ -13,7 +14,7 @@
     catch (_) { return ''; }
   }
 
-  const inicial = limparBase(existente.workerBaseUrl || baseSalva());
+  const inicial = limparBase(existente.workerBaseUrl || baseSalva() || DEFAULT_WORKER_BASE_URL);
 
   const cfg = global.PEMATO_MAP_CONFIG = Object.assign({
     // OpenFreeMap Liberty: mapa 2D colorido, legível e com nomes de vias.

@@ -10,3 +10,20 @@
 .route-import-skipped{margin:0 20px 14px;padding:10px 12px;border:1px solid rgba(245,158,11,.25);border-radius:12px;background:rgba(245,158,11,.08);color:#fbbf24;font-size:.62rem;line-height:1.45}.route-import-review-footer{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px max(14px,env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.08);background:#0e1412}
 .route-import-error{display:none;flex:1;place-items:center;padding:28px}.route-import-error-card{width:min(520px,100%);text-align:center}.route-import-error-card h2{margin:8px 0}.route-import-error-card p{color:#fca5a5;line-height:1.55}.route-import-error-actions{display:flex;justify-content:center;gap:9px;margin-top:18px;flex-wrap:wrap}
 @media(max-width:700px){.route-import-flow-shell{height:100%;border:0;border-radius:0}.route-import-review-head{align-items:flex-start}.route-import-review-summary{grid-template-columns:1fr 1fr}.route-import-review-item{grid-template-columns:38px minmax(0,1fr)}.route-import-review-item>button{grid-column:2;width:max-content}.route-import-review-footer{display:grid;grid-template-columns:1fr 1fr}.route-import-review-footer .pemato-primary{grid-column:1/-1;order:-1}.route-import-logo{width:72px;height:72px}}
+
+/* Perfil de importação reconhecido (ex.: planilhas SPX com coordenadas próprias). */
+.route-import-profile-note{
+  margin:0 0 14px;
+  padding:12px 14px;
+  border:1px solid rgba(16,185,129,.24);
+  border-radius:14px;
+  background:rgba(16,185,129,.08);
+  color:var(--text,#e5e7eb);
+  font-size:.88rem;
+  line-height:1.45;
+}
+.route-import-badge.info{
+  border-color:rgba(96,165,250,.3);
+  background:rgba(59,130,246,.1);
+  color:#bfdbfe;
+}

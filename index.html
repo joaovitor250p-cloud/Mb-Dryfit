@@ -874,6 +874,12 @@
 
         <div id="mapaRoteirizacao"></div>
         <div id="mapaRoteirizacaoFallback" class="route-map-fallback"></div>
+        <div id="routingBusyOverlay" class="routing-busy-overlay" style="display:none" role="status" aria-live="polite">
+          <img src="icon-192.png" alt="" class="routing-busy-logo">
+          <div class="routing-busy-spinner" aria-hidden="true"></div>
+          <strong id="routingBusyTitle">Processando rota</strong>
+          <span id="routingBusyMessage">Aguarde um instante.</span>
+        </div>
 
         <div id="routingEmptyState" class="routing-map-empty-state">
           <strong>Planeje sua rota</strong>
@@ -942,10 +948,50 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 19 6-14 2 6 6 2Z"></path></svg>
             <span><strong>Iniciar rota</strong><small>Abrir a navegação preferida</small></span>
           </button>
+          <button id="routingOpenBipagemBtn" class="routing-action-row routing-route-ready-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5zM8 8h8v3H8zM8 14h3M14 14h2M8 17h8"></path></svg>
+            <span><strong>Abrir Bipagem</strong><small>Usar esta rota otimizada na conferência dos pacotes</small></span>
+          </button>
         </div>
 
         <div id="routingServiceDeferredNote" class="routing-service-deferred-note">
           Geocodificação e otimização rodoviária exigem o serviço seguro já previsto. Se ele não estiver configurado, o aplicativo preserva as paradas e não simula resultados.
+        </div>
+      </section>
+    </div>
+
+    <div id="routingOptimizationReviewBackdrop" class="modal-backdrop routing-review-backdrop" style="display:none;z-index:12350">
+      <section class="routing-review-card" role="dialog" aria-modal="true" aria-labelledby="routingReviewTitle">
+        <div class="routing-review-head">
+          <div>
+            <div class="module-kicker">Rota calculada</div>
+            <h2 id="routingReviewTitle">Confira antes de iniciar</h2>
+          </div>
+          <button id="routingReviewCloseBtn" class="routing-actions-close" type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="routing-review-summary">
+          <div><span>Paradas</span><strong id="routingReviewStops">0</strong></div>
+          <div><span>Distância</span><strong id="routingReviewDistance">—</strong></div>
+          <div><span>Direção</span><strong id="routingReviewDrive">—</strong></div>
+          <div><span>Atendimento</span><strong id="routingReviewService">—</strong></div>
+          <div><span>Total</span><strong id="routingReviewTotal">—</strong></div>
+          <div><span>Término estimado</span><strong id="routingReviewEnd">—</strong></div>
+        </div>
+        <div class="routing-review-start">
+          <span>Ponto de partida</span>
+          <strong id="routingReviewStart">—</strong>
+        </div>
+        <div class="routing-review-list" id="routingReviewStopsList"></div>
+        <div id="routingRefinePanel" class="routing-refine-panel" style="display:none">
+          <strong>Preferência da rota</strong>
+          <label><input type="radio" name="routingRoutePreference" value="short"> Menor distância</label>
+          <label><input type="radio" name="routingRoutePreference" value="balanced"> Equilibrada</label>
+          <label><input type="radio" name="routingRoutePreference" value="less_maneuvers"> Menos manobras</label>
+          <small>“Menor distância” é o padrão para entregas urbanas. Moto usa “Equilibrada” quando “Menos manobras” não é compatível.</small>
+        </div>
+        <div class="routing-review-actions">
+          <button id="routingReviewRefineBtn" class="pemato-secondary" type="button">Refinar</button>
+          <button id="routingReviewConfirmBtn" class="pemato-primary" type="button">Confirmar rota</button>
         </div>
       </section>
     </div>
@@ -968,13 +1014,21 @@
       </div>
 
       <aside class="navigation-panel">
-        <section class="nav-next-card"><div class="eyebrow">PRÓXIMA PARADA</div><h3 id="navNextAddress">Aguardando rota</h3><p id="navNextComplement"></p><div class="nav-next-packages" id="navNextPackages">0 pacotes</div></section>
-        <section class="nav-delivery-note"><label for="navDeliveryNote">Nota da entrega</label><textarea id="navDeliveryNote" class="pemato-field" rows="2" placeholder="Informações úteis desta parada"></textarea></section>
+        <section class="nav-next-card">
+          <button id="navMoreBtn" class="nav-more-btn" type="button" aria-label="Mais opções">⋮</button>
+          <div class="eyebrow">PRÓXIMA PARADA</div>
+          <h3 id="navNextAddress">Aguardando rota</h3>
+          <p id="navNextComplement"></p>
+          <div class="nav-next-packages" id="navNextPackages">0 pacotes</div>
+        </section>
         <section class="nav-stats"><div class="nav-stat"><strong id="navDistanceNext">—</strong><span>Até a próxima</span></div><div class="nav-stat"><strong id="navEtaNext">—</strong><span>ETA próxima</span></div><div class="nav-stat"><strong id="navRemaining">0</strong><span>Restantes</span></div><div class="nav-stat"><strong id="navRouteTotal">—</strong><span>Rota restante</span></div><div class="nav-stat"><strong id="navRouteTime">—</strong><span>Tempo de direção</span></div></section>
         <div class="nav-delivery-actions"><button id="navDeliveredBtn" class="pemato-primary" type="button">Entregue</button><button id="navNotDeliveredBtn" class="pemato-danger" type="button">Não entregue</button></div>
-        <div class="nav-secondary-actions"><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular rota</button><button id="navOpenWazeBtn" class="pemato-secondary" type="button">Waze</button><button id="navOpenGoogleBtn" class="pemato-secondary" type="button">Google Maps</button><button id="navEndBtn" class="pemato-danger" type="button">Sair da navegação</button></div>
-        <section id="navFailurePanel" class="nav-failure-panel" style="display:none"><h4>Registrar não entrega</h4><label>Motivo<select id="navFailureReason" class="pemato-field"><option value="" selected disabled>Selecione o motivo</option><option value="cliente_ausente">Cliente ausente</option><option value="endereco_incorreto">Endereço incorreto</option><option value="estabelecimento_fechado">Estabelecimento fechado</option><option value="recusado">Recusado</option><option value="outro">Outro</option></select></label><label>Observação<textarea id="navFailureNote" class="pemato-field" rows="2" placeholder="Detalhes opcionais"></textarea></label><div class="nav-failure-actions"><button id="navFailureConfirmBtn" class="pemato-danger" type="button">Confirmar não entrega</button><button id="navFailureCancelBtn" class="pemato-secondary" type="button">Cancelar</button></div></section>
-        <section class="nav-instructions-card"><h4>Próximas instruções</h4><div id="navInstructions"></div></section>
+        <section id="navFailurePanel" class="nav-failure-panel" style="display:none"><h4>Marcar como não entregue</h4><p>Motivo e observação são opcionais. A rota avança para a próxima parada ao confirmar.</p><label>Motivo<select id="navFailureReason" class="pemato-field"><option value="">Não informado</option><option value="cliente_ausente">Cliente ausente</option><option value="endereco_incorreto">Endereço incorreto</option><option value="estabelecimento_fechado">Estabelecimento fechado</option><option value="recusado">Recusado</option><option value="outro">Outro</option></select></label><label>Observação<textarea id="navFailureNote" class="pemato-field" rows="2" placeholder="Detalhes opcionais"></textarea></label><div class="nav-failure-actions"><button id="navFailureConfirmBtn" class="pemato-danger" type="button">Não entregue e próxima</button><button id="navFailureCancelBtn" class="pemato-secondary" type="button">Cancelar</button></div></section>
+        <div id="navExtrasPanel" class="nav-extras-panel" style="display:none">
+          <section class="nav-delivery-note"><label for="navDeliveryNote">Nota da entrega</label><textarea id="navDeliveryNote" class="pemato-field" rows="2" placeholder="Informações úteis desta parada"></textarea></section>
+          <div class="nav-secondary-actions"><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular rota</button><button id="navOpenWazeBtn" class="pemato-secondary" type="button">Waze</button><button id="navOpenGoogleBtn" class="pemato-secondary" type="button">Google Maps</button><button id="navEndBtn" class="pemato-danger" type="button">Sair da navegação</button></div>
+          <section class="nav-instructions-card"><h4>Próximas instruções</h4><div id="navInstructions"></div></section>
+        </div>
       </aside>
     </div>
 
@@ -1054,7 +1108,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px"><button class="segmented-btn active" id="voice_navegacao_feminina" onclick="salvarVoz('navegacao_feminina', true)">Navegação</button><button class="segmented-btn" id="voice_mudo" onclick="salvarVoz('mudo', false)">Silencioso</button></div>
       </section>
     </div>
-    <div class="settings-save-row"><button id="settingsSaveBtn" class="pemato-primary" type="button">Salvar configurações</button></div>
+    <div class="settings-save-row settings-autosave-row"><span id="settingsAutosaveStatus" class="settings-inline-status" data-status="ok">Salvamento automático ativo.</span><button id="settingsSaveBtn" class="pemato-primary" type="button" style="display:none" aria-hidden="true" tabindex="-1">Salvar configurações</button></div>
   </main>
 
   <div class="container pemato-module" id="moduloBipagem" style="display:none;">

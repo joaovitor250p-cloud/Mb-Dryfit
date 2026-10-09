@@ -83,6 +83,16 @@
   function adicionarSource(id, data) { if (!mapa.getSource(id)) mapa.addSource(id, { type: 'geojson', data }); }
   function antesRotulos() { return (mapa.getStyle()?.layers || []).find(l => l.type === 'symbol')?.id; }
 
+  function removerCamadas3D() {
+    if (!mapa || !mapReady) return;
+    try {
+      (mapa.getStyle()?.layers || []).forEach(layer => {
+        if (layer?.type === 'fill-extrusion' && mapa.getLayer(layer.id)) mapa.removeLayer(layer.id);
+      });
+      mapa.setPitch?.(0);
+    } catch (_) {}
+  }
+
   function garantirCamadas() {
     if (!mapa || !mapReady) return;
     adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSource(SOURCE_NEXT, fc([]));
@@ -103,7 +113,7 @@
       mapa = new global.maplibregl.Map({ container, style: cfg().mapStyleUrl, center: cfg().initialCenter || [-46.6333,-23.5505], zoom: 15, pitch:0,bearing:0,maxPitch:0,dragRotate:false,touchPitch:false });
       mapa.touchZoomRotate?.disableRotation?.();
       mapa.on('dragstart', () => { seguirPosicao = false; atualizarBotaoFollow(); });
-      const ready = () => { mapReady = true; garantirCamadas(); desenharRota(); atualizarFontesPontos(); };
+      const ready = () => { mapReady = true; removerCamadas3D(); garantirCamadas(); desenharRota(); atualizarFontesPontos(); };
       mapa.on('load', ready); mapa.on('style.load', ready);
       mapa.on('error', ev => { const el=$('navMapFallback'); if(el){el.textContent=ev?.error?.message ? `Mapa indisponível: ${ev.error.message}`:'Mapa indisponível.';el.style.display='flex';} });
     } catch (erro) { const el=$('navMapFallback'); if(el){el.textContent=erro?.message||'Não foi possível abrir o mapa.';el.style.display='flex';} }
@@ -234,7 +244,10 @@
     ordemPendente.forEach(p=>{if(coordenadaValida(p.latitude,p.longitude))points.push({lat:Number(p.latitude),lon:Number(p.longitude)});});
     if(rota.retornarAoInicio&&rota.pontoInicial&&coordenadaValida(rota.pontoInicial.lat,rota.pontoInicial.lon))points.push({lat:Number(rota.pontoInicial.lat),lon:Number(rota.pontoInicial.lon)});
     if(points.length<2) return false;
-    const btn=$('navRecalculateBtn'); if(btn)btn.disabled=true;
+    const btn=$('navRecalculateBtn');
+    const textoBtn=btn?.textContent||'Recalcular rota';
+    if(btn){btn.disabled=true;btn.textContent='Recalculando...';}
+    if($('navGpsStatus')) $('navGpsStatus').textContent='Recalculando trajeto pelas ruas...';
     try{
       const response=await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rota,points), feature=response.feature;
       rota.geometria=feature.geometry; rota.distanciaTotalMetros=Number(feature.properties?.distance||0); rota.duracaoDirecaoSegundos=Number(feature.properties?.time||0);
@@ -243,7 +256,7 @@
       if($('navGpsStatus')) $('navGpsStatus').textContent=motivo==='desvio'?'Rota recalculada após desvio':'Rota atualizada';
       return true;
     }catch(erro){global.notificar?.(erro?.message||'Não foi possível recalcular a rota.'); if($('navGpsStatus')) $('navGpsStatus').textContent='Não foi possível recalcular'; return false;}
-    finally{if(btn)btn.disabled=false;}
+    finally{if(btn){btn.disabled=false;btn.textContent=textoBtn;}}
   }
 
   function processarPosicao(pos) {
@@ -283,7 +296,7 @@
     if(global.appState?.navegacao) global.appState.navegacao.foraDaRota=eventosForaRota>=3;
     if($('navGpsStatus')) $('navGpsStatus').textContent=eventosForaRota>=3?'Fora da rota planejada':`GPS ativo${ultimaPosicao.accuracy?` · precisão ${Math.round(ultimaPosicao.accuracy)} m`:''}`;
     if(eventosForaRota>=3&&Date.now()-ultimoRecalculo>60000&&global.PacoteEMatoServicoRota?.endpoint?.('route')) recalcular('desvio');
-    if(seguirPosicao&&mapa&&mapReady&&Date.now()-ultimaCentralizacao>1200){ultimaCentralizacao=Date.now();try{mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:Math.max(mapa.getZoom(),16),bearing:ultimaPosicao.heading??mapa.getBearing(),duration:500});}catch(_){} }
+    if(seguirPosicao&&mapa&&mapReady&&Date.now()-ultimaCentralizacao>1200){ultimaCentralizacao=Date.now();try{mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:Math.max(mapa.getZoom(),16),bearing:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):mapa.getBearing(),pitch:0,duration:500});}catch(_){} }
   }
 
   function iniciarGPS() {
@@ -299,12 +312,11 @@
     processandoStatus=true; try{
       if(!['entregue','nao_entregue'].includes(status)) return;
       const motivoFinal=status==='nao_entregue'?String(motivo||'').trim():'';
-      if(status==='nao_entregue'&&!motivoFinal){global.notificar?.('Selecione o motivo da não entrega.');return;}
       const timestamp=Date.now(); parada.statusEntrega=status; parada.statusAtualizadoEm=timestamp; parada.observacaoEntrega=String($('navDeliveryNote')?.value||'').trim();
       if(status==='entregue'){parada.motivoNaoEntrega='';parada.observacaoNaoEntrega='';parada.entregueEm=timestamp;parada.naoEntregueEm=null;}
       else {parada.motivoNaoEntrega=motivoFinal;parada.observacaoNaoEntrega=String(observacao||'').trim();parada.entregueEm=null;parada.naoEntregueEm=timestamp;}
       parada.alteradoEm=timestamp; await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
-      if($('navFailurePanel'))$('navFailurePanel').style.display='none'; if($('navFailureNote'))$('navFailureNote').value=''; if($('navDeliveryNote'))$('navDeliveryNote').value=''; ultimoIdNota='';
+      if($('navFailurePanel'))$('navFailurePanel').style.display='none'; if($('navFailureReason'))$('navFailureReason').value=''; if($('navFailureNote'))$('navFailureNote').value=''; if($('navDeliveryNote'))$('navDeliveryNote').value=''; if($('navExtrasPanel'))$('navExtrasPanel').style.display='none'; ultimoIdNota='';
       falasFeitas.clear(); atualizarPendentes(); atualizarPainel(); global.PacoteEMatoHistorico?.renderizar?.(); global.PacoteEMatoAppShell?.atualizarInicio?.();
       if(ordemPendente.length){if(global.PacoteEMatoServicoRota?.endpoint?.('route'))await recalcular('proxima');else atualizarFontesPontos();}
       else{rota.status='aguardando_finalizacao';rota.conclusaoPendente=true;await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});mostrarConclusao();}
@@ -331,9 +343,10 @@
   function bind(){
     $('navDeliveredBtn')?.addEventListener('click',()=>salvarStatusParadaAtual('entregue'));
     $('navNotDeliveredBtn')?.addEventListener('click',abrirNaoEntrega); $('navFailureCancelBtn')?.addEventListener('click',cancelarNaoEntrega);
-    $('navFailureConfirmBtn')?.addEventListener('click',()=>{const motivo=String($('navFailureReason')?.value||'').trim();if(!motivo){global.notificar?.('Selecione o motivo da não entrega.');return;}salvarStatusParadaAtual('nao_entregue',motivo,$('navFailureNote')?.value||'');});
+    $('navFailureConfirmBtn')?.addEventListener('click',()=>{const motivo=String($('navFailureReason')?.value||'').trim();salvarStatusParadaAtual('nao_entregue',motivo,$('navFailureNote')?.value||'');});
+    $('navMoreBtn')?.addEventListener('click',()=>{const painel=$('navExtrasPanel');if(painel)painel.style.display=painel.style.display==='none'?'grid':'none';});
     $('navRecalculateBtn')?.addEventListener('click',()=>recalcular('manual')); $('navOpenWazeBtn')?.addEventListener('click',()=>abrirExterno('waze')); $('navOpenGoogleBtn')?.addEventListener('click',()=>abrirExterno('google')); $('navEndBtn')?.addEventListener('click',encerrar);
-    $('navFollowBtn')?.addEventListener('click',()=>{seguirPosicao=true;if(global.appState?.navegacao)global.appState.navegacao.seguirPosicao=true;atualizarBotaoFollow();if(ultimaPosicao&&mapa&&mapReady)mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:16,duration:350});});
+    $('navFollowBtn')?.addEventListener('click',()=>{seguirPosicao=true;if(global.appState?.navegacao)global.appState.navegacao.seguirPosicao=true;atualizarBotaoFollow();if(ultimaPosicao&&mapa&&mapReady)mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:16,pitch:0,duration:350});});
     $('navVoiceBtn')?.addEventListener('click',()=>{vozAtiva=!vozAtiva;if(global.appState?.navegacao)global.appState.navegacao.vozAtiva=vozAtiva;if(!vozAtiva)try{global.speechSynthesis?.cancel?.();}catch(_){};atualizarBotaoVoz();});
     $('navCompletionFinishBtn')?.addEventListener('click',finalizarRota); $('navCompletionReviewBtn')?.addEventListener('click',revisarResultados);
     document.addEventListener('visibilitychange',()=>{if(document.hidden&&global.appState?.navegacao?.ativa&&$('navGpsStatus'))$('navGpsStatus').textContent='Aplicativo em segundo plano; GPS e voz podem ser suspensos pelo navegador.';});

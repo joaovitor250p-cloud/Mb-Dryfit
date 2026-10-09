@@ -57,6 +57,7 @@
     retornarAoInicio: false,
     veiculo: 'carro',
     modoRoteamento: 'drive',
+    preferenciaRota: 'short',
     tempoParadaSegundos: 180,
     paradas: [],
     ordem: [],

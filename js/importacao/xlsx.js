@@ -3,7 +3,7 @@
 
   const aliases = {
     endereco: [
-      'endereco', 'endereço', 'address', 'endereco completo', 'endereço completo', 'local', 'destino',
+      'endereco', 'endereço', 'address', 'destination address', 'endereco completo', 'endereço completo', 'local', 'destino',
       'endereco da entrega', 'endereço da entrega', 'endereco destino', 'endereço destino',
       'endereco do cliente', 'endereço do cliente', 'endereco destinatario', 'endereço destinatário',
       'endereco de entrega', 'endereço de entrega', 'local de entrega'
@@ -21,7 +21,10 @@
     cep: ['cep', 'postal code', 'zipcode', 'zip', 'codigo postal', 'código postal'],
     observacao: ['observacao', 'observação', 'obs', 'nota', 'notas', 'notes', 'instructions', 'instrucoes', 'instruções', 'observacoes', 'observações'],
     id: ['id', 'stop id', 'parada id', 'codigo parada', 'código parada', 'id parada', 'numero parada', 'número parada'],
-    pacote: ['pacote', 'codigo pacote', 'código pacote', 'codigo', 'código', 'tracking', 'tracking code', 'etiqueta', 'package', 'codigo de rastreio', 'código de rastreio'],
+    atId: ['at id', 'atid', 'route id', 'rota id', 'id da rota', 'id do lote'],
+    sequenceOrigem: ['sequence', 'sequencia', 'sequência', 'ordem origem', 'sequencia origem', 'sequência origem'],
+    stopOrigem: ['stop', 'stop number', 'parada origem', 'parada original'],
+    pacote: ['pacote', 'spx tn', 'spxtn', 'tn', 'codigo pacote', 'código pacote', 'codigo', 'código', 'tracking', 'tracking code', 'etiqueta', 'package', 'codigo de rastreio', 'código de rastreio'],
     pacotes: ['pacotes', 'codigos pacotes', 'códigos pacotes', 'trackings', 'packages', 'etiquetas'],
     latitude: ['latitude', 'lat', 'coord lat', 'coordenada latitude'],
     longitude: ['longitude', 'lon', 'lng', 'long', 'coord lon', 'coordenada longitude']
@@ -39,7 +42,11 @@
     ['bloco', 'Bloco'],
     ['sala', 'Sala'],
     ['loja', 'Loja'],
-    ['pacote', 'Código de pacote'],
+    ['bairro', 'Bairro'],
+    ['atId', 'AT ID / ID da rota'],
+    ['sequenceOrigem', 'Sequence / sequência de origem'],
+    ['stopOrigem', 'Stop / parada de origem'],
+    ['pacote', 'Código de pacote / SPX TN'],
     ['pacotes', 'Códigos de pacotes'],
     ['observacao', 'Observação'],
     ['id', 'ID da parada'],
@@ -129,6 +136,14 @@
     return { headerIndex: -1, headers: [], columns: {} };
   }
 
+  function detectarPerfil(headers) {
+    const norm = new Set((headers || []).map(normalizarCabecalho).filter(Boolean));
+    const obrigatoriasSPX = ['at id', 'spx tn', 'destination address', 'bairro', 'city', 'zipcode postal code', 'latitude', 'longitude'];
+    const encontrados = obrigatoriasSPX.filter(item => norm.has(normalizarCabecalho(item))).length;
+    if (encontrados >= 7 && norm.has('spx tn') && norm.has('destination address')) return 'spx';
+    return 'generico';
+  }
+
   function normalizarMapeamento(mapping) {
     const out = {};
     Object.entries(mapping || {}).forEach(([campo, indice]) => {
@@ -162,6 +177,20 @@
       else String(texto).split(/[;,|\n]+/).map(v => v.trim()).filter(Boolean).forEach(v => encontrados.push(v));
     });
     return [...new Set(encontrados)];
+  }
+
+  function inferirNumeroEndereco(endereco) {
+    const texto = String(endereco || '').trim();
+    if (!texto) return '';
+    // Arquivos SPX costumam usar: "Logradouro, número, complemento".
+    // Prioriza o primeiro número logo após uma vírgula para não confundir
+    // nomes de vias como "Rua Dois de Julho" ou "Rua 24 de Maio".
+    const aposVirgula = texto.match(/,\s*(\d+[A-Za-z]?(?:[-\/]\d+[A-Za-z]?)?)\b/);
+    if (aposVirgula) return aposVirgula[1];
+    const antesVirgula = texto.match(/\s(\d+[A-Za-z]?)\s*,/);
+    if (antesVirgula) return antesVirgula[1];
+    const numeroFinal = texto.match(/\s(\d+[A-Za-z]?)\s*(?:$|[-–—])/);
+    return numeroFinal ? numeroFinal[1] : '';
   }
 
   function montarEndereco(campos) {
@@ -224,9 +253,13 @@
         estado: valor(row, columns, 'estado'),
         cep: valor(row, columns, 'cep'),
         observacao: valor(row, columns, 'observacao'),
+        atId: valor(row, columns, 'atId'),
+        sequenceOrigem: valor(row, columns, 'sequenceOrigem'),
+        stopOrigem: valor(row, columns, 'stopOrigem'),
         latitude: valor(row, columns, 'latitude'),
         longitude: valor(row, columns, 'longitude')
       };
+      if (!campos.numero && campos.endereco) campos.numero = inferirNumeroEndereco(campos.endereco);
       const enderecoOriginal = montarEndereco(campos);
       if (!enderecoOriginal) {
         erros.push({ linha: i + 1, motivo: 'Endereço vazio' });
@@ -277,6 +310,11 @@
         estado: campos.estado,
         cep: campos.cep,
         observacao: campos.observacao,
+        atId: campos.atId,
+        sequenceOrigem: campos.sequenceOrigem,
+        stopOrigem: campos.stopOrigem,
+        spxTn: pacotes[0] || '',
+        enderecoFonte: campos.endereco || campos.logradouro || '',
         pacotes,
         quantidadePacotes: pacotes.length,
         quantidadeBipada: 0,
@@ -286,14 +324,19 @@
         longitude: coordenadaPlanilhaValida ? lonNumero : null,
         fonteCoordenada: coordenadaPlanilhaValida ? 'xlsx' : null,
         origem: 'xlsx',
-        fonte: { arquivo: nomeArquivo || '', linha: i + 1 }
+        fonte: {
+          arquivo: nomeArquivo || '',
+          linha: i + 1,
+          perfil: detectarPerfil(headers),
+          camposOriginais: Object.fromEntries(headers.map((h, idx) => [String(h || `coluna_${idx + 1}`), row?.[idx] ?? '']))
+        }
       };
       paradas.push(parada);
       if (idPlanilha && !porIdExplicito.has(idBase)) porIdExplicito.set(idBase, parada);
     }
 
     if (!paradas.length) throw new Error('Nenhuma parada válida foi encontrada na planilha. Revise as colunas associadas.');
-    return { paradas, erros, headers, columns, headerIndex };
+    return { paradas, erros, headers, columns, headerIndex, perfil: detectarPerfil(headers) };
   }
 
   function parseCsv(texto) {
@@ -507,6 +550,7 @@
       headerIndex: cabecalho.headerIndex,
       headers: cabecalho.headers || [],
       columns: cabecalho.columns || {},
+      perfil: detectarPerfil(cabecalho.headers || []),
       totalLinhasDados: dataRows.length,
       amostra: dataRows.slice(0, 4)
     };
@@ -521,6 +565,7 @@
     resultado.sheetName = inspecao.sheetName;
     resultado.nomeArquivo = file.name;
     resultado.engine = inspecao.engine;
+    resultado.perfil = resultado.perfil || inspecao.perfil || 'generico';
     return resultado;
   }
 
@@ -532,6 +577,6 @@
     detectarCabecalho,
     montarEndereco,
     camposMapeaveis: CAMPOS_MAPEAVEIS.slice(),
-    _teste: Object.freeze({ parseCsv, parseSharedStrings, parseWorksheet, normalizarCabecalho })
+    _teste: Object.freeze({ parseCsv, parseSharedStrings, parseWorksheet, normalizarCabecalho, detectarPerfil })
   });
 })(window);

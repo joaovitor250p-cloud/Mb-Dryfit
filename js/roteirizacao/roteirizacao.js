@@ -99,6 +99,130 @@
     catch (_) { return '—'; }
   }
 
+  function mostrarProcessamento(titulo, mensagem) {
+    const overlay = $('routingBusyOverlay');
+    if (!overlay) return;
+    if ($('routingBusyTitle')) $('routingBusyTitle').textContent = titulo || 'Processando rota';
+    if ($('routingBusyMessage')) $('routingBusyMessage').textContent = mensagem || 'Aguarde um instante.';
+    overlay.style.display = 'flex';
+  }
+
+  function atualizarProcessamento(titulo, mensagem) {
+    if ($('routingBusyTitle') && titulo) $('routingBusyTitle').textContent = titulo;
+    if ($('routingBusyMessage') && mensagem) $('routingBusyMessage').textContent = mensagem;
+  }
+
+  function esconderProcessamento() {
+    const overlay = $('routingBusyOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async function garantirPontoInicialParaOtimizacao() {
+    const atual = rotaAtual?.pontoInicial;
+    const precisaGps = !pontoValido(atual) || String(atual?.tipo || '') === 'gps';
+    if (!precisaGps) return atual;
+
+    atualizarProcessamento('Obtendo ponto de partida', 'Atualizando sua posição antes de calcular a rota.');
+    try {
+      const local = await global.PacoteEMatoLocalizacaoAtual?.obter?.({ forcar: true });
+      if (local && coordenadaValida(local.lat, local.lon)) {
+        rotaAtual.pontoInicial = {
+          tipo: 'gps',
+          descricao: 'Posição GPS usada ao otimizar',
+          lat: Number(local.lat),
+          lon: Number(local.lon),
+          accuracy: Number(local.accuracy || 0),
+          obtidaEm: Number(local.timestamp || Date.now()),
+          status: 'ok'
+        };
+        return rotaAtual.pontoInicial;
+      }
+    } catch (_) {}
+
+    if (pontoValido(atual)) return atual;
+    throw new Error('Não foi possível obter sua localização. Defina um ponto de partida nas Configurações e tente novamente.');
+  }
+
+  function preencherRevisaoOtimizacao() {
+    if (!rotaAtual) return;
+    if ($('routingReviewStops')) $('routingReviewStops').textContent = String(rotaAtual.paradas.length);
+    if ($('routingReviewDistance')) $('routingReviewDistance').textContent = formatarDistancia(rotaAtual.distanciaTotalMetros);
+    if ($('routingReviewDrive')) $('routingReviewDrive').textContent = formatarTempo(rotaAtual.duracaoDirecaoSegundos);
+    if ($('routingReviewService')) $('routingReviewService').textContent = formatarTempo(rotaAtual.duracaoParadasSegundos);
+    if ($('routingReviewTotal')) $('routingReviewTotal').textContent = formatarTempo(rotaAtual.duracaoTotalSegundos);
+    if ($('routingReviewEnd')) $('routingReviewEnd').textContent = horaLocal(rotaAtual.horarioTerminoEstimado);
+    if ($('routingReviewStart')) $('routingReviewStart').textContent = rotaAtual.pontoInicial?.descricao || 'Ponto de partida';
+
+    const list = $('routingReviewStopsList');
+    if (list) {
+      list.replaceChildren();
+      const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+      (rotaAtual.ordem || []).forEach((id, index) => {
+        const parada = byId.get(String(id));
+        if (!parada) return;
+        const row = document.createElement('div');
+        row.className = 'routing-review-stop';
+        const num = document.createElement('span');
+        num.className = 'routing-review-number';
+        num.textContent = String(index + 1);
+        const copy = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = parada.enderecoFonte || parada.enderecoOriginal || 'Parada';
+        const small = document.createElement('small');
+        small.textContent = [parada.bairro, parada.cidade, `${parada.pacotes?.length || 0} pacote(s)`].filter(Boolean).join(' · ');
+        copy.append(strong, small);
+        row.append(num, copy);
+        list.appendChild(row);
+      });
+    }
+
+    document.querySelectorAll('input[name="routingRoutePreference"]').forEach(input => {
+      input.checked = input.value === String(rotaAtual.preferenciaRota || 'short');
+      input.disabled = rotaAtual.veiculo === 'moto' && input.value === 'less_maneuvers';
+    });
+  }
+
+  function abrirRevisaoOtimizacao() {
+    preencherRevisaoOtimizacao();
+    const backdrop = $('routingOptimizationReviewBackdrop');
+    if (backdrop) backdrop.style.display = 'flex';
+  }
+
+  function fecharRevisaoOtimizacao() {
+    const backdrop = $('routingOptimizationReviewBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none';
+  }
+
+  async function confirmarRevisaoOtimizacao() {
+    if (!rotaAtual) return;
+    rotaAtual.confirmadaEm = Date.now();
+    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+    fecharRevisaoOtimizacao();
+    renderizarTudo({ fit: true });
+    notificar('Rota confirmada. Você pode iniciar a navegação ou abrir a Bipagem.');
+  }
+
+  function alternarRefino() {
+    const panel = $('routingRefinePanel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
+  }
+
+  async function aplicarRefinoOtimizacao() {
+    const checked = document.querySelector('input[name="routingRoutePreference"]:checked');
+    if (!checked || !rotaAtual) return;
+    let preferencia = checked.value;
+    if (rotaAtual.veiculo === 'moto' && preferencia === 'less_maneuvers') preferencia = 'balanced';
+    if (preferencia === rotaAtual.preferenciaRota) return;
+    rotaAtual.preferenciaRota = preferencia;
+    rotaAtual.rotaOtimizada = false;
+    rotaAtual.confirmadaEm = null;
+    fecharRevisaoOtimizacao();
+    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+    await otimizarRota({ refinamento: true });
+  }
+
   function aplicarRotaNoState() {
     if (!rotaAtual || !global.appState?.roteirizacao) return;
     const s = global.appState.roteirizacao;
@@ -110,6 +234,7 @@
     s.retornarAoInicio = rotaAtual.retornarAoInicio;
     s.veiculo = rotaAtual.veiculo;
     s.modoRoteamento = rotaAtual.modoRoteamento;
+    s.preferenciaRota = rotaAtual.preferenciaRota || 'short';
     s.tempoParadaSegundos = rotaAtual.tempoParadaSegundos;
     s.paradas = rotaAtual.paradas;
     s.ordem = rotaAtual.ordem;
@@ -257,7 +382,10 @@
   function fecharMenuAcoes() {
     const backdrop = $('routingActionsBackdrop');
     if (backdrop) backdrop.style.display = 'none';
-    if (document.body.dataset.pematoModule !== 'roteirizacao') document.body.style.overflow = '';
+    // O menu bloqueia o scroll somente enquanto está aberto. Manter overflow:hidden
+    // depois de fechá-lo travava a tela Início em alguns navegadores móveis.
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
   }
 
   function atualizarDisponibilidadeAcoes() {
@@ -638,7 +766,8 @@
         origem: 'xlsx', status: 'planejamento', veiculo: cfg.veiculo || 'carro',
         modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
         tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180), pontoInicial: cfg.pontoInicial || null,
-        retornarAoInicio: cfg.retornarAoInicio === true, paradas: resultado.paradas, ordem: resultado.paradas.map(p => p.id)
+        retornarAoInicio: cfg.retornarAoInicio === true, paradas: resultado.paradas, ordem: resultado.paradas.map(p => p.id),
+        perfilImportacao: resultado.perfil || 'generico', arquivoOrigem: file.name
       });
       rotaImportacaoPendente = candidata;
       resultadoImportacaoPendente = resultado;
@@ -666,11 +795,17 @@
     renderizarTudo({ fit: true });
     definirEstadoPainel('expanded');
     const avisos = resultado?.erros?.length || 0;
-    if (!workerConfigurado() || !global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). ${avisos ? `${avisos} linha(s) exigem revisão. ` : ''}A lista foi preservada. Para localizar endereços e otimizar pelas ruas, configure o serviço seguro quando estiver disponível.`, 'warning');
+    const jaLocalizadas = rotaAtual.paradas.filter(paradaLocalizada).length;
+    if (jaLocalizadas === rotaAtual.paradas.length) {
+      const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx') ? ' As coordenadas válidas da própria planilha foram preservadas.' : '';
+      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s) e prontas para o mapa.${origemCoords} Confira a rota e toque em “Otimizar rota”.`, avisos ? 'warning' : 'success');
       return;
     }
-    definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). Localizando endereços...`, null);
+    if (!workerConfigurado() || !global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
+      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s); ${jaLocalizadas} já localizada(s). ${avisos ? `${avisos} linha(s) exigem revisão. ` : ''}As demais paradas foram preservadas para localização posterior.`, 'warning');
+      return;
+    }
+    definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). Localizando apenas os endereços que ainda não possuem coordenadas...`, null);
     const resumoGeo = await geocodificarTodas({ silencioso: true });
     if (resumoGeo) {
       const problemas = resumoGeo.total - resumoGeo.ok;
@@ -838,28 +973,34 @@
     notificar('Ponto de partida salvo nas configurações.');
   }
 
-  async function otimizarRota() {
+  async function otimizarRota(opcoes) {
     if (!rotaAtual) return;
     if (!workerConfigurado() || !global.PacoteEMatoServicoRota?.endpoint?.('optimize')) {
-      const msg = 'Otimização por ruas depende do serviço externo, que não será configurado nesta etapa. A rota não será simulada.';
+      const msg = 'O serviço de otimização ainda não está disponível. As paradas foram preservadas.';
       definirStatusImportacao(msg, 'warning');
       return notificar(msg);
     }
-    const btn = $('routingOptimizeBtn');
-    if (btn) btn.disabled = true;
+
+    const botoes = [$('routingOptimizeBtn'), $('routingMainOptimizeBtn')].filter(Boolean);
+    botoes.forEach(btn => { btn.disabled = true; });
+
     try {
       const unresolved = rotaAtual.paradas.filter(p => !paradaLocalizada(p));
-      if (unresolved.length) throw new Error(`Corrija ou localize ${unresolved.length} parada(s) antes de otimizar.`);
-      if (!pontoValido(rotaAtual.pontoInicial)) {
-        throw new Error('Defina um ponto de partida válido antes de otimizar.');
-      }
+      if (unresolved.length) throw new Error(`Localize ou corrija ${unresolved.length} parada(s) antes de otimizar.`);
 
+      mostrarProcessamento('Preparando a rota', 'Conferindo ponto de partida e coordenadas.');
+      await garantirPontoInicialParaOtimizacao();
+
+      if (!rotaAtual.preferenciaRota) rotaAtual.preferenciaRota = 'short';
+      atualizarProcessamento('Calculando melhor sequência', 'Otimização pela rede viária. Nenhuma distância em linha reta é usada.');
       const otimizada = await global.PacoteEMatoServicoRota.otimizar(rotaAtual);
       const orderIds = Array.isArray(otimizada.orderIds) ? otimizada.orderIds : [];
       if (!orderIds.length) throw new Error('O otimizador não retornou uma ordem de paradas.');
 
       const ordered = global.PacoteEMatoServicoRota.ordenarParadas(rotaAtual, orderIds);
       rotaAtual.ordem = ordered.map(p => p.id);
+
+      atualizarProcessamento('Traçando percurso pelas ruas', 'Calculando a geometria completa, distância e tempo.');
       const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
       const feature = route.feature;
       rotaAtual.geometria = feature.geometry;
@@ -867,26 +1008,38 @@
       rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || otimizada.drivingTime || 0);
       rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
       rotaAtual.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
+
       const pendentes = rotaAtual.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length;
       rotaAtual.duracaoParadasSegundos = pendentes * Number(rotaAtual.tempoParadaSegundos || 0);
-      // O Routing API retorna tempo de deslocamento. O atendimento é somado exatamente uma vez aqui.
       rotaAtual.duracaoTotalSegundos = rotaAtual.duracaoDirecaoSegundos + rotaAtual.duracaoParadasSegundos;
       rotaAtual.duracaoPlanejadorSegundos = Number.isFinite(Number(otimizada.totalTime)) ? Number(otimizada.totalTime) : null;
       rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
       rotaAtual.rotaOtimizada = true;
+      rotaAtual.confirmadaEm = null;
       rotaAtual.status = 'ativa';
       rotaAtual.otimizadoEm = Date.now();
-      if (!rotaAtual.iniciadoEm) rotaAtual.iniciadoEm = Date.now();
+      rotaAtual.resumoOtimizacao = {
+        provider: otimizada.provider || 'geoapify-route-planner',
+        preferencia: rotaAtual.preferenciaRota || 'short',
+        pontoInicial: clone(rotaAtual.pontoInicial),
+        distanciaPlanejadorMetros: Number(otimizada.distance || 0),
+        tempoDirecaoPlanejadorSegundos: Number(otimizada.drivingTime || 0),
+        totalPlanejadorSegundos: Number(otimizada.totalTime || 0)
+      };
+
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
-      definirStatusImportacao('Rota otimizada pela rede viária, desenhada no mapa e salva como rota ativa.', 'success');
-      notificar('Rota otimizada pela rede viária e salva como rota ativa.');
+      definirStatusImportacao('Rota calculada. Confira a sequência antes de iniciar.', 'success');
+      esconderProcessamento();
+      abrirRevisaoOtimizacao();
+      if (!opcoes?.refinamento) notificar('Rota calculada. Confira a sequência e confirme.');
     } catch (erro) {
       console.error(erro);
+      esconderProcessamento();
       definirStatusImportacao(erro?.message || 'Não foi possível otimizar a rota.', 'error');
       notificar(erro?.message || 'Não foi possível otimizar a rota.');
     } finally {
-      if (btn) btn.disabled = false;
+      botoes.forEach(btn => { btn.disabled = false; });
     }
   }
 
@@ -1106,6 +1259,13 @@
     renderizarTudo({ fit: true });
   }
 
+  async function abrirBipagemDaRota() {
+    if (!rotaAtual?.rotaOtimizada) return notificar('Otimize a rota antes de abrir a Bipagem.');
+    fecharMenuAcoes();
+    await global.PacoteEMatoRotaStore?.salvarRota?.(rotaAtual, { ativa: true });
+    global.PacoteEMatoAppShell?.abrirModulo?.('bipagem');
+  }
+
   function abrirNavegacao() {
     if (!rotaAtual?.geometria) return notificar('Calcule a rota pelas ruas antes de iniciar a navegação.');
 
@@ -1170,6 +1330,14 @@
     $('routingInvertBtn')?.addEventListener('click', () => { fecharMenuAcoes(); inverterRota(); });
     $('routingExportPdfBtn')?.addEventListener('click', () => { fecharMenuAcoes(); exportarPdf(); });
     $('routingStartNavBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirNavegacao(); });
+    $('routingOpenBipagemBtn')?.addEventListener('click', abrirBipagemDaRota);
+    $('routingReviewCloseBtn')?.addEventListener('click', fecharRevisaoOtimizacao);
+    $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
+    $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
+    $('routingOptimizationReviewBackdrop')?.addEventListener('click', event => { if (event.target === $('routingOptimizationReviewBackdrop')) fecharRevisaoOtimizacao(); });
+    document.querySelectorAll('input[name="routingRoutePreference"]').forEach(input => {
+      input.addEventListener('change', aplicarRefinoOtimizacao);
+    });
     $('routingOpenSettingsBtn')?.addEventListener('click', () => { fecharMenuAcoes(); global.PacoteEMatoAppShell?.abrirModulo?.('configuracoes'); });
     $('routingActionsBtn')?.addEventListener('click', abrirMenuAcoes);
     $('routingActionsCloseBtn')?.addEventListener('click', fecharMenuAcoes);
@@ -1242,6 +1410,8 @@
     inverterRota,
     recalcularOrdemAtual,
     usarRotaLegada,
-    abrirNavegacao
+    abrirNavegacao,
+    abrirBipagemDaRota,
+    abrirRevisaoOtimizacao
   });
 })(window);

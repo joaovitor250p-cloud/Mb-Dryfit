@@ -80,6 +80,12 @@
     return 'drive';
   }
 
+  function tipoRota(rota) {
+    const preferencia = String(rota?.preferenciaRota || 'short');
+    if (preferencia === 'less_maneuvers' && perfilVeiculo(rota?.veiculo) === 'motorcycle') return 'balanced';
+    return ['short', 'balanced', 'less_maneuvers'].includes(preferencia) ? preferencia : 'short';
+  }
+
   async function otimizar(rota) {
     const start = coord(rota?.pontoInicial);
     if (!start) throw new Error('Defina um ponto de partida válido antes de otimizar.');
@@ -97,7 +103,7 @@
       mode, start, end: rota.pontoFinal ? coord(rota.pontoFinal) : null,
       returnToStart: rota.retornarAoInicio === true,
       stopDurationSeconds: Math.max(0, Number(rota.tempoParadaSegundos || 0)),
-      traffic: 'approximated', type: 'balanced',
+      traffic: 'approximated', type: tipoRota(rota),
       stops: pendentes.map(p => ({ id: String(p.id), location: coord(p), duration: Math.max(0, Number(rota.tempoParadaSegundos || 0)) }))
     });
 
@@ -152,7 +158,13 @@
     const points = Array.isArray(pontosOverride) && pontosOverride.length ? pontosOverride.map(coord).filter(Boolean) : pontosDaRota(rota);
     if (points.length < 2) throw new Error('São necessários ao menos dois pontos válidos para calcular a rota.');
     const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
-    const resposta = await post(endpoint('route'), { mode, points, traffic: 'approximated', type: 'balanced' });
+    const resposta = await post(endpoint('route'), {
+      mode,
+      points,
+      traffic: 'approximated',
+      type: tipoRota(rota),
+      intermediateWaypointMode: 'stopover'
+    });
     if (!geometriaValida(resposta?.feature?.geometry)) {
       const erro = new Error('O serviço respondeu sem uma geometria rodoviária válida. A linha da rota não será simulada.');
       erro.code = 'GEOMETRIA_INVALIDA'; erro.detail = resposta; throw erro;
@@ -189,5 +201,5 @@
     return instrucoes;
   }
 
-  global.PacoteEMatoServicoRota = Object.freeze({ endpoint, healthEndpoint, verificarServico, perfilVeiculo, otimizar, ordenarParadas, calcularRotaPelasRuas, pontosDaRota, extrairInstrucoes, coord, geometriaValida });
+  global.PacoteEMatoServicoRota = Object.freeze({ endpoint, healthEndpoint, verificarServico, perfilVeiculo, tipoRota, otimizar, ordenarParadas, calcularRotaPelasRuas, pontosDaRota, extrairInstrucoes, coord, geometriaValida });
 })(window);

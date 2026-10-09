@@ -120,6 +120,9 @@
     r.status = ['planejamento', 'ativa', 'aguardando_finalizacao', 'concluida', 'arquivada'].includes(r.status) ? r.status : 'planejamento';
     r.veiculo = ['carro', 'moto', 'caminhao'].includes(r.veiculo) ? r.veiculo : 'carro';
     r.modoRoteamento = String(r.modoRoteamento || modoPorVeiculo(r.veiculo));
+    r.preferenciaRota = ['short', 'balanced', 'less_maneuvers'].includes(String(r.preferenciaRota || ''))
+      ? String(r.preferenciaRota)
+      : 'short';
     r.tempoParadaSegundos = Math.max(0, numero(r.tempoParadaSegundos, 180));
     r.pontoInicial = normalizarPonto(r.pontoInicial);
     r.pontoFinal = normalizarPonto(r.pontoFinal);

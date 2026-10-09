@@ -363,14 +363,8 @@ export default {
     const allowed = originAllowed(origin, env);
     const url = new URL(request.url);
 
-    if (request.method === 'OPTIONS') {
-      if (!allowed) return new Response(null, { status: 403 });
-      return new Response(null, { status: 204, headers: corsHeaders(origin, true) });
-    }
-
-    if (!allowed) return json({ ok: false, error: 'origin_not_allowed' }, 403, origin, env);
-
-    // Health check não consome créditos do provedor e permite validar a instalação pelo app.
+    // /health pode ser aberto diretamente no navegador (sem Origin) para diagnóstico.
+    // Se a chamada vier do app, o CORS continua sendo aplicado somente para origem autorizada.
     if (url.pathname === '/health' && request.method === 'GET') {
       return json({
         ok: true,
@@ -378,6 +372,14 @@ export default {
         providerConfigured: !!env.GEOAPIFY_API_KEY
       }, 200, origin, env);
     }
+
+    if (request.method === 'OPTIONS') {
+      if (!allowed) return new Response(null, { status: 403 });
+      return new Response(null, { status: 204, headers: corsHeaders(origin, true) });
+    }
+
+    // Todas as rotas que consomem Geoapify continuam protegidas por origem.
+    if (!allowed) return json({ ok: false, error: 'origin_not_allowed' }, 403, origin, env);
 
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405, origin, env);
     if (!checkRateLimit(request)) return json({ ok: false, error: 'rate_limited' }, 429, origin, env);
