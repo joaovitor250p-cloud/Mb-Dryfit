@@ -212,25 +212,12 @@
           ['==',['get','stackIndex'],8],['literal',[-1.25,-1.05]],
           ['literal',[0,2.15]]
         ],
-        'icon-allow-overlap':['==',['get','current'],true],
-        'icon-ignore-placement':['==',['get','current'],true],
-        'symbol-sort-key':['get','order']
-      },
-      paint:{'icon-opacity':.99}
-    });
-    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
-      id:LAYER_STOPS_TEXT,
-      type:'symbol',
-      source:SOURCE_STOPS,
-      layout:{
         'text-field':['format',
           ['to-string',['get','order']],{'font-scale':1},
           ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':.62}
         ],
         'text-size':11.4,
         'text-font':['literal',['Open Sans Semibold']],
-        'text-allow-overlap':['==',['get','current'],true],
-        'text-ignore-placement':['==',['get','current'],true],
         'text-anchor':'bottom',
         'text-offset':['case',
           ['==',['get','stackIndex'],0],['literal',[0,-1.42]],
@@ -243,15 +230,20 @@
           ['==',['get','stackIndex'],7],['literal',[1.25,-2.47]],
           ['==',['get','stackIndex'],8],['literal',[-1.25,-2.47]],
           ['literal',[0,.73]]
-        ]
+        ],
+        'icon-allow-overlap':false,
+        'icon-ignore-placement':false,
+        'text-allow-overlap':false,
+        'text-ignore-placement':false,
+        'symbol-sort-key':['case',['==',['get','current'],true],0,['+',100,['get','order']]]
       },
       paint:{
+        'icon-opacity':.99,
         'text-color':['case',['==',['get','current'],true],'#ffffff','#087a54'],
         'text-halo-color':['case',['==',['get','current'],true],'rgba(0,0,0,0)','#ffffff'],
         'text-halo-width':['case',['==',['get','current'],true],0,.35]
       }
     });
-
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
