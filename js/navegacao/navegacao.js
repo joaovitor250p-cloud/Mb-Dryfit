@@ -133,8 +133,10 @@
 
   function garantirImagemBalao() {
     if (!mapa) return;
-    const criarMarcador = (nome, largura, altura, fundo, borda) => {
+
+    const criarPin = (nome, largura, fundo, borda) => {
       if (mapa.hasImage?.(nome)) return;
+      const altura = 50;
       const canvas = document.createElement('canvas');
       canvas.width = largura;
       canvas.height = altura;
@@ -143,27 +145,20 @@
       c.clearRect(0, 0, largura, altura);
       c.fillStyle = fundo;
       c.strokeStyle = borda;
-      c.lineWidth = 2.5;
-      const pad = 2;
-      const bodyH = altura - 13;
-      const r = Math.min(14, Math.round(bodyH / 2.5));
-      const x = pad;
-      const y = pad;
-      const w = largura - pad * 2;
-      const h = bodyH - pad;
-      const tipX = Math.round(largura / 2);
-      const tipY = altura - 2;
+      c.lineWidth = 2.4;
+      c.lineJoin = 'round';
+      const x = 2.5, y = 2.5, w = largura - 5, bodyH = 35, r = 9, cx = largura / 2, tipY = altura - 2.5;
       c.beginPath();
       c.moveTo(x + r, y);
       c.lineTo(x + w - r, y);
       c.quadraticCurveTo(x + w, y, x + w, y + r);
-      c.lineTo(x + w, y + h - r);
-      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      c.lineTo(tipX + 7, y + h);
-      c.lineTo(tipX, tipY);
-      c.lineTo(tipX - 7, y + h);
-      c.lineTo(x + r, y + h);
-      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x + w, y + bodyH - r);
+      c.quadraticCurveTo(x + w, y + bodyH, x + w - r, y + bodyH);
+      c.lineTo(cx + 6, y + bodyH);
+      c.lineTo(cx, tipY);
+      c.lineTo(cx - 6, y + bodyH);
+      c.lineTo(x + r, y + bodyH);
+      c.quadraticCurveTo(x, y + bodyH, x, y + bodyH - r);
       c.lineTo(x, y + r);
       c.quadraticCurveTo(x, y, x + r, y);
       c.closePath();
@@ -171,12 +166,16 @@
       c.stroke();
       mapa.addImage(nome, c.getImageData(0, 0, largura, altura), { pixelRatio: 2 });
     };
+
     try {
-      criarMarcador('pemato-nav-pin', 42, 50, '#ffffff', '#10b981');
-      criarMarcador('pemato-nav-pin-active', 42, 50, '#10b981', '#10b981');
-      criarMarcador('pemato-nav-pin-multi', 66, 50, '#ffffff', '#10b981');
-      criarMarcador('pemato-nav-pin-multi-active', 66, 50, '#10b981', '#10b981');
-      if (!mapa.hasImage?.('pemato-driver-arrow')) { const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}}
+      criarPin('pemato-nav-pin', 38, '#ffffff', '#16a36f');
+      criarPin('pemato-nav-pin-active', 38, '#159767', '#159767');
+      criarPin('pemato-nav-pin-multi', 56, '#ffffff', '#16a36f');
+      criarPin('pemato-nav-pin-multi-active', 56, '#159767', '#159767');
+      if (!mapa.hasImage?.('pemato-driver-arrow')) {
+        const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');
+        if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#159767';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}
+      }
     } catch(_){}
   }
 
@@ -203,18 +202,18 @@
         'icon-anchor':'bottom',
         'icon-offset':['case',
           ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.9,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.9,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.45]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.45]],
-          ['==',['get','stackIndex'],5],['literal',[1.55,1.15]],
-          ['==',['get','stackIndex'],6],['literal',[-1.55,1.15]],
-          ['==',['get','stackIndex'],7],['literal',[1.55,-1.15]],
-          ['==',['get','stackIndex'],8],['literal',[-1.55,-1.15]],
-          ['literal',[0,2.6]]
+          ['==',['get','stackIndex'],1],['literal',[1.45,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.45,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.25,1.05]],
+          ['==',['get','stackIndex'],6],['literal',[-1.25,1.05]],
+          ['==',['get','stackIndex'],7],['literal',[1.25,-1.05]],
+          ['==',['get','stackIndex'],8],['literal',[-1.25,-1.05]],
+          ['literal',[0,2.15]]
         ],
-        'icon-allow-overlap':true,
-        'icon-ignore-placement':true,
+        'icon-allow-overlap':['==',['get','current'],true],
+        'icon-ignore-placement':['==',['get','current'],true],
         'symbol-sort-key':['get','order']
       },
       paint:{'icon-opacity':.99}
@@ -224,31 +223,35 @@
       type:'symbol',
       source:SOURCE_STOPS,
       layout:{
-        'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.66}],
-        'text-size':12,
-        'text-font':['literal',['Open Sans Bold']],
-        'text-allow-overlap':true,
-        'text-ignore-placement':true,
+        'text-field':['format',
+          ['to-string',['get','order']],{'font-scale':1},
+          ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':.62}
+        ],
+        'text-size':11.4,
+        'text-font':['literal',['Open Sans Semibold']],
+        'text-allow-overlap':['==',['get','current'],true],
+        'text-ignore-placement':['==',['get','current'],true],
         'text-anchor':'bottom',
         'text-offset':['case',
-          ['==',['get','stackIndex'],0],['literal',[0,-1.55]],
-          ['==',['get','stackIndex'],1],['literal',[1.9,-1.55]],
-          ['==',['get','stackIndex'],2],['literal',[-1.9,-1.55]],
-          ['==',['get','stackIndex'],3],['literal',[0,-0.1]],
-          ['==',['get','stackIndex'],4],['literal',[0,-3]],
-          ['==',['get','stackIndex'],5],['literal',[1.55,-0.4]],
-          ['==',['get','stackIndex'],6],['literal',[-1.55,-0.4]],
-          ['==',['get','stackIndex'],7],['literal',[1.55,-2.7]],
-          ['==',['get','stackIndex'],8],['literal',[-1.55,-2.7]],
-          ['literal',[0,1.05]]
+          ['==',['get','stackIndex'],0],['literal',[0,-1.42]],
+          ['==',['get','stackIndex'],1],['literal',[1.45,-1.42]],
+          ['==',['get','stackIndex'],2],['literal',[-1.45,-1.42]],
+          ['==',['get','stackIndex'],3],['literal',[0,-.17]],
+          ['==',['get','stackIndex'],4],['literal',[0,-2.67]],
+          ['==',['get','stackIndex'],5],['literal',[1.25,-.37]],
+          ['==',['get','stackIndex'],6],['literal',[-1.25,-.37]],
+          ['==',['get','stackIndex'],7],['literal',[1.25,-2.47]],
+          ['==',['get','stackIndex'],8],['literal',[-1.25,-2.47]],
+          ['literal',[0,.73]]
         ]
       },
       paint:{
-        'text-color':['case',['==',['get','current'],true],'#ffffff','#059669'],
-        'text-halo-color':['case',['==',['get','current'],true],'rgba(0,0,0,0)','rgba(255,255,255,0.35)'],
-        'text-halo-width':['case',['==',['get','current'],true],0,0.25]
+        'text-color':['case',['==',['get','current'],true],'#ffffff','#087a54'],
+        'text-halo-color':['case',['==',['get','current'],true],'rgba(0,0,0,0)','#ffffff'],
+        'text-halo-width':['case',['==',['get','current'],true],0,.35]
       }
     });
+
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
@@ -296,7 +299,9 @@
       const stop = principal.stop;
       const multi = grupo.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
-      const visualKey = `${lat.toFixed(4)}|${lon.toFixed(4)}`;
+      const gridLat = Math.round(lat / 0.00032);
+      const gridLon = Math.round(lon / 0.00032);
+      const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
       const ids = grupo.map(item => String(item.stop.id));

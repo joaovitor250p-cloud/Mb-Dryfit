@@ -113,7 +113,9 @@
       const lat = Number(p.latitude), lon = Number(p.longitude);
       // Agrupa visualmente pontos muito próximos para que os balões sejam
       // deslocados em vez de ficarem um em cima do outro.
-      const visualKey = `${lat.toFixed(4)}|${lon.toFixed(4)}`;
+      const gridLat = Math.round(lat / 0.00032);
+      const gridLon = Math.round(lon / 0.00032);
+      const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
       const ids = grupo.map(item => String(item.id));
@@ -200,50 +202,60 @@
 
   function garantirImagemBalao() {
     if (!mapa) return;
-    const criarMarcador = (nome, largura, altura, fundo, borda) => {
+
+    const criarPin = (nome, largura, fundo, borda) => {
       if (mapa.hasImage?.(nome)) return;
+      const altura = 50;
       const canvas = document.createElement('canvas');
       canvas.width = largura;
       canvas.height = altura;
       const c = canvas.getContext('2d');
       if (!c) return;
+
       c.clearRect(0, 0, largura, altura);
       c.fillStyle = fundo;
       c.strokeStyle = borda;
-      c.lineWidth = 2.5;
-      const pad = 2;
-      const bodyH = altura - 13;
-      const r = Math.min(14, Math.round(bodyH / 2.5));
-      const x = pad;
-      const y = pad;
-      const w = largura - pad * 2;
-      const h = bodyH - pad;
-      const tipX = Math.round(largura / 2);
-      const tipY = altura - 2;
+      c.lineWidth = 2.4;
+      c.lineJoin = 'round';
+
+      // Formato próprio do Pacote É Mato: etiqueta compacta com base afunilada.
+      // Mantém leitura rápida de mapa, mas não copia o desenho do Spoke.
+      const x = 2.5;
+      const y = 2.5;
+      const w = largura - 5;
+      const bodyH = 35;
+      const r = 9;
+      const cx = largura / 2;
+      const tipY = altura - 2.5;
+
       c.beginPath();
       c.moveTo(x + r, y);
       c.lineTo(x + w - r, y);
       c.quadraticCurveTo(x + w, y, x + w, y + r);
-      c.lineTo(x + w, y + h - r);
-      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      c.lineTo(tipX + 7, y + h);
-      c.lineTo(tipX, tipY);
-      c.lineTo(tipX - 7, y + h);
-      c.lineTo(x + r, y + h);
-      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x + w, y + bodyH - r);
+      c.quadraticCurveTo(x + w, y + bodyH, x + w - r, y + bodyH);
+      c.lineTo(cx + 6, y + bodyH);
+      c.lineTo(cx, tipY);
+      c.lineTo(cx - 6, y + bodyH);
+      c.lineTo(x + r, y + bodyH);
+      c.quadraticCurveTo(x, y + bodyH, x, y + bodyH - r);
       c.lineTo(x, y + r);
       c.quadraticCurveTo(x, y, x + r, y);
       c.closePath();
       c.fill();
       c.stroke();
+
       mapa.addImage(nome, c.getImageData(0, 0, largura, altura), { pixelRatio: 2 });
     };
+
     try {
-      criarMarcador('pemato-stop-pin', 42, 50, '#ffffff', '#10b981');
-      criarMarcador('pemato-stop-pin-active', 42, 50, '#10b981', '#10b981');
-      criarMarcador('pemato-stop-pin-multi', 66, 50, '#ffffff', '#10b981');
-      criarMarcador('pemato-stop-pin-multi-active', 66, 50, '#10b981', '#10b981');
-    } catch (e) { console.warn('Pacote É Mato: balão de parada indisponível', e); }
+      criarPin('pemato-stop-pin', 38, '#ffffff', '#16a36f');
+      criarPin('pemato-stop-pin-active', 38, '#159767', '#159767');
+      criarPin('pemato-stop-pin-multi', 56, '#ffffff', '#16a36f');
+      criarPin('pemato-stop-pin-multi-active', 56, '#159767', '#159767');
+    } catch (e) {
+      console.warn('Pacote É Mato: marcador de parada indisponível', e);
+    }
   }
 
   function garantirCamadas() {
@@ -283,22 +295,22 @@
           ['>', ['get', 'multi'], 1], ['case', ['==', ['get', 'selected'], 1], 'pemato-stop-pin-multi-active', 'pemato-stop-pin-multi'],
           ['case', ['==', ['get', 'selected'], 1], 'pemato-stop-pin-active', 'pemato-stop-pin']
         ],
-        'icon-size': ['interpolate',['linear'],['zoom'],8,.92,16,1.12],
-        'icon-anchor':'bottom',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 8, .86, 12, .94, 16, 1.04],
+        'icon-anchor': 'bottom',
         'icon-offset': ['case',
           ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.9,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.9,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.45]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.45]],
-          ['==',['get','stackIndex'],5],['literal',[1.55,1.15]],
-          ['==',['get','stackIndex'],6],['literal',[-1.55,1.15]],
-          ['==',['get','stackIndex'],7],['literal',[1.55,-1.15]],
-          ['==',['get','stackIndex'],8],['literal',[-1.55,-1.15]],
-          ['literal',[0,2.6]]
+          ['==',['get','stackIndex'],1],['literal',[1.45,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.45,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
+          ['==',['get','stackIndex'],5],['literal',[1.25,1.05]],
+          ['==',['get','stackIndex'],6],['literal',[-1.25,1.05]],
+          ['==',['get','stackIndex'],7],['literal',[1.25,-1.05]],
+          ['==',['get','stackIndex'],8],['literal',[-1.25,-1.05]],
+          ['literal',[0,2.15]]
         ],
-        'icon-allow-overlap': true,
-        'icon-ignore-placement': true,
+        'icon-allow-overlap': ['==', ['get', 'selected'], 1],
+        'icon-ignore-placement': ['==', ['get', 'selected'], 1],
         'symbol-sort-key': ['get','order']
       },
       paint: { 'icon-opacity': .99 }
@@ -306,29 +318,32 @@
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
       layout: {
-        'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.66}],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.2, 16, 11.8],
-        'text-font': ['literal', ['Open Sans Bold']],
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-        'text-anchor':'bottom',
-        'text-offset':['case',
-          ['==',['get','stackIndex'],0],['literal',[0,-1.55]],
-          ['==',['get','stackIndex'],1],['literal',[1.9,-1.55]],
-          ['==',['get','stackIndex'],2],['literal',[-1.9,-1.55]],
-          ['==',['get','stackIndex'],3],['literal',[0,-0.1]],
-          ['==',['get','stackIndex'],4],['literal',[0,-3]],
-          ['==',['get','stackIndex'],5],['literal',[1.55,-0.4]],
-          ['==',['get','stackIndex'],6],['literal',[-1.55,-0.4]],
-          ['==',['get','stackIndex'],7],['literal',[1.55,-2.7]],
-          ['==',['get','stackIndex'],8],['literal',[-1.55,-2.7]],
-          ['literal',[0,1.05]]
+        'text-field': ['format',
+          ['to-string',['get','order']], {'font-scale': 1},
+          ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale': .62}
+        ],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.3, 16, 11.4],
+        'text-font': ['literal', ['Open Sans Semibold']],
+        'text-allow-overlap': ['==', ['get', 'selected'], 1],
+        'text-ignore-placement': ['==', ['get', 'selected'], 1],
+        'text-anchor': 'bottom',
+        'text-offset': ['case',
+          ['==',['get','stackIndex'],0],['literal',[0,-1.42]],
+          ['==',['get','stackIndex'],1],['literal',[1.45,-1.42]],
+          ['==',['get','stackIndex'],2],['literal',[-1.45,-1.42]],
+          ['==',['get','stackIndex'],3],['literal',[0,-.17]],
+          ['==',['get','stackIndex'],4],['literal',[0,-2.67]],
+          ['==',['get','stackIndex'],5],['literal',[1.25,-.37]],
+          ['==',['get','stackIndex'],6],['literal',[-1.25,-.37]],
+          ['==',['get','stackIndex'],7],['literal',[1.25,-2.47]],
+          ['==',['get','stackIndex'],8],['literal',[-1.25,-2.47]],
+          ['literal',[0,.73]]
         ]
       },
       paint: {
-        'text-color': ['case', ['==', ['get', 'selected'], 1], '#ffffff', '#059669'],
-        'text-halo-color': ['case', ['==', ['get', 'selected'], 1], 'rgba(0,0,0,0)', 'rgba(255,255,255,0.35)'],
-        'text-halo-width': ['case', ['==', ['get', 'selected'], 1], 0, 0.25]
+        'text-color': ['case', ['==', ['get', 'selected'], 1], '#ffffff', '#087a54'],
+        'text-halo-color': ['case', ['==', ['get', 'selected'], 1], 'rgba(0,0,0,0)', '#ffffff'],
+        'text-halo-width': ['case', ['==', ['get', 'selected'], 1], 0, .35]
       }
     });
 
@@ -422,6 +437,29 @@
     if (!total) return;
     try { mapa.fitBounds(bounds, { padding: { top: 84, right: 64, bottom: 150, left: 64 }, maxZoom: 16, duration: 500 }); fitFeito = true; }
     catch (_) {}
+  }
+
+  function ajustarParadasImportadas() {
+    if (!mapa || !pronto) return;
+    const validas = paradas().filter(coordenadaValida);
+    if (!validas.length) return;
+
+    const bounds = new global.maplibregl.LngLatBounds();
+    validas.forEach(p => bounds.extend([Number(p.longitude), Number(p.latitude)]));
+
+    try {
+      if (validas.length === 1) {
+        mapa.easeTo({ center: [Number(validas[0].longitude), Number(validas[0].latitude)], zoom: 16.2, duration: 500 });
+      } else {
+        const mobile = global.matchMedia?.('(max-width: 820px)')?.matches;
+        mapa.fitBounds(bounds, {
+          padding: mobile ? { top: 82, right: 34, bottom: 270, left: 34 } : { top: 78, right: 70, bottom: 90, left: 70 },
+          maxZoom: 15.8,
+          duration: 650
+        });
+      }
+      fitFeito = true;
+    } catch (_) {}
   }
 
   function centralizarParada(id) {
@@ -657,7 +695,7 @@
   else bindControles();
 
   global.PacoteEMatoMapa = Object.freeze({
-    garantirMapa, renderizar, renderizarMarcadores, atualizarRota, ajustarTodos, centralizarParada, centralizarMinhaLocalizacao,
+    garantirMapa, renderizar, renderizarMarcadores, atualizarRota, ajustarTodos, ajustarParadasImportadas, centralizarParada, centralizarMinhaLocalizacao,
     iniciarSelecaoDesenho, encerrarSelecaoDesenho, definirModoInteracaoSelecao, limparSelecaoDesenho,
     obterSelecaoDesenho: () => [...idsSelecaoDesenho], selecaoDesenhoAtiva: () => selecaoDesenhoAtiva,
     destruir, coordenadaValida, geometriaValida, getMapa: () => mapa

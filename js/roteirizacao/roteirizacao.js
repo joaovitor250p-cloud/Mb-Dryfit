@@ -1020,6 +1020,9 @@
     global.PacoteEMatoFluxoImportacao?.fechar?.();
     renderizarTudo({ fit: true });
     definirEstadoPainel('expanded');
+    // Após importar, leva o mapa imediatamente para a área real das paradas.
+    // O pequeno atraso permite o bottom sheet assumir o tamanho final antes do fit.
+    setTimeout(() => global.PacoteEMatoMapa?.ajustarParadasImportadas?.(), 180);
     const avisos = resultado?.erros?.length || 0;
     const jaLocalizadas = rotaAtual.paradas.filter(paradaLocalizada).length;
     if (jaLocalizadas === rotaAtual.paradas.length) {
@@ -1036,6 +1039,7 @@
     if (resumoGeo) {
       const problemas = resumoGeo.total - resumoGeo.ok;
       definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s): ${resumoGeo.ok} localizada(s) e ${problemas} precisando de correção.`, problemas ? 'warning' : 'success');
+      setTimeout(() => global.PacoteEMatoMapa?.ajustarParadasImportadas?.(), 140);
     }
   }
 
