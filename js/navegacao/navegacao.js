@@ -133,34 +133,49 @@
 
   function garantirImagemBalao() {
     if (!mapa) return;
+    const criarMarcador = (nome, largura, altura, fundo, borda) => {
+      if (mapa.hasImage?.(nome)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = largura;
+      canvas.height = altura;
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      c.clearRect(0, 0, largura, altura);
+      c.fillStyle = fundo;
+      c.strokeStyle = borda;
+      c.lineWidth = 2.5;
+      const pad = 2;
+      const bodyH = altura - 13;
+      const r = Math.min(14, Math.round(bodyH / 2.5));
+      const x = pad;
+      const y = pad;
+      const w = largura - pad * 2;
+      const h = bodyH - pad;
+      const tipX = Math.round(largura / 2);
+      const tipY = altura - 2;
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.lineTo(x + w - r, y);
+      c.quadraticCurveTo(x + w, y, x + w, y + r);
+      c.lineTo(x + w, y + h - r);
+      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(tipX + 7, y + h);
+      c.lineTo(tipX, tipY);
+      c.lineTo(tipX - 7, y + h);
+      c.lineTo(x + r, y + h);
+      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x, y + r);
+      c.quadraticCurveTo(x, y, x + r, y);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      mapa.addImage(nome, c.getImageData(0, 0, largura, altura), { pixelRatio: 2 });
+    };
     try {
-      if (!mapa.hasImage?.('pemato-nav-balloon')) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 116;
-        canvas.height = 52;
-        const c = canvas.getContext('2d');
-        if (c) {
-          c.clearRect(0, 0, 116, 52);
-          c.fillStyle = '#334155';
-          c.strokeStyle = '#fff';
-          c.lineWidth = 3;
-          const x = 2, y = 5, w = 112, h = 40, r = 20;
-          c.beginPath();
-          c.moveTo(x + r, y);
-          c.lineTo(x + w - r, y);
-          c.quadraticCurveTo(x + w, y, x + w, y + r);
-          c.lineTo(x + w, y + h - r);
-          c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          c.lineTo(x + r, y + h);
-          c.quadraticCurveTo(x, y + h, x, y + h - r);
-          c.lineTo(x, y + r);
-          c.quadraticCurveTo(x, y, x + r, y);
-          c.closePath();
-          c.fill();
-          c.stroke();
-          mapa.addImage('pemato-nav-balloon', c.getImageData(0, 0, 116, 52), { pixelRatio: 2 });
-        }
-      }
+      criarMarcador('pemato-nav-pin', 42, 50, '#ffffff', '#10b981');
+      criarMarcador('pemato-nav-pin-active', 42, 50, '#10b981', '#10b981');
+      criarMarcador('pemato-nav-pin-multi', 66, 50, '#ffffff', '#10b981');
+      criarMarcador('pemato-nav-pin-multi-active', 66, 50, '#10b981', '#10b981');
       if (!mapa.hasImage?.('pemato-driver-arrow')) { const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}}
     } catch(_){}
   }
@@ -180,51 +195,59 @@
       type:'symbol',
       source:SOURCE_STOPS,
       layout:{
-        'icon-image':'pemato-nav-balloon',
-        'icon-size':['case',['==',['get','current'],true],1.02,.9],
-        'icon-anchor':'center',
+        'icon-image':['case',
+          ['>', ['get', 'multi'], 1], ['case', ['==', ['get', 'current'], true], 'pemato-nav-pin-multi-active', 'pemato-nav-pin-multi'],
+          ['case', ['==', ['get', 'current'], true], 'pemato-nav-pin-active', 'pemato-nav-pin']
+        ],
+        'icon-size':['case',['==',['get','current'],true],1.08,.98],
+        'icon-anchor':'bottom',
         'icon-offset':['case',
           ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
-          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
-          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
-          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
-          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
-          ['literal',[0,2.35]]
+          ['==',['get','stackIndex'],1],['literal',[1.9,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.9,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.45]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.45]],
+          ['==',['get','stackIndex'],5],['literal',[1.55,1.15]],
+          ['==',['get','stackIndex'],6],['literal',[-1.55,1.15]],
+          ['==',['get','stackIndex'],7],['literal',[1.55,-1.15]],
+          ['==',['get','stackIndex'],8],['literal',[-1.55,-1.15]],
+          ['literal',[0,2.6]]
         ],
         'icon-allow-overlap':true,
         'icon-ignore-placement':true,
         'symbol-sort-key':['get','order']
       },
-      paint:{'icon-opacity':.98}
+      paint:{'icon-opacity':.99}
     });
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id:LAYER_STOPS_TEXT,
       type:'symbol',
       source:SOURCE_STOPS,
       layout:{
-        'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.72}],
+        'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.66}],
         'text-size':12,
+        'text-font':['literal',['Open Sans Bold']],
         'text-allow-overlap':true,
         'text-ignore-placement':true,
-        'text-anchor':'center',
+        'text-anchor':'bottom',
         'text-offset':['case',
-          ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
-          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
-          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
-          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
-          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
-          ['literal',[0,2.35]]
+          ['==',['get','stackIndex'],0],['literal',[0,-1.55]],
+          ['==',['get','stackIndex'],1],['literal',[1.9,-1.55]],
+          ['==',['get','stackIndex'],2],['literal',[-1.9,-1.55]],
+          ['==',['get','stackIndex'],3],['literal',[0,-0.1]],
+          ['==',['get','stackIndex'],4],['literal',[0,-3]],
+          ['==',['get','stackIndex'],5],['literal',[1.55,-0.4]],
+          ['==',['get','stackIndex'],6],['literal',[-1.55,-0.4]],
+          ['==',['get','stackIndex'],7],['literal',[1.55,-2.7]],
+          ['==',['get','stackIndex'],8],['literal',[-1.55,-2.7]],
+          ['literal',[0,1.05]]
         ]
       },
-      paint:{'text-color':'#fff'}
+      paint:{
+        'text-color':['case',['==',['get','current'],true],'#ffffff','#059669'],
+        'text-halo-color':['case',['==',['get','current'],true],'rgba(0,0,0,0)','rgba(255,255,255,0.35)'],
+        'text-halo-width':['case',['==',['get','current'],true],0,0.25]
+      }
     });
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });

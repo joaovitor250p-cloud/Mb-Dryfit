@@ -199,24 +199,36 @@
   }
 
   function garantirImagemBalao() {
-    if (!mapa || mapa.hasImage?.('pemato-stop-balloon')) return;
-    try {
+    if (!mapa) return;
+    const criarMarcador = (nome, largura, altura, fundo, borda) => {
+      if (mapa.hasImage?.(nome)) return;
       const canvas = document.createElement('canvas');
-      canvas.width = 116;
-      canvas.height = 52;
+      canvas.width = largura;
+      canvas.height = altura;
       const c = canvas.getContext('2d');
       if (!c) return;
-      c.clearRect(0, 0, 116, 52);
-      c.fillStyle = '#334155';
-      c.strokeStyle = '#ffffff';
-      c.lineWidth = 3;
-      const x = 2, y = 5, w = 112, h = 40, r = 20;
+      c.clearRect(0, 0, largura, altura);
+      c.fillStyle = fundo;
+      c.strokeStyle = borda;
+      c.lineWidth = 2.5;
+      const pad = 2;
+      const bodyH = altura - 13;
+      const r = Math.min(14, Math.round(bodyH / 2.5));
+      const x = pad;
+      const y = pad;
+      const w = largura - pad * 2;
+      const h = bodyH - pad;
+      const tipX = Math.round(largura / 2);
+      const tipY = altura - 2;
       c.beginPath();
       c.moveTo(x + r, y);
       c.lineTo(x + w - r, y);
       c.quadraticCurveTo(x + w, y, x + w, y + r);
       c.lineTo(x + w, y + h - r);
       c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(tipX + 7, y + h);
+      c.lineTo(tipX, tipY);
+      c.lineTo(tipX - 7, y + h);
       c.lineTo(x + r, y + h);
       c.quadraticCurveTo(x, y + h, x, y + h - r);
       c.lineTo(x, y + r);
@@ -224,7 +236,13 @@
       c.closePath();
       c.fill();
       c.stroke();
-      mapa.addImage('pemato-stop-balloon', c.getImageData(0, 0, 116, 52), { pixelRatio: 2 });
+      mapa.addImage(nome, c.getImageData(0, 0, largura, altura), { pixelRatio: 2 });
+    };
+    try {
+      criarMarcador('pemato-stop-pin', 42, 50, '#ffffff', '#10b981');
+      criarMarcador('pemato-stop-pin-active', 42, 50, '#10b981', '#10b981');
+      criarMarcador('pemato-stop-pin-multi', 66, 50, '#ffffff', '#10b981');
+      criarMarcador('pemato-stop-pin-multi-active', 66, 50, '#10b981', '#10b981');
     } catch (e) { console.warn('Pacote É Mato: balão de parada indisponível', e); }
   }
 
@@ -261,49 +279,57 @@
     if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
       id: LAYER_STOPS, type: 'symbol', source: SOURCE_STOPS,
       layout: {
-        'icon-image': 'pemato-stop-balloon',
-        'icon-size': ['interpolate',['linear'],['zoom'],8,.76,16,1.02],
-        'icon-anchor':'center',
+        'icon-image': ['case',
+          ['>', ['get', 'multi'], 1], ['case', ['==', ['get', 'selected'], 1], 'pemato-stop-pin-multi-active', 'pemato-stop-pin-multi'],
+          ['case', ['==', ['get', 'selected'], 1], 'pemato-stop-pin-active', 'pemato-stop-pin']
+        ],
+        'icon-size': ['interpolate',['linear'],['zoom'],8,.92,16,1.12],
+        'icon-anchor':'bottom',
         'icon-offset': ['case',
           ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
-          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
-          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
-          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
-          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
-          ['literal',[0,2.35]]
+          ['==',['get','stackIndex'],1],['literal',[1.9,0]],
+          ['==',['get','stackIndex'],2],['literal',[-1.9,0]],
+          ['==',['get','stackIndex'],3],['literal',[0,1.45]],
+          ['==',['get','stackIndex'],4],['literal',[0,-1.45]],
+          ['==',['get','stackIndex'],5],['literal',[1.55,1.15]],
+          ['==',['get','stackIndex'],6],['literal',[-1.55,1.15]],
+          ['==',['get','stackIndex'],7],['literal',[1.55,-1.15]],
+          ['==',['get','stackIndex'],8],['literal',[-1.55,-1.15]],
+          ['literal',[0,2.6]]
         ],
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         'symbol-sort-key': ['get','order']
       },
-      paint: { 'icon-opacity': .98 }
+      paint: { 'icon-opacity': .99 }
     });
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
       layout: {
-        'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.72}],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.5, 16, 12.5],
+        'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.66}],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9.2, 16, 11.8],
+        'text-font': ['literal', ['Open Sans Bold']],
         'text-allow-overlap': true,
         'text-ignore-placement': true,
-        'text-anchor':'center',
+        'text-anchor':'bottom',
         'text-offset':['case',
-          ['==',['get','stackIndex'],0],['literal',[0,0]],
-          ['==',['get','stackIndex'],1],['literal',[1.7,0]],
-          ['==',['get','stackIndex'],2],['literal',[-1.7,0]],
-          ['==',['get','stackIndex'],3],['literal',[0,1.25]],
-          ['==',['get','stackIndex'],4],['literal',[0,-1.25]],
-          ['==',['get','stackIndex'],5],['literal',[1.35,1]],
-          ['==',['get','stackIndex'],6],['literal',[-1.35,1]],
-          ['==',['get','stackIndex'],7],['literal',[1.35,-1]],
-          ['==',['get','stackIndex'],8],['literal',[-1.35,-1]],
-          ['literal',[0,2.35]]
+          ['==',['get','stackIndex'],0],['literal',[0,-1.55]],
+          ['==',['get','stackIndex'],1],['literal',[1.9,-1.55]],
+          ['==',['get','stackIndex'],2],['literal',[-1.9,-1.55]],
+          ['==',['get','stackIndex'],3],['literal',[0,-0.1]],
+          ['==',['get','stackIndex'],4],['literal',[0,-3]],
+          ['==',['get','stackIndex'],5],['literal',[1.55,-0.4]],
+          ['==',['get','stackIndex'],6],['literal',[-1.55,-0.4]],
+          ['==',['get','stackIndex'],7],['literal',[1.55,-2.7]],
+          ['==',['get','stackIndex'],8],['literal',[-1.55,-2.7]],
+          ['literal',[0,1.05]]
         ]
       },
-      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.12)', 'text-halo-width': .35 }
+      paint: {
+        'text-color': ['case', ['==', ['get', 'selected'], 1], '#ffffff', '#059669'],
+        'text-halo-color': ['case', ['==', ['get', 'selected'], 1], 'rgba(0,0,0,0)', 'rgba(255,255,255,0.35)'],
+        'text-halo-width': ['case', ['==', ['get', 'selected'], 1], 0, 0.25]
+      }
     });
 
     if (!mapa.getLayer(LAYER_START)) mapa.addLayer({ id: LAYER_START, type: 'circle', source: SOURCE_START, paint: { 'circle-radius': 11, 'circle-color': '#111827', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });
