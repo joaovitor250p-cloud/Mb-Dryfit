@@ -70,6 +70,19 @@
     return rua && numero ? `${rua}|${numero}` : '';
   }
 
+  function quantidadePacotesDaParada(p) {
+    const n = Number(p?.pacotes?.length || p?.quantidadePacotes || 1);
+    return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : 1;
+  }
+
+  function chaveFisicaMarcador(p) {
+    const chave = chaveMultiplo(p);
+    if (chave) return `end:${chave}`;
+    const lat = Number(p?.latitude), lon = Number(p?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`;
+    return `id:${String(p?.id || '')}`;
+  }
+
   function haversine(a, b) {
     if (!a || !b) return Infinity;
     const R = 6371000, rad = Math.PI / 180;
@@ -121,7 +134,7 @@
   function garantirImagemBalao() {
     if (!mapa) return;
     try {
-      if (!mapa.hasImage?.('pemato-nav-balloon')) { const canvas=document.createElement('canvas'); canvas.width=76;canvas.height=48; const c=canvas.getContext('2d'); if(c){c.clearRect(0,0,76,48);c.fillStyle='#334155'; const x=2,y=2,w=72,h=36,r=16;c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(43,y+h);c.lineTo(38,46);c.lineTo(32,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();c.fill();c.strokeStyle='#fff';c.lineWidth=3;c.stroke();mapa.addImage('pemato-nav-balloon',c.getImageData(0,0,76,48),{pixelRatio:2});}}
+      if (!mapa.hasImage?.('pemato-nav-balloon')) { const canvas=document.createElement('canvas'); canvas.width=92;canvas.height=48; const c=canvas.getContext('2d'); if(c){c.clearRect(0,0,92,48);c.fillStyle='#334155'; const x=2,y=2,w=88,h=36,r=16;c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(43,y+h);c.lineTo(38,46);c.lineTo(32,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();c.fill();c.strokeStyle='#fff';c.lineWidth=3;c.stroke();mapa.addImage('pemato-nav-balloon',c.getImageData(0,0,92,48),{pixelRatio:2});}}
       if (!mapa.hasImage?.('pemato-driver-arrow')) { const a=document.createElement('canvas');a.width=56;a.height=56;const c=a.getContext('2d');if(c){c.clearRect(0,0,56,56);c.beginPath();c.moveTo(28,3);c.lineTo(49,49);c.lineTo(28,39);c.lineTo(7,49);c.closePath();c.fillStyle='#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=4;c.stroke();mapa.addImage('pemato-driver-arrow',c.getImageData(0,0,56,56),{pixelRatio:2});}}
     } catch(_){}
   }
@@ -137,7 +150,7 @@
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':13,'circle-color':'rgba(37,99,235,.22)'} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
     if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({id:LAYER_STOPS,type:'symbol',source:SOURCE_STOPS,layout:{'icon-image':'pemato-nav-balloon','icon-size':['case',['==',['get','current'],true],1.08,.9],'icon-anchor':'bottom','icon-offset':['case',['==',['get','stackIndex'],0],['literal',[0,0]],['==',['get','stackIndex'],1],['literal',[1.15,0]],['==',['get','stackIndex'],2],['literal',[-1.15,0]],['==',['get','stackIndex'],3],['literal',[2.3,0]],['==',['get','stackIndex'],4],['literal',[-2.3,0]],['literal',[0,1.15]]],'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-sort-key':['get','order']},paint:{'icon-opacity':.98}});
-    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({id:LAYER_STOPS_TEXT,type:'symbol',source:SOURCE_STOPS,layout:{'text-field':['get','label'],'text-size':12,'text-allow-overlap':true,'text-ignore-placement':true,'text-anchor':'bottom','text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.15]],['==',['get','stackIndex'],1],['literal',[1.15,-1.15]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.15]],['==',['get','stackIndex'],3],['literal',[2.3,-1.15]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.15]],['literal',[0,0]]]},paint:{'text-color':'#fff'}});
+    if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({id:LAYER_STOPS_TEXT,type:'symbol',source:SOURCE_STOPS,layout:{'text-field':['format',['to-string',['get','order']],{},['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''],{'font-scale':0.72}],'text-size':12,'text-allow-overlap':true,'text-ignore-placement':true,'text-anchor':'bottom','text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.15]],['==',['get','stackIndex'],1],['literal',[1.15,-1.15]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.15]],['==',['get','stackIndex'],3],['literal',[2.3,-1.15]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.15]],['literal',[0,0]]]},paint:{'text-color':'#fff'}});
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
@@ -169,8 +182,29 @@
     const p = proxima();
     setSource(SOURCE_DRIVER, fc(ultimaPosicao && coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon) ? [{type:'Feature',properties:{heading:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):0},geometry:{type:'Point',coordinates:[Number(ultimaPosicao.lon),Number(ultimaPosicao.lat)]}}] : []));
     setSource(SOURCE_NEXT, fc([])); // O destaque é feito na mesma camada numerada; evita marcador duplicado.
-    const seen=new Map();
-    setSource(SOURCE_STOPS, fc(paradasPorOrdem().flatMap((stop,i)=>{const key=chaveMultiplo(stop),multi=Math.max(1,Number(stop?.pacotes?.length||stop?.quantidadePacotes||1)),stackIndex=seen.get(key)||0;seen.set(key,stackIndex+1);return coordenadaValida(stop.latitude,stop.longitude)?[{type:'Feature',properties:{id:String(stop.id),order:i+1,multi,stackIndex,label:`${i+1}${multi>1?` ${multi}x`:''}`,status:stop.statusEntrega||'pendente',current:String(stop.id)===String(cartaoSelecionadoId||p?.id||'')},geometry:{type:'Point',coordinates:[Number(stop.longitude),Number(stop.latitude)]}}]:[]})));
+    const ordenadas = paradasPorOrdem();
+    const grupos = new Map();
+    ordenadas.forEach((stop, i) => {
+      if (!coordenadaValida(stop.latitude, stop.longitude)) return;
+      const key = chaveFisicaMarcador(stop);
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key).push({ stop, order: i + 1 });
+    });
+    const ocupacaoVisual = new Map();
+    const features = [];
+    grupos.forEach(grupo => {
+      grupo.sort((a,b) => a.order - b.order);
+      const principal = grupo[0];
+      const stop = principal.stop;
+      const multi = grupo.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
+      const lat = Number(stop.latitude), lon = Number(stop.longitude);
+      const visualKey = `${lat.toFixed(4)}|${lon.toFixed(4)}`;
+      const stackIndex = ocupacaoVisual.get(visualKey) || 0;
+      ocupacaoVisual.set(visualKey, stackIndex + 1);
+      const ids = grupo.map(item => String(item.stop.id));
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
+    });
+    setSource(SOURCE_STOPS, fc(features));
   }
 
   function nearestOnRoute(pos) {

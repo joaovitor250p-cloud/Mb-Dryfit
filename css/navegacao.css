@@ -21,3 +21,15 @@
 @media(max-width:820px){.nav-eta-card{right:76px;top:max(104px,calc(env(safe-area-inset-top) + 90px));min-width:138px}.nav-maneuver-card{max-width:calc(100% - 20px)}}
 
 @media(max-width:390px){.nav-eta-card{right:72px;min-width:126px;padding:8px 9px}.nav-eta-card span{font-size:.58rem}.nav-eta-card strong{font-size:1rem}.nav-eta-card small{font-size:.58rem}}
+
+/* Ajuste 09/10/2026 v2 — ETA compacto e marcadores sem sobreposição visual */
+.nav-eta-card{
+  right:78px!important;top:106px!important;min-width:0!important;width:auto!important;
+  padding:7px 10px!important;border-radius:12px!important;display:flex;align-items:center;justify-content:center;
+}
+.nav-eta-card span,.nav-eta-card small{display:none!important}
+.nav-eta-card strong{font-size:.84rem!important;line-height:1!important;white-space:nowrap}
+@media(max-width:820px){
+  .nav-eta-card{right:76px!important;top:max(104px,calc(env(safe-area-inset-top) + 90px))!important}
+}
+body[data-pemato-module="navegacao"] #routingEtaCard{display:none!important}

@@ -78,26 +78,62 @@
 
   function featureCollection(features) { return { type: 'FeatureCollection', features: features || [] }; }
 
+  function quantidadePacotesDaParada(p) {
+    const n = Number(p?.pacotes?.length || p?.quantidadePacotes || 1);
+    return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : 1;
+  }
+
+  function chaveFisicaMarcador(p) {
+    const chave = chaveMultiplo(p);
+    if (chave) return `end:${chave}`;
+    const lat = Number(p?.latitude), lon = Number(p?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`;
+    return `id:${String(p?.id || '')}`;
+  }
+
   function stopsGeoJSON() {
     const selectedId = state()?.paradaSelecionadaId || '';
-    const seen = new Map();
-    return featureCollection(paradas().filter(coordenadaValida).map(p => {
-      const mk = chaveMultiplo(p); const stackIndex = seen.get(mk) || 0; seen.set(mk, stackIndex + 1);
-      return ({
-      type: 'Feature',
-      id: String(p.id),
-      geometry: { type: 'Point', coordinates: [Number(p.longitude), Number(p.latitude)] },
-      properties: {
+    const lista = paradas().filter(coordenadaValida);
+    const grupos = new Map();
+
+    // Um ponto físico = um único balão. Se houver mais de um pacote no ponto,
+    // o balão mostra a parada e a quantidade (ex.: 38 3x).
+    lista.forEach(p => {
+      const key = chaveFisicaMarcador(p);
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key).push(p);
+    });
+
+    const ocupacaoVisual = new Map();
+    const features = [];
+    grupos.forEach(grupo => {
+      grupo.sort((a,b) => ordem(a) - ordem(b));
+      const p = grupo[0];
+      const totalPacotes = grupo.reduce((total, item) => total + quantidadePacotesDaParada(item), 0);
+      const lat = Number(p.latitude), lon = Number(p.longitude);
+      // Agrupa visualmente pontos muito próximos para que os balões sejam
+      // deslocados em vez de ficarem um em cima do outro.
+      const visualKey = `${lat.toFixed(4)}|${lon.toFixed(4)}`;
+      const stackIndex = ocupacaoVisual.get(visualKey) || 0;
+      ocupacaoVisual.set(visualKey, stackIndex + 1);
+      const ids = grupo.map(item => String(item.id));
+      features.push({
+        type: 'Feature',
         id: String(p.id),
-        order: ordem(p),
-        status: statusEntrega(p),
-        selected: String(p.id) === String(selectedId) ? 1 : 0,
-        groupSelected: idsSelecaoDesenho.has(String(p.id)) ? 1 : 0,
-        multi: Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1)),
-        label: `${ordem(p)}${Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1)) > 1 ? ` ${Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1))}x` : ''}`,
-        stackIndex
-      }
-    });}));
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: {
+          id: String(p.id),
+          ids: ids.join(','),
+          order: ordem(p),
+          status: statusEntrega(p),
+          selected: ids.includes(String(selectedId)) ? 1 : 0,
+          groupSelected: grupo.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,
+          multi: totalPacotes,
+          stackIndex
+        }
+      });
+    });
+    return featureCollection(features);
   }
 
   function pointGeoJSON(p, props) {
@@ -165,14 +201,14 @@
   function garantirImagemBalao() {
     if (!mapa || mapa.hasImage?.('pemato-stop-balloon')) return;
     try {
-      const canvas = document.createElement('canvas'); canvas.width = 76; canvas.height = 48;
+      const canvas = document.createElement('canvas'); canvas.width = 92; canvas.height = 48;
       const c = canvas.getContext('2d'); if (!c) return;
-      c.clearRect(0,0,76,48); c.fillStyle = '#334155';
-      const x=2,y=2,w=72,h=36,r=16; c.beginPath();
+      c.clearRect(0,0,92,48); c.fillStyle = '#334155';
+      const x=2,y=2,w=88,h=36,r=16; c.beginPath();
       c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r); c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
       c.lineTo(43,y+h); c.lineTo(38,46); c.lineTo(32,y+h); c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath(); c.fill();
       c.strokeStyle='#fff'; c.lineWidth=3; c.stroke();
-      mapa.addImage('pemato-stop-balloon', c.getImageData(0,0,76,48), { pixelRatio: 2 });
+      mapa.addImage('pemato-stop-balloon', c.getImageData(0,0,92,48), { pixelRatio: 2 });
     } catch (e) { console.warn('Pacote É Mato: balão de parada indisponível', e); }
   }
 
@@ -213,7 +249,7 @@
     });
     if (!mapa.getLayer(LAYER_STOPS_TEXT)) mapa.addLayer({
       id: LAYER_STOPS_TEXT, type: 'symbol', source: SOURCE_STOPS,
-      layout: { 'text-field': ['get', 'label'], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 16, 12], 'text-allow-overlap': true, 'text-ignore-placement': true, 'text-anchor':'bottom', 'text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.1]],['==',['get','stackIndex'],1],['literal',[1.15,-1.1]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.1]],['==',['get','stackIndex'],3],['literal',[2.3,-1.1]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.1]],['literal',[0,0.05]]] },
+      layout: { 'text-field': ['format', ['to-string',['get','order']], {}, ['case',['>',['get','multi'],1],['concat',' ',['to-string',['get','multi']],'x'],''], {'font-scale':0.72}], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 16, 12], 'text-allow-overlap': true, 'text-ignore-placement': true, 'text-anchor':'bottom', 'text-offset':['case',['==',['get','stackIndex'],0],['literal',[0,-1.1]],['==',['get','stackIndex'],1],['literal',[1.15,-1.1]],['==',['get','stackIndex'],2],['literal',[-1.15,-1.1]],['==',['get','stackIndex'],3],['literal',[2.3,-1.1]],['==',['get','stackIndex'],4],['literal',[-2.3,-1.1]],['literal',[0,0.05]]] },
       paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.18)', 'text-halo-width': .5 }
     });
 
