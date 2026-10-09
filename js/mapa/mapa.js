@@ -12,6 +12,7 @@
   const LAYER_ROUTE_CASE = 'pemato-route-line-case';
   const LAYER_ROUTE = 'pemato-route-line-layer';
   const SOURCE_STOPS = 'pemato-stops';
+  const LAYER_STOPS_GROUP_RING = 'pemato-stops-group-ring';
   const LAYER_STOPS_RING = 'pemato-stops-selected-ring';
   const LAYER_STOPS = 'pemato-stops-circle';
   const LAYER_STOPS_TEXT = 'pemato-stops-label';
@@ -21,6 +22,14 @@
   const SOURCE_DRIVER = 'pemato-driver';
   const LAYER_DRIVER_RING = 'pemato-driver-ring';
   const LAYER_DRIVER = 'pemato-driver';
+
+  let selecaoDesenhoAtiva = false;
+  let modoInteracaoSelecao = 'draw';
+  let idsSelecaoDesenho = new Set();
+  let pontosDesenho = [];
+  let ponteiroDesenho = null;
+  let overlayDesenho = null;
+  let pathDesenho = null;
 
   function $(id) { return document.getElementById(id); }
   function cfg() { return global.PEMATO_MAP_CONFIG || {}; }
@@ -71,7 +80,8 @@
         id: String(p.id),
         order: ordem(p),
         status: statusEntrega(p),
-        selected: String(p.id) === String(selectedId) ? 1 : 0
+        selected: String(p.id) === String(selectedId) ? 1 : 0,
+        groupSelected: idsSelecaoDesenho.has(String(p.id)) ? 1 : 0
       }
     })));
   }
@@ -157,6 +167,11 @@
       paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6], 'line-opacity': .96 }
     }, before);
 
+    if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({
+      id: LAYER_STOPS_GROUP_RING, type: 'circle', source: SOURCE_STOPS,
+      filter: ['==', ['get', 'groupSelected'], 1],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 14, 16, 20], 'circle-color': 'rgba(16,185,129,.20)', 'circle-stroke-color': '#059669', 'circle-stroke-width': 3 }
+    });
     if (!mapa.getLayer(LAYER_STOPS_RING)) mapa.addLayer({
       id: LAYER_STOPS_RING, type: 'circle', source: SOURCE_STOPS,
       filter: ['==', ['get', 'selected'], 1],
@@ -187,7 +202,12 @@
     mapa.__pematoBound = true;
     const selecionar = event => {
       const id = event?.features?.[0]?.properties?.id;
-      if (id) global.PacoteEMatoRoteirizacao?.selecionarParada?.(String(id), 'mapa');
+      if (!id) return;
+      if (selecaoDesenhoAtiva) {
+        alternarIdSelecao(String(id));
+        return;
+      }
+      global.PacoteEMatoRoteirizacao?.selecionarParada?.(String(id), 'mapa');
     };
     mapa.on('click', LAYER_STOPS, selecionar);
     mapa.on('click', LAYER_STOPS_TEXT, selecionar);
@@ -293,7 +313,190 @@
     if (opcoes?.fit) ajustarTodos();
   }
 
+  function paradaPendente(p) {
+    return !!p && !['entregue', 'concluida', 'nao_entregue'].includes(String(p.statusEntrega || 'pendente'));
+  }
+
+  function emitirSelecaoDesenho() {
+    renderizarMarcadores();
+    try {
+      global.dispatchEvent(new CustomEvent('pemato:map-selection-change', {
+        detail: { ids: [...idsSelecaoDesenho], count: idsSelecaoDesenho.size, mode: modoInteracaoSelecao }
+      }));
+    } catch (_) {}
+  }
+
+  function definirSelecaoDesenho(ids) {
+    const validos = new Set(paradas().filter(paradaPendente).map(p => String(p.id)));
+    idsSelecaoDesenho = new Set((ids || []).map(String).filter(id => validos.has(id)));
+    emitirSelecaoDesenho();
+    return [...idsSelecaoDesenho];
+  }
+
+  function alternarIdSelecao(id) {
+    const p = paradas().find(item => String(item.id) === String(id));
+    if (!paradaPendente(p)) return [...idsSelecaoDesenho];
+    const key = String(id);
+    if (idsSelecaoDesenho.has(key)) idsSelecaoDesenho.delete(key);
+    else idsSelecaoDesenho.add(key);
+    emitirSelecaoDesenho();
+    return [...idsSelecaoDesenho];
+  }
+
+  function limparSelecaoDesenho() {
+    idsSelecaoDesenho.clear();
+    pontosDesenho = [];
+    if (pathDesenho) pathDesenho.setAttribute('d', '');
+    emitirSelecaoDesenho();
+  }
+
+  function pontoOverlay(event) {
+    if (!overlayDesenho) return null;
+    const rect = overlayDesenho.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function distanciaPontos(a, b) {
+    return a && b ? Math.hypot(Number(a.x) - Number(b.x), Number(a.y) - Number(b.y)) : Infinity;
+  }
+
+  function caminhoSvg(pontos, fechar) {
+    if (!Array.isArray(pontos) || !pontos.length) return '';
+    return pontos.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + (fechar && pontos.length > 2 ? ' Z' : '');
+  }
+
+  function pontoNoPoligono(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x, yi = polygon[i].y, xj = polygon[j].x, yj = polygon[j].y;
+      const intersect = ((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / ((yj - yi) || 1e-9) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function paradaMaisProximaDaTela(point, maxPx) {
+    if (!mapa || !pronto || !point) return null;
+    let melhor = null;
+    let dist = Number(maxPx || 34);
+    paradas().filter(p => paradaPendente(p) && coordenadaValida(p)).forEach(p => {
+      try {
+        const projected = mapa.project([Number(p.longitude), Number(p.latitude)]);
+        const d = Math.hypot(projected.x - point.x, projected.y - point.y);
+        if (d <= dist) { dist = d; melhor = p; }
+      } catch (_) {}
+    });
+    return melhor;
+  }
+
+  function concluirDesenho() {
+    if (!mapa || !pronto || !pontosDesenho.length) return;
+    const deslocamento = pontosDesenho.reduce((total, p, i) => i ? total + distanciaPontos(pontosDesenho[i - 1], p) : 0, 0);
+    if (pontosDesenho.length < 3 || deslocamento < 22) {
+      const alvo = paradaMaisProximaDaTela(pontosDesenho[pontosDesenho.length - 1], 38);
+      if (alvo) alternarIdSelecao(alvo.id);
+      pontosDesenho = [];
+      if (pathDesenho) pathDesenho.setAttribute('d', '');
+      return;
+    }
+    if (pathDesenho) pathDesenho.setAttribute('d', caminhoSvg(pontosDesenho, true));
+    const selecionadas = [];
+    paradas().filter(p => paradaPendente(p) && coordenadaValida(p)).forEach(p => {
+      try {
+        const projected = mapa.project([Number(p.longitude), Number(p.latitude)]);
+        if (pontoNoPoligono({ x: projected.x, y: projected.y }, pontosDesenho)) selecionadas.push(String(p.id));
+      } catch (_) {}
+    });
+    definirSelecaoDesenho(selecionadas);
+  }
+
+  function bindOverlayDesenho() {
+    overlayDesenho = $('routingDrawOverlay');
+    pathDesenho = $('routingDrawPath');
+    if (!overlayDesenho || overlayDesenho.dataset.bound === '1') return;
+    overlayDesenho.dataset.bound = '1';
+    overlayDesenho.addEventListener('pointerdown', event => {
+      if (!selecaoDesenhoAtiva || modoInteracaoSelecao !== 'draw') return;
+      event.preventDefault();
+      ponteiroDesenho = event.pointerId;
+      pontosDesenho = [];
+      const p = pontoOverlay(event);
+      if (p) pontosDesenho.push(p);
+      if (pathDesenho) pathDesenho.setAttribute('d', caminhoSvg(pontosDesenho, false));
+      try { overlayDesenho.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+    overlayDesenho.addEventListener('pointermove', event => {
+      if (ponteiroDesenho !== event.pointerId || !selecaoDesenhoAtiva || modoInteracaoSelecao !== 'draw') return;
+      event.preventDefault();
+      const p = pontoOverlay(event);
+      const ultimo = pontosDesenho[pontosDesenho.length - 1];
+      if (p && (!ultimo || distanciaPontos(ultimo, p) >= 3)) pontosDesenho.push(p);
+      if (pathDesenho) pathDesenho.setAttribute('d', caminhoSvg(pontosDesenho, false));
+    });
+    const terminar = event => {
+      if (ponteiroDesenho !== event.pointerId) return;
+      event.preventDefault();
+      ponteiroDesenho = null;
+      const p = pontoOverlay(event);
+      const ultimo = pontosDesenho[pontosDesenho.length - 1];
+      if (p && (!ultimo || distanciaPontos(ultimo, p) >= 2)) pontosDesenho.push(p);
+      concluirDesenho();
+      try { overlayDesenho.releasePointerCapture(event.pointerId); } catch (_) {}
+    };
+    overlayDesenho.addEventListener('pointerup', terminar);
+    overlayDesenho.addEventListener('pointercancel', event => {
+      if (ponteiroDesenho === event.pointerId) {
+        ponteiroDesenho = null; pontosDesenho = [];
+        if (pathDesenho) pathDesenho.setAttribute('d', '');
+      }
+    });
+    overlayDesenho.addEventListener('contextmenu', event => event.preventDefault());
+  }
+
+  function definirModoInteracaoSelecao(modo) {
+    modoInteracaoSelecao = modo === 'pan' ? 'pan' : 'draw';
+    bindOverlayDesenho();
+    if (overlayDesenho) {
+      overlayDesenho.classList.toggle('is-active', selecaoDesenhoAtiva && modoInteracaoSelecao === 'draw');
+      overlayDesenho.classList.toggle('is-pan', selecaoDesenhoAtiva && modoInteracaoSelecao === 'pan');
+    }
+    try {
+      if (mapa) {
+        if (modoInteracaoSelecao === 'pan') mapa.dragPan?.enable?.();
+        else mapa.dragPan?.disable?.();
+      }
+    } catch (_) {}
+    emitirSelecaoDesenho();
+    return modoInteracaoSelecao;
+  }
+
+  function iniciarSelecaoDesenho(opcoes) {
+    garantirMapa();
+    selecaoDesenhoAtiva = true;
+    if (opcoes?.preservar !== true) idsSelecaoDesenho = new Set((opcoes?.ids || []).map(String));
+    bindOverlayDesenho();
+    document.querySelector('.routing-map-pane')?.classList.add('is-drawing');
+    definirModoInteracaoSelecao(opcoes?.mode || 'draw');
+    renderizarMarcadores();
+    return [...idsSelecaoDesenho];
+  }
+
+  function encerrarSelecaoDesenho(opcoes) {
+    selecaoDesenhoAtiva = false;
+    ponteiroDesenho = null;
+    pontosDesenho = [];
+    if (pathDesenho) pathDesenho.setAttribute('d', '');
+    if (overlayDesenho) { overlayDesenho.classList.remove('is-active', 'is-pan'); }
+    document.querySelector('.routing-map-pane')?.classList.remove('is-drawing');
+    document.querySelector('.routing-workspace')?.classList.remove('is-draw-mode');
+    try { mapa?.dragPan?.enable?.(); } catch (_) {}
+    if (opcoes?.limpar !== false) idsSelecaoDesenho.clear();
+    emitirSelecaoDesenho();
+  }
+
   function bindControles() {
+    bindOverlayDesenho();
     $('routingMyLocationBtn')?.addEventListener('click', centralizarMinhaLocalizacao);
     $('routingFitMapBtn')?.addEventListener('click', ajustarTodos);
     $('routingZoomInBtn')?.addEventListener('click', () => zoom(1));
@@ -305,6 +508,7 @@
     clearTimeout(loadTimer); loadTimer = null;
     if (resizeObserver) { try { resizeObserver.disconnect(); } catch (_) {} resizeObserver = null; }
     if (mapa) { try { mapa.remove(); } catch (_) {} }
+    selecaoDesenhoAtiva = false; idsSelecaoDesenho.clear(); pontosDesenho = []; ponteiroDesenho = null;
     mapa = null; pronto = false; fitFeito = false; fallbackBaseAtivo = false;
   }
 
@@ -313,6 +517,8 @@
 
   global.PacoteEMatoMapa = Object.freeze({
     garantirMapa, renderizar, renderizarMarcadores, atualizarRota, ajustarTodos, centralizarParada, centralizarMinhaLocalizacao,
+    iniciarSelecaoDesenho, encerrarSelecaoDesenho, definirModoInteracaoSelecao, limparSelecaoDesenho,
+    obterSelecaoDesenho: () => [...idsSelecaoDesenho], selecaoDesenhoAtiva: () => selecaoDesenhoAtiva,
     destruir, coordenadaValida, geometriaValida, getMapa: () => mapa
   });
 })(window);

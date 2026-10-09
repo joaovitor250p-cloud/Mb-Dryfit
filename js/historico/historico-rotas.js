@@ -66,7 +66,10 @@
     );
     const stops = document.createElement('div');
     stops.className = 'history-stop-list';
-    rota.paradas.forEach(p => {
+    const porId = new Map((rota.paradas || []).map(p => [String(p.id), p]));
+    const ordenadas = (rota.ordem || []).map(id => porId.get(String(id))).filter(Boolean);
+    (rota.paradas || []).forEach(p => { if (!ordenadas.includes(p)) ordenadas.push(p); });
+    ordenadas.forEach(p => {
       const item = document.createElement('div');
       item.className = 'history-stop-item';
       const strong = document.createElement('strong');
@@ -80,6 +83,20 @@
     });
     body.appendChild(stops);
     modal.style.display = 'flex';
+  }
+
+  async function abrirNoMapa(id) {
+    const rota = await global.PacoteEMatoRotaStore?.obterRota?.(id);
+    if (!rota) return;
+    const ativa = await global.PacoteEMatoRotaStore?.obterRotaAtiva?.();
+    if (ativa && String(ativa.id) !== String(rota.id)) {
+      const ok = global.confirm(`Abrir “${rota.nome || 'esta rota'}” no mapa?\n\nA rota que está aberta agora continuará salva no Histórico.`);
+      if (!ok) return;
+    }
+    const carregada = await global.PacoteEMatoRotaStore?.ativarRotaExistente?.(rota.id);
+    if (!carregada) return;
+    try { await global.PacoteEMatoSessao?.persistirAgora?.({ motivo: 'historico_mapa', rotaAtivaId: carregada.id, moduloAtual: 'roteirizacao', paradaSelecionadaId: carregada.paradaSelecionadaId || carregada.ordem?.[0] || null }); } catch (_) {}
+    await global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao');
   }
 
   async function renderizar() {
@@ -96,10 +113,12 @@
       return;
     }
     rotas.forEach(rota => {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'history-route-card';
-      card.addEventListener('click', () => abrirDetalhes(rota.id));
+      const card = document.createElement('article');
+      card.className = 'history-route-card-v2';
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'history-route-open';
+      open.addEventListener('click', () => abrirNoMapa(rota.id));
       const top = document.createElement('div');
       top.className = 'history-route-top';
       const name = document.createElement('strong');
@@ -112,7 +131,17 @@
       const delivered = rota.paradas.filter(p => ['entregue','concluida'].includes(p.statusEntrega)).length;
       const failed = rota.paradas.filter(p => p.statusEntrega === 'nao_entregue').length;
       meta.textContent = `${rota.paradas.length} paradas · ${formatarDistancia(rota.distanciaTotalMetros)} · ${formatarTempo(rota.duracaoTotalSegundos)} · ${delivered} entregues · ${failed} não entregues`;
-      card.append(top, meta);
+      open.append(top, meta);
+      const actions = document.createElement('div');
+      actions.className = 'history-route-actions';
+      const mapBtn = document.createElement('button');
+      mapBtn.type = 'button'; mapBtn.className = 'pemato-primary'; mapBtn.textContent = 'Abrir no mapa';
+      mapBtn.addEventListener('click', () => abrirNoMapa(rota.id));
+      const detailBtn = document.createElement('button');
+      detailBtn.type = 'button'; detailBtn.className = 'pemato-secondary'; detailBtn.textContent = 'Ver detalhes';
+      detailBtn.addEventListener('click', () => abrirDetalhes(rota.id));
+      actions.append(mapBtn, detailBtn);
+      card.append(open, actions);
       container.appendChild(card);
     });
   }
@@ -131,5 +160,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
   else bind();
 
-  global.PacoteEMatoHistorico = Object.freeze({ renderizar, abrirDetalhes });
+  global.PacoteEMatoHistorico = Object.freeze({ renderizar, abrirDetalhes, abrirNoMapa });
 })(window);

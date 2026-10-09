@@ -2,37 +2,42 @@
 
 Aplicativo web/PWA de logística com Roteirização, Navegação, Bipagem e Histórico compartilhando uma única Rota Ativa.
 
-## Fluxo operacional
+## Fluxo operacional atual
 
 ```text
 Importar XLSX
     ↓
-Processamento com a logo do Pacote É Mato
+Carregamento e conferência
     ↓
-Conferência das paradas e dos códigos de pacote
+Mapa / planejamento
     ↓
-Coordenadas do XLSX são aproveitadas quando válidas
+Otimizar rota
     ↓
-Mapa e planejamento
-    ↓
-Otimizar rota pela rede viária
-    ↓
-Revisar sequência, distância e tempo
+Refinar, se necessário
+  • otimizar automaticamente
+  • inverter pendentes
+  • desenhar no mapa ou tocar nas paradas uma a uma
+  • desfazer última alteração
     ↓
 Confirmar rota
     ↓
-Navegação própria / Bipagem / Waze / Google Maps
+Navegar
+  • Pacote É Mato
+  • Waze
+  • Google Maps
     ↓
-Entregue ou Não entregue
+Não entregue / Entregue
     ↓
-Histórico
+Próxima parada pendente
+    ↓
+Histórico reutilizável
 ```
 
-A Rota Ativa anterior não é substituída apenas por selecionar um arquivo. A nova rota somente se torna ativa depois da tela de conferência.
+A Rota Ativa anterior não é substituída apenas por selecionar um arquivo. A nova rota só se torna ativa no fluxo de conferência/planejamento.
 
 ## Planilhas SPX
 
-Esta versão reconhece automaticamente o formato operacional usado nos arquivos reais fornecidos para teste:
+A importação reconhece automaticamente o formato operacional usado nos arquivos reais de teste:
 
 ```text
 AT ID
@@ -47,65 +52,82 @@ Latitude
 Longitude
 ```
 
-Regras:
+Regras principais:
 
 - `SPX TN` é preservado como código do pacote/bipagem.
-- `Destination Address` é mantido como endereço de origem sem destruir complementos.
+- `Destination Address` é mantido integralmente, incluindo apartamento, bloco, sala, loja ou outras informações presentes no texto.
+- Campos separados de complemento, apartamento, bloco, sala, loja e observação também são preservados quando existem na origem.
 - Bairro, cidade e CEP permanecem separados.
-- Latitude/Longitude válidas do próprio XLSX são utilizadas diretamente no mapa.
-- O número do imóvel também é identificado quando está embutido em `Destination Address`.
-- `Sequence` e `Stop` são preservados como dados de origem; a ordem operacional é a ordem retornada pelo otimizador.
-- Coordenadas ausentes, incompletas ou inválidas nunca viram `(0,0)`.
-- Arquivos de formato diferente continuam podendo usar o mapeamento manual de colunas.
+- Latitude/Longitude válidas do próprio XLSX são usadas diretamente no mapa.
+- O número do imóvel pode ser identificado quando está embutido em `Destination Address`.
+- `Sequence` e `Stop` são preservados como dados de origem; a ordem operacional é mantida por IDs permanentes das paradas.
+- Coordenadas inválidas nunca são substituídas por coordenadas inventadas.
+- Arquivos com formato diferente continuam podendo usar associação manual de colunas.
 
-## Otimização e revisão
+## Refinamento da rota
 
-O padrão para entregas urbanas agora é **Menor distância (`short`)**. Depois do cálculo, o motorista recebe uma tela de conferência com:
+O painel **Refinar** mantém somente as formas operacionais desejadas:
 
-- ponto de partida;
-- sequência numerada;
-- distância;
-- tempo dirigindo;
-- tempo de atendimento;
-- tempo total;
-- previsão de término;
-- opção **Refinar** entre Menor distância, Equilibrada e Menos manobras quando compatível;
-- botão **Confirmar rota**.
+1. **Otimizar automaticamente** — solicita nova sequência ao serviço de roteirização real.
+2. **Inverter ordem** — inverte apenas as posições das paradas ainda pendentes; entregues e não entregues preservam seus registros e IDs.
+3. **Desenhar no mapa** — o motorista pode contornar um grupo de marcadores ou tocar nas paradas uma a uma. O grupo selecionado pode ser colocado antes das demais pendentes, no fim das pendentes ou, quando houver uma única parada selecionada, tornar-se a próxima parada.
+4. **Desfazer última alteração** — restaura a ordem anterior e recalcula o percurso.
 
-A ordem não é calculada por distância em linha reta. O frontend utiliza o Worker seguro para `/optimize` e, depois, `/route` para obter o percurso rodoviário.
+O desenho usa a posição geográfica real dos marcadores. Ele não move coordenadas. Depois de uma alteração manual, `/route` é usado novamente para recalcular o trajeto pelas ruas. Se o recálculo falhar, a ordem anterior é restaurada.
 
-## Navegação
+## Navegação e registro de entrega
 
-A navegação própria permanece separada da Bipagem e trabalha com a mesma Rota Ativa.
+O cartão da parada usa três ações principais:
 
-- mapa 2D, `pitch = 0` e remoção de camadas `fill-extrusion`;
-- posição GPS separada das coordenadas das paradas;
-- instruções derivadas da geometria/steps da rota;
-- orientação por voz quando o navegador oferece suporte;
-- Entregue / Não entregue avançam para a próxima parada pendente;
-- motivo e observação de Não entregue são opcionais;
-- ações secundárias ficam recolhidas no menu da navegação;
-- Waze e Google Maps permanecem disponíveis.
+```text
+Navegar | Não entregue | Entregue
+```
 
-A execução em segundo plano de GPS/voz continua sujeita às limitações do navegador/PWA.
+- **Navegar** obedece diretamente à opção salva em Configurações; não abre um segundo seletor.
+- **Pacote É Mato** mantém a navegação interna.
+- **Waze** e **Google Maps** recebem a parada selecionada depois que o estado da rota é persistido.
+- Ao voltar de um navegador externo, a parada selecionada continua disponível para registro no Pacote É Mato.
+- **Não entregue** é uma ação de um toque, como **Entregue**; não exige motivo para avançar.
+- O gesto horizontal no cartão permite consultar paradas sem registrar resultado. Os botões de seta do cartão foram removidos.
+- Todos os marcadores permanecem numerados durante a rota. Pendente, atual, entregue e não entregue têm aparência distinta sem perder o número sequencial.
+- A navegação própria permanece em mapa 2D.
+
+GPS, voz e execução contínua com tela bloqueada/segundo plano continuam sujeitos às limitações do navegador/PWA e do sistema operacional.
+
+## Retorno do segundo plano e recuperação
+
+O aplicativo diferencia inicialização de retomada:
+
+- `visibilitychange`, `pageshow` e `focus` não disparam recarga completa da aplicação.
+- seção atual, painel, parada selecionada, próxima parada e preferências operacionais são persistidos.
+- antes de abrir Waze/Google Maps, a rota, a parada selecionada e a nota digitada são salvas.
+- a Rota Ativa continua usando o armazenamento existente; existe uma cópia local de contingência da rota ativa para recuperação quando o processo for recriado e o armazenamento principal estiver temporariamente indisponível.
+
+A recuperação após o sistema operacional encerrar o processo depende de o navegador/PWA preservar o armazenamento local e de a sessão de autenticação ainda ser válida.
 
 ## Bipagem
 
-Depois da otimização, **Abrir Bipagem** está disponível no menu de ações da Roteirização. O aplicativo salva a mesma Rota Ativa e abre a Bipagem usando a ponte já existente, sem exportar/reimportar PDF.
+O acesso operacional à Bipagem fica no menu `⋮` da Roteirização. Ele oferece:
 
-## Configurações
+- **Bipar rota atual** — usa a mesma Rota Ativa, sequência e códigos de pacote.
+- **Importar PDF** — abre o fluxo legado de PDF para arquivos de sistemas compatíveis.
 
-Veículo, navegação preferida, tempo médio de parada, retorno ao início, ponto inicial e URL do Worker utilizam salvamento automático. O botão antigo de salvar foi mantido apenas como compatibilidade e fica oculto.
+A Bipagem não fica duplicada no menu lateral.
+
+## Histórico
+
+As rotas continuam no Histórico. Uma rota histórica pode ser aberta novamente no mapa sem criar uma cópia da rota. Se já houver outra rota ativa, o aplicativo pede confirmação antes de trocar qual rota está aberta, mantendo a anterior salva no Histórico.
+
+## Configurações e menu
+
+- Navegação preferida, veículo, tempo de parada, retorno ao início, ponto inicial e Worker usam salvamento automático.
+- Termos de uso, Política de privacidade e Licenças ficam em **Configurações > Legal**.
+- O menu lateral foi simplificado para Histórico, Configurações, tutorial, suporte e desconexão.
+- A antiga opção de zerar bipagens não faz parte do menu operacional.
 
 ## Serviço seguro de rotas
 
-Worker atual:
-
-```text
-https://pacote-emato-rotas.joaovitor250p.workers.dev
-```
-
-Endpoints previstos e implementados:
+O projeto continua preparado para os endpoints existentes:
 
 ```text
 GET  /health
@@ -114,33 +136,12 @@ POST /optimize
 POST /route
 ```
 
-O `/health` pode ser aberto diretamente para diagnóstico. As rotas operacionais continuam protegidas por `ALLOWED_ORIGINS`.
+A chave `GEOAPIFY_API_KEY` deve permanecer somente como Secret no Cloudflare Worker. Não coloque chaves secretas em HTML, JavaScript público ou no ZIP de publicação.
 
-A chave `GEOAPIFY_API_KEY` deve permanecer somente como Secret no Cloudflare. Nunca coloque a chave no HTML, JavaScript público ou repositório.
-
-O código-fonte do Worker separado fica em `cloudflare/geocodificacao-worker.js`; o `wrangler.toml` usa o nome `pacote-emato-rotas` para permanecer alinhado ao Worker que foi criado no Cloudflare.
-
-## Publicação do Worker, se for necessário repetir no futuro
-
-```bash
-cd cloudflare
-npx wrangler login
-npx wrangler secret put GEOAPIFY_API_KEY --config wrangler.toml
-npx wrangler deploy --config wrangler.toml
-```
-
-A origem autorizada atual é:
-
-```text
-https://joaovitor250p-cloud.github.io
-```
+Nenhum serviço externo é publicado ou alterado automaticamente por estes arquivos.
 
 ## Preservação do núcleo
 
-A evolução continua separada do núcleo legado. Login/Firebase, PDF, agrupamento físico do PDF, scanner, câmera, Bipagem e integrações antigas continuam nos módulos existentes.
+Login/Firebase, usuários, permissões, importação, scanner, câmera, Bipagem, histórico, sons, vibração, voz e demais módulos existentes permanecem integrados ao projeto.
 
-Consulte `RELATORIO-SPX-OTIMIZACAO-NAVEGACAO.md` para as alterações e testes desta entrega.
-
-
-## Recuperação de sessão e navegação (atualização)
-O aplicativo registra a última seção em sessionStorage/localStorage e a rota ativa no armazenamento já existente. O retorno por `pageshow`/`visibilitychange` não refaz o login nem reimporta a rota. Quando o sistema operacional mata o processo, a restauração depende de o navegador manter o armazenamento e de o login ainda ser válido. GPS e voz não são garantidos em segundo plano.
+Consulte `RELATORIO-IMPLEMENTACAO-REFINO-DESENHO.md` para os testes realmente executados, limitações de ambiente e detalhes desta entrega.

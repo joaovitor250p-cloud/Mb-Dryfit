@@ -22,3 +22,14 @@
 .settings-save-row{display:flex;justify-content:flex-end;margin-top:12px}
 @media(max-width:900px){.settings-start-row{grid-template-columns:1fr 1fr}.settings-start-row .pemato-field{grid-column:1/-1}.settings-worker-row{grid-template-columns:1fr auto}}
 @media(max-width:760px){.settings-grid-professional{grid-template-columns:1fr}.settings-card-wide{grid-column:auto}.settings-start-row,.settings-worker-row{grid-template-columns:1fr}.settings-start-row .pemato-field{grid-column:auto}.settings-save-row button{width:100%}}
+
+
+.history-route-card-v2{padding:13px;border:1px solid var(--surface-border);border-radius:14px;background:var(--surface-1);color:var(--text-main)}
+.history-route-card-v2 .history-route-open{width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.history-route-actions{display:flex;gap:7px;margin-top:10px}.history-route-actions button{min-height:36px;padding:7px 10px}
+@media(max-width:620px){.history-route-actions{display:grid;grid-template-columns:1fr 1fr}}
+
+/* Retorno contextual à operação sem recolocar Roteirização no menu lateral. */
+.pemato-module-head-actions{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.pemato-back-route{flex:0 0 auto;min-height:40px}
+.pemato-bipagem-back{display:flex;justify-content:flex-start;margin:0 0 8px}
+@media(max-width:720px){.pemato-module-head-actions{flex-direction:column}.pemato-back-route{width:100%}.pemato-bipagem-back{margin-top:6px}}

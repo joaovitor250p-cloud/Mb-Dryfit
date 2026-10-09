@@ -14,6 +14,7 @@
   let estadoPainel = (()=>{try{return sessionStorage.getItem('pemato_route_sheet')||'collapsed';}catch(_){return 'collapsed';}})();
   let sheetDragStartY = null;
   let sheetDragLastY = null;
+  let estadoPainelAntesDesenho = null;
 
   function $(id) { return document.getElementById(id); }
   function clone(v) { return global.PacoteEMatoRotaStore?.clone?.(v) || JSON.parse(JSON.stringify(v)); }
@@ -49,11 +50,17 @@
 
   function detalheComplemento(p) {
     const itens = [];
-    if (p.complemento) itens.push(p.complemento);
-    if (p.bloco) itens.push(`Bloco ${p.bloco}`);
-    if (p.apartamento) itens.push(`Apartamento ${p.apartamento}`);
-    if (p.sala) itens.push(`Sala ${p.sala}`);
-    if (p.loja) itens.push(`Loja ${p.loja}`);
+    const add = valor => {
+      const texto = String(valor || '').trim();
+      if (!texto) return;
+      if (!itens.some(item => item.toLocaleLowerCase('pt-BR') === texto.toLocaleLowerCase('pt-BR'))) itens.push(texto);
+    };
+    add(p.complemento);
+    if (p.bloco) add(`Bloco ${p.bloco}`);
+    if (p.apartamento) add(`Apartamento ${p.apartamento}`);
+    if (p.sala) add(`Sala ${p.sala}`);
+    if (p.loja) add(`Loja ${p.loja}`);
+    add(p.observacao);
     return itens.join(' · ');
   }
 
@@ -169,17 +176,14 @@
         const strong = document.createElement('strong');
         strong.textContent = parada.enderecoFonte || parada.enderecoOriginal || 'Parada';
         const small = document.createElement('small');
-        small.textContent = [parada.bairro, parada.cidade, `${parada.pacotes?.length || 0} pacote(s)`].filter(Boolean).join(' · ');
+        small.textContent = [detalheComplemento(parada), parada.bairro, parada.cidade, `${parada.pacotes?.length || 0} pacote(s)`].filter(Boolean).join(' · ');
         copy.append(strong, small);
         row.append(num, copy);
         list.appendChild(row);
       });
     }
 
-    document.querySelectorAll('input[name="routingRoutePreference"]').forEach(input => {
-      input.checked = input.value === String(rotaAtual.preferenciaRota || 'short');
-      input.disabled = rotaAtual.veiculo === 'moto' && input.value === 'less_maneuvers';
-    });
+    atualizarBotoesRefino();
   }
 
   function abrirRevisaoOtimizacao() {
@@ -209,18 +213,178 @@
     panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
   }
 
-  async function aplicarRefinoOtimizacao() {
-    const checked = document.querySelector('input[name="routingRoutePreference"]:checked');
-    if (!checked || !rotaAtual) return;
-    let preferencia = checked.value;
-    if (rotaAtual.veiculo === 'moto' && preferencia === 'less_maneuvers') preferencia = 'balanced';
-    if (preferencia === rotaAtual.preferenciaRota) return;
-    rotaAtual.preferenciaRota = preferencia;
-    rotaAtual.rotaOtimizada = false;
-    rotaAtual.confirmadaEm = null;
+
+  function paradaFinalizada(p) {
+    return !!p && ['entregue', 'concluida', 'nao_entregue'].includes(String(p.statusEntrega || ''));
+  }
+
+  function atualizarBotoesRefino() {
+    const temRota = !!rotaAtual?.geometria;
+    const historico = Array.isArray(rotaAtual?.historicoRefino) ? rotaAtual.historicoRefino : [];
+    if ($('routingRefineAutoBtn')) $('routingRefineAutoBtn').disabled = !rotaAtual?.paradas?.length;
+    if ($('routingRefineInvertBtn')) $('routingRefineInvertBtn').disabled = !temRota;
+    if ($('routingRefineDrawBtn')) $('routingRefineDrawBtn').disabled = !temRota;
+    if ($('routingRefineUndoBtn')) $('routingRefineUndoBtn').disabled = !historico.length;
+    if ($('routingDrawUndoBtn')) $('routingDrawUndoBtn').disabled = !historico.length;
+  }
+
+  function atualizarIndicesOrdem() {
+    if (!rotaAtual) return;
+    const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+    (rotaAtual.ordem || []).forEach((id, index) => {
+      const p = byId.get(String(id));
+      if (p) p.ordemOtimizada = index + 1;
+    });
+  }
+
+  function reconstruirComPendentes(novaOrdemPendentes) {
+    if (!rotaAtual) return [];
+    const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+    const fila = [...novaOrdemPendentes].map(String);
+    let cursor = 0;
+    return (rotaAtual.ordem || []).map(id => {
+      const p = byId.get(String(id));
+      if (paradaFinalizada(p)) return String(id);
+      return fila[cursor++] || String(id);
+    });
+  }
+
+  function snapshotRefino(tipo) {
+    return { tipo: String(tipo || 'manual'), em: Date.now(), ordem: [...(rotaAtual?.ordem || [])] };
+  }
+
+  async function recalcularAposRefino(tipo, mensagem, opcoes) {
+    if (!rotaAtual) return false;
+    const antes = opcoes?.rollback ? clone(opcoes.rollback) : clone(rotaAtual);
+    try {
+      mostrarProcessamento('Atualizando sua rota', 'Recalculando o trajeto pelas ruas sem perder o progresso das entregas.');
+      atualizarIndicesOrdem();
+      const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
+      const feature = route.feature;
+      rotaAtual.geometria = feature.geometry;
+      rotaAtual.distanciaTotalMetros = Number(feature.properties?.distance || 0);
+      rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || 0);
+      rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
+      rotaAtual.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
+      const pendentes = rotaAtual.paradas.filter(p => !paradaFinalizada(p)).length;
+      rotaAtual.duracaoParadasSegundos = pendentes * Number(rotaAtual.tempoParadaSegundos || 0);
+      rotaAtual.duracaoTotalSegundos = rotaAtual.duracaoDirecaoSegundos + rotaAtual.duracaoParadasSegundos;
+      rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
+      rotaAtual.rotaOtimizada = true;
+      rotaAtual.tipoRefino = tipo || 'manual';
+      rotaAtual.otimizadoEm = Date.now();
+      rotaAtual.confirmadaEm = null;
+      await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+      renderizarTudo({ fit: true });
+      atualizarBotoesRefino();
+      if (opcoes?.abrirRevisao !== false) abrirRevisaoOtimizacao();
+      if (mensagem) notificar(mensagem);
+      return true;
+    } catch (erro) {
+      rotaAtual = antes;
+      aplicarRotaNoState();
+      renderizarTudo({ fit: true });
+      notificar(erro?.message || 'Não foi possível recalcular a rota depois da alteração. A ordem anterior foi restaurada.');
+      return false;
+    } finally {
+      esconderProcessamento();
+    }
+  }
+
+  async function aplicarOrdemRefinada(novaOrdem, tipo, mensagem, opcoes) {
+    if (!rotaAtual || !Array.isArray(novaOrdem) || novaOrdem.length !== rotaAtual.ordem.length) return false;
+    const rollback = clone(rotaAtual);
+    const idsAtuais = new Set((rotaAtual.ordem || []).map(String));
+    if (novaOrdem.some(id => !idsAtuais.has(String(id)))) return false;
+    if (opcoes?.registrarHistorico !== false) {
+      const historico = Array.isArray(rotaAtual.historicoRefino) ? [...rotaAtual.historicoRefino] : [];
+      historico.push(snapshotRefino(tipo));
+      rotaAtual.historicoRefino = historico.slice(-8);
+    }
+    rotaAtual.ordem = novaOrdem.map(String);
+    return recalcularAposRefino(tipo, mensagem, Object.assign({}, opcoes || {}, { rollback }));
+  }
+
+  async function desfazerUltimoRefino() {
+    if (!rotaAtual) return;
+    const rollback = clone(rotaAtual);
     fecharRevisaoOtimizacao();
-    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+    const historico = Array.isArray(rotaAtual.historicoRefino) ? [...rotaAtual.historicoRefino] : [];
+    const ultimo = historico.pop();
+    if (!ultimo?.ordem?.length) return notificar('Não há uma alteração manual para desfazer.');
+    const ordemAntes = [...rotaAtual.ordem];
+    rotaAtual.historicoRefino = historico;
+    rotaAtual.ordem = ultimo.ordem.map(String);
+    const ok = await recalcularAposRefino('desfazer', 'Última alteração de ordem desfeita.', { abrirRevisao: true, rollback });
+    if (!ok) {
+      rotaAtual.ordem = ordemAntes;
+      rotaAtual.historicoRefino = [...historico, ultimo];
+    }
+  }
+
+  async function otimizarAutomaticamenteRefino() {
+    if (!rotaAtual) return;
+    rotaAtual.preferenciaRota = 'short';
+    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none';
+    fecharRevisaoOtimizacao();
     await otimizarRota({ refinamento: true });
+  }
+
+  function atualizarToolbarDesenho(detail) {
+    const count = Number(detail?.count ?? global.PacoteEMatoMapa?.obterSelecaoDesenho?.().length ?? 0);
+    if ($('routingDrawCount')) $('routingDrawCount').textContent = `${count} ${count === 1 ? 'parada selecionada' : 'paradas selecionadas'}`;
+    ['routingDrawNextGroupBtn','routingDrawEndGroupBtn'].forEach(id => { if ($(id)) $(id).disabled = count < 1; });
+    if ($('routingDrawSingleNextBtn')) $('routingDrawSingleNextBtn').disabled = count !== 1;
+    const mode = detail?.mode || 'draw';
+    if ($('routingDrawInteractionBtn')) $('routingDrawInteractionBtn').textContent = mode === 'draw' ? 'Mover mapa' : 'Voltar a desenhar';
+    atualizarBotoesRefino();
+  }
+
+  function iniciarRefinoDesenho() {
+    if (!rotaAtual?.geometria) return notificar('Calcule a rota antes de organizar pelo mapa.');
+    const localizadasPendentes = rotaAtual.paradas.filter(p => !paradaFinalizada(p) && paradaLocalizada(p));
+    if (!localizadasPendentes.length) return notificar('Não há paradas pendentes com coordenadas válidas para selecionar.');
+    fecharRevisaoOtimizacao();
+    fecharMenuAcoes();
+    estadoPainelAntesDesenho = estadoPainel;
+    definirEstadoPainel('collapsed');
+    $('routingWorkspace')?.classList.add('is-draw-mode');
+    if ($('routingDrawToolbar')) $('routingDrawToolbar').style.display = 'block';
+    global.PacoteEMatoMapa?.iniciarSelecaoDesenho?.({ ids: [], mode: 'draw' });
+    atualizarToolbarDesenho({ count: 0, mode: 'draw' });
+    setTimeout(() => global.PacoteEMatoMapa?.renderizar?.(), 60);
+  }
+
+  function cancelarRefinoDesenho(opcoes) {
+    global.PacoteEMatoMapa?.encerrarSelecaoDesenho?.({ limpar: true });
+    $('routingWorkspace')?.classList.remove('is-draw-mode');
+    if ($('routingDrawToolbar')) $('routingDrawToolbar').style.display = 'none';
+    if (estadoPainelAntesDesenho && opcoes?.restaurarPainel !== false) definirEstadoPainel(estadoPainelAntesDesenho);
+    estadoPainelAntesDesenho = null;
+    if (opcoes?.reabrir !== false && rotaAtual?.geometria) abrirRevisaoOtimizacao();
+  }
+
+  async function aplicarSelecaoDesenho(destino) {
+    if (!rotaAtual) return;
+    const selecionados = new Set((global.PacoteEMatoMapa?.obterSelecaoDesenho?.() || []).map(String));
+    const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+    const pendentes = (rotaAtual.ordem || []).map(String).filter(id => !paradaFinalizada(byId.get(id)));
+    const grupo = pendentes.filter(id => selecionados.has(id));
+    if (!grupo.length) return notificar('Selecione pelo menos uma parada no mapa.');
+    if (destino === 'proxima' && grupo.length !== 1) return notificar('Para definir uma única próxima parada, selecione somente um marcador.');
+    const demais = pendentes.filter(id => !selecionados.has(id));
+    const novaPendentes = destino === 'fim' ? [...demais, ...grupo] : [...grupo, ...demais];
+    const novaOrdem = reconstruirComPendentes(novaPendentes);
+    const texto = destino === 'fim'
+      ? `${grupo.length} parada(s) foram movidas para o fim das pendentes.`
+      : destino === 'proxima'
+        ? 'A parada selecionada agora é a próxima pendente.'
+        : `${grupo.length} parada(s) foram colocadas antes das demais pendentes.`;
+    const ok = await aplicarOrdemRefinada(novaOrdem, `desenho_${destino}`, texto, { abrirRevisao: false });
+    if (ok) {
+      cancelarRefinoDesenho({ reabrir: false });
+      abrirRevisaoOtimizacao();
+    }
   }
 
   function aplicarRotaNoState() {
@@ -364,6 +528,7 @@
     root.classList.toggle('sheet-intermediate', estadoPainel === 'intermediate');
     root.classList.toggle('sheet-collapsed', estadoPainel === 'collapsed');
     try{sessionStorage.setItem('pemato_route_sheet',estadoPainel);}catch(_){}
+    if (global.appState?.ui) global.appState.ui.painelRoteirizacao = estadoPainel;
     $('routingSheetToggle')?.setAttribute('aria-expanded', estadoPainel === 'expanded' ? 'true' : 'false');
     if (estadoPainel === 'expanded') setTimeout(() => $('routingStopSearch')?.focus?.({ preventScroll: true }), 180);
     else setTimeout(() => global.PacoteEMatoMapa?.renderizar?.(), 220);
@@ -397,7 +562,7 @@
     if (note) note.style.display = serviceReady ? 'none' : 'block';
     const routeReady = !!rotaAtual?.geometria;
     document.querySelectorAll('.routing-route-ready-action').forEach(el => { el.style.display = routeReady ? '' : 'none'; });
-    if ($('routingInvertBtn')) $('routingInvertBtn').style.display = rotaAtual?.rotaOtimizada ? '' : 'none';
+    if ($('routingInvertBtn')) $('routingInvertBtn').style.display = routeReady ? '' : 'none';
     const mainOptimize = $('routingMainOptimizeBtn');
     if (mainOptimize) {
       mainOptimize.disabled = !rotaAtual?.paradas?.length;
@@ -638,6 +803,7 @@
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true, firestore: false });
     }
     renderizarTudo({ fit: true });
+    atualizarBotoesRefino();
     global.PacoteEMatoLocalizacaoAtual?.iniciarAutomaticamente?.().then(() => global.PacoteEMatoMapa?.renderizar?.()).catch(() => {});
     return rotaAtual;
   }
@@ -1048,33 +1214,14 @@
   }
 
   async function inverterRota() {
-    if (!rotaAtual?.rotaOtimizada) return notificar('Otimize a rota antes de inverter.');
-    const byId = new Map(rotaAtual.paradas.map(p => [p.id, p]));
-    const concluidas = rotaAtual.ordem.filter(id => ['entregue', 'concluida', 'nao_entregue'].includes(byId.get(id)?.statusEntrega));
-    const pendentes = rotaAtual.ordem.filter(id => !concluidas.includes(id)).reverse();
-    if(rotaAtual.status==='em_andamento'&&!global.confirm('Inverter a ordem das paradas pendentes? Os resultados concluídos serão preservados.'))return;
-    const ordemAnterior=[...rotaAtual.ordem];
-    rotaAtual.ordem = [...concluidas, ...pendentes];
-    rotaAtual.ordem.forEach((id, index) => { const p = byId.get(id); if (p) p.ordemOtimizada = index + 1; });
-    try {
-      const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
-      const feature = route.feature;
-      rotaAtual.geometria = feature.geometry;
-      rotaAtual.distanciaTotalMetros = Number(feature.properties?.distance || 0);
-      rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || 0);
-      rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
-      rotaAtual.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
-      rotaAtual.duracaoParadasSegundos = rotaAtual.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length * Number(rotaAtual.tempoParadaSegundos || 0);
-      rotaAtual.duracaoTotalSegundos = rotaAtual.duracaoDirecaoSegundos + rotaAtual.duracaoParadasSegundos;
-      rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
-      rotaAtual.otimizadoEm = Date.now();
-      await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
-      renderizarTudo({ fit: true });
-      notificar('Ordem invertida e rota pelas ruas recalculada.');
-    } catch (erro) {
-      rotaAtual.ordem=ordemAnterior;rotaAtual.ordem.forEach((id,index)=>{const p=byId.get(id);if(p)p.ordemOtimizada=index+1;});
-      notificar(erro?.message || 'Não foi possível recalcular a rota invertida.');
-    }
+    if (!rotaAtual?.geometria) return notificar('Calcule a rota antes de inverter.');
+    const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+    const pendentes = (rotaAtual.ordem || []).map(String).filter(id => !paradaFinalizada(byId.get(id)));
+    if (pendentes.length < 2) return notificar('Não há paradas pendentes suficientes para inverter.');
+    if (rotaAtual.iniciadoEm && !global.confirm('Inverter somente as paradas pendentes? As entregas já registradas serão preservadas.')) return;
+    fecharRevisaoOtimizacao();
+    const novaOrdem = reconstruirComPendentes([...pendentes].reverse());
+    await aplicarOrdemRefinada(novaOrdem, 'inverter', 'Ordem das paradas pendentes invertida.', { abrirRevisao: true });
   }
 
   function selecionarParada(id, origem) {
@@ -1266,46 +1413,48 @@
     renderizarTudo({ fit: true });
   }
 
-  async function abrirBipagemDaRota() {
-    if (!rotaAtual?.rotaOtimizada) return notificar('Otimize a rota antes de abrir a Bipagem.');
+  function abrirEscolhaBipagem() {
     fecharMenuAcoes();
-    await global.PacoteEMatoRotaStore?.salvarRota?.(rotaAtual, { ativa: true });
-    global.PacoteEMatoAppShell?.abrirModulo?.('bipagem');
+    const backdrop = $('routingBipagemChooserBackdrop');
+    if (backdrop) backdrop.style.display = 'flex';
+    const totalPacotes = (rotaAtual?.paradas || []).reduce((n, p) => n + (p.pacotes?.length || 0), 0);
+    if ($('routingBipagemCurrentRouteBtn')) $('routingBipagemCurrentRouteBtn').disabled = !rotaAtual?.paradas?.length || !totalPacotes;
   }
 
-  function abrirNavegacao() {
-    if (!rotaAtual?.geometria) return notificar('Calcule a rota pelas ruas antes de iniciar a navegação.');
+  function fecharEscolhaBipagem() {
+    const backdrop = $('routingBipagemChooserBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+  }
 
-    const cfg = global.PacoteEMatoConfiguracoes?.obter?.() || {};
-    const preferencia = String(cfg.navegacao || 'pacote_emato');
+  async function abrirBipagemDaRota() {
+    const totalPacotes = (rotaAtual?.paradas || []).reduce((n, p) => n + (p.pacotes?.length || 0), 0);
+    if (!rotaAtual?.paradas?.length || !totalPacotes) return notificar('A rota atual ainda não possui códigos de pacote para bipar.');
+    fecharEscolhaBipagem();
+    await global.PacoteEMatoRotaStore?.salvarRota?.(rotaAtual, { ativa: true });
+    await global.PacoteEMatoSessao?.persistirAgora?.({ motivo: 'abrir_bipagem_rota', paradaSelecionadaId: global.appState?.roteirizacao?.paradaSelecionadaId || null });
+    await global.PacoteEMatoAppShell?.abrirModulo?.('bipagem', { usarRotaAtiva: true });
+  }
 
-    if (preferencia === 'waze' || preferencia === 'google') {
-      const porId = new Map((rotaAtual.paradas || []).map(p => [p.id, p]));
-      const proxima = (rotaAtual.ordem || [])
-        .map(id => porId.get(id))
-        .find(p => p && !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega))
-        || (rotaAtual.paradas || [])[0];
+  async function abrirBipagemPdf() {
+    fecharEscolhaBipagem();
+    await global.PacoteEMatoSessao?.persistirAgora?.({ motivo: 'abrir_bipagem_pdf' });
+    await global.PacoteEMatoAppShell?.abrirModulo?.('bipagem', { usarRotaAtiva: false });
+    setTimeout(() => $('pdfInput')?.click?.(), 120);
+  }
 
-      if (!proxima) return notificar('A rota não possui uma parada disponível para navegação.');
-
-      const endereco = String(proxima.enderecoOriginal || proxima.endereco || proxima.enderecoNormalizado || '').trim();
-      if (!endereco) return notificar('A próxima parada não possui endereço válido para abrir a navegação externa.');
-
-      // Reutiliza a integração já existente no sistema legado, sem duplicar regras de Waze/Google Maps.
-      global.enderecoSelecionadoGps = endereco;
-      if (typeof global.abrirGpsSelecionado === 'function') {
-        global.abrirGpsSelecionado(preferencia);
-      } else {
-        const query = encodeURIComponent(endereco);
-        const url = preferencia === 'waze'
-          ? `https://waze.com/ul?q=${query}&navigate=yes`
-          : `https://www.google.com/maps/search/?api=1&query=${query}`;
-        global.open(url, '_blank');
-      }
-      return;
-    }
-
-    global.PacoteEMatoAppShell?.abrirModulo?.('navegacao');
+  async function abrirNavegacao() {
+    if (!rotaAtual?.geometria) return notificar('Calcule a rota pelas ruas antes de iniciar a operação.');
+    rotaAtual.status = rotaAtual.status === 'concluida' ? 'concluida' : 'ativa';
+    rotaAtual.iniciadoEm = rotaAtual.iniciadoEm || Date.now();
+    const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+    const selecionada = global.appState?.roteirizacao?.paradaSelecionadaId;
+    const proxima = (selecionada && byId.get(String(selecionada)) && !paradaFinalizada(byId.get(String(selecionada))))
+      ? byId.get(String(selecionada))
+      : (rotaAtual.ordem || []).map(id => byId.get(String(id))).find(p => p && !paradaFinalizada(p));
+    if (proxima) rotaAtual.paradaSelecionadaId = proxima.id;
+    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+    await global.PacoteEMatoSessao?.persistirAgora?.({ motivo: 'iniciar_rota', paradaSelecionadaId: proxima?.id || null, navegacaoAtiva: true });
+    await global.PacoteEMatoAppShell?.abrirModulo?.('navegacao');
   }
 
   async function exportarPdf() {
@@ -1337,13 +1486,29 @@
     $('routingInvertBtn')?.addEventListener('click', () => { fecharMenuAcoes(); inverterRota(); });
     $('routingExportPdfBtn')?.addEventListener('click', () => { fecharMenuAcoes(); exportarPdf(); });
     $('routingStartNavBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirNavegacao(); });
-    $('routingOpenBipagemBtn')?.addEventListener('click', abrirBipagemDaRota);
+    $('routingBipagemMenuBtn')?.addEventListener('click', abrirEscolhaBipagem);
+    $('routingBipagemChooserClose')?.addEventListener('click', fecharEscolhaBipagem);
+    $('routingBipagemChooserBackdrop')?.addEventListener('click', event => { if (event.target === $('routingBipagemChooserBackdrop')) fecharEscolhaBipagem(); });
+    $('routingBipagemCurrentRouteBtn')?.addEventListener('click', abrirBipagemDaRota);
+    $('routingBipagemPdfBtn')?.addEventListener('click', abrirBipagemPdf);
     $('routingReviewCloseBtn')?.addEventListener('click', fecharRevisaoOtimizacao);
     $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
     $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
+    $('routingRefineAutoBtn')?.addEventListener('click', otimizarAutomaticamenteRefino);
+    $('routingRefineInvertBtn')?.addEventListener('click', inverterRota);
+    $('routingRefineDrawBtn')?.addEventListener('click', iniciarRefinoDesenho);
+    $('routingRefineUndoBtn')?.addEventListener('click', desfazerUltimoRefino);
     $('routingOptimizationReviewBackdrop')?.addEventListener('click', event => { if (event.target === $('routingOptimizationReviewBackdrop')) fecharRevisaoOtimizacao(); });
-    document.querySelectorAll('input[name="routingRoutePreference"]').forEach(input => {
-      input.addEventListener('change', aplicarRefinoOtimizacao);
+    $('routingDrawCancelBtn')?.addEventListener('click', () => cancelarRefinoDesenho({ reabrir: true }));
+    $('routingDrawClearBtn')?.addEventListener('click', () => global.PacoteEMatoMapa?.limparSelecaoDesenho?.());
+    $('routingDrawUndoBtn')?.addEventListener('click', desfazerUltimoRefino);
+    $('routingDrawNextGroupBtn')?.addEventListener('click', () => aplicarSelecaoDesenho('inicio'));
+    $('routingDrawEndGroupBtn')?.addEventListener('click', () => aplicarSelecaoDesenho('fim'));
+    $('routingDrawSingleNextBtn')?.addEventListener('click', () => aplicarSelecaoDesenho('proxima'));
+    $('routingDrawInteractionBtn')?.addEventListener('click', () => {
+      const atual = $('routingDrawInteractionBtn')?.textContent === 'Mover mapa' ? 'draw' : 'pan';
+      const proximo = atual === 'draw' ? 'pan' : 'draw';
+      global.PacoteEMatoMapa?.definirModoInteracaoSelecao?.(proximo);
     });
     $('routingOpenSettingsBtn')?.addEventListener('click', () => { fecharMenuAcoes(); global.PacoteEMatoAppShell?.abrirModulo?.('configuracoes'); });
     $('routingActionsBtn')?.addEventListener('click', abrirMenuAcoes);
@@ -1351,7 +1516,10 @@
     $('routingActionsBackdrop')?.addEventListener('click', event => { if (event.target === $('routingActionsBackdrop')) fecharMenuAcoes(); });
     $('routingSheetToggle')?.addEventListener('click', alternarPainel);
     $('routingPrimaryActionBtn')?.addEventListener('click', executarAcaoPrincipal);
-    $('routingStopSearch')?.addEventListener('input', renderizarLista);
+    $('routingStopSearch')?.addEventListener('input', () => {
+      if (global.appState?.ui) global.appState.ui.buscaParadas = String($('routingStopSearch')?.value || '');
+      renderizarLista();
+    });
     iniciarArrastePainel();
 
     $('routingSelectedStopEdit')?.addEventListener('click', () => {
@@ -1384,6 +1552,7 @@
     global.addEventListener('pemato:import:editar', event => { if (rotaImportacaoPendente && event.detail?.id) abrirEditor(event.detail.id, 'conferencia'); });
     global.addEventListener('pemato:import:adicionar', () => { if (rotaImportacaoPendente) abrirEditor(null, 'conferencia'); });
 
+    global.addEventListener('pemato:map-selection-change', event => atualizarToolbarDesenho(event.detail || {}));
     global.addEventListener('pemato:config:update', event => aplicarConfiguracoesNaRota(event.detail));
     global.addEventListener('pemato:worker:update', () => { renderizarPreferencias(); atualizarDisponibilidadeAcoes(); atualizarAcaoPrincipal(); });
     global.addEventListener('pemato:geo:update', () => { renderizarResumo(); renderizarLista(); global.PacoteEMatoMapa?.renderizar(); });
@@ -1400,7 +1569,12 @@
 
   function iniciar() {
     bind();
-    definirEstadoPainel(ambienteMobile() ? 'collapsed' : 'expanded');
+    const buscaRestaurada = String(global.appState?.ui?.buscaParadas || '');
+    if ($('routingStopSearch') && buscaRestaurada) $('routingStopSearch').value = buscaRestaurada;
+    const painelRestaurado = global.appState?.ui?.painelRoteirizacao;
+    definirEstadoPainel(ambienteMobile()
+      ? (['expanded','intermediate','collapsed'].includes(painelRestaurado) ? painelRestaurado : estadoPainel)
+      : 'expanded');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar, { once: true });
@@ -1419,6 +1593,11 @@
     usarRotaLegada,
     abrirNavegacao,
     abrirBipagemDaRota,
-    abrirRevisaoOtimizacao
+    abrirEscolhaBipagem,
+    abrirRevisaoOtimizacao,
+    iniciarRefinoDesenho,
+    aplicarSelecaoDesenho,
+    cancelarRefinoDesenho,
+    desfazerUltimoRefino
   });
 })(window);

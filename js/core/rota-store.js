@@ -7,6 +7,7 @@
   const STORE_META = 'meta';
   const META_ATIVA = 'rotaAtivaId';
   const LOCAL_ACTIVE_ID = 'pemato_rota_ativa_id_v2';
+  const LOCAL_ACTIVE_SNAPSHOT = 'pemato_rota_ativa_snapshot_v2';
   let dbPromise = null;
   let rotaAtivaMemoria = null;
 
@@ -133,6 +134,8 @@
       ? r.ordem.map(String).filter(id => ids.has(id))
       : [];
     r.paradas.forEach(p => { if (!r.ordem.includes(p.id)) r.ordem.push(p.id); });
+    r.paradaSelecionadaId = r.paradas.some(p => String(p.id) === String(r.paradaSelecionadaId || '')) ? String(r.paradaSelecionadaId) : null;
+    r.proximaParadaId = r.paradas.some(p => String(p.id) === String(r.proximaParadaId || '')) ? String(r.proximaParadaId) : null;
     r.rotaOtimizada = r.rotaOtimizada === true;
     r.geometria = r.geometria || null;
     r.instrucoes = Array.isArray(r.instrucoes) ? r.instrucoes : [];
@@ -245,6 +248,26 @@
     return `${META_ATIVA}:${usuarioAtual()}`;
   }
 
+  function chaveSnapshotAtivoLocal() {
+    return `${LOCAL_ACTIVE_SNAPSHOT}_${usuarioAtual()}`;
+  }
+
+  function salvarSnapshotAtivoLocal(rota) {
+    try { localStorage.setItem(chaveSnapshotAtivoLocal(), JSON.stringify(normalizarRota(rota))); return true; }
+    catch (_) { return false; }
+  }
+
+  function obterSnapshotAtivoLocal(idEsperado) {
+    try {
+      const raw = localStorage.getItem(chaveSnapshotAtivoLocal());
+      if (!raw) return null;
+      const rota = normalizarRota(JSON.parse(raw));
+      if (idEsperado && String(rota.id) !== String(idEsperado)) return null;
+      if (String(rota.usuario || 'local') !== usuarioAtual()) return null;
+      return rota;
+    } catch (_) { return null; }
+  }
+
   async function listarRotasFirestore() {
     try {
       if (!global.firebase || !global.firebase.firestore || !global.firebase.auth) return [];
@@ -317,9 +340,16 @@
     r.rotaOtimizada = rota.rotaOtimizada;
     r.alteradoEm = rota.alteradoEm;
     r.sujo = false;
-    if (!r.paradaSelecionadaId || !rota.paradas.some(p => p.id === r.paradaSelecionadaId)) {
+    const selecionadaPersistida = rota.paradaSelecionadaId && rota.paradas.some(p => String(p.id) === String(rota.paradaSelecionadaId)) ? String(rota.paradaSelecionadaId) : null;
+    if (selecionadaPersistida) r.paradaSelecionadaId = selecionadaPersistida;
+    else if (!r.paradaSelecionadaId || !rota.paradas.some(p => String(p.id) === String(r.paradaSelecionadaId))) {
       r.paradaSelecionadaId = rota.ordem[0] || rota.paradas[0]?.id || null;
     }
+    const proximaPersistida = rota.proximaParadaId && rota.paradas.some(p => String(p.id) === String(rota.proximaParadaId)) ? String(rota.proximaParadaId) : null;
+    r.proximaParadaId = proximaPersistida || rota.ordem.find(id => {
+      const p = rota.paradas.find(item => String(item.id) === String(id));
+      return p && !['entregue','concluida','nao_entregue'].includes(String(p.statusEntrega || ''));
+    }) || null;
   }
 
   function emitir(nome, detail) {
@@ -335,6 +365,7 @@
     if (opcoes?.ativa !== false) {
       await dbPut(STORE_META, { key: chaveAtivaMeta(), value: normalizada.id, updatedAt: Date.now(), usuario: usuarioAtual() });
       try { localStorage.setItem(chaveAtivaLocal(), normalizada.id); } catch (_) {}
+      salvarSnapshotAtivoLocal(normalizada);
       sincronizarComAppState(normalizada);
     }
     if (opcoes?.firestore !== false) espelharFirestore(normalizada);
@@ -345,7 +376,15 @@
   async function obterRota(id) {
     if (!id) return null;
     const value = await dbGet(STORE_ROTAS, String(id));
-    return value ? normalizarRota(value) : null;
+    if (value) return normalizarRota(value);
+    // Contingência da própria store: se o navegador descartou o processo e o IndexedDB
+    // ainda não respondeu, a última rota ativa pode ser recuperada do snapshot local.
+    const backup = obterSnapshotAtivoLocal(String(id));
+    if (backup) {
+      await dbPut(STORE_ROTAS, backup);
+      return clone(backup);
+    }
+    return null;
   }
 
   async function obterRotaAtiva() {
@@ -383,6 +422,34 @@
     return clone(rota);
   }
 
+  function chaveMetaPersonalizada(nome) {
+    return `custom:${usuarioAtual()}:${String(nome || '')}`;
+  }
+
+  async function salvarMeta(nome, value) {
+    const key = chaveMetaPersonalizada(nome);
+    const payload = clone(value);
+    await dbPut(STORE_META, { key, value: payload, updatedAt: Date.now(), usuario: usuarioAtual() });
+    return clone(payload);
+  }
+
+  async function obterMeta(nome) {
+    const item = await dbGet(STORE_META, chaveMetaPersonalizada(nome));
+    return item ? clone(item.value) : null;
+  }
+
+  async function ativarRotaExistente(id) {
+    const rota = await obterRota(id);
+    if (!rota || String(rota.usuario || 'local') !== usuarioAtual()) return null;
+    rotaAtivaMemoria = rota;
+    await dbPut(STORE_META, { key: chaveAtivaMeta(), value: rota.id, updatedAt: Date.now(), usuario: usuarioAtual() });
+    try { localStorage.setItem(chaveAtivaLocal(), rota.id); } catch (_) {}
+    salvarSnapshotAtivoLocal(rota);
+    sincronizarComAppState(rota);
+    emitir('pemato:rota:ativada', { rota: clone(rota) });
+    return clone(rota);
+  }
+
   async function definirRotaAtiva(rotaOuId) {
     const rota = typeof rotaOuId === 'string' ? await obterRota(rotaOuId) : normalizarRota(rotaOuId);
     if (!rota) return null;
@@ -392,7 +459,7 @@
 
   async function limparRotaAtiva() {
     rotaAtivaMemoria = null;
-    try { localStorage.removeItem(chaveAtivaLocal()); } catch (_) {}
+    try { localStorage.removeItem(chaveAtivaLocal()); localStorage.removeItem(chaveSnapshotAtivoLocal()); } catch (_) {}
     await dbDelete(STORE_META, chaveAtivaMeta());
     if (global.appState?.roteirizacao) global.PacoteEMatoState?.resetarRoteirizacao?.();
     emitir('pemato:rota:ativa-limpa', {});
@@ -454,8 +521,11 @@
     obterRota,
     obterRotaAtiva,
     definirRotaAtiva,
+    ativarRotaExistente,
     limparRotaAtiva,
     listarRotas,
+    salvarMeta,
+    obterMeta,
     listarRotasFirestore,
     finalizarRota,
     sincronizarComAppState,

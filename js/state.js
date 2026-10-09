@@ -63,6 +63,7 @@
     ordem: [],
     paradasTravadas: [],
     paradaSelecionadaId: null,
+    proximaParadaId: null,
     geometria: null,
     instrucoes: [],
     pernas: [],
@@ -106,14 +107,17 @@
     seguirPosicao: true,
     foraDaRota: false,
     ultimaInstrucaoId: null,
-    conclusaoPendente: false
+    conclusaoPendente: false,
+    paradaExibidaId: null
   };
   Object.keys(navegacaoPadrao).forEach((chave) => {
     if (!(chave in state.navegacao)) state.navegacao[chave] = navegacaoPadrao[chave];
   });
 
   if (!state.ui || typeof state.ui !== 'object') state.ui = {};
-  if (!state.ui.moduloAtual) state.ui.moduloAtual = 'inicio';
+  if (!state.ui.moduloAtual || state.ui.moduloAtual === 'inicio') state.ui.moduloAtual = 'roteirizacao';
+  if (!['expanded','intermediate','collapsed'].includes(state.ui.painelRoteirizacao)) state.ui.painelRoteirizacao = 'collapsed';
+  if (typeof state.ui.buscaParadas !== 'string') state.ui.buscaParadas = '';
 
   function resetarRotaLegada() {
     state.mapaRotas = {};

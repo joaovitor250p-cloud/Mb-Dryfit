@@ -37,7 +37,7 @@
       version: 1,
       usuario: usuario(),
       rotaAtivaId: rotaId,
-      moduloAtual: ui.moduloAtual || document.body?.dataset?.pematoModule || 'inicio',
+      moduloAtual: (ui.moduloAtual === 'inicio' ? 'roteirizacao' : ui.moduloAtual) || document.body?.dataset?.pematoModule || 'roteirizacao',
       painelRoteirizacao: ui.painelRoteirizacao || 'collapsed',
       paradaSelecionadaId: n.ativa && n.paradaExibidaId ? n.paradaExibidaId : (r.paradaSelecionadaId || null),
       proximaParadaId: n.proximaParadaId || r.proximaParadaId || null,
@@ -85,7 +85,7 @@
 
     const s = global.appState || {};
     if (s.ui) {
-      s.ui.moduloAtual = data.moduloAtual || s.ui.moduloAtual || 'inicio';
+      s.ui.moduloAtual = (data.moduloAtual === 'inicio' ? 'roteirizacao' : data.moduloAtual) || s.ui.moduloAtual || 'roteirizacao';
       s.ui.painelRoteirizacao = data.painelRoteirizacao || s.ui.painelRoteirizacao || 'collapsed';
       s.ui.buscaParadas = data.buscaParadas || '';
     }
