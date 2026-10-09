@@ -1290,21 +1290,16 @@
   </div>
 
   <div id="routeImportMappingModal" class="modal-backdrop" style="display:none;z-index:12200">
-    <div class="route-import-modal-card" role="dialog" aria-modal="true" aria-labelledby="routeImportMappingTitle">
+    <div class="route-import-modal-card route-import-modal-card--simple" role="dialog" aria-modal="true" aria-labelledby="routeImportMappingTitle">
       <div class="route-editor-modal-head">
-        <div><div class="module-kicker">Importação de planilha</div><h3 id="routeImportMappingTitle">Associar colunas</h3></div>
+        <div><div class="module-kicker">Importação de planilha</div><h3 id="routeImportMappingTitle">Conferir dados da rota</h3></div>
         <button id="routeImportMappingClose" class="route-editor-close" type="button" aria-label="Fechar">×</button>
       </div>
-      <p class="route-import-explainer">Confira quais colunas da planilha correspondem aos dados da rota. O Pacote É Mato pré-seleciona o que reconhecer, mas você pode alterar antes de continuar.</p>
+      <p class="route-import-explainer">As colunas foram reconhecidas automaticamente. Escolha apenas quais informações deseja ver no cartão de cada parada.</p>
       <div class="route-import-meta"><strong id="routeImportFileName">Planilha</strong><span id="routeImportSheetInfo"></span></div>
-      <div class="route-import-header-row">
-        <label for="routeImportHeaderRow">Linha de cabeçalho</label>
-        <select id="routeImportHeaderRow" class="pemato-field"></select>
-      </div>
-      <div id="routeImportMappingFields" class="route-import-mapping-grid"></div>
-      <div class="route-import-visible-options">
-        <strong>Informações para mostrar ao chegar na parada</strong>
-        <span>Além do endereço, escolha quais dados da planilha devem ficar disponíveis no cartão da parada.</span>
+      <div class="route-import-visible-options route-import-visible-options--primary">
+        <strong>Informações da parada</strong>
+        <span>O endereço e os dados necessários para montar a rota continuam sendo importados automaticamente.</span>
         <div id="routeImportVisibleFields" class="route-import-visible-grid"></div>
       </div>
       <div class="route-import-preview-wrap">
@@ -1314,7 +1309,7 @@
       <div id="routeImportMappingError" class="route-import-error" style="display:none"></div>
       <div class="route-editor-footer">
         <button id="routeImportMappingCancel" class="pemato-secondary" type="button">Cancelar</button>
-        <button id="routeImportMappingConfirm" class="pemato-primary" type="button">Importar com estas colunas</button>
+        <button id="routeImportMappingConfirm" class="pemato-primary" type="button">Importar rota</button>
       </div>
     </div>
   </div>

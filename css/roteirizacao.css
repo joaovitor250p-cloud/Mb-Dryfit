@@ -245,3 +245,21 @@
   .routing-draw-toolbar{position:fixed!important;left:10px!important;right:10px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;width:auto!important;max-height:58dvh!important;overflow:auto!important;z-index:13000!important;border-radius:20px!important;box-shadow:0 20px 70px rgba(15,23,42,.34)!important;background:#fff!important}
   .route-import-mapping-grid{grid-template-columns:1fr}.route-import-modal-card{width:100%!important;max-height:94dvh!important;border-radius:24px 24px 0 0!important}
 }
+
+/* Ajustes 09/10/2026 — modal de importação sem sobreposição */
+.route-import-mode-actions{display:grid;grid-template-columns:1fr;gap:10px}
+.route-import-mode-actions button{width:100%;min-height:64px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:12px 14px;text-align:left;white-space:normal;line-height:1.25}
+.route-import-mode-actions button strong,.route-import-mode-actions button span{display:block;width:100%}
+.route-import-mode-actions button strong{font-size:.78rem;line-height:1.25}
+.route-import-mode-actions button span{font-size:.62rem;line-height:1.35;font-weight:600;opacity:.86}
+.route-import-mode-actions #routeImportModeCancelBtn{width:auto;min-height:44px;justify-self:start;align-items:center;padding:10px 18px}
+.route-import-modal-card--simple{width:min(650px,calc(100vw - 28px))}
+.route-import-visible-options--primary{margin-top:14px}
+@media(max-width:520px){
+  .route-decision-card{padding:18px 16px}
+  .route-decision-card h3{font-size:1rem}
+  .route-decision-card p{font-size:.72rem;margin-bottom:14px}
+  .route-import-mode-actions button{min-height:62px;padding:11px 12px}
+  .route-import-mode-actions button strong{font-size:.76rem}
+  .route-import-mode-actions button span{font-size:.6rem}
+}

@@ -839,17 +839,6 @@
     return rotaAtual;
   }
 
-  function resumoLinha(row) {
-    return (row || []).map(v => String(v ?? '').trim()).filter(Boolean).slice(0, 5).join(' | ');
-  }
-
-  function camposMapeamentoVisiveis() {
-    const ordem = ['atId','sequenceOrigem','stopOrigem','pacote','endereco','bairro','cidade','cep','latitude','longitude','logradouro','numero','complemento','observacao'];
-    const todos = global.PacoteEMatoImportacaoXLSX?.camposMapeaveis || [];
-    const mapa = new Map(todos);
-    return ordem.filter(k => mapa.has(k)).map(k => [k, mapa.get(k)]);
-  }
-
   function renderizarPreviewImportacao(inspecao, headerIndex) {
     const table = $('routeImportPreview');
     if (!table) return;
@@ -871,22 +860,8 @@
   function preencherMapeamentoImportacao(inspecao, headerIndex) {
     const headers = (inspecao.matriz?.[headerIndex] || []).map(v => String(v ?? '').trim());
     const auto = global.PacoteEMatoImportacaoXLSX.identificarColunas(headers);
-    const container = $('routeImportMappingFields');
-    if (!container) return;
-    container.replaceChildren();
-    camposMapeamentoVisiveis().forEach(([campo, label]) => {
-      const wrap = document.createElement('div');
-      wrap.className = 'route-import-map-field' + (campo === 'endereco' || campo === 'logradouro' ? ' route-import-map-required' : '');
-      const lab = document.createElement('label');
-      lab.textContent = label;
-      const select = document.createElement('select');
-      select.className = 'pemato-field';
-      select.dataset.importMap = campo;
-      const vazio = document.createElement('option'); vazio.value = ''; vazio.textContent = 'Não usar'; select.appendChild(vazio);
-      headers.forEach((h, i) => { const opt = document.createElement('option'); opt.value = String(i); opt.textContent = h || `Coluna ${i + 1}`; select.appendChild(opt); });
-      if (auto[campo] != null) select.value = String(auto[campo]);
-      wrap.append(lab, select); container.appendChild(wrap);
-    });
+    // O mapeamento técnico continua automático. A tela mostra apenas as opções úteis ao motorista.
+    importacaoPendente.mapeamentoAutomatico = auto;
     const vis = $('routeImportVisibleFields');
     if (vis) {
       vis.replaceChildren();
@@ -919,20 +894,6 @@
     importacaoPendente = inspecao;
     if ($('routeImportFileName')) $('routeImportFileName').textContent = inspecao.nomeArquivo || 'Planilha';
     if ($('routeImportSheetInfo')) $('routeImportSheetInfo').textContent = `${inspecao.sheetName || 'Planilha'} · ${inspecao.totalLinhasDados || 0} linha(s) de dados`;
-    const headerSelect = $('routeImportHeaderRow');
-    if (headerSelect) {
-      headerSelect.replaceChildren();
-      const limite = Math.min(inspecao.matriz?.length || 0, 20);
-      for (let i = 0; i < limite; i++) {
-        const row = inspecao.matriz[i];
-        if (!row || !row.some(v => String(v ?? '').trim())) continue;
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = `Linha ${i + 1}: ${resumoLinha(row) || '(vazia)'}`;
-        headerSelect.appendChild(opt);
-      }
-      headerSelect.value = String(inspecao.headerIndex);
-    }
     preencherMapeamentoImportacao(inspecao, inspecao.headerIndex);
     if ($('routeImportMappingError')) { $('routeImportMappingError').style.display = 'none'; $('routeImportMappingError').textContent = ''; }
     modal.style.display = 'flex';
@@ -941,14 +902,12 @@
 
   function confirmarMapeamentoImportacao() {
     if (!importacaoPendente) return concluirMapeamentoImportacao(null);
-    const headerIndex = Number($('routeImportHeaderRow')?.value ?? importacaoPendente.headerIndex);
-    const columnMapping = {};
-    document.querySelectorAll('[data-import-map]').forEach(select => {
-      if (select.value !== '') columnMapping[select.dataset.importMap] = Number(select.value);
-    });
+    const headerIndex = Number(importacaoPendente.headerIndex || 0);
+    const headers = (importacaoPendente.matriz?.[headerIndex] || []).map(v => String(v ?? '').trim());
+    const columnMapping = importacaoPendente.mapeamentoAutomatico || global.PacoteEMatoImportacaoXLSX.identificarColunas(headers);
     if (columnMapping.endereco == null && columnMapping.logradouro == null) {
       const err = $('routeImportMappingError');
-      if (err) { err.textContent = 'Associe pelo menos “Endereço completo” ou “Logradouro / rua”.'; err.style.display = 'block'; }
+      if (err) { err.textContent = 'Não consegui reconhecer a coluna de endereço nesta planilha.'; err.style.display = 'block'; }
       return;
     }
     const visibleFields = [...document.querySelectorAll('[data-import-visible]:checked')].map(el => el.dataset.importVisible).filter(Boolean);
@@ -1027,9 +986,8 @@
       });
       rotaImportacaoPendente = candidata;
       resultadoImportacaoPendente = resultado;
-      fluxo?.atualizarEtapa?.('Preparando a conferência das paradas.');
-      fluxo?.mostrarConferencia?.(rotaImportacaoPendente, resultado.erros || []);
-      definirStatusImportacao(`${candidata.paradas.length} parada(s) lida(s). Revise os dados antes de substituir a rota ativa.`, resultado.erros?.length ? 'warning' : 'success');
+      fluxo?.atualizarEtapa?.('Finalizando a importação e preparando o mapa.');
+      await confirmarImportacaoPendente();
     } catch (erro) {
       console.error('Pacote É Mato: falha na importação XLSX.', erro);
       fluxo?.mostrarErro?.(erro?.message || 'Não foi possível importar a planilha.', file.name);
@@ -1671,11 +1629,6 @@
     $('routeImportMappingClose')?.addEventListener('click', () => concluirMapeamentoImportacao(null));
     $('routeImportMappingCancel')?.addEventListener('click', () => concluirMapeamentoImportacao(null));
     $('routeImportMappingConfirm')?.addEventListener('click', confirmarMapeamentoImportacao);
-    $('routeImportHeaderRow')?.addEventListener('change', () => {
-      if (!importacaoPendente) return;
-      const headerIndex = Number($('routeImportHeaderRow')?.value ?? importacaoPendente.headerIndex);
-      preencherMapeamentoImportacao(importacaoPendente, headerIndex);
-    });
 
     global.addEventListener('pemato:import:confirmar', () => confirmarImportacaoPendente());
     global.addEventListener('pemato:import:cancelar', cancelarImportacaoPendente);

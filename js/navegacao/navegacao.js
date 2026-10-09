@@ -69,7 +69,6 @@
     rua = rua.replace(/\b(ap|apto|apartamento|casa|bloco|sala|loja|suite|fundos|frente)\b.*$/i,'').replace(/[^a-z0-9]+/g,' ').trim();
     return rua && numero ? `${rua}|${numero}` : '';
   }
-  function multiplicidades() { const m=new Map(); (rota?.paradas||[]).forEach(p=>{const k=chaveMultiplo(p);if(k)m.set(k,(m.get(k)||0)+1);}); return m; }
 
   function haversine(a, b) {
     if (!a || !b) return Infinity;
@@ -170,8 +169,8 @@
     const p = proxima();
     setSource(SOURCE_DRIVER, fc(ultimaPosicao && coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon) ? [{type:'Feature',properties:{heading:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):0},geometry:{type:'Point',coordinates:[Number(ultimaPosicao.lon),Number(ultimaPosicao.lat)]}}] : []));
     setSource(SOURCE_NEXT, fc([])); // O destaque é feito na mesma camada numerada; evita marcador duplicado.
-    const counts=multiplicidades(), seen=new Map();
-    setSource(SOURCE_STOPS, fc(paradasPorOrdem().flatMap((stop,i)=>{const key=chaveMultiplo(stop),multi=Number(counts.get(key)||1),stackIndex=seen.get(key)||0;seen.set(key,stackIndex+1);return coordenadaValida(stop.latitude,stop.longitude)?[{type:'Feature',properties:{id:String(stop.id),order:i+1,multi,stackIndex,label:`${i+1}${multi>1?` ${multi}x`:''}`,status:stop.statusEntrega||'pendente',current:String(stop.id)===String(cartaoSelecionadoId||p?.id||'')},geometry:{type:'Point',coordinates:[Number(stop.longitude),Number(stop.latitude)]}}]:[]})));
+    const seen=new Map();
+    setSource(SOURCE_STOPS, fc(paradasPorOrdem().flatMap((stop,i)=>{const key=chaveMultiplo(stop),multi=Math.max(1,Number(stop?.pacotes?.length||stop?.quantidadePacotes||1)),stackIndex=seen.get(key)||0;seen.set(key,stackIndex+1);return coordenadaValida(stop.latitude,stop.longitude)?[{type:'Feature',properties:{id:String(stop.id),order:i+1,multi,stackIndex,label:`${i+1}${multi>1?` ${multi}x`:''}`,status:stop.statusEntrega||'pendente',current:String(stop.id)===String(cartaoSelecionadoId||p?.id||'')},geometry:{type:'Point',coordinates:[Number(stop.longitude),Number(stop.latitude)]}}]:[]})));
   }
 
   function nearestOnRoute(pos) {

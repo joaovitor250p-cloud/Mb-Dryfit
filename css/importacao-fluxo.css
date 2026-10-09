@@ -28,3 +28,7 @@
   color:#bfdbfe;
 }
 .route-import-visible-options{margin:16px 0 10px;padding:14px;border-radius:18px;background:#f8fafc;border:1px solid #e2e8f0;display:grid;gap:5px}.route-import-visible-options>strong{font-size:.92rem}.route-import-visible-options>span{font-size:.72rem;color:#64748b}.route-import-visible-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:7px}.route-import-visible-item{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:13px;background:#fff;border:1px solid #e2e8f0}.route-import-visible-item input{width:19px;height:19px;accent-color:#10b981}.route-import-visible-item span{display:grid;gap:2px}.route-import-visible-item strong{font-size:.8rem}.route-import-visible-item small{font-size:.68rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}@media(max-width:700px){.route-import-visible-grid{grid-template-columns:1fr}.route-import-visible-item small{max-width:70vw}}
+
+/* Fluxo enxuto: a antiga tela de conferência foi removida. */
+.route-import-flow--light .route-import-flow-shell--light{width:min(520px,calc(100% - 24px));height:auto;min-height:290px}
+.route-import-flow--light .route-import-loading{min-height:290px}

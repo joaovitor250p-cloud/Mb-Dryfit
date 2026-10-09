@@ -76,17 +76,10 @@
     return rua && numero ? `${rua}|${numero}` : '';
   }
 
-  function multiplicidades() {
-    const m = new Map();
-    paradas().forEach(p => { const k = chaveMultiplo(p); if (k) m.set(k, (m.get(k) || 0) + 1); });
-    return m;
-  }
-
   function featureCollection(features) { return { type: 'FeatureCollection', features: features || [] }; }
 
   function stopsGeoJSON() {
     const selectedId = state()?.paradaSelecionadaId || '';
-    const counts = multiplicidades();
     const seen = new Map();
     return featureCollection(paradas().filter(coordenadaValida).map(p => {
       const mk = chaveMultiplo(p); const stackIndex = seen.get(mk) || 0; seen.set(mk, stackIndex + 1);
@@ -100,8 +93,8 @@
         status: statusEntrega(p),
         selected: String(p.id) === String(selectedId) ? 1 : 0,
         groupSelected: idsSelecaoDesenho.has(String(p.id)) ? 1 : 0,
-        multi: Number(counts.get(chaveMultiplo(p)) || 1),
-        label: `${ordem(p)}${Number(counts.get(chaveMultiplo(p)) || 1) > 1 ? ` ${Number(counts.get(chaveMultiplo(p)))}x` : ''}`,
+        multi: Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1)),
+        label: `${ordem(p)}${Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1)) > 1 ? ` ${Math.max(1, Number(p?.pacotes?.length || p?.quantidadePacotes || 1))}x` : ''}`,
         stackIndex
       }
     });}));
