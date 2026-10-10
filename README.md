@@ -148,3 +148,28 @@ Consulte `RELATORIO-IMPLEMENTACAO-REFINO-DESENHO.md` para os testes realmente ex
 
 ## Atualização V12 — marcadores do mapa
 A V12 unifica o desenho dos marcadores de planejamento e navegação em `js/mapa/marcadores.js`, usa símbolos nativos do MapLibre, clustering em zoom distante e cápsulas compactas com número sequencial + multiplicador somente para paradas múltiplas. Consulte `RELATORIO-AJUSTE-V12-MARCADORES-DEFINITIVOS.md`.
+
+## Atualização V13 — Adicionar e remover pacotes por bipagem
+
+O menu de ações da Roteirização agora possui **Adicionar à rota** e **Remover da rota**.
+
+### Adicionar à rota
+
+1. Abra `⋮` na rota e toque em **Adicionar à rota**.
+2. Selecione o XLSX/CSV de origem.
+3. Bipe somente os pacotes que realmente deseja receber.
+4. Toque em **Conferir seleção** e revise códigos/endereço/quantidade.
+5. Escolha entre manter a ordem atual, otimizar somente as novas paradas ou otimizar toda a rota.
+6. Confirme. Pacotes não bipados não entram na rota.
+
+### Remover da rota
+
+1. Abra `⋮` e toque em **Remover da rota**.
+2. Selecione o XLSX/CSV de referência.
+3. Bipe somente os pacotes que sairão da sua responsabilidade.
+4. Revise quantos pacotes permanecerão em cada parada.
+5. Confirme. Somente os códigos selecionados e elegíveis são removidos.
+
+Se uma parada ainda tiver pacotes, ela continua na rota. Se ficar sem pacotes e não for uma parada histórica/finalizada, ela é removida. Operações canceladas não alteram a Rota Ativa.
+
+A V13 mantém os marcadores nativos do MapLibre da V12, reduz o agrupamento de zoom distante para um indicador discreto e sincroniza multiplicador, cartão e lista com a quantidade real de pacotes. Consulte `RELATORIO-V13-OPERACOES-PACOTES-MARCADORES.md` para arquivos alterados e testes realmente executados.

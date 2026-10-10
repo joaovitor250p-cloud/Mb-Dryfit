@@ -46,6 +46,13 @@
   async function abrirModulo(nome, opcoes) {
     if (nome === 'inicio') nome = 'roteirizacao';
     if (!modulos.includes(nome)) nome = 'roteirizacao';
+    if (nome === 'navegacao') {
+      const rotaParaNavegar = await global.PacoteEMatoRotaStore?.obterRotaAtiva?.();
+      if (rotaParaNavegar?.precisaRecalculo) {
+        global.notificar?.('A rota foi alterada. Recalcule o trajeto antes de abrir a navegação.');
+        nome = 'roteirizacao';
+      }
+    }
     if(!iniciando && document.body.dataset.pematoModule===nome){fecharSidebar();return;}
     liberarTravasVisuais();
     const anterior = document.body.dataset.pematoModule || global.appState?.ui?.moduloAtual || 'roteirizacao';

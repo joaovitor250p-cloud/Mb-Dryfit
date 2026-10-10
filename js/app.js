@@ -4584,6 +4584,9 @@ try {
     let processandoLeituraAtual = false;
 
     function processarCodigo(codigoBruto) {
+      if (window.PacoteEMatoOperacoesPacotes?.estaAtiva?.()) {
+        return window.PacoteEMatoOperacoesPacotes.processarCodigoOperacao(codigoBruto);
+      }
       if (!codigoBruto || processandoLeituraAtual) return;
       
       let agora = Date.now();

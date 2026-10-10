@@ -294,6 +294,7 @@
       rotaAtual.duracaoTotalSegundos = rotaAtual.duracaoDirecaoSegundos + rotaAtual.duracaoParadasSegundos;
       rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
       rotaAtual.rotaOtimizada = true;
+      rotaAtual.precisaRecalculo = false;
       rotaAtual.tipoRefino = tipo || 'manual';
       rotaAtual.otimizadoEm = Date.now();
       rotaAtual.confirmadaEm = null;
@@ -496,6 +497,7 @@
       rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
       rotaAtual.status = 'ativa';
       rotaAtual.rotaOtimizada = false;
+      rotaAtual.precisaRecalculo = false;
       rotaAtual.otimizadoEm = null;
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
@@ -583,7 +585,7 @@
     document.querySelectorAll('.routing-service-action').forEach(el => { el.style.display = serviceReady ? '' : 'none'; });
     const note = $('routingServiceDeferredNote');
     if (note) note.style.display = serviceReady ? 'none' : 'block';
-    const routeReady = !!rotaAtual?.geometria;
+    const routeReady = !!rotaAtual?.geometria && rotaAtual?.precisaRecalculo !== true;
     document.querySelectorAll('.routing-route-ready-action').forEach(el => { el.style.display = routeReady ? '' : 'none'; });
     if ($('routingInvertBtn')) $('routingInvertBtn').style.display = routeReady ? '' : 'none';
     const mainOptimize = $('routingMainOptimizeBtn');
@@ -600,9 +602,10 @@
     const total = rotaAtual?.paradas?.length || 0;
     if (empty) empty.style.display = total ? 'none' : 'flex';
     const primaryGrid = document.querySelector('.routing-primary-grid');
-    if (primaryGrid) primaryGrid.style.display = rotaAtual?.geometria ? 'none' : 'grid';
+    const rotaPronta = !!rotaAtual?.geometria && rotaAtual?.precisaRecalculo !== true;
+    if (primaryGrid) primaryGrid.style.display = rotaPronta ? 'none' : 'grid';
     if (!btn) return;
-    if (rotaAtual?.geometria) {
+    if (rotaPronta) {
       btn.textContent = 'Iniciar rota';
       btn.dataset.action = 'iniciar';
       btn.style.display = '';
@@ -684,7 +687,7 @@
     const concluidas = rotaAtual.paradas.filter(p => ['entregue','concluida'].includes(p.statusEntrega)).length;
     const naoEntregues = rotaAtual.paradas.filter(p => p.statusEntrega === 'nao_entregue').length;
     const pendentes = Math.max(0, total - concluidas - naoEntregues);
-    const calculada = !!rotaAtual.geometria && Number.isFinite(Number(rotaAtual.distanciaTotalMetros));
+    const calculada = !rotaAtual.precisaRecalculo && !!rotaAtual.geometria && Number.isFinite(Number(rotaAtual.distanciaTotalMetros));
     if ($('routeMetricStops')) $('routeMetricStops').textContent = String(total);
     if ($('routeMetricDelivered')) $('routeMetricDelivered').textContent = String(concluidas);
     if ($('routeMetricPending')) $('routeMetricPending').textContent = String(pendentes);
@@ -702,15 +705,17 @@
     if ($('routingMapTitle')) $('routingMapTitle').textContent = rotaAtual.nome || 'Rota de hoje';
     const flag = $('routingOptimizedFlag');
     if (flag) {
-      flag.textContent = rotaAtual.rotaOtimizada ? 'Rota otimizada' : 'Rota em planejamento';
-      flag.dataset.optimized = rotaAtual.rotaOtimizada ? 'true' : 'false';
+      flag.textContent = rotaAtual.precisaRecalculo ? 'Recalcular trajeto' : (rotaAtual.rotaOtimizada ? 'Rota otimizada' : 'Rota em planejamento');
+      flag.dataset.optimized = rotaAtual.rotaOtimizada && !rotaAtual.precisaRecalculo ? 'true' : 'false';
     }
     const headline = $('routingSheetHeadline');
     const meta = $('routingSheetMeta');
     if (headline) {
-      headline.textContent = rotaAtual.horarioTerminoEstimado
-        ? `Término: ${horaLocal(rotaAtual.horarioTerminoEstimado)}`
-        : (rotaAtual.rotaOtimizada ? 'Rota pronta' : 'Rota em planejamento');
+      headline.textContent = rotaAtual.precisaRecalculo
+        ? 'Rota alterada · recalcule o trajeto'
+        : (rotaAtual.horarioTerminoEstimado
+          ? `Término: ${horaLocal(rotaAtual.horarioTerminoEstimado)}`
+          : (rotaAtual.rotaOtimizada ? 'Rota pronta' : 'Rota em planejamento'));
     }
     if (meta) {
       const paradaTexto = `${total} ${total === 1 ? 'parada' : 'paradas'}`;
@@ -762,7 +767,7 @@
 
       const order = document.createElement('div');
       order.className = 'routing-stop-order';
-      order.textContent = String(p.ordemOtimizada || p.ordemOriginal || index + 1);
+      order.textContent = String(index + 1);
 
       const body = document.createElement('div');
       body.className = 'routing-stop-body';
@@ -774,8 +779,9 @@
       const meta = document.createElement('div');
       meta.className = 'routing-stop-meta';
       const multi = multiplicidadeDaParada(p, multiplicidades);
-      const pacoteTexto = p.pacotes?.length ? `${p.pacotes.length} pacote(s)` : 'Sem código de pacote';
-      meta.textContent = `${multi > 1 ? `${multi}x no mesmo endereço · ` : ''}${pacoteTexto} · ${statusGeoTexto(p)} · ${statusEntregaTexto(p)}`;
+      const quantidadeFisica = global.PacoteEMatoOperacoesPacotes?.quantidadePacotesFisicos?.(rotaAtual, p) ?? (p.pacotes?.length || 0);
+      const pacoteTexto = quantidadeFisica ? `${quantidadeFisica} ${quantidadeFisica === 1 ? 'pacote' : 'pacotes'}` : 'Sem código de pacote';
+      meta.textContent = `${p.rotaGrupoTipo === 'adicao-bipagem' ? 'Adicionada por bipagem · ' : ''}${multi > 1 ? `${multi}x no mesmo endereço · ` : ''}${pacoteTexto} · ${statusGeoTexto(p)} · ${statusEntregaTexto(p)}`;
       body.append(address);
       if (complement.textContent) body.append(complement);
       body.append(meta);
@@ -803,10 +809,13 @@
     }
     const index = obterParadasOrdenadas().findIndex(item => item.id === p.id);
     card.style.display = 'grid';
-    if ($('routingSelectedStopOrder')) $('routingSelectedStopOrder').textContent = String(p.ordemOtimizada || p.ordemOriginal || index + 1);
+    if ($('routingSelectedStopOrder')) $('routingSelectedStopOrder').textContent = String(index + 1);
     if ($('routingSelectedStopAddress')) $('routingSelectedStopAddress').textContent = p.enderecoOriginal || 'Endereço não informado';
     if ($('routingSelectedStopComplement')) $('routingSelectedStopComplement').textContent = detalheComplemento(p) || p.observacao || '';
-    if ($('routingSelectedStopMeta')) $('routingSelectedStopMeta').textContent = `${p.pacotes?.length || 0} pacote(s) · ${statusGeoTexto(p)} · ${statusEntregaTexto(p)}`;
+    if ($('routingSelectedStopMeta')) {
+      const quantidadeFisica = global.PacoteEMatoOperacoesPacotes?.quantidadePacotesFisicos?.(rotaAtual, p) ?? (p.pacotes?.length || 0);
+      $('routingSelectedStopMeta').textContent = `${quantidadeFisica} ${quantidadeFisica === 1 ? 'pacote' : 'pacotes'} · ${statusGeoTexto(p)} · ${statusEntregaTexto(p)}`;
+    }
   }
 
   function renderizarTudo(opcoes) {
@@ -912,6 +921,24 @@
     }
     const visibleFields = [...document.querySelectorAll('[data-import-visible]:checked')].map(el => el.dataset.importVisible).filter(Boolean);
     concluirMapeamentoImportacao({ headerIndex, columnMapping, visibleFields });
+  }
+
+  async function lerPlanilhaComMapeamento(file) {
+    if (!file) throw new Error('Arquivo não informado.');
+    if (!global.PacoteEMatoImportacaoXLSX) throw new Error('Módulo de importação não carregado.');
+    const inspecao = await global.PacoteEMatoImportacaoXLSX.inspecionarArquivo(file);
+    try {
+      return await global.PacoteEMatoImportacaoXLSX.lerArquivo(file, { inspecao });
+    } catch (erroAuto) {
+      if (erroAuto?.code !== 'MAPEAMENTO_NECESSARIO') throw erroAuto;
+      const mapeamento = await abrirMapeamentoImportacao(inspecao);
+      if (!mapeamento) {
+        const erro = new Error('Seleção da planilha cancelada.');
+        erro.code = 'IMPORTACAO_CANCELADA';
+        throw erro;
+      }
+      return global.PacoteEMatoImportacaoXLSX.lerArquivo(file, Object.assign({ inspecao }, mapeamento));
+    }
   }
 
   function escolherModoImportacao() {
@@ -1245,6 +1272,7 @@
       rotaAtual.duracaoPlanejadorSegundos = Number.isFinite(Number(otimizada.totalTime)) ? Number(otimizada.totalTime) : null;
       rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
       rotaAtual.rotaOtimizada = true;
+      rotaAtual.precisaRecalculo = false;
       rotaAtual.confirmadaEm = null;
       rotaAtual.status = 'ativa';
       rotaAtual.otimizadoEm = Date.now();
@@ -1517,6 +1545,7 @@
   }
 
   async function abrirNavegacao() {
+    if (rotaAtual?.precisaRecalculo) return notificar('A rota foi alterada. Recalcule o trajeto antes de iniciar a navegação.');
     if (!rotaAtual?.geometria) return notificar('Calcule a rota pelas ruas antes de iniciar a operação.');
     rotaAtual.status = rotaAtual.status === 'concluida' ? 'concluida' : 'ativa';
     rotaAtual.iniciadoEm = rotaAtual.iniciadoEm || Date.now();
@@ -1679,6 +1708,7 @@
     inverterRota,
     recalcularOrdemAtual,
     usarRotaLegada,
+    lerPlanilhaComMapeamento,
     abrirNavegacao,
     abrirBipagemDaRota,
     abrirEscolhaBipagem,

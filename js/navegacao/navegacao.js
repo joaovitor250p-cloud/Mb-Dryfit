@@ -165,8 +165,9 @@
       type:'geojson',
       data:fc([]),
       cluster:true,
-      clusterRadius:32,
-      clusterMaxZoom:13
+      clusterRadius:26,
+      clusterMaxZoom:12,
+      clusterMinPoints:2
     });
   }
 
@@ -217,12 +218,12 @@
     if(!mapa.getLayer(LAYER_STOPS_CLUSTER)) mapa.addLayer({
       id:LAYER_STOPS_CLUSTER,type:'circle',source:SOURCE_STOPS,
       filter:['has','point_count'],
-      paint:{'circle-radius':16,'circle-color':'#0f172a','circle-stroke-color':'#ffffff','circle-stroke-width':2,'circle-opacity':.97}
+      paint:{'circle-radius':10.5,'circle-color':'#0f172a','circle-stroke-color':'#ffffff','circle-stroke-width':1.5,'circle-opacity':.97}
     });
     if(!mapa.getLayer(LAYER_STOPS_CLUSTER_COUNT)) mapa.addLayer({
       id:LAYER_STOPS_CLUSTER_COUNT,type:'symbol',source:SOURCE_STOPS,
       filter:['has','point_count'],
-      layout:{'text-field':['to-string',['get','point_count_abbreviated']],'text-size':11,'text-allow-overlap':true,'text-ignore-placement':true},
+      layout:{'text-field':['to-string',['get','point_count_abbreviated']],'text-size':9,'text-allow-overlap':true,'text-ignore-placement':true},
       paint:{'text-color':'#ffffff'}
     });
     const layoutMarcadorV12 = {
@@ -305,16 +306,18 @@
     const features = [];
     grupos.forEach(grupo => {
       grupo.sort((a,b) => a.order - b.order);
-      const principal = grupo[0];
+      const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
+      const grupoVisual = ativos.length ? ativos : grupo;
+      const principal = grupoVisual[0];
       const stop = principal.stop;
-      const multi = grupo.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
+      const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
       const gridLat = Math.round(lat / 0.00032);
       const gridLon = Math.round(lon / 0.00032);
       const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
-      const ids = grupo.map(item => String(item.stop.id));
+      const ids = grupoVisual.map(item => String(item.stop.id));
       features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
@@ -429,7 +432,10 @@
     if($('navStopNumber')) $('navStopNumber').textContent=pos>=0?`PARADA ${String(pos+1).padStart(2,'0')}`:'SEM PARADA';
     if($('navNextAddress')) $('navNextAddress').textContent=p?.enderecoOriginal||'Nenhuma parada pendente';
     if($('navNextComplement')) $('navNextComplement').textContent=detalhesDaParada(p);
-    if($('navNextPackages')) $('navNextPackages').textContent=`${p?.pacotes?.length||0} pacote(s)`;
+    if($('navNextPackages')) {
+      const quantidadeFisica = p ? (global.PacoteEMatoOperacoesPacotes?.quantidadePacotesFisicos?.(rota, p) ?? (p?.pacotes?.length || 0)) : 0;
+      $('navNextPackages').textContent = `${quantidadeFisica} ${quantidadeFisica === 1 ? 'pacote' : 'pacotes'}`;
+    }
     if($('navStopCard')) $('navStopCard').dataset.status = String(p?.statusEntrega || 'pendente');
     if(global.appState?.navegacao){global.appState.navegacao.paradaExibidaId=p?.id||null;global.appState.navegacao.proximaParadaId=proxima()?.id||null;}
     const idNota=String(p?.id||'');
@@ -621,7 +627,9 @@
   }
 
   async function iniciar(rotaEntrada){
-    rota=rotaEntrada?global.PacoteEMatoRotaStore.normalizarRota(rotaEntrada):await global.PacoteEMatoRotaStore.obterRotaAtiva(); if(!rota||!geometriaValida(rota.geometria)){global.notificar?.('Calcule uma rota válida antes de iniciar a navegação.');return;}
+    rota=rotaEntrada?global.PacoteEMatoRotaStore.normalizarRota(rotaEntrada):await global.PacoteEMatoRotaStore.obterRotaAtiva();
+    if(rota?.precisaRecalculo){global.notificar?.('A rota foi alterada. Recalcule o trajeto antes de iniciar a navegação.');return;}
+    if(!rota||!geometriaValida(rota.geometria)){global.notificar?.('Calcule uma rota válida antes de iniciar a navegação.');return;}
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
     if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
     garantirMapa(); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();

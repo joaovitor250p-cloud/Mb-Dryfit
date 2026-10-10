@@ -153,6 +153,8 @@
     r.conclusaoPendente = r.conclusaoPendente === true;
     r.recalculadoEm = r.recalculadoEm || null;
     r.duracaoPlanejadorSegundos = Number.isFinite(Number(r.duracaoPlanejadorSegundos)) ? Number(r.duracaoPlanejadorSegundos) : null;
+    r.precisaRecalculo = r.precisaRecalculo === true;
+    r.historicoOperacoesPacotes = Array.isArray(r.historicoOperacoesPacotes) ? r.historicoOperacoesPacotes.slice(-100) : [];
     return r;
   }
 

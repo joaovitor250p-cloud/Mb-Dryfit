@@ -63,7 +63,12 @@
     ));
   }
 
-  function ordem(p) { return Number(p?.ordemOtimizada || p?.ordemOriginal || 0) || 0; }
+  function ordem(p) {
+    const ids = Array.isArray(state()?.ordem) ? state().ordem.map(String) : [];
+    const idx = ids.indexOf(String(p?.id || ''));
+    if (idx >= 0) return idx + 1;
+    return Number(p?.ordemOtimizada || p?.ordemOriginal || 0) || 0;
+  }
 
   function statusEntrega(p) {
     if (p?.statusEntrega === 'nao_entregue') return 'nao_entregue';
@@ -112,8 +117,10 @@
     const features = [];
     grupos.forEach(grupo => {
       grupo.sort((a,b) => ordem(a) - ordem(b));
-      const p = grupo[0];
-      const totalPacotes = grupo.reduce((total, item) => total + quantidadePacotesDaParada(item), 0);
+      const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.statusEntrega || '')));
+      const grupoVisual = ativos.length ? ativos : grupo;
+      const p = grupoVisual[0];
+      const totalPacotes = grupoVisual.reduce((total, item) => total + quantidadePacotesDaParada(item), 0);
       const lat = Number(p.latitude), lon = Number(p.longitude);
       // Agrupa visualmente pontos muito próximos para que os balões sejam
       // deslocados em vez de ficarem um em cima do outro.
@@ -122,7 +129,7 @@
       const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
-      const ids = grupo.map(item => String(item.id));
+      const ids = grupoVisual.map(item => String(item.id));
       features.push({
         type: 'Feature',
         id: String(p.id),
@@ -133,7 +140,7 @@
           order: ordem(p),
           status: statusEntrega(p),
           selected: ids.includes(String(selectedId)) ? 1 : 0,
-          groupSelected: grupo.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,
+          groupSelected: grupoVisual.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,
           multi: totalPacotes,
           stackIndex
         }
@@ -220,8 +227,9 @@
       type: 'geojson',
       data: featureCollection([]),
       cluster: true,
-      clusterRadius: 34,
-      clusterMaxZoom: 14
+      clusterRadius: 26,
+      clusterMaxZoom: 12,
+      clusterMinPoints: 2
     });
   }
 
@@ -257,10 +265,10 @@
       id: LAYER_STOPS_CLUSTER, type: 'circle', source: SOURCE_STOPS,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-radius': 16,
+        'circle-radius': 10.5,
         'circle-color': '#0f172a',
         'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
+        'circle-stroke-width': 1.5,
         'circle-opacity': .97
       }
     });
@@ -269,7 +277,7 @@
       filter: ['has', 'point_count'],
       layout: {
         'text-field': ['to-string', ['get', 'point_count_abbreviated']],
-        'text-size': 11,
+        'text-size': 9,
         'text-allow-overlap': true,
         'text-ignore-placement': true
       },
