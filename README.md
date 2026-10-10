@@ -173,3 +173,7 @@ O menu de ações da Roteirização agora possui **Adicionar à rota** e **Remov
 Se uma parada ainda tiver pacotes, ela continua na rota. Se ficar sem pacotes e não for uma parada histórica/finalizada, ela é removida. Operações canceladas não alteram a Rota Ativa.
 
 A V13 mantém os marcadores nativos do MapLibre da V12, reduz o agrupamento de zoom distante para um indicador discreto e sincroniza multiplicador, cartão e lista com a quantidade real de pacotes. Consulte `RELATORIO-V13-OPERACOES-PACOTES-MARCADORES.md` para arquivos alterados e testes realmente executados.
+
+## Atualização V14 — navegação, bipagem de operações e mapa
+
+A V14 separa o feedback de bipagem de Adicionar/Remover rota da bipagem comum, elimina os clusters circulares em zoom distante, adiciona recuperação robusta do mapa ao retornar de Waze/Google Maps, painel expansível na navegação, status reversível de entrega e adição rápida de endereço pelo campo de busca. Consulte `RELATORIO-V14-AJUSTES-NAVEGACAO-BIPAGEM-MAPA.md`.

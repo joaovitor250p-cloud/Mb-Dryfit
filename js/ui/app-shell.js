@@ -33,7 +33,7 @@
         document.body.classList.remove(cls);
         document.documentElement.classList.remove(cls);
       });
-      ['routingActionsBackdrop','routingBipagemChooserBackdrop','routeImportMappingModal','routingOptimizationReviewBackdrop','routeStopEditorModal','routeReoptDecisionModal','navCompletionBackdrop'].forEach(id => {
+      ['routingActionsBackdrop','routingBipagemChooserBackdrop','routingPackagesChooserBackdrop','navPackagesChooserBackdrop','routeImportMappingModal','routingOptimizationReviewBackdrop','routeStopEditorModal','routeReoptDecisionModal','navCompletionBackdrop'].forEach(id => {
         const el = $(id);
         if (el) el.style.display = 'none';
       });
@@ -132,7 +132,8 @@
     global.addEventListener('pemato:rota:salva', atualizarInicio);
     global.addEventListener('pemato:rota:ativa-limpa', atualizarInicio);
     global.addEventListener('pagehide', salvarEstadoUI);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) salvarEstadoUI(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) salvarEstadoUI(); else global.dispatchEvent(new CustomEvent('pemato:resume')); });
+    global.addEventListener('pageshow', () => global.dispatchEvent(new CustomEvent('pemato:resume')));
 
     try { await global.PacoteEMatoSessao?.restaurar?.(); } catch (_) {}
     const restaurado = recuperarEstadoUI();

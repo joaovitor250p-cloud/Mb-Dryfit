@@ -225,11 +225,7 @@
     if (!mapa || mapa.getSource(SOURCE_STOPS)) return;
     mapa.addSource(SOURCE_STOPS, {
       type: 'geojson',
-      data: featureCollection([]),
-      cluster: true,
-      clusterRadius: 26,
-      clusterMaxZoom: 12,
-      clusterMinPoints: 2
+      data: featureCollection([])
     });
   }
 
@@ -260,61 +256,50 @@
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6], 'line-opacity': .96 }
     }, before);
-
-    if (!mapa.getLayer(LAYER_STOPS_CLUSTER)) mapa.addLayer({
-      id: LAYER_STOPS_CLUSTER, type: 'circle', source: SOURCE_STOPS,
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-radius': 10.5,
-        'circle-color': '#0f172a',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 1.5,
-        'circle-opacity': .97
-      }
-    });
-    if (!mapa.getLayer(LAYER_STOPS_CLUSTER_COUNT)) mapa.addLayer({
-      id: LAYER_STOPS_CLUSTER_COUNT, type: 'symbol', source: SOURCE_STOPS,
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': ['to-string', ['get', 'point_count_abbreviated']],
-        'text-size': 9,
-        'text-allow-overlap': true,
-        'text-ignore-placement': true
-      },
-      paint: { 'text-color': '#ffffff' }
-    });
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({
       id: LAYER_STOPS_GROUP_RING, type: 'circle', source: SOURCE_STOPS,
-      filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'groupSelected'], 1]],
+      filter: ['==', ['get', 'groupSelected'], 1],
       paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 15, 17, 19], 'circle-color': 'rgba(16,185,129,.12)', 'circle-stroke-color': '#10b981', 'circle-stroke-width': 2 }
     });
     const layoutMarcadorV12 = {
       'icon-image': ['get', 'iconV12'],
       'icon-anchor': 'center',
-      'icon-size': ['interpolate', ['linear'], ['zoom'], 12, .82, 14, .9, 16, 1, 18, 1.04],
-      'icon-allow-overlap': false,
-      'icon-ignore-placement': false,
-      'icon-padding': 2,
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 9, .62, 12, .72, 14, .86, 16, 1, 18, 1.04],
+      'icon-offset': ['case',
+        ['==',['get','stackIndex'],0],['literal',[0,0]],
+        ['==',['get','stackIndex'],1],['literal',[24,0]],
+        ['==',['get','stackIndex'],2],['literal',[-24,0]],
+        ['==',['get','stackIndex'],3],['literal',[0,22]],
+        ['==',['get','stackIndex'],4],['literal',[0,-22]],
+        ['==',['get','stackIndex'],5],['literal',[20,18]],
+        ['==',['get','stackIndex'],6],['literal',[-20,18]],
+        ['==',['get','stackIndex'],7],['literal',[20,-18]],
+        ['==',['get','stackIndex'],8],['literal',[-20,-18]],
+        ['literal',[0,0]]
+      ],
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+      'icon-padding': 1,
       'symbol-sort-key': ['get', 'order']
     };
     if (!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({
       id: LAYER_STOPS, type: 'symbol', source: SOURCE_STOPS,
-      filter: ['all', ['!', ['has', 'point_count']], ['<=', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
+      filter: ['all', ['<=', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
       layout: { ...layoutMarcadorV12 }
     });
     if (!mapa.getLayer(LAYER_STOPS_MULTI)) mapa.addLayer({
       id: LAYER_STOPS_MULTI, type: 'symbol', source: SOURCE_STOPS,
-      filter: ['all', ['!', ['has', 'point_count']], ['>', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
+      filter: ['all', ['>', ['get','multi'], 1], ['!=', ['get','selected'], 1]],
       layout: { ...layoutMarcadorV12 }
     });
     if (!mapa.getLayer(LAYER_STOPS_ACTIVE)) mapa.addLayer({
       id: LAYER_STOPS_ACTIVE, type: 'symbol', source: SOURCE_STOPS,
-      filter: ['all', ['!', ['has', 'point_count']], ['<=', ['get','multi'], 1], ['==', ['get','selected'], 1]],
+      filter: ['all', ['<=', ['get','multi'], 1], ['==', ['get','selected'], 1]],
       layout: { ...layoutMarcadorV12, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
     });
     if (!mapa.getLayer(LAYER_STOPS_MULTI_ACTIVE)) mapa.addLayer({
       id: LAYER_STOPS_MULTI_ACTIVE, type: 'symbol', source: SOURCE_STOPS,
-      filter: ['all', ['!', ['has', 'point_count']], ['>', ['get','multi'], 1], ['==', ['get','selected'], 1]],
+      filter: ['all', ['>', ['get','multi'], 1], ['==', ['get','selected'], 1]],
       layout: { ...layoutMarcadorV12, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
     });
 
@@ -341,9 +326,6 @@
       mapa.on('mouseenter', layerId, () => { try { mapa.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
       mapa.on('mouseleave', layerId, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
     });
-    mapa.on('click', LAYER_STOPS_CLUSTER, ampliarCluster);
-    mapa.on('mouseenter', LAYER_STOPS_CLUSTER, () => { try { mapa.getCanvas().style.cursor = 'zoom-in'; } catch (_) {} });
-    mapa.on('mouseleave', LAYER_STOPS_CLUSTER, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
   }
 
   function garantirMapa() {

@@ -4,6 +4,10 @@
   const $ = id => document.getElementById(id);
   let estado = null;
   let processando = false;
+  let operacaoLeituraEmCurso = false;
+  let ultimoCodigoOperacao = '';
+  let ultimoCodigoOperacaoEm = 0;
+  let ultimoSomOperacaoEm = 0;
 
   function clone(v) {
     if (v == null) return v;
@@ -14,6 +18,44 @@
   function notificar(msg) {
     if (typeof global.notificar === 'function') global.notificar(msg);
     else console.log(msg);
+  }
+
+  function tocarSomOperacao(tipo) {
+    const agora = Date.now();
+    if (agora - ultimoSomOperacaoEm < 320) return;
+    ultimoSomOperacaoEm = agora;
+    try {
+      const AudioCtx = global.AudioContext || global.webkitAudioContext;
+      if (!AudioCtx) return;
+      global.__pematoPkgAudioCtx = global.__pematoPkgAudioCtx || new AudioCtx();
+      const ctx = global.__pematoPkgAudioCtx;
+      if (ctx.state === 'suspended') ctx.resume?.();
+      const notas = tipo === 'erro' ? [260, 190] : (estado?.modo === 'remover' ? [720, 520] : [620, 880]);
+      notas.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = tipo === 'erro' ? 'square' : 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * .09);
+        gain.gain.setValueAtTime(tipo === 'erro' ? .09 : .075, ctx.currentTime + i * .09);
+        gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + i * .09 + .075);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * .09);
+        osc.stop(ctx.currentTime + i * .09 + .08);
+      });
+      if (navigator.vibrate) navigator.vibrate(tipo === 'erro' ? [45,35,45] : 45);
+    } catch (_) {}
+  }
+
+  function leituraRepetida(codigoBruto) {
+    const chave = String(codigoBruto || '').trim().toUpperCase();
+    const agora = Date.now();
+    if (operacaoLeituraEmCurso) return true;
+    if (chave && chave === ultimoCodigoOperacao && agora - ultimoCodigoOperacaoEm < 2200) return true;
+    ultimoCodigoOperacao = chave;
+    ultimoCodigoOperacaoEm = agora;
+    operacaoLeituraEmCurso = true;
+    setTimeout(() => { operacaoLeituraEmCurso = false; }, 650);
+    return false;
   }
 
   function coordenadaValida(lat, lon) {
@@ -160,6 +202,7 @@
     const banner = $('pkgOpBanner');
     if (!banner || !estado) return;
     banner.style.display = 'block';
+    document.body.classList.add('pemato-package-operation');
     $('pkgOpModeLabel').textContent = estado.modo === 'adicionar' ? 'ADICIONAR À ROTA' : 'REMOVER DA ROTA';
     $('pkgOpBannerTitle').textContent = estado.modo === 'adicionar' ? 'Bipe somente os pacotes que vai receber' : 'Bipe somente os pacotes que vão sair da sua rota';
     $('pkgOpFileLabel').textContent = estado.arquivo?.name || '';
@@ -199,6 +242,7 @@
     if (processando) return;
     garantirUI();
     const valor = modo === 'remover' ? 'remover' : 'adicionar';
+    ultimoCodigoOperacao = ''; ultimoCodigoOperacaoEm = 0; operacaoLeituraEmCurso = false;
     const rota = await global.PacoteEMatoRotaStore?.obterRotaAtiva?.();
     estado = {
       modo: valor,
@@ -284,17 +328,18 @@
 
   function processarCodigoOperacao(codigoBruto) {
     if (!estado || !estado.arquivo) return false;
+    if (!codigoBruto || leituraRepetida(codigoBruto)) return true;
     const codigo = identificarCodigo(codigoBruto);
     if (!codigo) {
       estado.invalidos.push(String(codigoBruto || ''));
-      try { global.playBeepErro?.(); } catch (_) {}
+      tocarSomOperacao('erro')
       mostrarResultadoScanner(false, String(codigoBruto || ''), null, 'O código não foi encontrado na planilha desta operação.');
       atualizarBanner();
       return true;
     }
     if (estado.selecionados.has(codigo)) {
       estado.duplicados.push(codigo);
-      try { global.playBeepErro?.(); } catch (_) {}
+      tocarSomOperacao('erro')
       mostrarResultadoScanner(false, codigo, estado.indicePlanilha.get(codigo), 'Esse pacote já foi bipado nesta operação.');
       atualizarBanner();
       return true;
@@ -304,21 +349,21 @@
     if (estado.modo === 'remover') {
       if (!paradaRota) {
         estado.bloqueados.push({ codigo, motivo: 'nao_pertence_rota' });
-        try { global.playBeepErro?.(); } catch (_) {}
+        tocarSomOperacao('erro')
         mostrarResultadoScanner(false, codigo, estado.indicePlanilha.get(codigo), 'Esse pacote não pertence à rota ativa e não será removido.');
         atualizarBanner();
         return true;
       }
       if (codigoProtegido(paradaRota, codigo)) {
         estado.bloqueados.push({ codigo, motivo: 'status_protegido' });
-        try { global.playBeepErro?.(); } catch (_) {}
+        tocarSomOperacao('erro')
         mostrarResultadoScanner(false, codigo, paradaRota, 'Pacote já tratado/entregue. A remoção foi bloqueada para preservar o histórico.');
         atualizarBanner();
         return true;
       }
     } else if (paradaRota) {
       estado.bloqueados.push({ codigo, motivo: 'ja_na_rota' });
-      try { global.playBeepErro?.(); } catch (_) {}
+      tocarSomOperacao('erro')
       mostrarResultadoScanner(false, codigo, paradaRota, 'Esse pacote já existe na sua rota e não será duplicado.');
       atualizarBanner();
       return true;
@@ -326,8 +371,7 @@
 
     estado.selecionados.add(codigo);
     const origem = estado.indicePlanilha.get(codigo);
-    try { global.playBeepSucesso?.(); } catch (_) {}
-    try { global.falarComPerfil?.(estado.modo === 'adicionar' ? 'Pacote selecionado para adicionar' : 'Pacote selecionado para remover', 'navegacao_feminina'); } catch (_) {}
+    tocarSomOperacao('sucesso')
     mostrarResultadoScanner(true, codigo, origem, estado.modo === 'adicionar' ? 'Selecionado para adicionar à rota.' : 'Selecionado para remover da rota.');
     atualizarBanner();
     return true;
@@ -598,6 +642,7 @@
     fecharConferencia();
     try { await global.finalizarCameraHardware?.(); } catch (_) {}
     const banner = $('pkgOpBanner'); if (banner) banner.style.display = 'none';
+    document.body.classList.remove('pemato-package-operation');
     estado = null;
     await global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao');
     setTimeout(() => global.PacoteEMatoMapa?.renderizar?.({ fit:true }), 120);
@@ -653,6 +698,7 @@
     fecharConferencia();
     try { await global.finalizarCameraHardware?.(); } catch (_) {}
     if ($('pkgOpBanner')) $('pkgOpBanner').style.display = 'none';
+    document.body.classList.remove('pemato-package-operation');
     estado = null;
     await global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao');
     notificar('Operação cancelada. A rota foi preservada.');

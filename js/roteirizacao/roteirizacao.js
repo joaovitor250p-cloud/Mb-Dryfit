@@ -1323,7 +1323,7 @@
     if (card && origem === 'mapa') card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function abrirEditor(id, contexto = 'rota') {
+  function abrirEditor(id, contexto = 'rota', prefill = '') {
     const modal = $('routeStopEditorModal');
     if (!modal) return;
     contextoEditor = contexto === 'conferencia' ? 'conferencia' : 'rota';
@@ -1336,7 +1336,7 @@
     };
     const fields = ['logradouro','numero','complemento','apartamento','bloco','sala','loja','bairro','cidade','estado','cep','observacao'];
     fields.forEach(key => { const el = $(`routeEdit_${key}`); if (el) el.value = p[key] || ''; });
-    if ($('routeEdit_fullAddress')) $('routeEdit_fullAddress').value = [p.logradouro || p.enderecoFonte || '', p.numero || '', detalheComplemento(p)].filter(Boolean).join(' ').trim();
+    if ($('routeEdit_fullAddress')) $('routeEdit_fullAddress').value = (!id && prefill) ? String(prefill).trim() : [p.logradouro || p.enderecoFonte || '', p.numero || '', detalheComplemento(p)].filter(Boolean).join(' ').trim();
     if ($('routeEdit_pacotes')) $('routeEdit_pacotes').value = (p.pacotes || []).join('\n');
     if ($('routeEdit_status')) $('routeEdit_status').value = p.statusEntrega || 'pendente';
     if ($('routeEdit_motivo')) $('routeEdit_motivo').value = p.motivoNaoEntrega || '';
@@ -1515,6 +1515,12 @@
     renderizarTudo({ fit: true });
   }
 
+  function abrirEscolhaPacotes() {
+    fecharMenuAcoes();
+    const backdrop=$('routingPackagesChooserBackdrop'); if(backdrop)backdrop.style.display='flex';
+  }
+  function fecharEscolhaPacotes(){ const backdrop=$('routingPackagesChooserBackdrop'); if(backdrop)backdrop.style.display='none'; }
+
   function abrirEscolhaBipagem() {
     fecharMenuAcoes();
     const backdrop = $('routingBipagemChooserBackdrop');
@@ -1581,7 +1587,6 @@
     $('routingMainImportBtn')?.addEventListener('click', abrirImportacao);
     $('routingEmptyImportBtn')?.addEventListener('click', abrirImportacao);
     $('routingXlsxInput')?.addEventListener('change', event => importarArquivo(event.target.files?.[0]));
-    $('routingUseLegacyBtn')?.addEventListener('click', () => { fecharMenuAcoes(); usarRotaLegada(); });
     $('routingAddStopBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirEditor(null); });
     $('routingNewRouteBtn')?.addEventListener('click', criarNovaRotaVazia);
     $('routingClearRoutesBtn')?.addEventListener('click', removerTodasRotas);
@@ -1595,6 +1600,11 @@
     $('routingInvertBtn')?.addEventListener('click', () => { fecharMenuAcoes(); inverterRota(); });
     $('routingExportPdfBtn')?.addEventListener('click', () => { fecharMenuAcoes(); exportarPdf(); });
     $('routingStartNavBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirNavegacao(); });
+    $('routingPackagesMenuBtn')?.addEventListener('click', abrirEscolhaPacotes);
+    $('routingPackagesChooserClose')?.addEventListener('click', fecharEscolhaPacotes);
+    $('routingPackagesChooserBackdrop')?.addEventListener('click',event=>{if(event.target===$('routingPackagesChooserBackdrop'))fecharEscolhaPacotes();});
+    $('routingAddPackagesBtn')?.addEventListener('click',()=>fecharEscolhaPacotes());
+    $('routingRemovePackagesBtn')?.addEventListener('click',()=>fecharEscolhaPacotes());
     $('routingBipagemMenuBtn')?.addEventListener('click', abrirEscolhaBipagem);
     $('routingBipagemChooserClose')?.addEventListener('click', fecharEscolhaBipagem);
     $('routingBipagemChooserBackdrop')?.addEventListener('click', event => { if (event.target === $('routingBipagemChooserBackdrop')) fecharEscolhaBipagem(); });
@@ -1625,10 +1635,15 @@
     $('routingActionsBackdrop')?.addEventListener('click', event => { if (event.target === $('routingActionsBackdrop')) fecharMenuAcoes(); });
     $('routingSheetToggle')?.addEventListener('click', alternarPainel);
     $('routingPrimaryActionBtn')?.addEventListener('click', executarAcaoPrincipal);
-    $('routingStopSearch')?.addEventListener('input', () => {
-      if (global.appState?.ui) global.appState.ui.buscaParadas = String($('routingStopSearch')?.value || '');
+    const atualizarBuscaAdicionar = () => {
+      const texto=String($('routingStopSearch')?.value||'').trim();
+      if(global.appState?.ui)global.appState.ui.buscaParadas=texto;
+      const btn=$('routingSearchAddBtn'); if(btn){btn.style.display=texto.length>=5?'inline-flex':'none';btn.textContent=texto.length>=5?`+ Adicionar “${texto.length>34?texto.slice(0,34)+'…':texto}”`:'';}
       renderizarLista();
-    });
+    };
+    $('routingStopSearch')?.addEventListener('input',atualizarBuscaAdicionar);
+    $('routingStopSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){const texto=String(e.currentTarget.value||'').trim();if(texto.length>=5){e.preventDefault();abrirEditor(null,'rota',texto);}}});
+    $('routingSearchAddBtn')?.addEventListener('click',()=>{const texto=String($('routingStopSearch')?.value||'').trim();if(texto)abrirEditor(null,'rota',texto);});
     iniciarArrastePainel();
 
     $('routingSelectedStopEdit')?.addEventListener('click', () => {
@@ -1712,6 +1727,7 @@
     abrirNavegacao,
     abrirBipagemDaRota,
     abrirEscolhaBipagem,
+    abrirEscolhaPacotes,
     abrirRevisaoOtimizacao,
     iniciarRefinoDesenho,
     aplicarSelecaoDesenho,
