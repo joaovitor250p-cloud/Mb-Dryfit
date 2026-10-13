@@ -234,3 +234,11 @@ A otimização não bloqueia mais o motorista validando todas as coordenadas XLS
 ## V26 — métricas do otimizador + ETA estável + seleção de múltiplas
 
 O planejamento passa a usar `free_flow` para evitar previsão inflada por tráfego histórico/aproximado. Distância e tempo exibidos depois da otimização vêm do mesmo Route Planner que definiu a sequência; a chamada de geometria fica responsável por linha e instruções. Em endereços com paradas múltiplas, selecionar uma parada na lista agora faz o marcador do grupo mostrar o número daquela parada selecionada.
+
+
+## V27 — status visual no mapa
+- Paradas entregues usam marcador verde escuro com ✓.
+- Paradas não entregues usam marcador vermelho com ×.
+- O trecho da rota que leva a uma parada tratada recebe cor de status.
+- A base visual da rota é preservada para que os trechos concluídos continuem visíveis mesmo após recálculos durante a navegação.
+- Desfazer status remove também a cor/ícone de status e devolve a parada a Pendente.

@@ -288,6 +288,7 @@
       const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
       const feature = route.feature;
       rotaAtual.geometria = feature.geometry;
+      if (!(rotaAtual.paradas || []).some(paradaFinalizada)) global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rotaAtual, true);
       rotaAtual.distanciaTotalMetros = Number(feature.properties?.distance || 0);
       rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || 0);
       rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
@@ -430,6 +431,7 @@
     s.paradas = rotaAtual.paradas;
     s.ordem = rotaAtual.ordem;
     s.geometria = rotaAtual.geometria;
+    s.visualStatusBase = rotaAtual.visualStatusBase || null;
     s.instrucoes = rotaAtual.instrucoes;
     s.pernas = rotaAtual.pernas;
     s.distanciaTotalMetros = rotaAtual.distanciaTotalMetros;
@@ -492,6 +494,7 @@
       const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
       const feature = route.feature;
       rotaAtual.geometria = feature.geometry;
+      if (!(rotaAtual.paradas || []).some(paradaFinalizada)) global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rotaAtual, true);
       rotaAtual.distanciaTotalMetros = Number(feature.properties?.distance || 0);
       rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || 0);
       rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
@@ -1346,6 +1349,7 @@
       const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(candidata);
       const feature = route.feature;
       candidata.geometria = feature.geometry;
+      if (!(candidata.paradas || []).some(paradaFinalizada)) global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(candidata, true);
       candidata.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
       candidata.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
 
@@ -1756,6 +1760,7 @@
       ? byId.get(String(selecionada))
       : (rotaAtual.ordem || []).map(id => byId.get(String(id))).find(p => p && !paradaFinalizada(p));
     if (proxima) rotaAtual.paradaSelecionadaId = proxima.id;
+    global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rotaAtual, false);
     await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
     await global.PacoteEMatoSessao?.persistirAgora?.({ motivo: 'iniciar_rota', paradaSelecionadaId: proxima?.id || null, navegacaoAtiva: true });
     await global.PacoteEMatoAppShell?.abrirModulo?.('navegacao');

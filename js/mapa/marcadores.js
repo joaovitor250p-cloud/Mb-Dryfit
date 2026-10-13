@@ -17,11 +17,19 @@
   }
 
   function paleta(status, selecionado) {
-    if (selecionado) return { fundo: '#059669', borda: '#ffffff', numero: '#ffffff', multi: '#ffffff' };
-    if (status === 'nao_entregue') return { fundo: '#ffffff', borda: '#111111', numero: '#111111', multi: '#047857' };
-    if (status === 'concluida') return { fundo: '#ecfdf5', borda: '#059669', numero: '#111111', multi: '#047857' };
-    if (status === 'parcial') return { fundo: '#f0fdf4', borda: '#059669', numero: '#111111', multi: '#047857' };
-    return { fundo: '#ffffff', borda: '#059669', numero: '#111111', multi: '#047857' };
+    // V27: o status precisa continuar evidente mesmo quando a parada está selecionada.
+    if (status === 'nao_entregue') return { fundo: selecionado ? '#b91c1c' : '#dc2626', borda: '#ffffff', numero: '#ffffff', multi: '#ffffff', simbolo: '#ffffff' };
+    if (status === 'concluida') return { fundo: selecionado ? '#15803d' : '#166534', borda: '#ffffff', numero: '#ffffff', multi: '#ffffff', simbolo: '#ffffff' };
+    if (status === 'parcial') return { fundo: selecionado ? '#059669' : '#f0fdf4', borda: selecionado ? '#ffffff' : '#059669', numero: selecionado ? '#ffffff' : '#111111', multi: selecionado ? '#ffffff' : '#047857', simbolo: selecionado ? '#ffffff' : '#047857' };
+    if (selecionado) return { fundo: '#059669', borda: '#ffffff', numero: '#ffffff', multi: '#ffffff', simbolo: '#ffffff' };
+    return { fundo: '#ffffff', borda: '#059669', numero: '#111111', multi: '#047857', simbolo: '#047857' };
+  }
+
+  function simboloStatus(status) {
+    const normalizado = statusSeguro(status);
+    if (normalizado === 'concluida') return '✓';
+    if (normalizado === 'nao_entregue') return '×';
+    return '';
   }
 
 
@@ -46,12 +54,120 @@
     return `id:${String(parada?.id || '')}`;
   }
 
+
+  function cloneSeguro(valor) {
+    try { return JSON.parse(JSON.stringify(valor)); } catch (_) { return null; }
+  }
+
+  function geometriaRotaValida(geometry) {
+    if (!geometry || !['LineString', 'MultiLineString'].includes(geometry.type)) return false;
+    const linhas = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates;
+    return Array.isArray(linhas) && linhas.some(linha => Array.isArray(linha) && linha.length >= 2);
+  }
+
+  function distanciaMetros(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return Infinity;
+    const lon1 = Number(a[0]), lat1 = Number(a[1]), lon2 = Number(b[0]), lat2 = Number(b[1]);
+    if (![lon1, lat1, lon2, lat2].every(Number.isFinite)) return Infinity;
+    const rad = Math.PI / 180, R = 6371000;
+    const p1 = lat1 * rad, p2 = lat2 * rad;
+    const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  function capturarBaseVisualStatus(rota, forcar) {
+    if (!rota || !geometriaRotaValida(rota.geometria)) return null;
+    if (!forcar && rota.visualStatusBase && geometriaRotaValida(rota.visualStatusBase.geometria)) return rota.visualStatusBase;
+    const ordem = Array.isArray(rota.ordem) && rota.ordem.length
+      ? rota.ordem.map(String)
+      : (Array.isArray(rota.paradas) ? rota.paradas.map(p => String(p.id)) : []);
+    rota.visualStatusBase = {
+      geometria: cloneSeguro(rota.geometria),
+      ordem,
+      capturadoEm: Date.now()
+    };
+    return rota.visualStatusBase;
+  }
+
+  function recortarGeometriaEntre(partes, origem, destino) {
+    if (!origem || !destino || destino.global <= origem.global) return null;
+    const linhas = [];
+    if (origem.parte === destino.parte) {
+      const linha = partes[origem.parte].slice(origem.indice, destino.indice + 1);
+      if (linha.length >= 2) linhas.push(linha);
+    } else {
+      const primeira = partes[origem.parte].slice(origem.indice);
+      if (primeira.length >= 2) linhas.push(primeira);
+      for (let p = origem.parte + 1; p < destino.parte; p++) {
+        const meio = partes[p].slice();
+        if (meio.length >= 2) linhas.push(meio);
+      }
+      const ultima = partes[destino.parte].slice(0, destino.indice + 1);
+      if (ultima.length >= 2) linhas.push(ultima);
+    }
+    if (!linhas.length) return null;
+    return linhas.length === 1
+      ? { type: 'LineString', coordinates: linhas[0] }
+      : { type: 'MultiLineString', coordinates: linhas };
+  }
+
+  function segmentosStatusDaRota(rota) {
+    if (!rota) return [];
+    const base = (rota.visualStatusBase && geometriaRotaValida(rota.visualStatusBase.geometria))
+      ? rota.visualStatusBase
+      : { geometria: rota.geometria, ordem: Array.isArray(rota.ordem) ? rota.ordem.map(String) : [] };
+    if (!geometriaRotaValida(base.geometria)) return [];
+
+    const partes = (base.geometria.type === 'LineString' ? [base.geometria.coordinates] : base.geometria.coordinates)
+      .map(linha => (Array.isArray(linha) ? linha.filter(c => Array.isArray(c) && Number.isFinite(Number(c[0])) && Number.isFinite(Number(c[1]))) : []))
+      .filter(linha => linha.length >= 2);
+    if (!partes.length) return [];
+
+    const entradas = [];
+    let globalIndex = 0;
+    partes.forEach((linha, parte) => linha.forEach((coord, indice) => entradas.push({ parte, indice, global: globalIndex++, coord })));
+    if (entradas.length < 2) return [];
+
+    const byId = new Map((Array.isArray(rota.paradas) ? rota.paradas : []).map(p => [String(p.id), p]));
+    const ordemIds = Array.isArray(base.ordem) && base.ordem.length ? base.ordem.map(String) : [...byId.keys()];
+    const features = [];
+    let anterior = entradas[0];
+
+    ordemIds.forEach(id => {
+      const parada = byId.get(String(id));
+      if (!parada) return;
+      const lat = Number(parada.latitude), lon = Number(parada.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      let melhor = null, melhorDist = Infinity;
+      for (let i = anterior.global; i < entradas.length; i++) {
+        const item = entradas[i];
+        const d = distanciaMetros(item.coord, [lon, lat]);
+        if (d < melhorDist) { melhor = item; melhorDist = d; }
+        // Depois de encontrar um ponto praticamente em cima da parada, não há motivo para varrer o restante.
+        if (melhorDist <= 4) break;
+      }
+      if (!melhor) return;
+      const status = statusSeguro(parada.statusEntrega);
+      if (status === 'concluida' || status === 'nao_entregue') {
+        const geometry = recortarGeometriaEntre(partes, anterior, melhor);
+        if (geometry) features.push({
+          type: 'Feature',
+          properties: { status, paradaId: String(parada.id) },
+          geometry
+        });
+      }
+      anterior = melhor;
+    });
+    return features;
+  }
+
   function nomeIcone(prefixo, ordem, quantidade, selecionado, status, mostrarNumero) {
     const qtdInt = Math.max(1, Math.round(numeroSeguro(quantidade, 1)));
     const statusNorm = statusSeguro(status);
-    if (mostrarNumero === false) return `${prefixo}-draft-${qtdInt}-${selecionado ? 'sel' : statusNorm}`;
+    if (mostrarNumero === false) return `${prefixo}-draft-${qtdInt}-${statusNorm}-${selecionado ? 'sel' : 'std'}`;
     const ordemInt = Math.max(1, Math.round(numeroSeguro(ordem, 1)));
-    return `${prefixo}-${ordemInt}-${qtdInt}-${selecionado ? 'sel' : statusNorm}`;
+    return `${prefixo}-${ordemInt}-${qtdInt}-${statusNorm}-${selecionado ? 'sel' : 'std'}`;
   }
 
   function contexto2d(canvas) {
@@ -119,17 +235,21 @@
 
     const numero = String(ordem);
     const badge = quantidade > 1 ? `${quantidade}x` : '';
+    const simbolo = simboloStatus(status);
     const alturaCss = 24;
 
     ctx.font = '800 12px Arial, sans-serif';
     const numeroW = Math.ceil(ctx.measureText(numero).width);
     ctx.font = '700 8.5px Arial, sans-serif';
     const badgeW = badge ? Math.ceil(ctx.measureText(badge).width) : 0;
+    ctx.font = '900 10px Arial, sans-serif';
+    const simboloW = simbolo ? Math.ceil(ctx.measureText(simbolo).width) : 0;
     const divisor = badge ? 1 : 0;
     const gap = badge ? 7 : 0;
-    const conteudoW = numeroW + badgeW + gap + divisor;
-    const larguraMin = badge ? 42 : 28;
-    const larguraMax = badge ? 56 : 40;
+    const statusGap = simbolo ? 5 : 0;
+    const conteudoW = simboloW + statusGap + numeroW + badgeW + gap + divisor;
+    const larguraMin = badge ? (simbolo ? 50 : 42) : (simbolo ? 36 : 28);
+    const larguraMax = badge ? (simbolo ? 66 : 56) : (simbolo ? 50 : 40);
     const larguraCss = Math.max(larguraMin, Math.min(larguraMax, conteudoW + (badge ? 16 : 14)));
 
     canvas.width = Math.round(larguraCss * ratio);
@@ -161,29 +281,35 @@
     c.restore();
 
     const cy = alturaCss / 2 + 0.2;
-    if (!badge) {
-      c.textAlign = 'center';
-      c.textBaseline = 'middle';
-      c.fillStyle = cores.numero;
-      c.font = '800 12px Arial, sans-serif';
-      c.fillText(numero, larguraCss / 2, cy);
-    } else {
-      c.textBaseline = 'middle';
-      c.font = '800 12px Arial, sans-serif';
-      const nw = c.measureText(numero).width;
-      c.font = '700 9.5px Arial, sans-serif';
-      const bw = c.measureText(badge).width;
-      const divisorGap = 6;
-      const total = nw + divisorGap + 1 + divisorGap + bw;
-      let px = (larguraCss - total) / 2;
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+    c.font = '800 12px Arial, sans-serif';
+    const nw = c.measureText(numero).width;
+    c.font = '700 9.5px Arial, sans-serif';
+    const bw = badge ? c.measureText(badge).width : 0;
+    c.font = '900 10px Arial, sans-serif';
+    const sw = simbolo ? c.measureText(simbolo).width : 0;
+    const divisorGap = badge ? 6 : 0;
+    const statusGapTexto = simbolo ? 5 : 0;
+    const total = sw + statusGapTexto + nw + (badge ? divisorGap + 1 + divisorGap + bw : 0);
+    let px = (larguraCss - total) / 2;
 
-      c.textAlign = 'left';
-      c.fillStyle = cores.numero;
-      c.font = '800 12px Arial, sans-serif';
-      c.fillText(numero, px, cy);
-      px += nw + divisorGap;
+    if (simbolo) {
+      c.fillStyle = cores.simbolo || cores.numero;
+      c.font = '900 10px Arial, sans-serif';
+      c.fillText(simbolo, px, cy + 0.1);
+      px += sw + statusGapTexto;
+    }
 
-      c.strokeStyle = selecionado ? 'rgba(255,255,255,0.35)' : 'rgba(5,150,105,0.28)';
+    c.fillStyle = cores.numero;
+    c.font = '800 12px Arial, sans-serif';
+    c.fillText(numero, px, cy);
+    px += nw;
+
+    if (badge) {
+      px += divisorGap;
+      c.strokeStyle = 'rgba(255,255,255,0.35)';
+      if (status !== 'concluida' && status !== 'nao_entregue' && !selecionado) c.strokeStyle = 'rgba(5,150,105,0.28)';
       c.lineWidth = 1;
       c.beginPath();
       c.moveTo(px + 0.5, 7);
@@ -243,6 +369,8 @@
     nomeIcone,
     chaveMultiplo,
     quantidadePacotesDaParada,
-    chaveFisicaMarcador
+    chaveFisicaMarcador,
+    capturarBaseVisualStatus,
+    segmentosStatusDaRota
   });
 })(window);

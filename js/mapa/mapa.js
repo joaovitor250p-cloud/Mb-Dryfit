@@ -9,8 +9,11 @@
   let fallbackBaseAtivo = false;
 
   const SOURCE_ROUTE = 'pemato-route-line';
+  const SOURCE_ROUTE_STATUS = 'pemato-route-status';
   const LAYER_ROUTE_CASE = 'pemato-route-line-case';
   const LAYER_ROUTE = 'pemato-route-line-layer';
+  const LAYER_ROUTE_STATUS_CASE = 'pemato-route-status-case';
+  const LAYER_ROUTE_STATUS = 'pemato-route-status-layer';
   const SOURCE_STOPS = 'pemato-stops';
   const LAYER_STOPS_GROUP_RING = 'pemato-stops-group-ring';
   const LAYER_STOPS = 'pemato-stops-simple';
@@ -111,7 +114,7 @@
       // V26: em um endereço com várias paradas/pacotes, o marcador representa
       // a parada que o motorista selecionou na lista. Assim, selecionar 82
       // troca o rótulo 81 -> 82 sem inventar outra coordenada.
-      const pSelecionada = grupoVisual.find(item => String(item.id) === String(selectedId));
+      const pSelecionada = grupo.find(item => String(item.id) === String(selectedId));
       const p = pSelecionada || grupoVisual[0];
       const totalPacotes = grupoVisual.reduce((total, item) => total + quantidadePacotesDaParada(item), 0);
       const lat = Number(p.latitude), lon = Number(p.longitude);
@@ -122,7 +125,7 @@
       const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
-      const ids = grupoVisual.map(item => String(item.id));
+      const ids = grupo.map(item => String(item.id));
       features.push({
         type: 'Feature',
         id: String(p.id),
@@ -201,7 +204,7 @@
   function adicionarSource(id, data) {
     if (mapa.getSource(id)) return;
     const opcoes = { type: 'geojson', data };
-    if (id === SOURCE_ROUTE) {
+    if (id === SOURCE_ROUTE || id === SOURCE_ROUTE_STATUS) {
       // V20: a geometria permanece estável em todos os níveis de zoom.
       // O MapLibre faz apenas uma simplificação leve por tile; não reescrevemos
       // a rota a cada zoom, evitando o efeito quebradiço/farelento.
@@ -235,6 +238,7 @@
   function garantirCamadas() {
     if (!mapa || !pronto) return;
     adicionarSource(SOURCE_ROUTE, featureCollection([]));
+    adicionarSource(SOURCE_ROUTE_STATUS, featureCollection([]));
     adicionarSourceParadas();
     adicionarSource(SOURCE_START, featureCollection([]));
     adicionarSource(SOURCE_DRIVER, featureCollection([]));
@@ -249,6 +253,20 @@
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .96, 'line-blur': 0 }
+    }, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({
+      id: LAYER_ROUTE_STATUS_CASE, type: 'line', source: SOURCE_ROUTE_STATUS,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.6, 12, 5.6, 14, 7, 16, 9.5], 'line-opacity': .94 }
+    }, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS)) mapa.addLayer({
+      id: LAYER_ROUTE_STATUS, type: 'line', source: SOURCE_ROUTE_STATUS,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['match', ['get', 'status'], 'nao_entregue', '#dc2626', 'concluida', '#166534', '#166534'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 12, 3.5, 14, 4.6, 16, 6.2],
+        'line-opacity': .98
+      }
     }, before);
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({
       id: LAYER_STOPS_GROUP_RING, type: 'circle', source: SOURCE_STOPS,
@@ -421,9 +439,12 @@
   }
 
   function atualizarRota() {
-    const geometry = normalizarGeometriaVisual(state()?.geometria);
+    const rota = state();
+    const geometry = normalizarGeometriaVisual(rota?.geometria);
     const feature = geometry ? { type: 'Feature', properties: { planned: true }, geometry } : null;
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
+    const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
+    atualizarSource(SOURCE_ROUTE_STATUS, featureCollection(segmentosStatus));
   }
 
   function renderizarMarcadores() {

@@ -27,6 +27,7 @@
   let assinaturaParadasV11 = '';
 
   const SOURCE_ROUTE = 'pemato-nav-route';
+  const SOURCE_ROUTE_STATUS = 'pemato-nav-route-status';
   const SOURCE_PROGRESS = 'pemato-nav-progress';
   const SOURCE_DRIVER = 'pemato-nav-driver';
   const SOURCE_STOPS = 'pemato-nav-all-stops';
@@ -37,6 +38,8 @@
   let cartaoSelecionadoId = null;
   const LAYER_ROUTE_CASE = 'pemato-nav-route-case';
   const LAYER_ROUTE = 'pemato-nav-route-layer';
+  const LAYER_ROUTE_STATUS_CASE = 'pemato-nav-route-status-case';
+  const LAYER_ROUTE_STATUS = 'pemato-nav-route-status-layer';
   const LAYER_PROGRESS = 'pemato-nav-progress-layer';
   const LAYER_DRIVER_RING = 'pemato-nav-driver-ring';
   const LAYER_DRIVER = 'pemato-nav-driver';
@@ -117,7 +120,7 @@
   function adicionarSource(id, data) {
     if (mapa.getSource(id)) return;
     const opcoes = { type:'geojson', data };
-    if (id === SOURCE_ROUTE || id === SOURCE_PROGRESS) {
+    if (id === SOURCE_ROUTE || id === SOURCE_ROUTE_STATUS || id === SOURCE_PROGRESS) {
       // V20: geometria estável; simplificação leve apenas no pipeline do MapLibre.
       opcoes.tolerance = 0.2;
       opcoes.buffer = 128;
@@ -192,12 +195,14 @@
 
   function garantirCamadas() {
     if (!mapa || !mapReady) return;
-    adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSourceParadas();
+    adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_ROUTE_STATUS, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSourceParadas();
     garantirImagemBalao();
     const before = antesRotulos();
     if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4,13,5.5,16,8,18,9],'line-opacity':.9,'line-blur':0}}, before);
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({ id:LAYER_ROUTE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#059669','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
     if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#047857','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({ id:LAYER_ROUTE_STATUS_CASE,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4.6,13,6,16,8.8,18,9.8],'line-opacity':.94}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS)) mapa.addLayer({ id:LAYER_ROUTE_STATUS,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['match',['get','status'],'nao_entregue','#dc2626','concluida','#166534','#166534'],'line-width':['interpolate',['linear'],['zoom'],10,2.6,13,3.8,16,5.8,18,6.6],'line-opacity':.98}}, before);
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':12,'circle-color':'rgba(5,150,105,.16)','circle-stroke-color':'rgba(5,150,105,.35)','circle-stroke-width':1} });
     if (!mapa.getLayer(LAYER_DRIVER_DOT)) mapa.addLayer({ id:LAYER_DRIVER_DOT,type:'circle',source:SOURCE_DRIVER,filter:['==',['get','mode'],'external'],paint:{'circle-radius':7,'circle-color':'#059669','circle-stroke-color':'#ffffff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,filter:['==',['get','mode'],'internal'],layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
@@ -382,6 +387,8 @@
     if (!mapa || !mapReady) return;
     const g = normalizarGeometriaVisual(rota?.geometria);
     setSource(SOURCE_ROUTE, fc(g ? [{type:'Feature',properties:{},geometry:g}] : []));
+    const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
+    setSource(SOURCE_ROUTE_STATUS, fc(segmentosStatus));
   }
 
   function atualizarFontesPontos() {
@@ -403,7 +410,7 @@
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
       const idSelecionado = String(cartaoSelecionadoId || p?.id || '');
-      const selecionado = grupoVisual.find(item => String(item.stop?.id || '') === idSelecionado);
+      const selecionado = grupo.find(item => String(item.stop?.id || '') === idSelecionado);
       const principal = selecionado || grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
@@ -413,14 +420,14 @@
       const visualKey = `${gridLat}|${gridLon}`;
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
-      const ids = grupoVisual.map(item => String(item.stop.id));
+      const ids = grupo.map(item => String(item.stop.id));
       features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {
       const p = f.properties || {};
       const c = f.geometry?.coordinates || [];
-      return `${p.id}:${p.order}:${p.multi}:${p.current?1:0}:${c[0]}:${c[1]}`;
+      return `${p.id}:${p.order}:${p.multi}:${p.status||''}:${p.current?1:0}:${p.iconV12||''}:${c[0]}:${c[1]}`;
     }).join('|');
     if (assinatura !== assinaturaParadasV11) {
       assinaturaParadasV11 = assinatura;
@@ -703,8 +710,8 @@
       await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
       await global.PacoteEMatoSessao?.persistirAgora?.({motivo:status==='entregue'?'parada_entregue':'parada_nao_entregue',paradaSelecionadaId:cartaoSelecionadoId,proximaParadaId:cartaoSelecionadoId,navegacaoAtiva:true});
       if($('navDeliveryNote'))$('navDeliveryNote').value=''; if($('navExtrasPanel'))$('navExtrasPanel').style.display='none'; ultimoIdNota='';
-      atualizarPainel(); global.PacoteEMatoHistorico?.renderizar?.(); global.PacoteEMatoAppShell?.atualizarInicio?.();
-      if(ordemPendente.length){if(global.PacoteEMatoServicoRota?.endpoint?.('route'))await recalcular('proxima');else atualizarFontesPontos();}
+      atualizarPainel(); desenharRota(); global.PacoteEMatoHistorico?.renderizar?.(); global.PacoteEMatoAppShell?.atualizarInicio?.();
+      if(ordemPendente.length){if(global.PacoteEMatoServicoRota?.endpoint?.('route'))await recalcular('proxima');else {atualizarFontesPontos();desenharRota();}}
       else{rota.status='aguardando_finalizacao';rota.conclusaoPendente=true;await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});mostrarConclusao();}
     }finally{processandoStatus=false;}
   }
@@ -727,6 +734,7 @@
     rota=rotaEntrada?global.PacoteEMatoRotaStore.normalizarRota(rotaEntrada):await global.PacoteEMatoRotaStore.obterRotaAtiva();
     if(rota?.precisaRecalculo){global.notificar?.('A rota foi alterada. Recalcule o trajeto antes de iniciar a navegação.');return;}
     if(!rota||!geometriaValida(rota.geometria)){global.notificar?.('Calcule uma rota válida antes de iniciar a navegação.');return;}
+    global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rota, false);
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
     if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
     garantirMapa(); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
@@ -816,9 +824,9 @@
       cartaoSelecionadoId=alvo.id;
       await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
       await global.PacoteEMatoSessao?.persistirAgora?.({motivo:'desfazer_status_parada',paradaSelecionadaId:alvo.id,proximaParadaId:alvo.id,navegacaoAtiva:true});
-      atualizarPainel();
+      atualizarPainel(); desenharRota();
       if(global.PacoteEMatoServicoRota?.endpoint?.('route')&&ultimaPosicao) await recalcular('desfazer');
-      else atualizarFontesPontos();
+      else {atualizarFontesPontos();desenharRota();}
     }finally{processandoStatus=false;}
   }
 

@@ -65,6 +65,7 @@
     paradaSelecionadaId: null,
     proximaParadaId: null,
     geometria: null,
+    visualStatusBase: null,
     instrucoes: [],
     pernas: [],
     distanciaTotalMetros: null,

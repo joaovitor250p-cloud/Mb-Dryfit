@@ -140,6 +140,14 @@
     r.proximaParadaId = r.paradas.some(p => String(p.id) === String(r.proximaParadaId || '')) ? String(r.proximaParadaId) : null;
     r.rotaOtimizada = r.rotaOtimizada === true;
     r.geometria = r.geometria || null;
+    if (r.visualStatusBase && typeof r.visualStatusBase === 'object') {
+      r.visualStatusBase = {
+        geometria: r.visualStatusBase.geometria || null,
+        ordem: Array.isArray(r.visualStatusBase.ordem) ? r.visualStatusBase.ordem.map(String).filter(id => ids.has(id)) : [],
+        capturadoEm: r.visualStatusBase.capturadoEm || null
+      };
+      if (!r.visualStatusBase.geometria || !r.visualStatusBase.ordem.length) r.visualStatusBase = null;
+    } else r.visualStatusBase = null;
     r.instrucoes = Array.isArray(r.instrucoes) ? r.instrucoes : [];
     r.pernas = Array.isArray(r.pernas) ? r.pernas : [];
     r.distanciaTotalMetros = Number.isFinite(Number(r.distanciaTotalMetros)) ? Number(r.distanciaTotalMetros) : null;
