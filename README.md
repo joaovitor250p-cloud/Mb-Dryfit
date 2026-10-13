@@ -3,12 +3,13 @@
 Aplicativo web/PWA de logística com Roteirização, Navegação, Bipagem e Histórico compartilhando uma única Rota Ativa.
 
 
-## V16 — correções rápidas de estabilidade
+## V21 — correção do pós-entrega + limpeza técnica
 
-- Corrigido o comportamento que podia cobrir o mapa com uma tela branca após erros transitórios de tiles.
-- Adicionado fallback automático de mapa base no planejamento e na navegação.
-- Removida a interface de “Desfazer” após Entregue/Não entregue; o fluxo avança direto para a próxima pendente.
-- Menu dos três pontos da navegação passou a usar o mesmo padrão visual do menu de ações da roteirização.
+- Corrigido o erro `distanciaMetros is not defined` que interrompia o redesenho/recalculo da rota depois de marcar uma parada como Entregue ou Não entregue.
+- O tratamento da geometria na navegação agora reutiliza a função de distância já existente no módulo, evitando duas implementações concorrentes.
+- Removidos restos de clustering desativado, source/layers de “próxima parada” que ficavam permanentemente vazios, variáveis sem uso e uma função de navegação já removida da interface.
+- A lógica repetida de chave física e quantidade de pacotes dos marcadores foi centralizada em `js/mapa/marcadores.js`, usada pelo planejamento e pela navegação.
+- O Desfazer permanece contextual: após Entregue/Não entregue o app avança; ao voltar ao card finalizado, é possível desfazer somente aquela parada.
 
 ## Fluxo operacional atual
 

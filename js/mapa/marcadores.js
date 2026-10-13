@@ -24,6 +24,28 @@
     return { fundo: '#ffffff', borda: '#059669', numero: '#111111', multi: '#047857' };
   }
 
+
+  function chaveMultiplo(parada) {
+    const numero = String(parada?.numero || (String(parada?.enderecoFonte || parada?.enderecoOriginal || '').match(/\b\d+[A-Za-z]?\b/) || [''])[0] || '').toLowerCase();
+    let rua = String(parada?.logradouro || parada?.enderecoFonte || parada?.enderecoOriginal || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (numero) rua = rua.replace(new RegExp(`\\b${numero.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b.*$`, 'i'), '');
+    rua = rua.replace(/\b(ap|apto|apartamento|casa|bloco|sala|loja|suite|fundos|frente)\b.*$/i, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    return rua && numero ? `${rua}|${numero}` : '';
+  }
+
+  function quantidadePacotesDaParada(parada) {
+    const n = Number(parada?.pacotes?.length || parada?.quantidadePacotes || 1);
+    return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : 1;
+  }
+
+  function chaveFisicaMarcador(parada) {
+    const chave = chaveMultiplo(parada);
+    if (chave) return `end:${chave}`;
+    const lat = Number(parada?.latitude), lon = Number(parada?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`;
+    return `id:${String(parada?.id || '')}`;
+  }
+
   function nomeIcone(prefixo, ordem, quantidade, selecionado, status) {
     const ordemInt = Math.max(1, Math.round(numeroSeguro(ordem, 1)));
     const qtdInt = Math.max(1, Math.round(numeroSeguro(quantidade, 1)));
@@ -184,6 +206,9 @@
     criarIcone,
     prepararFeatures,
     assinatura,
-    nomeIcone
+    nomeIcone,
+    chaveMultiplo,
+    quantidadePacotesDaParada,
+    chaveFisicaMarcador
   });
 })(window);

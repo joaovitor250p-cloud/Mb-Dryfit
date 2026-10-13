@@ -7,21 +7,16 @@
   let loadTimer = null;
   let resizeObserver = null;
   let fallbackBaseAtivo = false;
-  let mapaCriadoEm = 0;
-  let errosMapaIniciais = 0;
 
   const SOURCE_ROUTE = 'pemato-route-line';
   const LAYER_ROUTE_CASE = 'pemato-route-line-case';
   const LAYER_ROUTE = 'pemato-route-line-layer';
   const SOURCE_STOPS = 'pemato-stops';
   const LAYER_STOPS_GROUP_RING = 'pemato-stops-group-ring';
-  const LAYER_STOPS_RING = 'pemato-stops-selected-ring';
   const LAYER_STOPS = 'pemato-stops-simple';
   const LAYER_STOPS_MULTI = 'pemato-stops-multi';
   const LAYER_STOPS_ACTIVE = 'pemato-stops-active';
   const LAYER_STOPS_MULTI_ACTIVE = 'pemato-stops-multi-active';
-  const LAYER_STOPS_CLUSTER = 'pemato-stops-cluster';
-  const LAYER_STOPS_CLUSTER_COUNT = 'pemato-stops-cluster-count';
   const SOURCE_START = 'pemato-start';
   const LAYER_START = 'pemato-start-circle';
   const LAYER_START_TEXT = 'pemato-start-label';
@@ -79,27 +74,12 @@
     return 'pendente';
   }
 
-  function chaveMultiplo(p) {
-    const numero = String(p?.numero || (String(p?.enderecoFonte || p?.enderecoOriginal || '').match(/\b\d+[A-Za-z]?\b/) || [''])[0] || '').toLowerCase();
-    let rua = String(p?.logradouro || p?.enderecoFonte || p?.enderecoOriginal || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    if (numero) rua = rua.replace(new RegExp(`\\b${numero.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b.*$`, 'i'), '');
-    rua = rua.replace(/\b(ap|apto|apartamento|casa|bloco|sala|loja|suite|fundos|frente)\b.*$/i,'').replace(/[^a-z0-9]+/g,' ').trim();
-    return rua && numero ? `${rua}|${numero}` : '';
-  }
-
-  function featureCollection(features) { return { type: 'FeatureCollection', features: features || [] }; }
-
   function quantidadePacotesDaParada(p) {
-    const n = Number(p?.pacotes?.length || p?.quantidadePacotes || 1);
-    return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : 1;
+    return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }
 
   function chaveFisicaMarcador(p) {
-    const chave = chaveMultiplo(p);
-    if (chave) return `end:${chave}`;
-    const lat = Number(p?.latitude), lon = Number(p?.longitude);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) return `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`;
-    return `id:${String(p?.id || '')}`;
+    return global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || `id:${String(p?.id || '')}`;
   }
 
   function stopsGeoJSON() {
@@ -224,8 +204,6 @@
     return (mapa.getStyle()?.layers || []).find(layer => layer.type === 'symbol')?.id;
   }
 
-  function garantirImagemBalao() { return true; }
-
   function prepararIconesParadasV12(features) {
     return global.PacoteEMatoMarcadores?.prepararFeatures?.(mapa, features, {
       prefixo: 'pemato-plan-v12',
@@ -242,21 +220,12 @@
     });
   }
 
-  function ampliarCluster(event) {
-    const feature = event?.features?.[0];
-    const coords = feature?.geometry?.coordinates;
-    if (!mapa || !Array.isArray(coords)) return;
-    const atual = Number(mapa.getZoom?.() || 12);
-    try { mapa.easeTo({ center: coords, zoom: Math.min(17, atual + 2), duration: 360 }); } catch (_) {}
-  }
-
   function garantirCamadas() {
     if (!mapa || !pronto) return;
     adicionarSource(SOURCE_ROUTE, featureCollection([]));
     adicionarSourceParadas();
     adicionarSource(SOURCE_START, featureCollection([]));
     adicionarSource(SOURCE_DRIVER, featureCollection([]));
-    garantirImagemBalao();
     const before = antesDosRotulos();
 
     if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({
@@ -709,7 +678,6 @@
   function bindControles() {
     bindOverlayDesenho();
     $('routingMyLocationBtn')?.addEventListener('click', centralizarMinhaLocalizacao);
-    $('routingFitMapBtn')?.addEventListener('click', ajustarTodos);
     $('routingZoomInBtn')?.addEventListener('click', () => zoom(1));
     $('routingZoomOutBtn')?.addEventListener('click', () => zoom(-1));
     global.addEventListener('pemato:localizacao-atual', () => renderizarMotorista());

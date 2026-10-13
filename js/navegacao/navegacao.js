@@ -23,22 +23,17 @@
   let ultimaChaveFala = '';
   let mapLoadTimer = null;
   let fallbackBaseAtivo = false;
-  let mapaCriadoEm = 0;
-  let errosMapaIniciais = 0;
   const falasFeitas = new Set();
   let assinaturaParadasV11 = '';
 
   const SOURCE_ROUTE = 'pemato-nav-route';
   const SOURCE_PROGRESS = 'pemato-nav-progress';
   const SOURCE_DRIVER = 'pemato-nav-driver';
-  const SOURCE_NEXT = 'pemato-nav-next';
   const SOURCE_STOPS = 'pemato-nav-all-stops';
   const LAYER_STOPS = 'pemato-nav-stops-simple';
   const LAYER_STOPS_MULTI = 'pemato-nav-stops-multi';
   const LAYER_STOPS_ACTIVE = 'pemato-nav-stops-active';
   const LAYER_STOPS_MULTI_ACTIVE = 'pemato-nav-stops-multi-active';
-  const LAYER_STOPS_CLUSTER = 'pemato-nav-stops-cluster';
-  const LAYER_STOPS_CLUSTER_COUNT = 'pemato-nav-stops-cluster-count';
   let cartaoSelecionadoId = null;
   const LAYER_ROUTE_CASE = 'pemato-nav-route-case';
   const LAYER_ROUTE = 'pemato-nav-route-layer';
@@ -46,8 +41,6 @@
   const LAYER_DRIVER_RING = 'pemato-nav-driver-ring';
   const LAYER_DRIVER = 'pemato-nav-driver';
   const LAYER_DRIVER_DOT = 'pemato-nav-driver-dot';
-  const LAYER_NEXT = 'pemato-nav-next';
-  const LAYER_NEXT_TEXT = 'pemato-nav-next-label';
 
   function $(id) { return document.getElementById(id); }
   function cfg() { return global.PEMATO_MAP_CONFIG || {}; }
@@ -78,27 +71,12 @@
     return min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
   }
 
-  function horaLocal(ts) { try { return ts ? new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '—'; } catch (_) { return '—'; } }
-
-  function chaveMultiplo(p) {
-    const numero = String(p?.numero || (String(p?.enderecoFonte || p?.enderecoOriginal || '').match(/\b\d+[A-Za-z]?\b/) || [''])[0] || '').toLowerCase();
-    let rua = String(p?.logradouro || p?.enderecoFonte || p?.enderecoOriginal || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    if (numero) rua = rua.replace(new RegExp(`\\b${numero.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b.*$`,'i'),'');
-    rua = rua.replace(/\b(ap|apto|apartamento|casa|bloco|sala|loja|suite|fundos|frente)\b.*$/i,'').replace(/[^a-z0-9]+/g,' ').trim();
-    return rua && numero ? `${rua}|${numero}` : '';
-  }
-
   function quantidadePacotesDaParada(p) {
-    const n = Number(p?.pacotes?.length || p?.quantidadePacotes || 1);
-    return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : 1;
+    return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }
 
   function chaveFisicaMarcador(p) {
-    const chave = chaveMultiplo(p);
-    if (chave) return `end:${chave}`;
-    const lat = Number(p?.latitude), lon = Number(p?.longitude);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) return `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`;
-    return `id:${String(p?.id || '')}`;
+    return global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || `id:${String(p?.id || '')}`;
   }
 
   function haversine(a, b) {
@@ -190,15 +168,6 @@
     });
   }
 
-  function ampliarClusterNav(event) {
-    const feature=event?.features?.[0];
-    const coords=feature?.geometry?.coordinates;
-    if(!mapa||!Array.isArray(coords))return;
-    seguirPosicao=false; atualizarBotaoFollow();
-    const atual=Number(mapa.getZoom?.()||13);
-    try{mapa.easeTo({center:coords,zoom:Math.min(17,atual+2),duration:340});}catch(_){}
-  }
-
   function selecionarMarcadorNav(event) {
     const props=event?.features?.[0]?.properties||{};
     const ids=String(props.ids||props.id||'').split(',').map(v=>v.trim()).filter(Boolean);
@@ -223,7 +192,7 @@
 
   function garantirCamadas() {
     if (!mapa || !mapReady) return;
-    adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSource(SOURCE_NEXT, fc([])); adicionarSourceParadas();
+    adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSourceParadas();
     garantirImagemBalao();
     const before = antesRotulos();
     if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4,13,5.5,16,8,18,9],'line-opacity':.9,'line-blur':0}}, before);
@@ -266,8 +235,6 @@
       filter:['all',['>',['get','multi'],1],['==',['get','current'],true]],
       layout:{...layoutMarcadorV12,'icon-allow-overlap':true,'icon-ignore-placement':true}});
 
-    if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
-    if (mapa.getStyle()?.glyphs && !mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
 
   function ocultarFallbackMapa() {
@@ -378,7 +345,7 @@
       if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) return;
       const atual = [lon, lat];
       const anterior = limpa[limpa.length - 1];
-      if (!anterior || distanciaMetros({ lon: anterior[0], lat: anterior[1] }, { lon: atual[0], lat: atual[1] }) > 0.35) limpa.push(atual);
+      if (!anterior || haversine(anterior, atual) > 0.35) limpa.push(atual);
     });
     return limpa;
   }
@@ -389,7 +356,7 @@
     const partes = orig.map(limparLinhaRota).filter(linha => linha.length >= 2);
     if (!partes.length) return null;
 
-    const distanciaCoord = (a, b) => distanciaMetros({ lon: a[0], lat: a[1] }, { lon: b[0], lat: b[1] });
+    const distanciaCoord = (a, b) => haversine(a, b);
     const unidas = [];
     let atual = partes[0].slice();
     const LIMITE_JUNCAO_M = 8;
@@ -421,7 +388,6 @@
     if (!mapa || !mapReady) return;
     const p = proxima();
     setSource(SOURCE_DRIVER, fc(ultimaPosicao && coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon) ? [{type:'Feature',properties:{heading:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):0,mode:navegacaoInternaAtiva()?'internal':'external'},geometry:{type:'Point',coordinates:[Number(ultimaPosicao.lon),Number(ultimaPosicao.lat)]}}] : []));
-    setSource(SOURCE_NEXT, fc([])); // O destaque é feito na mesma camada numerada; evita marcador duplicado.
     const ordenadas = paradasPorOrdem();
     const grupos = new Map();
     ordenadas.forEach((stop, i) => {
@@ -570,20 +536,9 @@
     }
     if($('navStopCard')) $('navStopCard').dataset.status = String(p?.statusEntrega || 'pendente');
     atualizarStatusCard(p);
-    renderizarListaNavegacao();
     if(global.appState?.navegacao){global.appState.navegacao.paradaExibidaId=p?.id||null;global.appState.navegacao.proximaParadaId=proxima()?.id||null;}
     const idNota=String(p?.id||'');
     if(idNota!==ultimoIdNota){ultimoIdNota=idNota;if($('navDeliveryNote'))$('navDeliveryNote').value=String(p?.observacaoEntrega||'');}
-    if($('navRemaining')) $('navRemaining').textContent=String(ordemPendente.length);
-    const leg=rota?.pernas?.[0]||null;
-    if($('navDistanceNext')) $('navDistanceNext').textContent=formatarDistancia(leg?.distance);
-    if($('navEtaNext')) $('navEtaNext').textContent=formatarTempo(leg?.time);
-    if($('navRouteTotal')) $('navRouteTotal').textContent=formatarDistancia(rota?.distanciaTotalMetros);
-    if($('navRouteTime')) $('navRouteTime').textContent=formatarTempo(rota?.duracaoDirecaoSegundos);
-    const duracaoRestante = Number(rota?.duracaoTotalSegundos);
-    if ($('navEtaCard')) $('navEtaCard').style.display = Number.isFinite(duracaoRestante) ? 'grid' : 'none';
-    if ($('navEtaTime')) $('navEtaTime').textContent = horaLocal(rota?.horarioTerminoEstimado);
-    if ($('navEtaRemaining')) $('navEtaRemaining').textContent = Number.isFinite(duracaoRestante) ? `aprox. ${formatarTempo(duracaoRestante)} restantes` : 'Calculando previsão';
     const list=$('navInstructions'); if(list){list.replaceChildren();(Array.isArray(rota?.instrucoes)?rota.instrucoes.slice(0,5):[]).forEach((inst,i)=>{const item=document.createElement('div');item.className='nav-instruction';const n=document.createElement('span');n.textContent=String(i+1);const t=document.createElement('div'),strong=document.createElement('strong'),meta=document.createElement('small');strong.textContent=inst.texto||'Continue';meta.textContent=`${formatarDistancia(inst.distancia)} · ${formatarTempo(inst.tempo)}`;t.append(strong,meta);item.append(n,t);list.append(item);});}
     atualizarFontesPontos();
   }
@@ -656,22 +611,6 @@
     }
     posicaoAnterior = { ...ultimaPosicao };
     const nearest=nearestOnRoute(ultimaPosicao); atualizarProgressoVisual(nearest); atualizarInstrucao(nearest);
-    const coords = geometriaPontos(rota?.geometria);
-    if (nearest && coords.length) {
-      const firstLeg = rota?.pernas?.[0] || null;
-      const stepEnds = (firstLeg?.steps || []).map(st => Number(st?.to_index)).filter(Number.isFinite);
-      const legEndIndex = stepEnds.length ? Math.max(...stepEnds) : Math.min(coords.length - 1, nearest.index + 1);
-      const dNextRoute = distanciaAoLongo(coords, nearest.index, legEndIndex, nearest.point);
-      const legDistance = Number(firstLeg?.distance || 0), legTime = Number(firstLeg?.time || 0);
-      const etaNext = legDistance > 0 && legTime >= 0 && Number.isFinite(dNextRoute) ? dNextRoute * (legTime / legDistance) : null;
-      if ($('navDistanceNext')) $('navDistanceNext').textContent = formatarDistancia(dNextRoute);
-      if ($('navEtaNext')) $('navEtaNext').textContent = formatarTempo(etaNext);
-      const dRemaining = distanciaAoLongo(coords, nearest.index, coords.length - 1, nearest.point);
-      const totalDistance = Number(rota?.distanciaTotalMetros || 0), totalTime = Number(rota?.duracaoDirecaoSegundos || 0);
-      const tRemaining = totalDistance > 0 && totalTime >= 0 ? dRemaining * (totalTime / totalDistance) : null;
-      if ($('navRouteTotal')) $('navRouteTotal').textContent = formatarDistancia(dRemaining);
-      if ($('navRouteTime')) $('navRouteTime').textContent = formatarTempo(tRemaining);
-    }
     const p=proxima(); if(p&&coordenadaValida(p.latitude,p.longitude)){
       const d=haversine([ultimaPosicao.lon,ultimaPosicao.lat],[Number(p.longitude),Number(p.latitude)]);
       if(d<=120) falar(`Aproximando-se da próxima parada: ${p.enderecoOriginal||'destino'}`,`stop:${p.id}:near`);
@@ -843,21 +782,6 @@
     panel.dataset.state=estadoPainelNav;
   }
 
-  function renderizarListaNavegacao(){
-    const list=$('navStopsOverviewList'); if(!list||!rota)return;
-    list.replaceChildren(); const ordenadas=paradasPorOrdem();
-    if($('navStopsOverviewMeta')) $('navStopsOverviewMeta').textContent=`${ordenadas.length} paradas`;
-    ordenadas.forEach((p,i)=>{
-      const row=document.createElement('button'); row.type='button'; row.className='nav-stop-overview-row';
-      if(String(p.id)===String(cartaoSelecionadoId))row.classList.add('is-selected');
-      const st=String(p.statusEntrega||'pendente'); row.dataset.status=st;
-      const qtd=global.PacoteEMatoOperacoesPacotes?.quantidadePacotesFisicos?.(rota,p)??(p.pacotes?.length||0);
-      row.innerHTML=`<span class="nav-stop-overview-order">${i+1}</span><span class="nav-stop-overview-copy"><strong>${String(p.enderecoOriginal||'Endereço não informado').replace(/</g,'&lt;')}</strong><small>${qtd} ${qtd===1?'pacote':'pacotes'} · ${st==='nao_entregue'?'Não entregue':(['entregue','concluida'].includes(st)?'Entregue':'Pendente')}</small></span>`;
-      row.addEventListener('click',()=>{cartaoSelecionadoId=p.id;atualizarPainel();persistirSelecao({motivo:'selecionar_lista_navegacao'});if(mapa&&mapReady&&coordenadaValida(p.latitude,p.longitude))mapa.easeTo({center:[Number(p.longitude),Number(p.latitude)],zoom:Math.max(15,mapa.getZoom()),duration:300});});
-      list.appendChild(row);
-    });
-  }
-
   function atualizarStatusCard(p){
     const badge=$('navStopStatusBadge'),delivery=$('navDeliveredBtn'),fail=$('navNotDeliveredBtn'),undo=$('navUndoStatusBtn');
     const status=String(p?.statusEntrega||'pendente'); const finalizado=['entregue','concluida','nao_entregue'].includes(status);
@@ -895,8 +819,6 @@
       else atualizarFontesPontos();
     }finally{processandoStatus=false;}
   }
-
-  function irParaProximaPendente(){ const p=proxima(); if(!p)return; cartaoSelecionadoId=p.id; atualizarPainel();persistirSelecao({motivo:'avancar_proxima_pendente'});if(mapa&&mapReady&&coordenadaValida(p.latitude,p.longitude))mapa.easeTo({center:[Number(p.longitude),Number(p.latitude)],duration:300}); }
 
   function bind(){
     definirPainelNav('collapsed');
@@ -949,5 +871,5 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true}); else bind();
-  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar,irParaProximaPendente});
+  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar});
 })(window);
