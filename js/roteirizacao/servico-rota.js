@@ -127,7 +127,10 @@
       mode, start, end: rota.pontoFinal ? coord(rota.pontoFinal) : null,
       returnToStart: rota.retornarAoInicio === true,
       stopDurationSeconds: Math.max(0, Number(rota.tempoParadaSegundos || 0)),
-      traffic: 'approximated', type: tipoRota(rota),
+      // Planejamento operacional: usa fluxo livre para não inflar a previsão com
+      // congestionamento histórico/estimado. O tempo de atendimento continua
+      // sendo considerado separadamente pelo Route Planner.
+      traffic: 'free_flow', type: tipoRota(rota),
       stops: pendentes.map(p => ({ id: String(p.id), location: coord(p), duration: Math.max(0, Number(rota.tempoParadaSegundos || 0)) }))
     }, Number(cfg().routingRequestTimeoutMs || 45000), 2);
 
@@ -248,7 +251,7 @@
       const resposta = await postComRetry(endpoint('route'), {
         mode,
         points: bloco,
-        traffic: 'approximated',
+        traffic: 'free_flow',
         type: tipoRota(rota),
         intermediateWaypointMode: 'stopover'
       }, Number(cfg().routingRequestTimeoutMs || 45000), 2);

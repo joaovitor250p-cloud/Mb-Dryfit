@@ -1069,7 +1069,7 @@
     const jaLocalizadas = rotaAtual.paradas.filter(paradaLocalizada).length;
     const semCoordenada = Math.max(0, rotaAtual.paradas.length - jaLocalizadas);
     const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx')
-      ? ' As coordenadas da planilha serão conferidas com o endereço somente quando você tocar em “Otimizar rota”.'
+      ? ' Ao otimizar, o app fará uma checagem rápida das posições mais suspeitas. A auditoria completa fica em “Validar endereços e posições”.'
       : '';
     const pendentesTexto = semCoordenada
       ? ` ${semCoordenada} parada(s) sem coordenadas serão localizadas somente na otimização.`
@@ -1153,15 +1153,29 @@
       if (!global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
         throw new Error('Localização automática indisponível nesta versão sem o serviço externo. Nenhuma coordenada será inventada.');
       }
-      if (!opcoes?.silencioso) definirStatusImportacao('Validando endereços...', null);
-      const resumoGeo = await global.PacoteEMatoGeocodificacao.geocodificarParadas(rotaAtual.paradas);
+      if (!opcoes?.silencioso) definirStatusImportacao('Validando endereços e posições...', null);
+
+      const resumoGeo = await global.PacoteEMatoGeocodificacao.geocodificarParadas(rotaAtual.paradas, {
+        concorrencia: 3,
+        gapMs: 220
+      });
+
+      const resumoCoords = await global.PacoteEMatoGeocodificacao.validarCoordenadasImportadas(rotaAtual.paradas, {
+        limiteMetros: 120,
+        somenteXlsx: true,
+        concorrencia: 4,
+        gapMs: 220
+      });
+
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
       if (!opcoes?.silencioso) {
         const problemas = resumoGeo.total - resumoGeo.ok;
-        definirStatusImportacao(`${resumoGeo.ok} endereço(s) localizado(s). ${problemas} parada(s) precisam de correção.`, problemas ? 'warning' : 'success');
+        const corrigidas = Number(resumoCoords?.corrigidas || 0);
+        const textoCorrigidas = corrigidas ? ` ${corrigidas} posição(ões) da planilha corrigida(s).` : '';
+        definirStatusImportacao(`${resumoGeo.ok} endereço(s) localizado(s). ${problemas} parada(s) precisam de correção.${textoCorrigidas}`, problemas ? 'warning' : 'success');
       }
-      return resumoGeo;
+      return { geocodificacao: resumoGeo, coordenadas: resumoCoords };
     } catch (erro) {
       if (!opcoes?.silencioso) {
         definirStatusImportacao(erro?.message || 'Falha ao validar endereços.', 'error');
@@ -1241,26 +1255,45 @@
   }
 
   async function validarCoordenadasXlsxAntesDaRota() {
-    if (!rotaAtual?.paradas?.length || !global.PacoteEMatoGeocodificacao?.validarCoordenadasImportadas) {
-      return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+    const geo = global.PacoteEMatoGeocodificacao;
+    if (!rotaAtual?.paradas?.length || !geo?.validarCoordenadasImportadas) {
+      return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0, modo: 'rapido' };
     }
-    const limparConsulta = global.PacoteEMatoGeocodificacao?.limparEnderecoParaConsulta || (v => String(v || '').trim());
+    const limparConsulta = geo?.limparEnderecoParaConsulta || (v => String(v || '').trim());
     const pendentes = rotaAtual.paradas.filter(p => {
       if (String(p?.fonteCoordenada || '') !== 'xlsx') return false;
       if (p?.statusEntrega === 'entregue' || p?.statusEntrega === 'concluida' || p?.statusEntrega === 'nao_entregue') return false;
       const consultaAtual = limparConsulta(p?.enderecoOriginal || '');
       return !p?.validacaoCoordenadaStatus || String(p?.validacaoCoordenadaEndereco || '') !== consultaAtual;
     });
-    if (!pendentes.length) return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+    if (!pendentes.length) return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0, modo: 'rapido' };
 
-    atualizarProcessamento('Conferindo posições da planilha', `Validando ${pendentes.length} endereço(s) para evitar paradas no quarteirão errado.`);
-    const resumo = await global.PacoteEMatoGeocodificacao.validarCoordenadasImportadas(rotaAtual.paradas, { limiteMetros: 120, somenteXlsx: true });
+    // V25: a otimização não bloqueia mais a rua validando 100+ pontos um por um.
+    // A checagem rápida escolhe pontos suspeitos e uma amostra distribuída da planilha.
+    // Quem quiser a auditoria completa continua tendo a ação “Validar endereços”.
+    const ids = geo.selecionarCoordenadasParaValidacaoRapida
+      ? geo.selecionarCoordenadasParaValidacaoRapida(rotaAtual.paradas, { maximo: 14 })
+      : pendentes.slice(0, 14).map(p => String(p.id));
+
+    if (!ids.length) return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0, modo: 'rapido' };
+
+    atualizarProcessamento(
+      'Checagem rápida de posições',
+      `Conferindo ${ids.length} de ${pendentes.length} posição(ões) antes de otimizar. A validação completa fica disponível no menu.`
+    );
+    const resumo = await geo.validarCoordenadasImportadas(rotaAtual.paradas, {
+      limiteMetros: 120,
+      somenteXlsx: true,
+      ids,
+      concorrencia: 4,
+      gapMs: 210
+    });
     if (resumo?.corrigidas > 0) {
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
-      notificar(`${resumo.corrigidas} coordenada(s) da planilha foram corrigidas após validação do endereço.`);
+      notificar(`${resumo.corrigidas} posição(ões) suspeita(s) foram corrigidas antes da otimização.`);
     }
-    return resumo || { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+    return Object.assign({ modo: 'rapido', totalPendentes: pendentes.length }, resumo || {});
   }
 
   async function otimizarRota(opcoes) {
@@ -1313,15 +1346,40 @@
       const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(candidata);
       const feature = route.feature;
       candidata.geometria = feature.geometry;
-      candidata.distanciaTotalMetros = Number(feature.properties?.distance || otimizada.distance || 0);
-      candidata.duracaoDirecaoSegundos = Number(feature.properties?.time || otimizada.drivingTime || 0);
       candidata.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
       candidata.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
 
+      // V26: a ordem, a distância e o tempo de planejamento passam a ter uma
+      // única fonte autoritativa: o próprio Route Planner que decidiu a ordem.
+      // A segunda chamada /route existe para desenhar a geometria e obter
+      // instruções detalhadas, mas não substitui as métricas da otimização.
+      const distanciaPlanejador = Number(otimizada.distance);
+      const direcaoPlanejador = Number(otimizada.drivingTime);
+      const totalPlanejador = Number(otimizada.totalTime);
+      const distanciaGeometria = Number(feature.properties?.distance || 0);
+      const direcaoGeometria = Number(feature.properties?.time || 0);
       const pendentes = candidata.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length;
-      candidata.duracaoParadasSegundos = pendentes * Number(candidata.tempoParadaSegundos || 0);
-      candidata.duracaoTotalSegundos = candidata.duracaoDirecaoSegundos + candidata.duracaoParadasSegundos;
-      candidata.duracaoPlanejadorSegundos = Number.isFinite(Number(otimizada.totalTime)) ? Number(otimizada.totalTime) : null;
+      const atendimentoConfigurado = pendentes * Number(candidata.tempoParadaSegundos || 0);
+
+      candidata.distanciaGeometriaMetros = Number.isFinite(distanciaGeometria) && distanciaGeometria > 0 ? distanciaGeometria : null;
+      candidata.duracaoGeometriaSegundos = Number.isFinite(direcaoGeometria) && direcaoGeometria > 0 ? direcaoGeometria : null;
+      candidata.distanciaTotalMetros = Number.isFinite(distanciaPlanejador) && distanciaPlanejador > 0 ? distanciaPlanejador : distanciaGeometria;
+      candidata.duracaoDirecaoSegundos = Number.isFinite(direcaoPlanejador) && direcaoPlanejador > 0 ? direcaoPlanejador : direcaoGeometria;
+
+      // Geoapify documenta `time` como tempo de viagem e `total_time` como
+      // viagem + duração das ações. Portanto, quando o planejador devolve os
+      // dois valores, usamos a diferença para representar exatamente o tempo
+      // de atendimento que ele considerou (ex.: 3 min por parada).
+      const atendimentoPlanejador = Number.isFinite(totalPlanejador) && Number.isFinite(direcaoPlanejador) && totalPlanejador >= direcaoPlanejador
+        ? totalPlanejador - direcaoPlanejador
+        : NaN;
+      candidata.duracaoParadasSegundos = Number.isFinite(atendimentoPlanejador)
+        ? atendimentoPlanejador
+        : atendimentoConfigurado;
+      candidata.duracaoTotalSegundos = Number.isFinite(totalPlanejador) && totalPlanejador > 0
+        ? totalPlanejador
+        : Number(candidata.duracaoDirecaoSegundos || 0) + Number(candidata.duracaoParadasSegundos || 0);
+      candidata.duracaoPlanejadorSegundos = Number.isFinite(totalPlanejador) ? totalPlanejador : null;
       candidata.horarioTerminoEstimado = Date.now() + candidata.duracaoTotalSegundos * 1000;
       candidata.rotaOtimizada = true;
       candidata.precisaRecalculo = false;
@@ -1335,6 +1393,9 @@
         distanciaPlanejadorMetros: Number(otimizada.distance || 0),
         tempoDirecaoPlanejadorSegundos: Number(otimizada.drivingTime || 0),
         totalPlanejadorSegundos: Number(otimizada.totalTime || 0),
+        distanciaGeometriaMetros: Number(feature.properties?.distance || 0),
+        tempoGeometriaSegundos: Number(feature.properties?.time || 0),
+        trafegoPlanejamento: 'free_flow',
         geometriaSegmentada: route.segmentado === true,
         segmentosGeometria: Number(route.segmentos || 1)
       };
@@ -1826,7 +1887,25 @@
     global.addEventListener('pemato:config:update', event => aplicarConfiguracoesNaRota(event.detail));
     global.addEventListener('pemato:worker:update', () => { renderizarPreferencias(); atualizarDisponibilidadeAcoes(); atualizarAcaoPrincipal(); });
     global.addEventListener('pemato:geo:update', () => { renderizarResumo(); renderizarLista(); global.PacoteEMatoMapa?.renderizar(); });
-    global.addEventListener('pemato:geo:progress', () => renderizarResumo());
+    global.addEventListener('pemato:geo:progress', event => {
+      renderizarResumo();
+      const overlay = $('routingBusyOverlay');
+      const detalhe = event.detail || {};
+      if ((!overlay || overlay.style.display === 'none') && Number(detalhe.total || 0) > 0) {
+        definirStatusImportacao(`Localizando endereços: ${Math.min(Number(detalhe.processadas || 0), Number(detalhe.total || 0))}/${Number(detalhe.total || 0)}.`, null);
+      }
+    });
+    global.addEventListener('pemato:geo:coordinate-validation-progress', event => {
+      const overlay = $('routingBusyOverlay');
+      const detalhe = event.detail || {};
+      if (Number(detalhe.total || 0) <= 0) return;
+      const texto = `Conferindo posições: ${Math.min(Number(detalhe.processadas || 0), Number(detalhe.total || 0))}/${Number(detalhe.total || 0)}.`;
+      if (overlay && overlay.style.display !== 'none') {
+        atualizarProcessamento('Checagem rápida de posições', texto);
+      } else {
+        definirStatusImportacao(texto, null);
+      }
+    });
     global.addEventListener('pemato:rota:salva', e => {
       if (e.detail?.rota?.id === rotaAtual?.id) global.PacoteEMatoAppShell?.atualizarInicio?.();
     });

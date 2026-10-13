@@ -4,6 +4,7 @@
   const provider = 'geoapify-worker';
   let execucaoAtual = 0;
   let ultimoInicioRequisicao = 0;
+  let filaInicioRequisicao = Promise.resolve();
 
   function config() {
     return global.PEMATO_MAP_CONFIG || {};
@@ -208,15 +209,19 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function respeitarIntervalo() {
-    const gap = Math.max(0, Number(config().geocodingRequestGapMs || 0));
-    const agora = Date.now();
-    const espera = Math.max(0, ultimoInicioRequisicao + gap - agora);
-    if (espera) await esperar(espera);
-    ultimoInicioRequisicao = Date.now();
+  async function respeitarIntervalo(gapOverride) {
+    const gap = Math.max(0, Number(gapOverride ?? config().geocodingRequestGapMs ?? 0));
+    const tarefa = filaInicioRequisicao.then(async () => {
+      const agora = Date.now();
+      const espera = Math.max(0, ultimoInicioRequisicao + gap - agora);
+      if (espera) await esperar(espera);
+      ultimoInicioRequisicao = Date.now();
+    });
+    filaInicioRequisicao = tarefa.catch(() => {});
+    await tarefa;
   }
 
-  async function consultarWorker(parada) {
+  async function consultarWorker(parada, opcoes) {
     const endpoint = endpointAtual();
     if (!endpoint) {
       const erro = new Error('Endpoint de geocodificação não configurado.');
@@ -224,7 +229,7 @@
       throw erro;
     }
 
-    await respeitarIntervalo();
+    await respeitarIntervalo(opcoes?.gapMs);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), Number(config().geocodingRequestTimeoutMs || 12000));
@@ -264,7 +269,7 @@
     }
   }
 
-  async function geocodificarUma(parada, execucaoId) {
+  async function geocodificarUma(parada, execucaoId, opcoes) {
     if (!parada || execucaoId !== execucaoAtual) return;
 
     parada.enderecoConsulta = limparEnderecoParaConsulta(parada.enderecoOriginal);
@@ -289,7 +294,7 @@
     emitir('pemato:geo:update', { paradaId: parada.id });
 
     try {
-      const resposta = await consultarWorker(parada);
+      const resposta = await consultarWorker(parada, { gapMs: opcoes?.gapMs });
       if (execucaoId !== execucaoAtual) return;
 
       const validacao = avaliarResultados(parada, resposta);
@@ -344,19 +349,130 @@
     return contagem;
   }
 
+  function medianaNumeros(valores) {
+    const nums = (Array.isArray(valores) ? valores : []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+    if (!nums.length) return null;
+    const meio = Math.floor(nums.length / 2);
+    return nums.length % 2 ? nums[meio] : (nums[meio - 1] + nums[meio]) / 2;
+  }
+
+  function selecionarCoordenadasParaValidacaoRapida(paradas, opcoes) {
+    const lista = Array.isArray(paradas) ? paradas : [];
+    const maximo = Math.max(4, Number(opcoes?.maximo || 14));
+    const candidatas = lista.filter(p => {
+      if (!coordenadasValidas(p?.latitude, p?.longitude)) return false;
+      if (String(p?.fonteCoordenada || '') !== 'xlsx') return false;
+      if (['entregue', 'concluida', 'nao_entregue'].includes(String(p?.statusEntrega || ''))) return false;
+      const consulta = limparEnderecoParaConsulta(p?.enderecoOriginal || '');
+      if (!consulta) return false;
+      return !p?.validacaoCoordenadaStatus || String(p?.validacaoCoordenadaEndereco || '') !== consulta;
+    });
+    if (candidatas.length <= maximo) return candidatas.map(p => String(p.id));
+
+    const latMed = medianaNumeros(candidatas.map(p => p.latitude));
+    const lonMed = medianaNumeros(candidatas.map(p => p.longitude));
+    const porCoord = new Map();
+    const porCep = new Map();
+    const porBairro = new Map();
+
+    const pushGrupo = (mapa, chave, parada) => {
+      const k = normalizarTexto(chave || '');
+      if (!k) return;
+      if (!mapa.has(k)) mapa.set(k, []);
+      mapa.get(k).push(parada);
+    };
+
+    candidatas.forEach(p => {
+      const ck = `${Number(p.latitude).toFixed(5)},${Number(p.longitude).toFixed(5)}`;
+      if (!porCoord.has(ck)) porCoord.set(ck, []);
+      porCoord.get(ck).push(p);
+      pushGrupo(porCep, p.cep, p);
+      pushGrupo(porBairro, p.bairro, p);
+    });
+
+    const score = new Map(candidatas.map(p => [String(p.id), 0]));
+    const somar = (p, n) => score.set(String(p.id), Number(score.get(String(p.id)) || 0) + n);
+
+    porCoord.forEach(grupo => {
+      if (grupo.length < 2) return;
+      const enderecos = new Set(grupo.map(p => normalizarTexto(p.enderecoOriginal)));
+      if (enderecos.size > 1) grupo.forEach(p => somar(p, 120));
+    });
+
+    if (Number.isFinite(latMed) && Number.isFinite(lonMed)) {
+      candidatas.forEach(p => {
+        const d = distanciaMetros(p.latitude, p.longitude, latMed, lonMed);
+        if (d > 20000) somar(p, 100);
+        else if (d > 10000) somar(p, 60);
+      });
+    }
+
+    const pontuarGrupo = (grupos, minItens, limite, peso) => {
+      grupos.forEach(grupo => {
+        if (grupo.length < minItens) return;
+        const glat = medianaNumeros(grupo.map(p => p.latitude));
+        const glon = medianaNumeros(grupo.map(p => p.longitude));
+        if (!Number.isFinite(glat) || !Number.isFinite(glon)) return;
+        grupo.forEach(p => {
+          const d = distanciaMetros(p.latitude, p.longitude, glat, glon);
+          if (d > limite) somar(p, peso);
+        });
+      });
+    };
+    pontuarGrupo(porCep, 2, 1800, 70);
+    pontuarGrupo(porBairro, 3, 5000, 45);
+
+    const escolhidas = [];
+    const ids = new Set();
+    const adicionar = p => {
+      const id = String(p?.id || '');
+      if (!id || ids.has(id) || escolhidas.length >= maximo) return;
+      ids.add(id);
+      escolhidas.push(id);
+    };
+
+    candidatas
+      .slice()
+      .sort((a, b) => Number(score.get(String(b.id)) || 0) - Number(score.get(String(a.id)) || 0))
+      .filter(p => Number(score.get(String(p.id)) || 0) > 0)
+      .forEach(adicionar);
+
+    // Completa a checagem rápida com uma amostra distribuída pela planilha.
+    // Assim não validamos 100+ endereços antes de liberar o motorista, mas
+    // também não olhamos apenas o começo da lista.
+    const restantes = candidatas.filter(p => !ids.has(String(p.id)));
+    const vagas = Math.max(0, maximo - escolhidas.length);
+    if (vagas && restantes.length) {
+      for (let i = 0; i < vagas; i++) {
+        const indice = vagas === 1 ? Math.floor(restantes.length / 2) : Math.round(i * (restantes.length - 1) / Math.max(1, vagas - 1));
+        adicionar(restantes[indice]);
+      }
+    }
+    return escolhidas;
+  }
+
   async function validarCoordenadasImportadas(paradas, opcoes) {
     const lista = Array.isArray(paradas) ? paradas : [];
     const limiteMetros = Math.max(50, Number(opcoes?.limiteMetros || 120));
     const somenteXlsx = opcoes?.somenteXlsx !== false;
     const forcar = opcoes?.forcar === true;
-    const candidatas = lista.filter(p => {
+    const idsPermitidos = Array.isArray(opcoes?.ids) && opcoes.ids.length
+      ? new Set(opcoes.ids.map(v => String(v)))
+      : null;
+    const maximo = Number.isFinite(Number(opcoes?.maximo)) ? Math.max(1, Number(opcoes.maximo)) : Infinity;
+    const concorrencia = Math.max(1, Math.min(6, Number(opcoes?.concorrencia || 1)));
+    const gapMs = Math.max(0, Number(opcoes?.gapMs ?? config().geocodingRequestGapMs ?? 0));
+
+    let candidatas = lista.filter(p => {
       if (!coordenadasValidas(p?.latitude, p?.longitude)) return false;
       if (somenteXlsx && String(p?.fonteCoordenada || '') !== 'xlsx') return false;
+      if (idsPermitidos && !idsPermitidos.has(String(p?.id || ''))) return false;
       const consulta = limparEnderecoParaConsulta(p?.enderecoOriginal || '');
       if (!consulta) return false;
       if (!forcar && String(p?.validacaoCoordenadaEndereco || '') === consulta && p?.validacaoCoordenadaStatus) return false;
       return true;
     });
+    if (Number.isFinite(maximo)) candidatas = candidatas.slice(0, maximo);
 
     const resumoValidacao = {
       total: candidatas.length,
@@ -370,7 +486,9 @@
     if (!candidatas.length) return resumoValidacao;
 
     const cache = global.PacoteEMatoGeoCache;
-    for (const parada of candidatas) {
+    let cursor = 0;
+
+    async function processarParada(parada) {
       const consulta = limparEnderecoParaConsulta(parada.enderecoOriginal);
       parada.enderecoConsulta = consulta;
       try {
@@ -378,7 +496,7 @@
         const registro = cache ? await cache.obter(provider, consulta) : null;
         if (registro?.payload) validacao = registro.payload;
         if (!validacao) {
-          const resposta = await consultarWorker({ enderecoConsulta: consulta });
+          const resposta = await consultarWorker({ enderecoConsulta: consulta }, { gapMs });
           validacao = avaliarResultados(parada, resposta);
           if (cache && ['ok', 'nao_encontrado', 'ambiguo'].includes(validacao.status)) {
             const ttl = validacao.status === 'ok' ? Number(config().geocodingCacheTtlMs) : Number(config().geocodingNegativeCacheTtlMs);
@@ -425,52 +543,77 @@
       resumoValidacao.processadas++;
       emitir('pemato:geo:coordinate-validation-progress', { ...resumoValidacao, paradaId: parada.id });
     }
+
+    async function workerValidacao() {
+      while (true) {
+        const atual = cursor++;
+        if (atual >= candidatas.length) return;
+        await processarParada(candidatas[atual]);
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(concorrencia, candidatas.length) }, () => workerValidacao()));
     return resumoValidacao;
   }
 
-  async function geocodificarParadas(paradas) {
+  async function geocodificarParadas(paradas, opcoes) {
     const lista = Array.isArray(paradas) ? paradas : [];
     const minhaExecucao = ++execucaoAtual;
+    const concorrencia = Math.max(1, Math.min(5, Number(opcoes?.concorrencia || 3)));
+    const gapMs = Math.max(0, Number(opcoes?.gapMs ?? 220));
+    let cursor = 0;
+    let processadas = 0;
+    let falhaGlobal = null;
 
-    for (let i = 0; i < lista.length; i++) {
-      if (minhaExecucao !== execucaoAtual) break;
-      const parada = lista[i];
-      if (parada.statusGeocodificacao === 'ok' && coordenadasValidas(parada.latitude, parada.longitude)) {
-        emitir('pemato:geo:progress', { ...resumo(lista), processadas: i + 1 });
-        continue;
-      }
-
-      const status = await geocodificarUma(parada, minhaExecucao);
-      const atual = resumo(lista);
-      if (global.appState?.roteirizacao) global.appState.roteirizacao.geocodificacaoResumo = atual;
-      emitir('pemato:geo:progress', { ...atual, processadas: i + 1 });
-
-      // Se o Worker ainda não foi publicado/configurado ou ficou indisponível,
-      // não dispara dezenas de requisições inúteis para a mesma rota.
-      if (status === 'nao_configurado' || (status === 'erro' && parada.erroGeocodificacaoCodigo)) {
-        for (let j = i + 1; j < lista.length; j++) {
-          if (lista[j].statusGeocodificacao === 'pendente') {
-            lista[j].statusGeocodificacao = status === 'nao_configurado' ? 'nao_configurado' : 'erro';
-            lista[j].erroGeocodificacao = parada.erroGeocodificacao || '';
-            lista[j].erroGeocodificacaoCodigo = parada.erroGeocodificacaoCodigo || '';
-          }
+    async function workerGeo() {
+      while (minhaExecucao === execucaoAtual && !falhaGlobal) {
+        const i = cursor++;
+        if (i >= lista.length) return;
+        const parada = lista[i];
+        if (parada.statusGeocodificacao === 'ok' && coordenadasValidas(parada.latitude, parada.longitude)) {
+          processadas++;
+          emitir('pemato:geo:progress', { ...resumo(lista), processadas });
+          continue;
         }
-        break;
+
+        const status = await geocodificarUma(parada, minhaExecucao, { gapMs });
+        processadas++;
+        const atual = resumo(lista);
+        if (global.appState?.roteirizacao) global.appState.roteirizacao.geocodificacaoResumo = atual;
+        emitir('pemato:geo:progress', { ...atual, processadas });
+
+        if (status === 'nao_configurado' || (status === 'erro' && parada.erroGeocodificacaoCodigo)) {
+          falhaGlobal = {
+            status,
+            erro: parada.erroGeocodificacao || '',
+            codigo: parada.erroGeocodificacaoCodigo || ''
+          };
+          return;
+        }
       }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(concorrencia, Math.max(1, lista.length)) }, () => workerGeo()));
+
+    if (falhaGlobal) {
+      lista.forEach(p => {
+        if (p.statusGeocodificacao === 'pendente') {
+          p.statusGeocodificacao = falhaGlobal.status === 'nao_configurado' ? 'nao_configurado' : 'erro';
+          p.erroGeocodificacao = falhaGlobal.erro;
+          p.erroGeocodificacaoCodigo = falhaGlobal.codigo;
+        }
+      });
     }
 
     const final = resumo(lista);
     if (global.appState?.roteirizacao) global.appState.roteirizacao.geocodificacaoResumo = final;
-    if (minhaExecucao === execucaoAtual) {
-      emitir('pemato:geo:complete', final);
-    }
-
+    if (minhaExecucao === execucaoAtual) emitir('pemato:geo:complete', final);
     return final;
   }
 
   async function geocodificarParada(parada) {
     const minhaExecucao = ++execucaoAtual;
-    await geocodificarUma(parada, minhaExecucao);
+    await geocodificarUma(parada, minhaExecucao, { gapMs: 180 });
     return parada;
   }
 
@@ -531,6 +674,7 @@
     geocodificarParada,
     geocodificarEnderecoLivre,
     consultarSugestoesEndereco,
+    selecionarCoordenadasParaValidacaoRapida,
     validarCoordenadasImportadas,
     distanciaMetros,
     resumo,

@@ -402,7 +402,9 @@
       grupo.sort((a,b) => a.order - b.order);
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      const principal = grupoVisual[0];
+      const idSelecionado = String(cartaoSelecionadoId || p?.id || '');
+      const selecionado = grupoVisual.find(item => String(item.stop?.id || '') === idSelecionado);
+      const principal = selecionado || grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);

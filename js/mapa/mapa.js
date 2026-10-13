@@ -108,7 +108,11 @@
       grupo.sort((a,b) => ordem(a) - ordem(b));
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      const p = grupoVisual[0];
+      // V26: em um endereço com várias paradas/pacotes, o marcador representa
+      // a parada que o motorista selecionou na lista. Assim, selecionar 82
+      // troca o rótulo 81 -> 82 sem inventar outra coordenada.
+      const pSelecionada = grupoVisual.find(item => String(item.id) === String(selectedId));
+      const p = pSelecionada || grupoVisual[0];
       const totalPacotes = grupoVisual.reduce((total, item) => total + quantidadePacotesDaParada(item), 0);
       const lat = Number(p.latitude), lon = Number(p.longitude);
       // Agrupa visualmente pontos muito próximos para que os balões sejam

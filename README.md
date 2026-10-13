@@ -226,3 +226,11 @@ Corrigido o erro de execução `featureCollection is not defined` que impedia o 
 - Coordenadas XLSX são validadas somente na etapa de otimização.
 - Antes da otimização, mapa/lista/card não exibem números de sequência.
 - Após otimização concluída, a numeração oficial aparece normalmente.
+
+## V25 — validação rápida para uso em rua
+
+A otimização não bloqueia mais o motorista validando todas as coordenadas XLSX antes de calcular a rota. A checagem automática prioriza pontos suspeitos e uma amostra distribuída (até 14 pontos). A auditoria completa continua disponível no menu em **Validar endereços e posições**.
+
+## V26 — métricas do otimizador + ETA estável + seleção de múltiplas
+
+O planejamento passa a usar `free_flow` para evitar previsão inflada por tráfego histórico/aproximado. Distância e tempo exibidos depois da otimização vêm do mesmo Route Planner que definiu a sequência; a chamada de geometria fica responsável por linha e instruções. Em endereços com paradas múltiplas, selecionar uma parada na lista agora faz o marcador do grupo mostrar o número daquela parada selecionada.
