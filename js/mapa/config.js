@@ -41,6 +41,9 @@
     geocodingProvider: 'geoapify-worker',
     geocodingRequestTimeoutMs: 12000,
     routingRequestTimeoutMs: 45000,
+    // Rotas grandes são divididas em blocos no cliente antes de chamar o Worker.
+    // 24 pontos reduz URL/carga do Routing API e evita 5xx em rotas de 100+ paradas.
+    routingMaxPointsPerRequest: 24,
     geocodingRequestGapMs: 400,
     geocodingCacheTtlMs: 90 * 24 * 60 * 60 * 1000,
     geocodingNegativeCacheTtlMs: 24 * 60 * 60 * 1000,

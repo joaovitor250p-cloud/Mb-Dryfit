@@ -211,3 +211,7 @@ A V18 restaura a mesma base vetorial OpenFreeMap usada na V14, que foi a última
 
 ## V20 — estabilidade do mapa
 A V20 mantém o provedor de mapa existente e corrige o traçado da rota no frontend: a geometria não é mais simplificada/recriada a cada zoom, legs contíguos são unidos com tolerância geográfica pequena e o cartão flutuante lateral de ETA foi removido.
+
+## V22 — coordenadas XLSX e rotas grandes
+
+A V22 adiciona validação endereço x coordenada para pontos importados da planilha, cálculo segmentado da geometria de rotas grandes, retry controlado em falhas transitórias e otimização transacional para impedir estado parcial após erro do serviço. Consulte `RELATORIO-V22-COORDENADAS-ROTA-502.md`.

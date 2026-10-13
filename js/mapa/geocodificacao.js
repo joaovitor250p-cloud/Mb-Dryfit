@@ -66,6 +66,16 @@
     return Number.isFinite(a) && Number.isFinite(o) && a >= -90 && a <= 90 && o >= -180 && o <= 180;
   }
 
+  function distanciaMetros(lat1, lon1, lat2, lon2) {
+    const toRad = grau => Number(grau) * Math.PI / 180;
+    const a1 = Number(lat1), o1 = Number(lon1), a2 = Number(lat2), o2 = Number(lon2);
+    if (![a1, o1, a2, o2].every(Number.isFinite)) return Infinity;
+    const dLat = toRad(a2 - a1);
+    const dLon = toRad(o2 - o1);
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a1)) * Math.cos(toRad(a2)) * Math.sin(dLon / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
   function numeroSolicitado(parada) {
     // Rotas XLSX/manuais usam `numero`; o legado pode usar `numeroImovel` ou chaveFisica.
     const explicito = String(parada?.numero ?? parada?.numeroImovel ?? '').trim();
@@ -334,6 +344,90 @@
     return contagem;
   }
 
+  async function validarCoordenadasImportadas(paradas, opcoes) {
+    const lista = Array.isArray(paradas) ? paradas : [];
+    const limiteMetros = Math.max(50, Number(opcoes?.limiteMetros || 120));
+    const somenteXlsx = opcoes?.somenteXlsx !== false;
+    const forcar = opcoes?.forcar === true;
+    const candidatas = lista.filter(p => {
+      if (!coordenadasValidas(p?.latitude, p?.longitude)) return false;
+      if (somenteXlsx && String(p?.fonteCoordenada || '') !== 'xlsx') return false;
+      const consulta = limparEnderecoParaConsulta(p?.enderecoOriginal || '');
+      if (!consulta) return false;
+      if (!forcar && String(p?.validacaoCoordenadaEndereco || '') === consulta && p?.validacaoCoordenadaStatus) return false;
+      return true;
+    });
+
+    const resumoValidacao = {
+      total: candidatas.length,
+      processadas: 0,
+      confirmadas: 0,
+      corrigidas: 0,
+      naoConfirmadas: 0,
+      erros: 0,
+      limiteMetros
+    };
+    if (!candidatas.length) return resumoValidacao;
+
+    const cache = global.PacoteEMatoGeoCache;
+    for (const parada of candidatas) {
+      const consulta = limparEnderecoParaConsulta(parada.enderecoOriginal);
+      parada.enderecoConsulta = consulta;
+      try {
+        let validacao = null;
+        const registro = cache ? await cache.obter(provider, consulta) : null;
+        if (registro?.payload) validacao = registro.payload;
+        if (!validacao) {
+          const resposta = await consultarWorker({ enderecoConsulta: consulta });
+          validacao = avaliarResultados(parada, resposta);
+          if (cache && ['ok', 'nao_encontrado', 'ambiguo'].includes(validacao.status)) {
+            const ttl = validacao.status === 'ok' ? Number(config().geocodingCacheTtlMs) : Number(config().geocodingNegativeCacheTtlMs);
+            await cache.salvar(provider, consulta, validacao, ttl);
+          }
+        }
+
+        parada.validacaoCoordenadaEndereco = consulta;
+        parada.validacaoCoordenadaEm = Date.now();
+        parada.validacaoCoordenadaStatus = String(validacao?.status || 'erro');
+
+        if (validacao?.status === 'ok' && validacao.resultado && coordenadasValidas(validacao.resultado.lat, validacao.resultado.lon)) {
+          const distancia = distanciaMetros(parada.latitude, parada.longitude, validacao.resultado.lat, validacao.resultado.lon);
+          parada.validacaoCoordenadaDistanciaMetros = Math.round(distancia);
+          if (distancia > limiteMetros) {
+            parada.coordenadaPlanilhaOriginal = parada.coordenadaPlanilhaOriginal || {
+              latitude: Number(parada.latitude),
+              longitude: Number(parada.longitude)
+            };
+            parada.latitude = Number(validacao.resultado.lat);
+            parada.longitude = Number(validacao.resultado.lon);
+            parada.statusGeocodificacao = 'ok';
+            parada.fonteCoordenada = 'geocodificacao-correcao-xlsx';
+            parada.confiabilidade = validacao.resultado.confidence;
+            parada.confiabilidadeRua = validacao.resultado.streetConfidence;
+            parada.precisaoGeocodificacao = 'logradouro_numero_validado';
+            parada.enderecoGeocodificado = validacao.resultado.formatted || '';
+            parada.geocodificacao = validacao.resultado;
+            parada.geocodificadoEm = Date.now();
+            resumoValidacao.corrigidas++;
+          } else {
+            resumoValidacao.confirmadas++;
+          }
+        } else {
+          resumoValidacao.naoConfirmadas++;
+        }
+      } catch (erro) {
+        parada.validacaoCoordenadaEndereco = consulta;
+        parada.validacaoCoordenadaEm = Date.now();
+        parada.validacaoCoordenadaStatus = 'erro';
+        parada.validacaoCoordenadaErro = String(erro?.message || erro || 'Erro desconhecido');
+        resumoValidacao.erros++;
+      }
+      resumoValidacao.processadas++;
+      emitir('pemato:geo:coordinate-validation-progress', { ...resumoValidacao, paradaId: parada.id });
+    }
+    return resumoValidacao;
+  }
+
   async function geocodificarParadas(paradas) {
     const lista = Array.isArray(paradas) ? paradas : [];
     const minhaExecucao = ++execucaoAtual;
@@ -437,6 +531,8 @@
     geocodificarParada,
     geocodificarEnderecoLivre,
     consultarSugestoesEndereco,
+    validarCoordenadasImportadas,
+    distanciaMetros,
     resumo,
     cancelar,
     configurarEndpoint,

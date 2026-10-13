@@ -482,6 +482,7 @@
       return false;
     }
     try {
+      await validarCoordenadasXlsxAntesDaRota();
       const byId = new Map(rotaAtual.paradas.map(p => [p.id, p]));
       (rotaAtual.ordem || []).forEach((id, index) => {
         const parada = byId.get(id);
@@ -1052,7 +1053,9 @@
     const avisos = resultado?.erros?.length || 0;
     const jaLocalizadas = rotaAtual.paradas.filter(paradaLocalizada).length;
     if (jaLocalizadas === rotaAtual.paradas.length) {
-      const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx') ? ' As coordenadas válidas da própria planilha foram preservadas.' : '';
+      const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx')
+        ? ' As coordenadas da planilha foram preservadas e serão conferidas com o endereço antes da otimização.'
+        : '';
       definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s) e prontas para o mapa.${origemCoords} Confira a rota e toque em “Otimizar rota”.`, avisos ? 'warning' : 'success');
       return;
     }
@@ -1229,6 +1232,29 @@
     notificar('Ponto de partida salvo nas configurações.');
   }
 
+  async function validarCoordenadasXlsxAntesDaRota() {
+    if (!rotaAtual?.paradas?.length || !global.PacoteEMatoGeocodificacao?.validarCoordenadasImportadas) {
+      return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+    }
+    const limparConsulta = global.PacoteEMatoGeocodificacao?.limparEnderecoParaConsulta || (v => String(v || '').trim());
+    const pendentes = rotaAtual.paradas.filter(p => {
+      if (String(p?.fonteCoordenada || '') !== 'xlsx') return false;
+      if (p?.statusEntrega === 'entregue' || p?.statusEntrega === 'concluida' || p?.statusEntrega === 'nao_entregue') return false;
+      const consultaAtual = limparConsulta(p?.enderecoOriginal || '');
+      return !p?.validacaoCoordenadaStatus || String(p?.validacaoCoordenadaEndereco || '') !== consultaAtual;
+    });
+    if (!pendentes.length) return { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+
+    atualizarProcessamento('Conferindo posições da planilha', `Validando ${pendentes.length} endereço(s) para evitar paradas no quarteirão errado.`);
+    const resumo = await global.PacoteEMatoGeocodificacao.validarCoordenadasImportadas(rotaAtual.paradas, { limiteMetros: 120, somenteXlsx: true });
+    if (resumo?.corrigidas > 0) {
+      await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+      renderizarTudo({ fit: true });
+      notificar(`${resumo.corrigidas} coordenada(s) da planilha foram corrigidas após validação do endereço.`);
+    }
+    return resumo || { total: 0, corrigidas: 0, confirmadas: 0, naoConfirmadas: 0, erros: 0 };
+  }
+
   async function otimizarRota(opcoes) {
     if (!rotaAtual) return;
     if (!workerConfigurado() || !global.PacoteEMatoServicoRota?.endpoint?.('optimize')) {
@@ -1245,45 +1271,52 @@
       if (unresolved.length) throw new Error(`Localize ou corrija ${unresolved.length} parada(s) antes de otimizar.`);
 
       mostrarProcessamento('Preparando a rota', 'Conferindo ponto de partida e coordenadas.');
+      await validarCoordenadasXlsxAntesDaRota();
       await garantirPontoInicialParaOtimizacao();
 
-      if (!rotaAtual.preferenciaRota) rotaAtual.preferenciaRota = 'short';
+      // A otimização é montada primeiro em uma cópia. Assim, se o serviço de
+      // geometria falhar, a ordem/linha anterior continuam intactas na tela.
+      const candidata = clone(rotaAtual);
+      if (!candidata.preferenciaRota) candidata.preferenciaRota = 'short';
       atualizarProcessamento('Calculando melhor sequência', 'Otimização pela rede viária. Nenhuma distância em linha reta é usada.');
-      const otimizada = await global.PacoteEMatoServicoRota.otimizar(rotaAtual);
+      const otimizada = await global.PacoteEMatoServicoRota.otimizar(candidata);
       const orderIds = Array.isArray(otimizada.orderIds) ? otimizada.orderIds : [];
       if (!orderIds.length) throw new Error('O otimizador não retornou uma ordem de paradas.');
 
-      const ordered = global.PacoteEMatoServicoRota.ordenarParadas(rotaAtual, orderIds);
-      rotaAtual.ordem = ordered.map(p => p.id);
+      const ordered = global.PacoteEMatoServicoRota.ordenarParadas(candidata, orderIds);
+      candidata.ordem = ordered.map(p => p.id);
 
-      atualizarProcessamento('Traçando percurso pelas ruas', 'Calculando a geometria completa, distância e tempo.');
-      const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(rotaAtual);
+      atualizarProcessamento('Traçando percurso pelas ruas', 'Calculando a geometria completa, distância e tempo em blocos seguros.');
+      const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(candidata);
       const feature = route.feature;
-      rotaAtual.geometria = feature.geometry;
-      rotaAtual.distanciaTotalMetros = Number(feature.properties?.distance || otimizada.distance || 0);
-      rotaAtual.duracaoDirecaoSegundos = Number(feature.properties?.time || otimizada.drivingTime || 0);
-      rotaAtual.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
-      rotaAtual.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
+      candidata.geometria = feature.geometry;
+      candidata.distanciaTotalMetros = Number(feature.properties?.distance || otimizada.distance || 0);
+      candidata.duracaoDirecaoSegundos = Number(feature.properties?.time || otimizada.drivingTime || 0);
+      candidata.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
+      candidata.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
 
-      const pendentes = rotaAtual.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length;
-      rotaAtual.duracaoParadasSegundos = pendentes * Number(rotaAtual.tempoParadaSegundos || 0);
-      rotaAtual.duracaoTotalSegundos = rotaAtual.duracaoDirecaoSegundos + rotaAtual.duracaoParadasSegundos;
-      rotaAtual.duracaoPlanejadorSegundos = Number.isFinite(Number(otimizada.totalTime)) ? Number(otimizada.totalTime) : null;
-      rotaAtual.horarioTerminoEstimado = Date.now() + rotaAtual.duracaoTotalSegundos * 1000;
-      rotaAtual.rotaOtimizada = true;
-      rotaAtual.precisaRecalculo = false;
-      rotaAtual.confirmadaEm = null;
-      rotaAtual.status = 'ativa';
-      rotaAtual.otimizadoEm = Date.now();
-      rotaAtual.resumoOtimizacao = {
+      const pendentes = candidata.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length;
+      candidata.duracaoParadasSegundos = pendentes * Number(candidata.tempoParadaSegundos || 0);
+      candidata.duracaoTotalSegundos = candidata.duracaoDirecaoSegundos + candidata.duracaoParadasSegundos;
+      candidata.duracaoPlanejadorSegundos = Number.isFinite(Number(otimizada.totalTime)) ? Number(otimizada.totalTime) : null;
+      candidata.horarioTerminoEstimado = Date.now() + candidata.duracaoTotalSegundos * 1000;
+      candidata.rotaOtimizada = true;
+      candidata.precisaRecalculo = false;
+      candidata.confirmadaEm = null;
+      candidata.status = 'ativa';
+      candidata.otimizadoEm = Date.now();
+      candidata.resumoOtimizacao = {
         provider: otimizada.provider || 'geoapify-route-planner',
-        preferencia: rotaAtual.preferenciaRota || 'short',
-        pontoInicial: clone(rotaAtual.pontoInicial),
+        preferencia: candidata.preferenciaRota || 'short',
+        pontoInicial: clone(candidata.pontoInicial),
         distanciaPlanejadorMetros: Number(otimizada.distance || 0),
         tempoDirecaoPlanejadorSegundos: Number(otimizada.drivingTime || 0),
-        totalPlanejadorSegundos: Number(otimizada.totalTime || 0)
+        totalPlanejadorSegundos: Number(otimizada.totalTime || 0),
+        geometriaSegmentada: route.segmentado === true,
+        segmentosGeometria: Number(route.segmentos || 1)
       };
 
+      rotaAtual = candidata;
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
       definirStatusImportacao('Rota calculada. Confira a sequência antes de iniciar.', 'success');

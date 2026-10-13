@@ -52,8 +52,10 @@
           rate_limited: 'O serviço de rotas atingiu o limite temporário de requisições. Aguarde e tente novamente.',
           optimizer_timeout: 'A otimização demorou mais que o limite do serviço.',
           optimizer_unavailable: 'O otimizador está temporariamente indisponível.',
+          optimizer_error: 'O provedor recusou ou falhou ao otimizar a rota. A rota anterior foi preservada.',
           route_timeout: 'O cálculo da rota demorou mais que o limite do serviço.',
-          route_unavailable: 'O serviço de geometria da rota está temporariamente indisponível.'
+          route_unavailable: 'O serviço de geometria da rota está temporariamente indisponível.',
+          route_error: 'O provedor falhou ao calcular um trecho da rota pelas ruas.'
         };
         const erro = new Error(mensagens[code] || data?.message || `Falha no serviço de rota (${response.status}).`);
         erro.code = code; erro.status = response.status; erro.detail = data;
@@ -86,6 +88,28 @@
     return ['short', 'balanced', 'less_maneuvers'].includes(preferencia) ? preferencia : 'short';
   }
 
+  function esperar(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+  function erroTransitórioRota(erro) {
+    const status = Number(erro?.status || 0);
+    const code = String(erro?.code || '');
+    return status >= 500 || ['optimizer_timeout','optimizer_unavailable','optimizer_error','route_timeout','route_unavailable','route_error'].includes(code);
+  }
+
+  async function postComRetry(url, body, timeoutMs, tentativas) {
+    const total = Math.max(1, Number(tentativas || 1));
+    let ultimoErro = null;
+    for (let i = 0; i < total; i++) {
+      try { return await post(url, body, timeoutMs); }
+      catch (erro) {
+        ultimoErro = erro;
+        if (i >= total - 1 || !erroTransitórioRota(erro)) throw erro;
+        await esperar(700 * (i + 1));
+      }
+    }
+    throw ultimoErro || new Error('Falha no serviço de rota.');
+  }
+
   async function otimizar(rota) {
     const start = coord(rota?.pontoInicial);
     if (!start) throw new Error('Defina um ponto de partida válido antes de otimizar.');
@@ -99,13 +123,13 @@
     if (!pendentes.length) throw new Error('Não existem paradas pendentes para otimizar.');
 
     const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
-    const resultado = await post(endpoint('optimize'), {
+    const resultado = await postComRetry(endpoint('optimize'), {
       mode, start, end: rota.pontoFinal ? coord(rota.pontoFinal) : null,
       returnToStart: rota.retornarAoInicio === true,
       stopDurationSeconds: Math.max(0, Number(rota.tempoParadaSegundos || 0)),
       traffic: 'approximated', type: tipoRota(rota),
       stops: pendentes.map(p => ({ id: String(p.id), location: coord(p), duration: Math.max(0, Number(rota.tempoParadaSegundos || 0)) }))
-    });
+    }, Number(cfg().routingRequestTimeoutMs || 45000), 2);
 
     const naoAtribuidas = Array.isArray(resultado?.issues?.unassignedJobs) ? resultado.issues.unassignedJobs : [];
     const esperado = new Set(pendentes.map(p => String(p.id)));
@@ -154,22 +178,111 @@
     return Array.isArray(linhas) && linhas.length > 0 && linhas.every(l => Array.isArray(l) && l.length >= 2 && l.every(c => Array.isArray(c) && coord({ lon: c[0], lat: c[1] })));
   }
 
+  const MAX_PONTOS_POR_TRECHO = 24;
+
+  function dividirPontos(points, tamanhoMaximo) {
+    const limite = Math.max(3, Number(tamanhoMaximo || MAX_PONTOS_POR_TRECHO));
+    if (points.length <= limite) return [points.slice()];
+    const blocos = [];
+    let inicio = 0;
+    while (inicio < points.length - 1) {
+      const fim = Math.min(points.length, inicio + limite);
+      const bloco = points.slice(inicio, fim);
+      if (bloco.length >= 2) blocos.push(bloco);
+      if (fim >= points.length) break;
+      inicio = fim - 1; // o último ponto também inicia o bloco seguinte
+    }
+    return blocos;
+  }
+
+  function linhasDaGeometria(geometry) {
+    if (!geometriaValida(geometry)) return [];
+    return geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates;
+  }
+
+  function mesclarRespostasRota(respostas) {
+    const linhas = [];
+    const legs = [];
+    const waypoints = [];
+    let distance = 0;
+    let time = 0;
+    let provider = '';
+
+    respostas.forEach((resposta, indiceResposta) => {
+      const feature = resposta?.feature;
+      if (!feature || !geometriaValida(feature.geometry)) return;
+      provider = provider || String(resposta?.provider || '');
+      linhasDaGeometria(feature.geometry).forEach(linha => linhas.push(linha));
+      distance += Math.max(0, Number(feature.properties?.distance || 0));
+      time += Math.max(0, Number(feature.properties?.time || 0));
+      (Array.isArray(feature.properties?.legs) ? feature.properties.legs : []).forEach(leg => legs.push(leg));
+      const ws = Array.isArray(feature.properties?.waypoints) ? feature.properties.waypoints : [];
+      ws.forEach((w, i) => {
+        if (indiceResposta > 0 && i === 0) return;
+        waypoints.push(w);
+      });
+    });
+
+    if (!linhas.length) {
+      const erro = new Error('Nenhum trecho rodoviário válido foi retornado pelo serviço.');
+      erro.code = 'GEOMETRIA_INVALIDA';
+      throw erro;
+    }
+
+    return {
+      ok: true,
+      provider: provider || 'geoapify-routing-segmentado',
+      segmentado: respostas.length > 1,
+      segmentos: respostas.length,
+      feature: {
+        type: 'Feature',
+        geometry: linhas.length === 1 ? { type: 'LineString', coordinates: linhas[0] } : { type: 'MultiLineString', coordinates: linhas },
+        properties: { distance, time, legs, waypoints }
+      }
+    };
+  }
+
+  async function calcularBlocoRota(rota, bloco, blocoIndex, totalBlocos) {
+    const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
+    try {
+      const resposta = await postComRetry(endpoint('route'), {
+        mode,
+        points: bloco,
+        traffic: 'approximated',
+        type: tipoRota(rota),
+        intermediateWaypointMode: 'stopover'
+      }, Number(cfg().routingRequestTimeoutMs || 45000), 2);
+      if (!geometriaValida(resposta?.feature?.geometry)) {
+        const erro = new Error(`O trecho ${blocoIndex + 1}/${totalBlocos} voltou sem geometria rodoviária válida.`);
+        erro.code = 'GEOMETRIA_INVALIDA'; erro.detail = resposta; throw erro;
+      }
+      return resposta;
+    } catch (erro) {
+      const detalheStatus = Number(erro?.detail?.status || erro?.detail?.detail?.status || 0);
+      const msg = detalheStatus
+        ? `Falha ao calcular o trecho ${blocoIndex + 1}/${totalBlocos} da rota (provedor HTTP ${detalheStatus}).`
+        : `Falha ao calcular o trecho ${blocoIndex + 1}/${totalBlocos} da rota.`;
+      const enriquecido = new Error(msg);
+      enriquecido.code = 'ROTA_TRECHO_FALHOU';
+      enriquecido.cause = erro;
+      enriquecido.status = erro?.status || 0;
+      enriquecido.detail = { blocoIndex, totalBlocos, pontos: bloco.length, erro: erro?.detail || null };
+      throw enriquecido;
+    }
+  }
+
   async function calcularRotaPelasRuas(rota, pontosOverride) {
     const points = Array.isArray(pontosOverride) && pontosOverride.length ? pontosOverride.map(coord).filter(Boolean) : pontosDaRota(rota);
     if (points.length < 2) throw new Error('São necessários ao menos dois pontos válidos para calcular a rota.');
-    const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
-    const resposta = await post(endpoint('route'), {
-      mode,
-      points,
-      traffic: 'approximated',
-      type: tipoRota(rota),
-      intermediateWaypointMode: 'stopover'
-    });
-    if (!geometriaValida(resposta?.feature?.geometry)) {
-      const erro = new Error('O serviço respondeu sem uma geometria rodoviária válida. A linha da rota não será simulada.');
-      erro.code = 'GEOMETRIA_INVALIDA'; erro.detail = resposta; throw erro;
+
+    // Rotas grandes não são mais enviadas em uma única chamada. Além de reduzir
+    // o tamanho da URL do provedor, isso evita erros 5xx por excesso de waypoints.
+    const blocos = dividirPontos(points, Number(cfg().routingMaxPointsPerRequest || MAX_PONTOS_POR_TRECHO));
+    const respostas = [];
+    for (let i = 0; i < blocos.length; i++) {
+      respostas.push(await calcularBlocoRota(rota, blocos[i], i, blocos.length));
     }
-    return resposta;
+    return mesclarRespostasRota(respostas);
   }
 
   function textoInstrucao(step) {
