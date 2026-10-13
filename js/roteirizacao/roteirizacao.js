@@ -17,6 +17,9 @@
   let sheetDragStartY = null;
   let sheetDragLastY = null;
   let estadoPainelAntesDesenho = null;
+  let sugestaoEnderecoSelecionada = null;
+  let buscaEnderecoTimer = null;
+  let buscaEnderecoSeq = 0;
 
   function $(id) { return document.getElementById(id); }
   function clone(v) { return global.PacoteEMatoRotaStore?.clone?.(v) || JSON.parse(JSON.stringify(v)); }
@@ -1312,6 +1315,68 @@
     await aplicarOrdemRefinada(novaOrdem, 'inverter', 'Ordem das paradas pendentes invertida.', { abrirRevisao: true });
   }
 
+
+  function esconderSugestoesEndereco() {
+    const box = $('routingAddressSuggestions');
+    if (!box) return;
+    box.style.display = 'none';
+    box.replaceChildren();
+  }
+
+  function textoPrimarioSugestao(item) {
+    const rua = String(item?.street || '').trim();
+    const numero = String(item?.housenumber || '').trim();
+    if (rua) return [rua, numero].filter(Boolean).join(', ');
+    return String(item?.formatted || 'Endereço encontrado').split(',').slice(0,2).join(',').trim();
+  }
+
+  function textoSecundarioSugestao(item) {
+    return [item?.city, item?.state, item?.postcode].map(v => String(v || '').trim()).filter(Boolean).join(' · ');
+  }
+
+  async function atualizarSugestoesEndereco(texto) {
+    const box = $('routingAddressSuggestions');
+    if (!box) return;
+    const termo = String(texto || '').trim();
+    if (termo.length < 4 || !global.PacoteEMatoGeocodificacao?.consultarSugestoesEndereco) { esconderSugestoesEndereco(); return; }
+    const seq = ++buscaEnderecoSeq;
+    box.style.display = 'block';
+    box.innerHTML = '<div class="routing-address-suggestion-loading">Buscando endereços…</div>';
+    try {
+      const itens = await global.PacoteEMatoGeocodificacao.consultarSugestoesEndereco(termo);
+      if (seq !== buscaEnderecoSeq) return;
+      box.replaceChildren();
+      if (!itens.length) {
+        const vazio = document.createElement('div');
+        vazio.className = 'routing-address-suggestion-empty';
+        vazio.textContent = 'Nenhum endereço confirmado. Você ainda pode adicionar digitando manualmente.';
+        box.appendChild(vazio);
+        return;
+      }
+      itens.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'routing-address-suggestion';
+        const principal = document.createElement('strong');
+        principal.textContent = textoPrimarioSugestao(item);
+        const secundario = document.createElement('span');
+        secundario.textContent = textoSecundarioSugestao(item) || String(item.formatted || '');
+        btn.append(principal, secundario);
+        btn.addEventListener('click', () => {
+          sugestaoEnderecoSelecionada = item;
+          const input = $('routingStopSearch');
+          if (input) input.value = String(item.formatted || textoPrimarioSugestao(item));
+          esconderSugestoesEndereco();
+          abrirEditor(null, 'rota', String(item.formatted || textoPrimarioSugestao(item)));
+        });
+        box.appendChild(btn);
+      });
+    } catch (_) {
+      if (seq !== buscaEnderecoSeq) return;
+      box.innerHTML = '<div class="routing-address-suggestion-empty">Busca de endereços indisponível agora. Você pode continuar digitando manualmente.</div>';
+    }
+  }
+
   function selecionarParada(id, origem) {
     if (!rotaAtual?.paradas.some(p => p.id === id)) return;
     global.appState.roteirizacao.paradaSelecionadaId = id;
@@ -1351,6 +1416,7 @@
     stopEmEdicao = null;
     modoEdicaoNovo = false;
     contextoEditor = 'rota';
+    sugestaoEnderecoSelecionada = null;
   }
 
   function pacotesDoCampo(texto) {
@@ -1401,11 +1467,22 @@
     }
     p.quantidadePacotes = p.pacotes.length;
     p.enderecoOriginal = enderecoDaParada(p);
+    const sugestaoAplicavel = eraNova && sugestaoEnderecoSelecionada && coordenadaValida(sugestaoEnderecoSelecionada.lat, sugestaoEnderecoSelecionada.lon);
+    if (sugestaoAplicavel) {
+      p.latitude = Number(sugestaoEnderecoSelecionada.lat);
+      p.longitude = Number(sugestaoEnderecoSelecionada.lon);
+      p.statusGeocodificacao = 'ok';
+      p.precisaoGeocodificacao = 'sugestao_confirmada';
+      p.enderecoGeocodificado = String(sugestaoEnderecoSelecionada.formatted || p.enderecoOriginal);
+      p.geocodificadoEm = Date.now();
+      p.fonteCoordenada = 'sugestao-geocodificacao';
+      p.geocodificacao = clone(sugestaoEnderecoSelecionada);
+    }
     if (p.statusEntrega === 'entregue') p.entregueEm = p.entregueEm || Date.now();
     if (p.statusEntrega !== 'entregue') p.entregueEm = null;
 
     const enderecoMudou = p.enderecoOriginal !== enderecoAnterior || eraNova;
-    if (enderecoMudou) {
+    if (enderecoMudou && !sugestaoAplicavel) {
       p.latitude = null;
       p.longitude = null;
       p.statusGeocodificacao = 'pendente';
@@ -1413,8 +1490,8 @@
       p.geocodificadoEm = null;
       p.confiabilidade = null;
       p.confiabilidadeRua = null;
-      if (contextoSalvo === 'rota') invalidarRotaCalculada();
     }
+    if (enderecoMudou && contextoSalvo === 'rota') invalidarRotaCalculada();
     fecharEditor();
     if (contextoSalvo === 'conferencia') {
       global.PacoteEMatoFluxoImportacao?.mostrarConferencia?.(alvo, resultadoImportacaoPendente?.erros || []);
@@ -1423,7 +1500,8 @@
     await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
     renderizarTudo();
 
-    if (enderecoMudou) await geocodificarParada(p);
+    if (enderecoMudou && !sugestaoAplicavel) await geocodificarParada(p);
+    sugestaoEnderecoSelecionada = null;
 
     if (eraOtimizada && (!enderecoMudou || p.statusGeocodificacao === 'ok')) {
       const titulo = eraNova ? 'Parada adicionada' : 'Rota alterada';
@@ -1637,13 +1715,17 @@
     $('routingPrimaryActionBtn')?.addEventListener('click', executarAcaoPrincipal);
     const atualizarBuscaAdicionar = () => {
       const texto=String($('routingStopSearch')?.value||'').trim();
+      sugestaoEnderecoSelecionada = null;
       if(global.appState?.ui)global.appState.ui.buscaParadas=texto;
-      const btn=$('routingSearchAddBtn'); if(btn){btn.style.display=texto.length>=5?'inline-flex':'none';btn.textContent=texto.length>=5?`+ Adicionar “${texto.length>34?texto.slice(0,34)+'…':texto}”`:'';}
+      const btn=$('routingSearchAddBtn'); if(btn){btn.style.display=texto.length>=5?'inline-flex':'none';btn.textContent=texto.length>=5?`+ Adicionar endereço`:'';}
+      clearTimeout(buscaEnderecoTimer);
+      buscaEnderecoTimer=setTimeout(()=>atualizarSugestoesEndereco(texto),320);
       renderizarLista();
     };
     $('routingStopSearch')?.addEventListener('input',atualizarBuscaAdicionar);
-    $('routingStopSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){const texto=String(e.currentTarget.value||'').trim();if(texto.length>=5){e.preventDefault();abrirEditor(null,'rota',texto);}}});
-    $('routingSearchAddBtn')?.addEventListener('click',()=>{const texto=String($('routingStopSearch')?.value||'').trim();if(texto)abrirEditor(null,'rota',texto);});
+    $('routingStopSearch')?.addEventListener('focus',()=>{const texto=String($('routingStopSearch')?.value||'').trim();if(texto.length>=4)atualizarSugestoesEndereco(texto);});
+    $('routingStopSearch')?.addEventListener('keydown',e=>{if(e.key==='Escape')esconderSugestoesEndereco();if(e.key==='Enter'){const texto=String(e.currentTarget.value||'').trim();if(texto.length>=5){e.preventDefault();esconderSugestoesEndereco();sugestaoEnderecoSelecionada=null;abrirEditor(null,'rota',texto);}}});
+    $('routingSearchAddBtn')?.addEventListener('click',()=>{const texto=String($('routingStopSearch')?.value||'').trim();if(texto){esconderSugestoesEndereco();sugestaoEnderecoSelecionada=null;abrirEditor(null,'rota',texto);}});
     iniciarArrastePainel();
 
     $('routingSelectedStopEdit')?.addEventListener('click', () => {

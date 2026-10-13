@@ -3046,6 +3046,15 @@ document.getElementById('cardRetomarRota').style.display = 'none';
     }
     ativarWakeLock();
 
+    function scannerOperacaoAtiva() {
+      try { return window.PacoteEMatoOperacoesPacotes?.estaAtiva?.() === true; } catch (_) { return false; }
+    }
+
+    function scannerReaderIdAtual() { return scannerOperacaoAtiva() ? 'pkgOpReader' : 'reader'; }
+    function scannerViewportAtual() { return document.getElementById(scannerOperacaoAtiva() ? 'pkgOpCameraViewport' : 'elCameraViewport'); }
+    function scannerFlashBtnAtual() { return document.getElementById(scannerOperacaoAtiva() ? 'pkgOpBtnFlash' : 'btn-flash'); }
+    function scannerFlashTextAtual() { return document.getElementById(scannerOperacaoAtiva() ? 'pkgOpTxtFlash' : 'txt-flash'); }
+
     async function finalizarCameraHardware() {
       if (html5QrCode) {
         try {
@@ -3054,24 +3063,12 @@ document.getElementById('cardRetomarRota').style.display = 'none';
         } catch(e) {}
         html5QrCode = null;
       }
-      let videoEl = document.querySelector('#reader video');
+      let videoEl = document.querySelector(`#${scannerReaderIdAtual()} video`) || document.querySelector('#reader video') || document.querySelector('#pkgOpReader video');
       if (videoEl && videoEl.srcObject) {
         try { videoEl.srcObject.getTracks().forEach(t => t.stop()); } catch(e) {}
       }
-      let viewport = document.querySelector('.camera-viewport');
-      if (viewport) {
-        viewport.innerHTML = `
-          <button class="cam-overlay-btn" style="top:10px; left:10px;" onclick="alternarCamera()">
-            <svg viewBox="0 0 24 24"><path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm5 14H4V6h3.17l1.83-2h6l1.83 2H20v12zM12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
-            <span>Virar</span>
-          </button>
-          <button class="cam-overlay-btn" id="btn-flash" style="top:10px; right:10px;" onclick="alternarFlash()">
-            <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l3-8z"/></svg>
-            <span id="txt-flash">Flash</span>
-          </button>
-          <div id="reader"></div>
-        `;
-      }
+      const reader = document.getElementById(scannerReaderIdAtual());
+      if (reader) reader.innerHTML = '';
     }
 
     async function iniciarScanner() {
@@ -3081,7 +3078,10 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       await finalizarCameraHardware();
       await new Promise(r => setTimeout(r, 150));
 
-      html5QrCode = new Html5Qrcode("reader");
+      const readerId = scannerReaderIdAtual();
+      const readerEl = document.getElementById(readerId);
+      if (!readerEl) { processandoTroca = false; return; }
+      html5QrCode = new Html5Qrcode(readerId);
 
       const config = {
         fps: 12,
@@ -3100,14 +3100,14 @@ document.getElementById('cardRetomarRota').style.display = 'none';
     async function alternarCamera() {
       if (processandoTroca) return;
       sensorAtual = (sensorAtual === "environment") ? "user" : "environment";
-      let btnFlash = document.getElementById('btn-flash');
+      let btnFlash = scannerFlashBtnAtual();
       if (sensorAtual === "user") {
-        btnFlash.style.display = 'none';
+        if (btnFlash) btnFlash.style.display = 'none';
       } else {
-        btnFlash.style.display = 'flex';
-        btnFlash.classList.remove('active-flash');
+        if (btnFlash) btnFlash.style.display = 'flex';
+        btnFlash?.classList.remove('active-flash');
         flashLigado = false;
-        document.getElementById('txt-flash').innerText = "Flash";
+        const txt = scannerFlashTextAtual(); if (txt) txt.innerText = 'Flash';
       }
       await iniciarScanner();
     }
@@ -3117,13 +3117,14 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       try {
         flashLigado = !flashLigado;
         await html5QrCode.applyVideoConstraints({ advanced: [{ torch: flashLigado }] });
-        let btnFlash = document.getElementById('btn-flash');
+        let btnFlash = scannerFlashBtnAtual();
+        const txtFlash = scannerFlashTextAtual();
         if (flashLigado) {
-          btnFlash.classList.add('active-flash');
-          document.getElementById('txt-flash').innerText = "On";
+          btnFlash?.classList.add('active-flash');
+          if (txtFlash) txtFlash.innerText = 'On';
         } else {
-          btnFlash.classList.remove('active-flash');
-          document.getElementById('txt-flash').innerText = "Flash";
+          btnFlash?.classList.remove('active-flash');
+          if (txtFlash) txtFlash.innerText = 'Flash';
         }
       } catch(e) {}
     }

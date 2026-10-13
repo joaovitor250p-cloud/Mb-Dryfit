@@ -3,7 +3,7 @@
 
   const CHAVE_UI = 'pemato_ui_resume_v1';
   let iniciando = true;
-  const modulos = ['roteirizacao', 'bipagem', 'navegacao', 'historico', 'configuracoes'];
+  const modulos = ['roteirizacao', 'bipagem', 'operacoes-pacotes', 'navegacao', 'historico', 'configuracoes'];
 
   function $(id) { return document.getElementById(id); }
 
@@ -11,6 +11,7 @@
     return {
       roteirizacao: 'moduloRoteirizacao',
       bipagem: 'moduloBipagem',
+      'operacoes-pacotes': 'moduloOperacoesPacotes',
       navegacao: 'moduloNavegacao',
       historico: 'moduloHistorico',
       configuracoes: 'moduloConfiguracoes'
@@ -57,6 +58,7 @@
     liberarTravasVisuais();
     const anterior = document.body.dataset.pematoModule || global.appState?.ui?.moduloAtual || 'roteirizacao';
     if (anterior === 'navegacao' && nome !== 'navegacao') global.PacoteEMatoNavegacao?.pausar?.();
+    if (anterior === 'operacoes-pacotes' && nome !== 'operacoes-pacotes') { try { await global.finalizarCameraHardware?.(); } catch (_) {} }
     if (anterior === 'roteirizacao' && nome !== 'roteirizacao') {
       global.PacoteEMatoMapa?.encerrarSelecaoDesenho?.({ limpar: true });
       const draw = $('routingDrawToolbar'); if (draw) draw.style.display = 'none';
@@ -77,6 +79,8 @@
       setTimeout(() => global.PacoteEMatoMapa?.renderizar({ fit: true }), 100);
     } else if (nome === 'bipagem') {
       if (opcoes?.usarRotaAtiva !== false) await global.PacoteEMatoBipagemBridge?.prepararRotaAtivaParaBipagem?.({ iniciarScanner: true });
+    } else if (nome === 'operacoes-pacotes') {
+      // A tela e o scanner desta operação são controlados pelo módulo de Adicionar/Remover pacotes.
     } else if (nome === 'historico') {
       global.PacoteEMatoHistorico?.renderizar?.();
     } else if (nome === 'configuracoes') {
@@ -123,7 +127,7 @@
     try{const dados={modulo:document.body.dataset.pematoModule||'roteirizacao',painel:document.getElementById('routingBottomSheet')?.dataset?.state||null,atualizadoEm:Date.now()};sessionStorage.setItem(CHAVE_UI,JSON.stringify(dados));localStorage.setItem(CHAVE_UI,JSON.stringify(dados));}catch(_){}
   }
   function recuperarEstadoUI(){
-    try{const raw=sessionStorage.getItem(CHAVE_UI)||localStorage.getItem(CHAVE_UI);const d=JSON.parse(raw||'null');const modulo=d?.modulo==='inicio'?'roteirizacao':d?.modulo;return modulo&&modulos.includes(modulo)?modulo:null;}catch(_){return null;}
+    try{const raw=sessionStorage.getItem(CHAVE_UI)||localStorage.getItem(CHAVE_UI);const d=JSON.parse(raw||'null');let modulo=d?.modulo==='inicio'?'roteirizacao':d?.modulo;if(modulo==='operacoes-pacotes')modulo='roteirizacao';return modulo&&modulos.includes(modulo)?modulo:null;}catch(_){return null;}
   }
   async function bind() {
     document.querySelectorAll('[data-pemato-nav]').forEach(btn => {

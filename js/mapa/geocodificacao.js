@@ -380,6 +380,27 @@
     return parada;
   }
 
+
+  async function consultarSugestoesEndereco(endereco) {
+    const texto = String(endereco || '').trim();
+    if (texto.length < 4) return [];
+    const dados = await consultarWorker({ enderecoConsulta: texto });
+    return (Array.isArray(dados?.results) ? dados.results : [])
+      .filter(r => coordenadasValidas(r?.lat, r?.lon))
+      .slice(0, 5)
+      .map(r => ({
+        lat: Number(r.lat), lon: Number(r.lon),
+        formatted: String(r.formatted || '').trim(),
+        street: String(r.street || r.address_line1 || '').trim(),
+        housenumber: String(r.housenumber || '').trim(),
+        suburb: String(r.suburb || r.district || r.city_district || '').trim(),
+        city: String(r.city || r.county || '').trim(),
+        state: String(r.state || '').trim(),
+        postcode: String(r.postcode || '').trim(),
+        resultType: String(r.result_type || ''),
+        confidence: Number(r.rank?.confidence ?? 0)
+      }));
+  }
   async function geocodificarEnderecoLivre(endereco) {
     const texto = String(endereco || '').trim();
     const numeros = texto.match(/\b\d+[A-Za-z]?\b/g) || [];
@@ -415,6 +436,7 @@
     geocodificarParadas,
     geocodificarParada,
     geocodificarEnderecoLivre,
+    consultarSugestoesEndereco,
     resumo,
     cancelar,
     configurarEndpoint,

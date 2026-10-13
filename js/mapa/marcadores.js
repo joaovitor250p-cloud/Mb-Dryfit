@@ -17,11 +17,11 @@
   }
 
   function paleta(status, selecionado) {
-    if (selecionado) return { fundo: '#059669', borda: '#ffffff', numero: '#ffffff', multi: '#d1fae5' };
-    if (status === 'nao_entregue') return { fundo: '#4b1f24', borda: '#ffffff', numero: '#ffffff', multi: '#fecaca' };
-    if (status === 'concluida') return { fundo: '#334155', borda: '#ffffff', numero: '#ffffff', multi: '#cbd5e1' };
-    if (status === 'parcial') return { fundo: '#1f3b34', borda: '#ffffff', numero: '#ffffff', multi: '#a7f3d0' };
-    return { fundo: '#0f172a', borda: '#ffffff', numero: '#ffffff', multi: '#cbd5e1' };
+    if (selecionado) return { fundo: '#059669', borda: '#ffffff', numero: '#ffffff', multi: '#ffffff' };
+    if (status === 'nao_entregue') return { fundo: '#ffffff', borda: '#111111', numero: '#111111', multi: '#047857' };
+    if (status === 'concluida') return { fundo: '#ecfdf5', borda: '#059669', numero: '#111111', multi: '#047857' };
+    if (status === 'parcial') return { fundo: '#f0fdf4', borda: '#059669', numero: '#111111', multi: '#047857' };
+    return { fundo: '#ffffff', borda: '#059669', numero: '#111111', multi: '#047857' };
   }
 
   function nomeIcone(prefixo, ordem, quantidade, selecionado, status) {
@@ -95,9 +95,9 @@
     const r = Math.min(h / 2, 13);
 
     c.save();
-    c.shadowColor = 'rgba(15,23,42,0.16)';
-    c.shadowBlur = 2.5;
-    c.shadowOffsetY = 1;
+    c.shadowColor = 'rgba(15,23,42,0.08)';
+    c.shadowBlur = 1.5;
+    c.shadowOffsetY = .5;
     c.fillStyle = cores.fundo;
     c.strokeStyle = cores.borda;
     c.lineWidth = borda;
@@ -130,7 +130,7 @@
       c.fillText(numero, px, cy);
       px += nw + divisorGap;
 
-      c.strokeStyle = 'rgba(255,255,255,0.24)';
+      c.strokeStyle = selecionado ? 'rgba(255,255,255,0.35)' : 'rgba(5,150,105,0.28)';
       c.lineWidth = 1;
       c.beginPath();
       c.moveTo(px + 0.5, 7);

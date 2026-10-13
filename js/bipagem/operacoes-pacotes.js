@@ -154,8 +154,8 @@
           <button id="pkgOpReviewBtn" class="pemato-primary" type="button">Conferir seleção</button>
           <button id="pkgOpChangeFileBtn" class="pemato-secondary" type="button">Trocar planilha</button>
         </div>`;
-      const modulo = $('moduloBipagem');
-      modulo?.insertBefore(banner, modulo.firstChild);
+      const host = $('pkgOpBannerHost') || $('moduloOperacoesPacotes');
+      host?.appendChild(banner);
       $('pkgOpCancelBtn')?.addEventListener('click', cancelar);
       $('pkgOpReviewBtn')?.addEventListener('click', abrirConferencia);
       $('pkgOpChangeFileBtn')?.addEventListener('click', () => $('pkgOpFileInput')?.click());
@@ -282,11 +282,10 @@
       estado.bloqueados = [];
       estado.indiceRota = pacotesDaRota(estado.rotaBase);
 
-      await global.PacoteEMatoAppShell?.abrirModulo?.('bipagem', { usarRotaAtiva: false });
-      if ($('areaExecucao')) $('areaExecucao').style.display = 'block';
-      if ($('elSecaoUpload')) $('elSecaoUpload').style.display = 'none';
-      if ($('activeRouteBipagemCard')) $('activeRouteBipagemCard').style.display = 'none';
+      await global.PacoteEMatoAppShell?.abrirModulo?.('operacoes-pacotes');
       exibirBanner();
+      const tituloPagina = $('pkgOpPageTitle');
+      if (tituloPagina) tituloPagina.textContent = estado.modo === 'adicionar' ? 'Adicionar pacotes à rota' : 'Remover pacotes da rota';
       try { await global.iniciarScanner?.(); } catch (_) {}
       notificar(`${indice.size} pacote(s) disponíveis. Bipe somente os desejados.`);
     } catch (erro) {
@@ -314,16 +313,16 @@
   }
 
   function mostrarResultadoScanner(ok, codigo, parada, mensagem) {
-    const card = $('cardResult');
+    const card = $('pkgOpResultCard');
     if (!card) return;
-    const resStop = $('resStop'), resEndereco = $('resEndereco'), resPacote = $('resPacote'), aviso = $('boxAviso');
-    card.style.display = 'block';
+    const resStop = $('pkgOpResultStop'), resEndereco = $('pkgOpResultAddress'), resPacote = $('pkgOpResultCode'), aviso = $('pkgOpResultNotice');
     card.classList.toggle('error-state', !ok);
-    if (resStop) resStop.textContent = ok ? (estado?.modo === 'adicionar' ? 'ADICIONAR' : 'REMOVER') : 'NÃO LOCALIZADO';
+    card.classList.toggle('success-state', !!ok);
+    if (resStop) resStop.textContent = ok ? (estado?.modo === 'adicionar' ? 'Selecionado para adicionar' : 'Selecionado para remover') : 'Código não aceito';
     if (resEndereco) resEndereco.textContent = parada?.enderecoOriginal || mensagem || 'Confira o código.';
     if (resPacote) resPacote.textContent = codigo ? `Pacote: ${codigo}` : '';
     if (aviso) { aviso.textContent = mensagem || ''; aviso.style.display = mensagem ? 'block' : 'none'; }
-    if ($('inputManual')) $('inputManual').value = '';
+    if ($('pkgOpManual')) $('pkgOpManual').value = '';
   }
 
   function processarCodigoOperacao(codigoBruto) {
@@ -729,6 +728,9 @@
     garantirUI();
     $('routingAddPackagesBtn')?.addEventListener('click', () => iniciar('adicionar'));
     $('routingRemovePackagesBtn')?.addEventListener('click', () => iniciar('remover'));
+    $('pkgOpManualBtn')?.addEventListener('click', () => processarCodigoOperacao($('pkgOpManual')?.value || ''));
+    $('pkgOpManual')?.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); processarCodigoOperacao(event.currentTarget.value || ''); } });
+    $('pkgOpBackBtn')?.addEventListener('click', cancelar);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once:true });

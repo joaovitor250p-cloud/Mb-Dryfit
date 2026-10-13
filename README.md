@@ -177,3 +177,9 @@ A V13 mantém os marcadores nativos do MapLibre da V12, reduz o agrupamento de z
 ## Atualização V14 — navegação, bipagem de operações e mapa
 
 A V14 separa o feedback de bipagem de Adicionar/Remover rota da bipagem comum, elimina os clusters circulares em zoom distante, adiciona recuperação robusta do mapa ao retornar de Waze/Google Maps, painel expansível na navegação, status reversível de entrega e adição rápida de endereço pelo campo de busca. Consulte `RELATORIO-V14-AJUSTES-NAVEGACAO-BIPAGEM-MAPA.md`.
+
+## Atualização V15 — 13/10/2026
+
+A V15 separa a bipagem de Adicionar/Remover pacotes da bipagem normal, simplifica a navegação, adiciona busca de endereço com sugestões, aplica identidade branca/preta/verde, diferencia seta da navegação própria e ponto de localização para Waze/Google Maps, bloqueia TTS em navegação externa e avança automaticamente após Entregue/Não entregue.
+
+Consulte `RELATORIO-V15-NAVEGACAO-BUSCA-BIPAGEM-SEPARADA.md` para detalhes e testes executados.

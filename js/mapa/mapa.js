@@ -305,8 +305,8 @@
 
     if (!mapa.getLayer(LAYER_START)) mapa.addLayer({ id: LAYER_START, type: 'circle', source: SOURCE_START, paint: { 'circle-radius': 11, 'circle-color': '#111827', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });
     if (!mapa.getLayer(LAYER_START_TEXT)) mapa.addLayer({ id: LAYER_START_TEXT, type: 'symbol', source: SOURCE_START, layout: { 'text-field': 'P', 'text-size': 10, 'text-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
-    if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id: LAYER_DRIVER_RING, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 12, 'circle-color': 'rgba(37,99,235,.20)' } });
-    if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id: LAYER_DRIVER, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 6, 'circle-color': '#2563eb', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
+    if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id: LAYER_DRIVER_RING, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 12, 'circle-color': 'rgba(5,150,105,.16)', 'circle-stroke-color':'rgba(5,150,105,.35)', 'circle-stroke-width':1 } });
+    if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id: LAYER_DRIVER, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 6, 'circle-color': '#059669', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
   }
 
   function bindEventosMapa() {
@@ -337,14 +337,14 @@
     try {
       mapa = new global.maplibregl.Map({
         container, style: cfg().mapStyleUrl, center: cfg().initialCenter || [-46.6333, -23.5505], zoom: Number(cfg().initialZoom || 10),
-        pitch: 0, bearing: 0, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 120
+        pitch: 0, bearing: 0, minZoom: 9, maxZoom: 20, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 0, renderWorldCopies: false, antialias: true
       });
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
         garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
-      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 8500);
+      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 14000);
       mapa.on('load', mapaPronto);
       mapa.on('style.load', mapaPronto);
       mapa.on('error', event => {
@@ -379,17 +379,15 @@
     const orig=geometry.type==='LineString'?[geometry.coordinates]:geometry.coordinates;
     const linhas=[];
     orig.forEach(linha=>{
-      let atual=[];
-      linha.forEach(coord=>{
+      const limpa=[];
+      (linha||[]).forEach(coord=>{
         if(!Array.isArray(coord)||coord.length<2) return;
-        if(atual.length && distanciaCoord(atual[atual.length-1],coord)>1800){
-          if(atual.length>=2) linhas.push(atual);
-          atual=[];
-        }
-        const prev=atual[atual.length-1];
-        if(!prev || prev[0]!==coord[0] || prev[1]!==coord[1]) atual.push(coord);
+        const lon=Number(coord[0]),lat=Number(coord[1]);
+        if(!Number.isFinite(lon)||!Number.isFinite(lat)||lon<-180||lon>180||lat<-90||lat>90) return;
+        const prev=limpa[limpa.length-1];
+        if(!prev||Math.abs(prev[0]-lon)>1e-8||Math.abs(prev[1]-lat)>1e-8) limpa.push([lon,lat]);
       });
-      if(atual.length>=2) linhas.push(atual);
+      if(limpa.length>=2) linhas.push(limpa);
     });
     if(!linhas.length) return null;
     return linhas.length===1?{type:'LineString',coordinates:linhas[0]}:{type:'MultiLineString',coordinates:linhas};
