@@ -206,3 +206,7 @@ A V18 restaura a mesma base vetorial OpenFreeMap usada na V14, que foi a última
 - O tempo padrão por parada deixou de ser 3 min automáticos. O valor padrão agora é 0 min e só é somado quando o usuário configurar explicitamente.
 - Configurações antigas com os 3 min padrão são migradas para 0 min, evitando cerca de 90 min extras em uma rota de 30 paradas.
 - Ao restaurar/iniciar uma rota, a previsão de término é recalculada com base no tempo rodoviário restante e no tempo de parada explicitamente configurado.
+
+
+## V20 — estabilidade do mapa
+A V20 mantém o provedor de mapa existente e corrige o traçado da rota no frontend: a geometria não é mais simplificada/recriada a cada zoom, legs contíguos são unidos com tolerância geográfica pequena e o cartão flutuante lateral de ETA foi removido.

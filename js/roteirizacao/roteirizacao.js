@@ -699,10 +699,6 @@
     if ($('routeMetricStopTime')) $('routeMetricStopTime').textContent = calculada ? formatarTempo(rotaAtual.duracaoParadasSegundos) : 'Aguardando cálculo';
     if ($('routeMetricTotal')) $('routeMetricTotal').textContent = calculada ? formatarTempo(rotaAtual.duracaoTotalSegundos) : 'Aguardando cálculo';
     if ($('routeMetricEnd')) $('routeMetricEnd').textContent = calculada ? horaLocal(rotaAtual.horarioTerminoEstimado) : 'Aguardando cálculo';
-    const etaCard = $('routingEtaCard');
-    if (etaCard) etaCard.style.display = calculada ? 'grid' : 'none';
-    if ($('routingEtaTime')) $('routingEtaTime').textContent = calculada ? horaLocal(rotaAtual.horarioTerminoEstimado) : '—';
-    if ($('routingEtaRemaining')) $('routingEtaRemaining').textContent = calculada ? `aprox. ${formatarTempo(rotaAtual.duracaoTotalSegundos)} restantes` : 'Calculando previsão';
     if ($('routingRouteName') && document.activeElement !== $('routingRouteName')) $('routingRouteName').value = rotaAtual.nome || '';
     if ($('routingRouteNameMirror') && document.activeElement !== $('routingRouteNameMirror')) $('routingRouteNameMirror').value = rotaAtual.nome || '';
     if ($('routingMapTitle')) $('routingMapTitle').textContent = rotaAtual.nome || 'Rota de hoje';

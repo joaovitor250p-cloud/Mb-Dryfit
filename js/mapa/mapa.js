@@ -210,12 +210,12 @@
     if (mapa.getSource(id)) return;
     const opcoes = { type: 'geojson', data };
     if (id === SOURCE_ROUTE) {
-      // V19: simplificação visual nativa do MapLibre. Não altera a geometria salva,
-      // apenas evita serrilhado/ruído quando a rota inteira é vista de longe.
-      opcoes.tolerance = 0.8;
-      opcoes.buffer = 96;
-      opcoes.maxzoom = 18;
-      opcoes.lineMetrics = true;
+      // V20: a geometria permanece estável em todos os níveis de zoom.
+      // O MapLibre faz apenas uma simplificação leve por tile; não reescrevemos
+      // a rota a cada zoom, evitando o efeito quebradiço/farelento.
+      opcoes.tolerance = 0.2;
+      opcoes.buffer = 128;
+      opcoes.maxzoom = 20;
     }
     mapa.addSource(id, opcoes);
   }
@@ -341,7 +341,6 @@
       mapa.on('mouseenter', layerId, () => { try { mapa.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
       mapa.on('mouseleave', layerId, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
     });
-    mapa.on('zoomend', () => atualizarRota());
   }
 
   function garantirMapa() {
@@ -390,68 +389,58 @@
     const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
     return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
   }
-  function toleranciaVisualMetros() {
-    const z = Number(mapa?.getZoom?.() || 14);
-    if (z <= 10.5) return 12;
-    if (z <= 12) return 7;
-    if (z <= 13.5) return 4;
-    if (z <= 15) return 2;
-    if (z <= 16.5) return 1;
-    return 0.45;
-  }
-
-  function simplificarLinhaVisual(linha, toleranciaM) {
-    if (!Array.isArray(linha) || linha.length <= 2 || !(toleranciaM > 0)) return Array.isArray(linha) ? linha.slice() : [];
-    const latRef = linha.reduce((soma, c) => soma + Number(c?.[1] || 0), 0) / linha.length;
-    const cos = Math.max(0.15, Math.cos(latRef * Math.PI / 180));
-    const projetar = c => [Number(c[0]) * 111320 * cos, Number(c[1]) * 110540];
-    const pontos = linha.map(projetar);
-    const manter = new Uint8Array(linha.length);
-    manter[0] = 1; manter[linha.length - 1] = 1;
-    const pilha = [[0, linha.length - 1]];
-    const tol2 = toleranciaM * toleranciaM;
-    while (pilha.length) {
-      const [ini, fim] = pilha.pop();
-      const a = pontos[ini], b = pontos[fim];
-      const dx = b[0] - a[0], dy = b[1] - a[1];
-      const len2 = dx * dx + dy * dy;
-      let melhor = -1, maior2 = tol2;
-      for (let i = ini + 1; i < fim; i++) {
-        const p = pontos[i];
-        let t = len2 > 0 ? ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / len2 : 0;
-        t = Math.max(0, Math.min(1, t));
-        const qx = a[0] + t * dx, qy = a[1] + t * dy;
-        const ex = p[0] - qx, ey = p[1] - qy;
-        const d2 = ex * ex + ey * ey;
-        if (d2 > maior2) { maior2 = d2; melhor = i; }
-      }
-      if (melhor > 0) { manter[melhor] = 1; pilha.push([ini, melhor], [melhor, fim]); }
-    }
-    const saida = [];
-    for (let i = 0; i < linha.length; i++) if (manter[i]) saida.push(linha[i]);
-    return saida.length >= 2 ? saida : [linha[0], linha[linha.length - 1]];
-  }
-
-  function geometriaVisualSegura(geometry){
-    if(!geometriaValida(geometry)) return null;
-    const orig=geometry.type==='LineString'?[geometry.coordinates]:geometry.coordinates;
-    const linhas=[];
-    orig.forEach(linha=>{
-      const limpa=[];
-      (linha||[]).forEach(coord=>{
-        if(!Array.isArray(coord)||coord.length<2) return;
-        const lon=Number(coord[0]),lat=Number(coord[1]);
-        if(!Number.isFinite(lon)||!Number.isFinite(lat)||lon<-180||lon>180||lat<-90||lat>90) return;
-        const prev=limpa[limpa.length-1];
-        if(!prev||Math.abs(prev[0]-lon)>1e-8||Math.abs(prev[1]-lat)>1e-8) limpa.push([lon,lat]);
-      });
-      if(limpa.length>=2) linhas.push(simplificarLinhaVisual(limpa, toleranciaVisualMetros()));
+  function limparLinhaRota(linha) {
+    const limpa = [];
+    (linha || []).forEach(coord => {
+      if (!Array.isArray(coord) || coord.length < 2) return;
+      const lon = Number(coord[0]), lat = Number(coord[1]);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) return;
+      const atual = [lon, lat];
+      const anterior = limpa[limpa.length - 1];
+      // Remove apenas duplicatas/microvariações submétricas. Não simplifica curvas.
+      if (!anterior || distanciaCoord(anterior, atual) > 0.35) limpa.push(atual);
     });
-    if(!linhas.length) return null;
-    return linhas.length===1?{type:'LineString',coordinates:linhas[0]}:{type:'MultiLineString',coordinates:linhas};
+    return limpa;
   }
+
+  function normalizarGeometriaVisual(geometry) {
+    if (!geometriaValida(geometry)) return null;
+    const partesOriginais = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates;
+    const partes = partesOriginais.map(limparLinhaRota).filter(linha => linha.length >= 2);
+    if (!partes.length) return null;
+
+    // Geoapify pode devolver a rota em vários trechos/legs (MultiLineString).
+    // Antes, cada trecho era simplificado isoladamente e redesenhado a cada zoom,
+    // gerando pequenas quebras nas junções. Aqui juntamos SOMENTE trechos realmente
+    // contíguos (até 8 m), sem alterar a posição geográfica da rota.
+    const unidas = [];
+    let atual = partes[0].slice();
+    const LIMITE_JUNCAO_M = 8;
+    for (let i = 1; i < partes.length; i++) {
+      let proxima = partes[i].slice();
+      const fim = atual[atual.length - 1];
+      const dInicio = distanciaCoord(fim, proxima[0]);
+      const dFim = distanciaCoord(fim, proxima[proxima.length - 1]);
+
+      if (Math.min(dInicio, dFim) <= LIMITE_JUNCAO_M) {
+        if (dFim < dInicio) proxima.reverse();
+        const d = distanciaCoord(atual[atual.length - 1], proxima[0]);
+        // Se os pontos de junção forem praticamente o mesmo ponto, evita duplicata.
+        atual.push(...(d <= 0.35 ? proxima.slice(1) : proxima));
+      } else {
+        unidas.push(atual);
+        atual = proxima;
+      }
+    }
+    unidas.push(atual);
+
+    return unidas.length === 1
+      ? { type: 'LineString', coordinates: unidas[0] }
+      : { type: 'MultiLineString', coordinates: unidas };
+  }
+
   function atualizarRota() {
-    const geometry = geometriaVisualSegura(state()?.geometria);
+    const geometry = normalizarGeometriaVisual(state()?.geometria);
     const feature = geometry ? { type: 'Feature', properties: { planned: true }, geometry } : null;
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
   }
