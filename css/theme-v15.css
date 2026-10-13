@@ -43,7 +43,7 @@ input,select,textarea,.pemato-field{background:#fff!important;color:#111!importa
 @media(max-width:620px){.package-operation-module{padding-top:max(14px,env(safe-area-inset-top))}.pkg-op-page-head{display:grid}.pkg-op-page-head>button{width:max-content}.pkg-op-camera-viewport,#pkgOpReader{min-height:300px}.pkg-op-manual-row{grid-template-columns:1fr}.pkg-op-manual-row button{min-height:44px}}
 
 /* Navegação limpa */
-.navigation-map-wrap,.navigation-panel,.nav-next-card,.nav-route-actions-card,.nav-completion-card{background:#fff!important;color:#111!important}
+.navigation-panel,.nav-next-card,.nav-route-actions-card,.nav-completion-card{background:#fff!important;color:#111!important}
 .nav-maneuver-card{background:rgba(255,255,255,.97)!important;color:#111!important;border:1px solid #dbe7e1!important;box-shadow:0 8px 22px rgba(15,23,42,.12)!important;backdrop-filter:none!important}
 .nav-maneuver-distance{color:#047857!important}.nav-maneuver-copy span{color:#5f6b65!important}
 .nav-gps-status{color:#111!important;border:1px solid #dbe7e1}
@@ -63,6 +63,8 @@ input,select,textarea,.pemato-field{background:#fff!important;color:#111!importa
 .nav-route-actions-card .nav-action-group>button{width:100%;min-height:42px;padding:10px 11px;border:1px solid #e1e9e5;border-radius:12px;background:#fff;color:#111;text-align:left;font-weight:800}
 .nav-action-group-danger>button.danger{color:#111!important;background:#fff!important}
 
+/* Mapa: superfície neutra e canvas sem filtros/blur; nunca mascarar falha de tiles com um painel branco */
+#mapaRoteirizacao,#mapaNavegacao,.navigation-map-wrap,.routing-map-pane{background:#dfe7ec!important}
 /* Mapa: canvas sem filtros/blur, mantendo nitidez */
 #mapaRoteirizacao,#mapaNavegacao,.maplibregl-canvas-container,.maplibregl-canvas{filter:none!important;image-rendering:auto!important;transform-style:preserve-3d}
 /* Elementos legados da Bipagem continuam no DOM por compatibilidade, mas não aparecem na interface V15. */
@@ -81,3 +83,7 @@ body[data-pemato-module="roteirizacao"] .pemato-module,body[data-pemato-module="
 body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;color:#047857!important;border:1px solid #86efac}
 .pkg-op-review-warning,.pkg-op-alert{background:#f7faf8!important;color:#111!important;border-color:#dbe7e1!important}
 .pkg-op-item button{background:#fff!important;color:#111!important;border-color:#dbe7e1!important}
+
+
+/* V16 — status de entrega avança direto; não exibir desfazer na navegação */
+#navStatusActions,#navLastStatusBar,#navUndoStatusBtn,#navLastUndoBtn{display:none!important}

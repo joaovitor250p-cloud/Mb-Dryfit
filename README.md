@@ -2,6 +2,14 @@
 
 Aplicativo web/PWA de logística com Roteirização, Navegação, Bipagem e Histórico compartilhando uma única Rota Ativa.
 
+
+## V16 — correções rápidas de estabilidade
+
+- Corrigido o comportamento que podia cobrir o mapa com uma tela branca após erros transitórios de tiles.
+- Adicionado fallback automático de mapa base no planejamento e na navegação.
+- Removida a interface de “Desfazer” após Entregue/Não entregue; o fluxo avança direto para a próxima pendente.
+- Menu dos três pontos da navegação passou a usar o mesmo padrão visual do menu de ações da roteirização.
+
 ## Fluxo operacional atual
 
 ```text

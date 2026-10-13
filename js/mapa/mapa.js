@@ -7,6 +7,8 @@
   let loadTimer = null;
   let resizeObserver = null;
   let fallbackBaseAtivo = false;
+  let mapaCriadoEm = 0;
+  let errosMapaIniciais = 0;
 
   const SOURCE_ROUTE = 'pemato-route-line';
   const LAYER_ROUTE_CASE = 'pemato-route-line-case';
@@ -191,6 +193,7 @@
   function ativarMapaBaseFallback() {
     if (!mapa || fallbackBaseAtivo || !cfg().fallbackMapStyle) return false;
     fallbackBaseAtivo = true;
+    pronto = false;
     try {
       mapa.setStyle(cfg().fallbackMapStyle);
       ocultarFallback();
@@ -337,20 +340,29 @@
     try {
       mapa = new global.maplibregl.Map({
         container, style: cfg().mapStyleUrl, center: cfg().initialCenter || [-46.6333, -23.5505], zoom: Number(cfg().initialZoom || 10),
-        pitch: 0, bearing: 0, minZoom: 9, maxZoom: 20, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 0, renderWorldCopies: false, antialias: true
+        pitch: 0, bearing: 0, minZoom: 9, maxZoom: 20, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 120
       });
+      mapaCriadoEm = Date.now();
+      errosMapaIniciais = 0;
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
         garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
-      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 14000);
+      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 7000);
       mapa.on('load', mapaPronto);
       mapa.on('style.load', mapaPronto);
       mapa.on('error', event => {
         const mensagem = event?.error?.message || String(event?.error || '');
-        console.warn('Pacote É Mato: falha no mapa.', mensagem);
-        if (!pronto && !fallbackBaseAtivo) setTimeout(() => { if (!pronto) ativarMapaBaseFallback(); }, 600);
+        console.warn('Pacote É Mato: falha transitória no mapa.', mensagem);
+        if (!fallbackBaseAtivo && Date.now() - mapaCriadoEm < 15000) {
+          errosMapaIniciais += 1;
+          if (errosMapaIniciais >= 2) {
+            setTimeout(() => { if (!fallbackBaseAtivo) ativarMapaBaseFallback(); }, 250);
+            return;
+          }
+        }
+        if (!pronto && !fallbackBaseAtivo) setTimeout(() => { if (!pronto) ativarMapaBaseFallback(); }, 500);
       });
     } catch (erro) {
       console.error('Pacote É Mato: erro ao iniciar mapa.', erro); mapa = null;
