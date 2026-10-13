@@ -19,11 +19,6 @@
 .navigation-map-wrap {
   overflow: hidden !important;
 }
-#mapaRoteirizacao,
-#mapaNavegacao {
-  contain: paint;
-  isolation: isolate;
-}
 #mapaRoteirizacao .maplibregl-canvas-container,
 #mapaNavegacao .maplibregl-canvas-container {
   overflow: hidden;

@@ -66,7 +66,7 @@ input,select,textarea,.pemato-field{background:#fff!important;color:#111!importa
 /* Mapa: superfície neutra e canvas sem filtros/blur; nunca mascarar falha de tiles com um painel branco */
 #mapaRoteirizacao,#mapaNavegacao,.navigation-map-wrap,.routing-map-pane{background:#dfe7ec!important}
 /* Mapa: canvas sem filtros/blur, mantendo nitidez */
-#mapaRoteirizacao,#mapaNavegacao,.maplibregl-canvas-container,.maplibregl-canvas{filter:none!important;image-rendering:auto!important;transform-style:preserve-3d}
+#mapaRoteirizacao,#mapaNavegacao,.maplibregl-canvas-container,.maplibregl-canvas{filter:none!important;image-rendering:auto!important}
 /* Elementos legados da Bipagem continuam no DOM por compatibilidade, mas não aparecem na interface V15. */
 #cardRetomarRota,#resumoRotaHome{display:none!important}
 /* Paleta restrita no fluxo operacional */
@@ -85,5 +85,7 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 .pkg-op-item button{background:#fff!important;color:#111!important;border-color:#dbe7e1!important}
 
 
-/* V16 — status de entrega avança direto; não exibir desfazer na navegação */
-#navStatusActions,#navLastStatusBar,#navUndoStatusBtn,#navLastUndoBtn{display:none!important}
+/* V17 — o Desfazer existe somente dentro do card de uma parada já finalizada. */
+#navStatusActions,#navLastStatusBar,#navLastUndoBtn{display:none!important}
+.nav-card-undo-status{align-items:center;justify-content:center;width:max-content;margin-top:9px;padding:8px 11px;border:1px solid #86efac;border-radius:10px;background:#fff;color:#047857;font-size:.62rem;font-weight:900;cursor:pointer}
+.nav-card-undo-status:hover,.nav-card-undo-status:focus{background:#ecfdf5;outline:none}

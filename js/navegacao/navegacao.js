@@ -257,7 +257,7 @@
       layout:{...layoutMarcadorV12,'icon-allow-overlap':true,'icon-ignore-placement':true}});
 
     if (!mapa.getLayer(LAYER_NEXT)) mapa.addLayer({ id:LAYER_NEXT,type:'circle',source:SOURCE_NEXT,paint:{'circle-radius':15,'circle-color':'#059669','circle-stroke-color':'#fff','circle-stroke-width':3} });
-    if (!mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
+    if (mapa.getStyle()?.glyphs && !mapa.getLayer(LAYER_NEXT_TEXT)) mapa.addLayer({ id:LAYER_NEXT_TEXT,type:'symbol',source:SOURCE_NEXT,layout:{'text-field':['to-string',['get','order']],'text-size':12,'text-allow-overlap':true},paint:{'text-color':'#fff'} });
   }
 
   function ocultarFallbackMapa() {
@@ -298,24 +298,25 @@
     try {
       ocultarFallbackMapa();
       fallbackBaseAtivo = false;
+      mapReady = false;
+      clearTimeout(mapLoadTimer);
       mapa = new global.maplibregl.Map({
         container,
+        // V18: volta para a mesma base vetorial que funcionava na V14.
         style: cfg().mapStyleUrl,
         center: cfg().initialCenter || [-46.6333,-23.5505],
-        zoom: 16,
-        minZoom: 11,
-        maxZoom: 20,
+        zoom: 15,
         pitch: 0,
         bearing: 0,
         maxPitch: 60,
         dragRotate: false,
         touchPitch: false,
+        attributionControl: true,
         fadeDuration: 120
       });
-      mapaCriadoEm = Date.now();
-      errosMapaIniciais = 0;
       mapa.touchZoomRotate?.disableRotation?.();
       mapa.on('dragstart', () => { seguirPosicao = false; atualizarBotaoFollow(); });
+
       const ready = () => {
         mapReady = true;
         clearTimeout(mapLoadTimer);
@@ -328,25 +329,25 @@
         desenharRota();
         atualizarFontesPontos();
       };
-      mapLoadTimer = setTimeout(() => {
-        if (!mapReady && !ativarMapaBaseFallback()) mostrarFallbackMapa('O mapa base não respondeu. Verifique sua conexão.');
-      }, 7000);
+
       mapa.on('load', ready);
       mapa.on('style.load', ready);
+
+      // Se o estilo principal realmente não montar, só então cai para OSM.
+      // Não trocamos de mapa por erros isolados de fonte/glyph/tile.
+      mapLoadTimer = setTimeout(() => {
+        if (mapReady) return;
+        if (!ativarMapaBaseFallback()) mostrarFallbackMapa('O mapa base não respondeu. Verifique sua conexão.');
+      }, 9000);
+
       mapa.on('error', ev => {
         const mensagem = ev?.error?.message || String(ev?.error || '');
-        console.warn('Pacote É Mato: falha transitória no mapa de navegação.', mensagem);
-        // Nunca cobre um mapa funcional com uma tela branca por causa de um erro isolado.
-        // Se a base vetorial falhar repetidamente logo no início, troca para o mapa raster de contingência.
-        if (!fallbackBaseAtivo && Date.now() - mapaCriadoEm < 15000) {
-          errosMapaIniciais += 1;
-          if (errosMapaIniciais >= 2) {
-            setTimeout(() => { if (!fallbackBaseAtivo) ativarMapaBaseFallback(); }, 250);
-            return;
-          }
-        }
-        if (!mapReady && !fallbackBaseAtivo) {
-          setTimeout(() => { if (!mapReady) ativarMapaBaseFallback(); }, 500);
+        console.warn('Pacote É Mato: falha no mapa de navegação.', mensagem);
+        if (!mapReady) {
+          // Dá tempo para o estilo principal terminar antes de acionar contingência.
+          setTimeout(() => {
+            if (!mapReady && !fallbackBaseAtivo) ativarMapaBaseFallback();
+          }, 1800);
         }
       });
     } catch (erro) {
@@ -824,12 +825,42 @@
   }
 
   function atualizarStatusCard(p){
-    const badge=$('navStopStatusBadge'),delivery=$('navDeliveredBtn'),fail=$('navNotDeliveredBtn');
+    const badge=$('navStopStatusBadge'),delivery=$('navDeliveredBtn'),fail=$('navNotDeliveredBtn'),undo=$('navUndoStatusBtn');
     const status=String(p?.statusEntrega||'pendente'); const finalizado=['entregue','concluida','nao_entregue'].includes(status);
     if(badge){badge.className='nav-stop-status-badge'; if(status==='nao_entregue'){badge.classList.add('is-failed');badge.textContent='Não entregue';}else if(['entregue','concluida'].includes(status)){badge.classList.add('is-delivered');badge.textContent='Entregue';}else{badge.classList.add('is-pending');badge.textContent='Pendente';}}
-    if(delivery)delivery.style.display=finalizado?'none':''; if(fail)fail.style.display=finalizado?'none':'';
+    if(delivery)delivery.style.display=finalizado?'none':'';
+    if(fail)fail.style.display=finalizado?'none':'';
+    // O Desfazer pertence somente ao card de uma parada já tratada. Como a navegação
+    // avança automaticamente após Entregue/Não entregue, ele não aparece na próxima parada.
+    if(undo){undo.style.display=finalizado?'inline-flex':'none';undo.textContent=status==='nao_entregue'?'Desfazer não entrega':'Desfazer entrega';}
   }
 
+  async function desfazerStatusAtual(){
+    if(processandoStatus||!rota)return;
+    const alvo=rota.paradas?.find(s=>String(s.id)===String(cartaoSelecionadoId||''));
+    if(!alvo||!['entregue','concluida','nao_entregue'].includes(String(alvo.statusEntrega||'')))return;
+    processandoStatus=true;
+    try{
+      alvo.statusEntrega='pendente';
+      alvo.entregueEm=null;
+      alvo.naoEntregueEm=null;
+      alvo.motivoNaoEntrega='';
+      alvo.observacaoNaoEntrega='';
+      alvo.statusAtualizadoEm=Date.now();
+      alvo.alteradoEm=Date.now();
+      rota.conclusaoPendente=false;
+      if($('navCompletionBackdrop'))$('navCompletionBackdrop').style.display='none';
+      atualizarPendentes();
+      rota.paradaSelecionadaId=alvo.id;
+      rota.proximaParadaId=alvo.id;
+      cartaoSelecionadoId=alvo.id;
+      await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
+      await global.PacoteEMatoSessao?.persistirAgora?.({motivo:'desfazer_status_parada',paradaSelecionadaId:alvo.id,proximaParadaId:alvo.id,navegacaoAtiva:true});
+      atualizarPainel();
+      if(global.PacoteEMatoServicoRota?.endpoint?.('route')&&ultimaPosicao) await recalcular('desfazer');
+      else atualizarFontesPontos();
+    }finally{processandoStatus=false;}
+  }
 
   function irParaProximaPendente(){ const p=proxima(); if(!p)return; cartaoSelecionadoId=p.id; atualizarPainel();persistirSelecao({motivo:'avancar_proxima_pendente'});if(mapa&&mapReady&&coordenadaValida(p.latitude,p.longitude))mapa.easeTo({center:[Number(p.longitude),Number(p.latitude)],duration:300}); }
 
@@ -839,6 +870,7 @@
     swipe?.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;startY=e.touches[0].clientY;},{passive:true});
     swipe?.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5)selecionarCartao(dx<0?1:-1);},{passive:true});
     $('navBackBtn')?.addEventListener('click',()=>global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao'));
+    $('navUndoStatusBtn')?.addEventListener('click',desfazerStatusAtual);
     $('navNavigateBtn')?.addEventListener('click',navegarPreferido);
     $('navDeliveredBtn')?.addEventListener('click',()=>salvarStatusParadaAtual('entregue'));
     $('navNotDeliveredBtn')?.addEventListener('click',()=>salvarStatusParadaAtual('nao_entregue'));

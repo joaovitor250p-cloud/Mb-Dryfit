@@ -191,3 +191,9 @@ A V14 separa o feedback de bipagem de Adicionar/Remover rota da bipagem comum, e
 A V15 separa a bipagem de Adicionar/Remover pacotes da bipagem normal, simplifica a navegação, adiciona busca de endereço com sugestões, aplica identidade branca/preta/verde, diferencia seta da navegação própria e ponto de localização para Waze/Google Maps, bloqueia TTS em navegação externa e avança automaticamente após Entregue/Não entregue.
 
 Consulte `RELATORIO-V15-NAVEGACAO-BUSCA-BIPAGEM-SEPARADA.md` para detalhes e testes executados.
+
+## V17 — mapa raster robusto + Desfazer contextual
+A V17 troca a base visual principal por raster direto no MapLibre com fallback OSM e remove propriedades CSS de composição que podiam produzir canvas branco em WebView. O Desfazer voltou apenas no card de uma parada já finalizada; Entregue/Não entregue continua avançando automaticamente para a próxima pendente.
+
+## V18 — restauração do mapa funcional + Desfazer no próprio card
+A V18 restaura a mesma base vetorial OpenFreeMap usada na V14, que foi a última base visual conhecida como funcional no aparelho, mantendo OSM apenas como contingência. O fallback não é mais acionado por um erro isolado de tile/fonte. O fluxo de status permanece: Entregue/Não entregue avança automaticamente para a próxima pendente, e o botão Desfazer aparece somente quando o usuário volta ao card de uma parada já finalizada.

@@ -307,7 +307,9 @@
     });
 
     if (!mapa.getLayer(LAYER_START)) mapa.addLayer({ id: LAYER_START, type: 'circle', source: SOURCE_START, paint: { 'circle-radius': 11, 'circle-color': '#111827', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });
-    if (!mapa.getLayer(LAYER_START_TEXT)) mapa.addLayer({ id: LAYER_START_TEXT, type: 'symbol', source: SOURCE_START, layout: { 'text-field': 'P', 'text-size': 10, 'text-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
+    // Em estilo raster puro não há servidor de glyphs. O círculo de partida continua visível
+    // e evita que uma camada de texto impeça a montagem das demais camadas do mapa.
+    if (mapa.getStyle()?.glyphs && !mapa.getLayer(LAYER_START_TEXT)) mapa.addLayer({ id: LAYER_START_TEXT, type: 'symbol', source: SOURCE_START, layout: { 'text-field': 'P', 'text-size': 10, 'text-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id: LAYER_DRIVER_RING, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 12, 'circle-color': 'rgba(5,150,105,.16)', 'circle-stroke-color':'rgba(5,150,105,.35)', 'circle-stroke-width':1 } });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id: LAYER_DRIVER, type: 'circle', source: SOURCE_DRIVER, paint: { 'circle-radius': 6, 'circle-color': '#059669', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
   }
@@ -340,29 +342,20 @@
     try {
       mapa = new global.maplibregl.Map({
         container, style: cfg().mapStyleUrl, center: cfg().initialCenter || [-46.6333, -23.5505], zoom: Number(cfg().initialZoom || 10),
-        pitch: 0, bearing: 0, minZoom: 9, maxZoom: 20, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 120
+        pitch: 0, bearing: 0, maxPitch: 0, dragRotate: false, touchPitch: false, attributionControl: true, fadeDuration: 120
       });
-      mapaCriadoEm = Date.now();
-      errosMapaIniciais = 0;
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
         garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
-      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 7000);
+      loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 8500);
       mapa.on('load', mapaPronto);
       mapa.on('style.load', mapaPronto);
       mapa.on('error', event => {
         const mensagem = event?.error?.message || String(event?.error || '');
-        console.warn('Pacote É Mato: falha transitória no mapa.', mensagem);
-        if (!fallbackBaseAtivo && Date.now() - mapaCriadoEm < 15000) {
-          errosMapaIniciais += 1;
-          if (errosMapaIniciais >= 2) {
-            setTimeout(() => { if (!fallbackBaseAtivo) ativarMapaBaseFallback(); }, 250);
-            return;
-          }
-        }
-        if (!pronto && !fallbackBaseAtivo) setTimeout(() => { if (!pronto) ativarMapaBaseFallback(); }, 500);
+        console.warn('Pacote É Mato: falha no mapa.', mensagem);
+        if (!pronto && !fallbackBaseAtivo) setTimeout(() => { if (!pronto) ativarMapaBaseFallback(); }, 600);
       });
     } catch (erro) {
       console.error('Pacote É Mato: erro ao iniciar mapa.', erro); mapa = null;
