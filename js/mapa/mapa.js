@@ -207,7 +207,17 @@
   }
 
   function adicionarSource(id, data) {
-    if (!mapa.getSource(id)) mapa.addSource(id, { type: 'geojson', data });
+    if (mapa.getSource(id)) return;
+    const opcoes = { type: 'geojson', data };
+    if (id === SOURCE_ROUTE) {
+      // V19: simplificação visual nativa do MapLibre. Não altera a geometria salva,
+      // apenas evita serrilhado/ruído quando a rota inteira é vista de longe.
+      opcoes.tolerance = 0.8;
+      opcoes.buffer = 96;
+      opcoes.maxzoom = 18;
+      opcoes.lineMetrics = true;
+    }
+    mapa.addSource(id, opcoes);
   }
 
   function antesDosRotulos() {
@@ -252,12 +262,12 @@
     if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({
       id: LAYER_ROUTE_CASE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 5, 16, 10], 'line-opacity': .92 }
+      paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4, 12, 5, 14, 6.5, 16, 9], 'line-opacity': .9, 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6], 'line-opacity': .96 }
+      paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .96, 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({
       id: LAYER_STOPS_GROUP_RING, type: 'circle', source: SOURCE_STOPS,
@@ -331,6 +341,7 @@
       mapa.on('mouseenter', layerId, () => { try { mapa.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
       mapa.on('mouseleave', layerId, () => { try { mapa.getCanvas().style.cursor = ''; } catch (_) {} });
     });
+    mapa.on('zoomend', () => atualizarRota());
   }
 
   function garantirMapa() {
@@ -379,6 +390,48 @@
     const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
     return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
   }
+  function toleranciaVisualMetros() {
+    const z = Number(mapa?.getZoom?.() || 14);
+    if (z <= 10.5) return 12;
+    if (z <= 12) return 7;
+    if (z <= 13.5) return 4;
+    if (z <= 15) return 2;
+    if (z <= 16.5) return 1;
+    return 0.45;
+  }
+
+  function simplificarLinhaVisual(linha, toleranciaM) {
+    if (!Array.isArray(linha) || linha.length <= 2 || !(toleranciaM > 0)) return Array.isArray(linha) ? linha.slice() : [];
+    const latRef = linha.reduce((soma, c) => soma + Number(c?.[1] || 0), 0) / linha.length;
+    const cos = Math.max(0.15, Math.cos(latRef * Math.PI / 180));
+    const projetar = c => [Number(c[0]) * 111320 * cos, Number(c[1]) * 110540];
+    const pontos = linha.map(projetar);
+    const manter = new Uint8Array(linha.length);
+    manter[0] = 1; manter[linha.length - 1] = 1;
+    const pilha = [[0, linha.length - 1]];
+    const tol2 = toleranciaM * toleranciaM;
+    while (pilha.length) {
+      const [ini, fim] = pilha.pop();
+      const a = pontos[ini], b = pontos[fim];
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const len2 = dx * dx + dy * dy;
+      let melhor = -1, maior2 = tol2;
+      for (let i = ini + 1; i < fim; i++) {
+        const p = pontos[i];
+        let t = len2 > 0 ? ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const qx = a[0] + t * dx, qy = a[1] + t * dy;
+        const ex = p[0] - qx, ey = p[1] - qy;
+        const d2 = ex * ex + ey * ey;
+        if (d2 > maior2) { maior2 = d2; melhor = i; }
+      }
+      if (melhor > 0) { manter[melhor] = 1; pilha.push([ini, melhor], [melhor, fim]); }
+    }
+    const saida = [];
+    for (let i = 0; i < linha.length; i++) if (manter[i]) saida.push(linha[i]);
+    return saida.length >= 2 ? saida : [linha[0], linha[linha.length - 1]];
+  }
+
   function geometriaVisualSegura(geometry){
     if(!geometriaValida(geometry)) return null;
     const orig=geometry.type==='LineString'?[geometry.coordinates]:geometry.coordinates;
@@ -392,7 +445,7 @@
         const prev=limpa[limpa.length-1];
         if(!prev||Math.abs(prev[0]-lon)>1e-8||Math.abs(prev[1]-lat)>1e-8) limpa.push([lon,lat]);
       });
-      if(limpa.length>=2) linhas.push(limpa);
+      if(limpa.length>=2) linhas.push(simplificarLinhaVisual(limpa, toleranciaVisualMetros()));
     });
     if(!linhas.length) return null;
     return linhas.length===1?{type:'LineString',coordinates:linhas[0]}:{type:'MultiLineString',coordinates:linhas};

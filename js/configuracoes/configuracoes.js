@@ -7,7 +7,8 @@
   const DEFAULTS = {
     navegacao: 'pacote_emato',
     veiculo: 'carro',
-    tempoParadaSegundos: 180,
+    tempoParadaSegundos: 0,
+    tempoParadaPersonalizado: false,
     pontoInicial: null,
     retornarAoInicio: false
   };
@@ -17,7 +18,16 @@
   function obter() {
     try {
       const salvo = JSON.parse(localStorage.getItem(KEY) || '{}');
-      return Object.assign({}, DEFAULTS, salvo && typeof salvo === 'object' ? salvo : {});
+      const dados = salvo && typeof salvo === 'object' ? salvo : {};
+      const cfg = Object.assign({}, DEFAULTS, dados);
+      // V19: versões antigas gravavam 3 min por parada como padrão, mesmo sem o usuário escolher.
+      // Isso inflava a previsão de término em ~90 min numa rota de 30 paradas.
+      // Só aplicamos tempo de atendimento quando o usuário o configurou explicitamente na V19+.
+      if (dados.tempoParadaPersonalizado !== true) {
+        cfg.tempoParadaSegundos = 0;
+        cfg.tempoParadaPersonalizado = false;
+      }
+      return cfg;
     } catch (_) { return Object.assign({}, DEFAULTS); }
   }
 
@@ -53,7 +63,7 @@
     const cfg = obter();
     if ($('settingsNavigation')) $('settingsNavigation').value = cfg.navegacao;
     if ($('settingsVehicle')) $('settingsVehicle').value = cfg.veiculo;
-    if ($('settingsStopMinutes')) $('settingsStopMinutes').value = String(Math.round(Number(cfg.tempoParadaSegundos || 180) / 60));
+    if ($('settingsStopMinutes')) $('settingsStopMinutes').value = String(Math.round(Number(cfg.tempoParadaSegundos || 0) / 60));
     if ($('settingsReturnStart')) $('settingsReturnStart').checked = cfg.retornarAoInicio === true;
 
     const point = $('settingsStartPoint');
@@ -154,7 +164,7 @@
     const atual = obter();
     const navegacao = $('settingsNavigation')?.value || 'pacote_emato';
     const veiculo = $('settingsVehicle')?.value || 'carro';
-    const tempoParadaSegundos = Math.max(0, Number($('settingsStopMinutes')?.value || 3) * 60);
+    const tempoParadaSegundos = Math.max(0, Number($('settingsStopMinutes')?.value || 0) * 60);
     const retornarAoInicio = $('settingsReturnStart')?.checked === true;
     const textoPonto = String($('settingsStartPoint')?.value || '').trim();
     let pontoInicial = atual.pontoInicial;
@@ -168,7 +178,7 @@
     const workerField = $('settingsWorkerUrl');
     if (workerField) global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.(String(workerField.value || '').trim());
 
-    const cfg = salvar({ navegacao, veiculo, tempoParadaSegundos, retornarAoInicio, pontoInicial });
+    const cfg = salvar({ navegacao, veiculo, tempoParadaSegundos, tempoParadaPersonalizado: opcoes?.tempoParadaAlterado === true ? true : atual.tempoParadaPersonalizado === true, retornarAoInicio, pontoInicial });
     const hint = $('settingsAutosaveStatus');
     if (hint) {
       hint.textContent = 'Alterações salvas automaticamente.';
@@ -196,7 +206,7 @@
     ['settingsNavigation', 'settingsVehicle', 'settingsReturnStart'].forEach(id => {
       $(id)?.addEventListener('change', () => salvarFormulario({ notificar: false }));
     });
-    $('settingsStopMinutes')?.addEventListener('input', () => agendarAutoSave(350));
+    $('settingsStopMinutes')?.addEventListener('input', () => { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => salvarFormulario({ notificar: false, tempoParadaAlterado: true }), 350); });
     $('settingsStartPoint')?.addEventListener('input', () => agendarAutoSave(500));
     $('settingsWorkerUrl')?.addEventListener('change', () => {
       global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.($('settingsWorkerUrl')?.value || '');

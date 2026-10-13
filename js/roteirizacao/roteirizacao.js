@@ -839,7 +839,7 @@
       rotaAtual = global.PacoteEMatoRotaStore.criarRota({
         veiculo: cfg.veiculo || 'carro',
         modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-        tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180),
+        tempoParadaSegundos: Number(cfg.tempoParadaSegundos ?? 0),
         pontoInicial: cfg.pontoInicial || null,
         retornarAoInicio: cfg.retornarAoInicio === true
       });
@@ -964,7 +964,7 @@
     rotaAtual = global.PacoteEMatoRotaStore.criarRota({
       nome: 'Nova rota', origem: 'manual', status: 'planejamento',
       veiculo: cfg.veiculo || 'carro', modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-      tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180), pontoInicial: cfg.pontoInicial || null, retornarAoInicio: cfg.retornarAoInicio === true,
+      tempoParadaSegundos: Number(cfg.tempoParadaSegundos ?? 0), pontoInicial: cfg.pontoInicial || null, retornarAoInicio: cfg.retornarAoInicio === true,
       paradas: [], ordem: []
     });
     await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
@@ -1009,7 +1009,7 @@
         nome: file.name.replace(/\.(xlsx|xls|csv)$/i, ''),
         origem: 'xlsx', status: 'planejamento', veiculo: cfg.veiculo || 'carro',
         modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-        tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180), pontoInicial: cfg.pontoInicial || null,
+        tempoParadaSegundos: Number(cfg.tempoParadaSegundos ?? 0), pontoInicial: cfg.pontoInicial || null,
         retornarAoInicio: cfg.retornarAoInicio === true, paradas: resultado.paradas, ordem: resultado.paradas.map(p => p.id),
         perfilImportacao: resultado.perfil || 'generico', arquivoOrigem: file.name,
         camposVisiveisParada: Array.isArray(opcoes.visibleFields) ? opcoes.visibleFields.slice() : ['pacote','endereco','bairro','cidade']
@@ -1123,7 +1123,7 @@
       status: 'planejamento',
       veiculo: cfg.veiculo || 'carro',
       modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-      tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180),
+      tempoParadaSegundos: Number(cfg.tempoParadaSegundos ?? 0),
       pontoInicial: cfg.pontoInicial || null,
       retornarAoInicio: cfg.retornarAoInicio === true,
       paradas,
@@ -1632,7 +1632,11 @@
     if (rotaAtual?.precisaRecalculo) return notificar('A rota foi alterada. Recalcule o trajeto antes de iniciar a navegação.');
     if (!rotaAtual?.geometria) return notificar('Calcule a rota pelas ruas antes de iniciar a operação.');
     rotaAtual.status = rotaAtual.status === 'concluida' ? 'concluida' : 'ativa';
+    const iniciandoAgora = !rotaAtual.iniciadoEm;
     rotaAtual.iniciadoEm = rotaAtual.iniciadoEm || Date.now();
+    if (iniciandoAgora && Number.isFinite(Number(rotaAtual.duracaoTotalSegundos))) {
+      rotaAtual.horarioTerminoEstimado = Date.now() + Number(rotaAtual.duracaoTotalSegundos) * 1000;
+    }
     const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
     const selecionada = global.appState?.roteirizacao?.paradaSelecionadaId;
     const proxima = (selecionada && byId.get(String(selecionada)) && !paradaFinalizada(byId.get(String(selecionada))))

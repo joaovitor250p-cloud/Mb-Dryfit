@@ -136,7 +136,17 @@
     return ordemPendente[0] || null;
   }
 
-  function adicionarSource(id, data) { if (!mapa.getSource(id)) mapa.addSource(id, { type: 'geojson', data }); }
+  function adicionarSource(id, data) {
+    if (mapa.getSource(id)) return;
+    const opcoes = { type:'geojson', data };
+    if (id === SOURCE_ROUTE || id === SOURCE_PROGRESS) {
+      opcoes.tolerance = 0.8;
+      opcoes.buffer = 96;
+      opcoes.maxzoom = 18;
+      opcoes.lineMetrics = true;
+    }
+    mapa.addSource(id, opcoes);
+  }
   function antesRotulos() { return (mapa.getStyle()?.layers || []).find(l => l.type === 'symbol')?.id; }
 
   function removerCamadas3D() {
@@ -216,9 +226,9 @@
     adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSource(SOURCE_NEXT, fc([])); adicionarSourceParadas();
     garantirImagemBalao();
     const before = antesRotulos();
-    if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':9,'line-opacity':.9}}, before);
-    if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({ id:LAYER_ROUTE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#059669','line-width':6,'line-opacity':.92}}, before);
-    if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#047857','line-width':6,'line-opacity':.92}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4,13,5.5,16,8,18,9],'line-opacity':.9,'line-blur':0}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({ id:LAYER_ROUTE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#059669','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
+    if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#047857','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':12,'circle-color':'rgba(5,150,105,.16)','circle-stroke-color':'rgba(5,150,105,.35)','circle-stroke-width':1} });
     if (!mapa.getLayer(LAYER_DRIVER_DOT)) mapa.addLayer({ id:LAYER_DRIVER_DOT,type:'circle',source:SOURCE_DRIVER,filter:['==',['get','mode'],'external'],paint:{'circle-radius':7,'circle-color':'#059669','circle-stroke-color':'#ffffff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,filter:['==',['get','mode'],'internal'],layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
@@ -316,6 +326,7 @@
       });
       mapa.touchZoomRotate?.disableRotation?.();
       mapa.on('dragstart', () => { seguirPosicao = false; atualizarBotaoFollow(); });
+      mapa.on('zoomend', () => { desenharRota(); atualizarProgressoVisual(nearestOnRoute(ultimaPosicao)); });
 
       const ready = () => {
         mapReady = true;
@@ -359,6 +370,38 @@
 
   function setSource(id, data) { if (!mapa || !mapReady) return; garantirCamadas(); mapa.getSource(id)?.setData?.(data); }
 
+  function toleranciaVisualMetros() {
+    const z = Number(mapa?.getZoom?.() || 16);
+    if (z <= 10.5) return 12;
+    if (z <= 12) return 7;
+    if (z <= 13.5) return 4;
+    if (z <= 15) return 2;
+    if (z <= 16.5) return 1;
+    return 0.45;
+  }
+
+  function simplificarLinhaVisual(linha, toleranciaM) {
+    if (!Array.isArray(linha) || linha.length <= 2 || !(toleranciaM > 0)) return Array.isArray(linha) ? linha.slice() : [];
+    const latRef = linha.reduce((soma, c) => soma + Number(c?.[1] || 0), 0) / linha.length;
+    const cos = Math.max(0.15, Math.cos(latRef * Math.PI / 180));
+    const pontos = linha.map(c => [Number(c[0]) * 111320 * cos, Number(c[1]) * 110540]);
+    const manter = new Uint8Array(linha.length); manter[0] = 1; manter[linha.length - 1] = 1;
+    const pilha = [[0, linha.length - 1]], tol2 = toleranciaM * toleranciaM;
+    while (pilha.length) {
+      const [ini, fim] = pilha.pop(); const a = pontos[ini], b = pontos[fim];
+      const dx=b[0]-a[0], dy=b[1]-a[1], len2=dx*dx+dy*dy;
+      let melhor=-1, maior2=tol2;
+      for(let i=ini+1;i<fim;i++){
+        const p=pontos[i]; let t=len2>0?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/len2:0; t=Math.max(0,Math.min(1,t));
+        const ex=p[0]-(a[0]+t*dx), ey=p[1]-(a[1]+t*dy), d2=ex*ex+ey*ey;
+        if(d2>maior2){maior2=d2;melhor=i;}
+      }
+      if(melhor>0){manter[melhor]=1;pilha.push([ini,melhor],[melhor,fim]);}
+    }
+    const saida=[]; for(let i=0;i<linha.length;i++) if(manter[i]) saida.push(linha[i]);
+    return saida.length>=2?saida:[linha[0],linha[linha.length-1]];
+  }
+
   function geometriaVisualSegura(g){
     if(!geometriaValida(g)) return null;
     const orig = g.type === 'LineString' ? [g.coordinates] : g.coordinates;
@@ -372,7 +415,7 @@
         const prev = limpa[limpa.length - 1];
         if(!prev || Math.abs(prev[0]-lon) > 1e-8 || Math.abs(prev[1]-lat) > 1e-8) limpa.push([lon,lat]);
       });
-      if(limpa.length >= 2) linhas.push(limpa);
+      if(limpa.length >= 2) linhas.push(simplificarLinhaVisual(limpa, toleranciaVisualMetros()));
     });
     if(!linhas.length) return null;
     return linhas.length === 1 ? {type:'LineString',coordinates:linhas[0]} : {type:'MultiLineString',coordinates:linhas};

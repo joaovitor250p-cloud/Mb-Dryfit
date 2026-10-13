@@ -197,3 +197,12 @@ A V17 troca a base visual principal por raster direto no MapLibre com fallback O
 
 ## V18 — restauração do mapa funcional + Desfazer no próprio card
 A V18 restaura a mesma base vetorial OpenFreeMap usada na V14, que foi a última base visual conhecida como funcional no aparelho, mantendo OSM apenas como contingência. O fallback não é mais acionado por um erro isolado de tile/fonte. O fluxo de status permanece: Entregue/Não entregue avança automaticamente para a próxima pendente, e o botão Desfazer aparece somente quando o usuário volta ao card de uma parada já finalizada.
+
+
+## V19 — suavização visual da rota e previsão de término
+
+- O traçado verde usa simplificação apenas visual, dependente do zoom, sem alterar as coordenadas ou a rota salva.
+- As linhas ficam mais finas em zoom distante para evitar aparência serrilhada/quebrada.
+- O tempo padrão por parada deixou de ser 3 min automáticos. O valor padrão agora é 0 min e só é somado quando o usuário configurar explicitamente.
+- Configurações antigas com os 3 min padrão são migradas para 0 min, evitando cerca de 90 min extras em uma rota de 30 paradas.
+- Ao restaurar/iniciar uma rota, a previsão de término é recalculada com base no tempo rodoviário restante e no tempo de parada explicitamente configurado.

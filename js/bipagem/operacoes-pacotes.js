@@ -450,7 +450,7 @@
       origem: 'operacao-pacotes', status: 'planejamento',
       veiculo: cfg.veiculo || 'carro',
       modoRoteamento: global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo || 'carro'),
-      tempoParadaSegundos: Number(cfg.tempoParadaSegundos || 180),
+      tempoParadaSegundos: Number(cfg.tempoParadaSegundos ?? 0),
       pontoInicial: cfg.pontoInicial || null,
       retornarAoInicio: cfg.retornarAoInicio === true,
       paradas: [], ordem: []

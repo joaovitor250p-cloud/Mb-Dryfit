@@ -124,7 +124,9 @@
     r.preferenciaRota = ['short', 'balanced', 'less_maneuvers'].includes(String(r.preferenciaRota || ''))
       ? String(r.preferenciaRota)
       : 'short';
-    r.tempoParadaSegundos = Math.max(0, numero(r.tempoParadaSegundos, 180));
+    const cfgTempo = (() => { try { return JSON.parse(localStorage.getItem('pemato_config_v2') || '{}'); } catch (_) { return {}; } })();
+    const tempoExplicito = cfgTempo?.tempoParadaPersonalizado === true;
+    r.tempoParadaSegundos = tempoExplicito ? Math.max(0, numero(r.tempoParadaSegundos, numero(cfgTempo.tempoParadaSegundos, 0))) : 0;
     r.pontoInicial = normalizarPonto(r.pontoInicial);
     r.pontoFinal = normalizarPonto(r.pontoFinal);
     r.retornarAoInicio = r.retornarAoInicio === true;
@@ -142,11 +144,16 @@
     r.pernas = Array.isArray(r.pernas) ? r.pernas : [];
     r.distanciaTotalMetros = Number.isFinite(Number(r.distanciaTotalMetros)) ? Number(r.distanciaTotalMetros) : null;
     r.duracaoDirecaoSegundos = Number.isFinite(Number(r.duracaoDirecaoSegundos)) ? Number(r.duracaoDirecaoSegundos) : null;
-    r.duracaoParadasSegundos = Number.isFinite(Number(r.duracaoParadasSegundos))
-      ? Number(r.duracaoParadasSegundos)
-      : r.paradas.length * r.tempoParadaSegundos;
-    r.duracaoTotalSegundos = Number.isFinite(Number(r.duracaoTotalSegundos)) ? Number(r.duracaoTotalSegundos) : null;
-    r.horarioTerminoEstimado = r.horarioTerminoEstimado || null;
+    const pendentesTempo = r.paradas.filter(p => !['entregue','concluida','nao_entregue'].includes(String(p.statusEntrega || ''))).length;
+    r.duracaoParadasSegundos = pendentesTempo * r.tempoParadaSegundos;
+    if (Number.isFinite(Number(r.duracaoDirecaoSegundos))) {
+      r.duracaoTotalSegundos = Number(r.duracaoDirecaoSegundos) + Number(r.duracaoParadasSegundos || 0);
+      // Previsão sempre parte de agora ao restaurar uma rota ativa; evita horário antigo/stale.
+      if (r.status !== 'concluida' && r.status !== 'arquivada') r.horarioTerminoEstimado = agora() + r.duracaoTotalSegundos * 1000;
+    } else {
+      r.duracaoTotalSegundos = Number.isFinite(Number(r.duracaoTotalSegundos)) ? Number(r.duracaoTotalSegundos) : null;
+      r.horarioTerminoEstimado = r.horarioTerminoEstimado || null;
+    }
     r.otimizadoEm = r.otimizadoEm || null;
     r.iniciadoEm = r.iniciadoEm || null;
     r.concluidoEm = r.concluidoEm || null;
