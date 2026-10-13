@@ -74,6 +74,12 @@
     return 'pendente';
   }
 
+  // Coleção GeoJSON usada por rota, paradas, partida e localização do motorista.
+  // V23: restaurada após ter sido removida indevidamente na limpeza técnica da V21.
+  function featureCollection(features) {
+    return { type: 'FeatureCollection', features: Array.isArray(features) ? features : [] };
+  }
+
   function quantidadePacotesDaParada(p) {
     return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }

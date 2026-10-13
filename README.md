@@ -215,3 +215,6 @@ A V20 mantém o provedor de mapa existente e corrige o traçado da rota no front
 ## V22 — coordenadas XLSX e rotas grandes
 
 A V22 adiciona validação endereço x coordenada para pontos importados da planilha, cálculo segmentado da geometria de rotas grandes, retry controlado em falhas transitórias e otimização transacional para impedir estado parcial após erro do serviço. Consulte `RELATORIO-V22-COORDENADAS-ROTA-502.md`.
+
+## V23 — Correção da importação
+Corrigido o erro de execução `featureCollection is not defined` que impedia o processamento da planilha. A função GeoJSON removida acidentalmente numa limpeza anterior foi restaurada, sem alterar as regras de importação ou de rota.
