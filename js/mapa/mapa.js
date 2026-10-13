@@ -103,6 +103,7 @@
 
     const ocupacaoVisual = new Map();
     const features = [];
+    const numerada = state()?.rotaOtimizada === true && state()?.precisaRecalculo !== true;
     grupos.forEach(grupo => {
       grupo.sort((a,b) => ordem(a) - ordem(b));
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.statusEntrega || '')));
@@ -125,7 +126,8 @@
         properties: {
           id: String(p.id),
           ids: ids.join(','),
-          order: ordem(p),
+          order: numerada ? ordem(p) : 0,
+          numbered: numerada ? 1 : 0,
           status: statusEntrega(p),
           selected: ids.includes(String(selectedId)) ? 1 : 0,
           groupSelected: grupoVisual.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,

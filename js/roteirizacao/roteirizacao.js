@@ -438,6 +438,7 @@
     s.duracaoTotalSegundos = rotaAtual.duracaoTotalSegundos;
     s.horarioTerminoEstimado = rotaAtual.horarioTerminoEstimado;
     s.rotaOtimizada = rotaAtual.rotaOtimizada === true;
+    s.precisaRecalculo = rotaAtual.precisaRecalculo === true;
     if (!s.paradaSelecionadaId || !rotaAtual.paradas.some(p => p.id === s.paradaSelecionadaId)) {
       s.paradaSelecionadaId = rotaAtual.ordem[0] || rotaAtual.paradas[0]?.id || null;
     }
@@ -767,7 +768,12 @@
 
       const order = document.createElement('div');
       order.className = 'routing-stop-order';
-      order.textContent = String(index + 1);
+      const mostrarNumero = numeracaoVisivel();
+      order.textContent = mostrarNumero ? String(index + 1) : '';
+      if (!mostrarNumero) {
+        order.style.display = 'none';
+        card.classList.add('is-unordered');
+      }
 
       const body = document.createElement('div');
       body.className = 'routing-stop-body';
@@ -808,8 +814,13 @@
       return;
     }
     const index = obterParadasOrdenadas().findIndex(item => item.id === p.id);
+    const mostrarNumero = numeracaoVisivel();
     card.style.display = 'grid';
-    if ($('routingSelectedStopOrder')) $('routingSelectedStopOrder').textContent = String(index + 1);
+    card.classList.toggle('is-unordered', !mostrarNumero);
+    if ($('routingSelectedStopOrder')) {
+      $('routingSelectedStopOrder').textContent = mostrarNumero ? String(index + 1) : '';
+      $('routingSelectedStopOrder').style.display = mostrarNumero ? 'grid' : 'none';
+    }
     if ($('routingSelectedStopAddress')) $('routingSelectedStopAddress').textContent = p.enderecoOriginal || 'Endereço não informado';
     if ($('routingSelectedStopComplement')) $('routingSelectedStopComplement').textContent = detalheComplemento(p) || p.observacao || '';
     if ($('routingSelectedStopMeta')) {
@@ -1025,6 +1036,10 @@
     }
   }
 
+  function numeracaoVisivel() {
+    return rotaAtual?.rotaOtimizada === true && rotaAtual?.precisaRecalculo !== true;
+  }
+
   async function confirmarImportacaoPendente() {
     if (!rotaImportacaoPendente) return;
     const candidata = rotaImportacaoPendente;
@@ -1052,24 +1067,17 @@
     setTimeout(() => global.PacoteEMatoMapa?.ajustarParadasImportadas?.(), 180);
     const avisos = resultado?.erros?.length || 0;
     const jaLocalizadas = rotaAtual.paradas.filter(paradaLocalizada).length;
-    if (jaLocalizadas === rotaAtual.paradas.length) {
-      const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx')
-        ? ' As coordenadas da planilha foram preservadas e serão conferidas com o endereço antes da otimização.'
-        : '';
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s) e prontas para o mapa.${origemCoords} Confira a rota e toque em “Otimizar rota”.`, avisos ? 'warning' : 'success');
-      return;
-    }
-    if (!workerConfigurado() || !global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s); ${jaLocalizadas} já localizada(s). ${avisos ? `${avisos} linha(s) exigem revisão. ` : ''}As demais paradas foram preservadas para localização posterior.`, 'warning');
-      return;
-    }
-    definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s). Localizando apenas os endereços que ainda não possuem coordenadas...`, null);
-    const resumoGeo = await geocodificarTodas({ silencioso: true });
-    if (resumoGeo) {
-      const problemas = resumoGeo.total - resumoGeo.ok;
-      definirStatusImportacao(`${rotaAtual.paradas.length} parada(s) importada(s): ${resumoGeo.ok} localizada(s) e ${problemas} precisando de correção.`, problemas ? 'warning' : 'success');
-      setTimeout(() => global.PacoteEMatoMapa?.ajustarParadasImportadas?.(), 140);
-    }
+    const semCoordenada = Math.max(0, rotaAtual.paradas.length - jaLocalizadas);
+    const origemCoords = rotaAtual.paradas.some(p => p.fonteCoordenada === 'xlsx')
+      ? ' As coordenadas da planilha serão conferidas com o endereço somente quando você tocar em “Otimizar rota”.'
+      : '';
+    const pendentesTexto = semCoordenada
+      ? ` ${semCoordenada} parada(s) sem coordenadas serão localizadas somente na otimização.`
+      : '';
+    definirStatusImportacao(
+      `${rotaAtual.paradas.length} parada(s) importada(s).${pendentesTexto}${origemCoords} A numeração será criada somente depois da otimização.`,
+      avisos || semCoordenada ? 'warning' : 'success'
+    );
   }
 
   function cancelarImportacaoPendente() {
@@ -1267,10 +1275,25 @@
     botoes.forEach(btn => { btn.disabled = true; });
 
     try {
-      const unresolved = rotaAtual.paradas.filter(p => !paradaLocalizada(p));
-      if (unresolved.length) throw new Error(`Localize ou corrija ${unresolved.length} parada(s) antes de otimizar.`);
-
       mostrarProcessamento('Preparando a rota', 'Conferindo ponto de partida e coordenadas.');
+
+      let unresolved = rotaAtual.paradas.filter(p => !paradaLocalizada(p));
+      if (unresolved.length) {
+        if (!global.PacoteEMatoGeocodificacao?.endpointAtual?.()) {
+          throw new Error(`${unresolved.length} parada(s) estão sem coordenadas e o serviço de localização não está disponível.`);
+        }
+        atualizarProcessamento('Localizando endereços', `Buscando coordenadas para ${unresolved.length} parada(s) antes de otimizar.`);
+        const resumoGeo = await global.PacoteEMatoGeocodificacao.geocodificarParadas(rotaAtual.paradas);
+        await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
+        aplicarRotaNoState();
+        renderizarTudo({ fit: true });
+        unresolved = rotaAtual.paradas.filter(p => !paradaLocalizada(p));
+        if (unresolved.length) {
+          throw new Error(`Não foi possível localizar ${unresolved.length} parada(s). Corrija esses endereços antes de otimizar.`);
+        }
+        if (resumoGeo?.ok) atualizarProcessamento('Endereços localizados', `${resumoGeo.ok} parada(s) com coordenadas válidas. Conferindo posições importadas.`);
+      }
+
       await validarCoordenadasXlsxAntesDaRota();
       await garantirPontoInicialParaOtimizacao();
 

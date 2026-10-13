@@ -218,3 +218,11 @@ A V22 adiciona validação endereço x coordenada para pontos importados da plan
 
 ## V23 — Correção da importação
 Corrigido o erro de execução `featureCollection is not defined` que impedia o processamento da planilha. A função GeoJSON removida acidentalmente numa limpeza anterior foi restaurada, sem alterar as regras de importação ou de rota.
+
+## Atualização V24 — importação rápida e numeração após otimização
+
+- A importação não executa geocodificação em massa automaticamente.
+- Endereços sem coordenadas são localizados somente ao tocar em **Otimizar rota**.
+- Coordenadas XLSX são validadas somente na etapa de otimização.
+- Antes da otimização, mapa/lista/card não exibem números de sequência.
+- Após otimização concluída, a numeração oficial aparece normalmente.

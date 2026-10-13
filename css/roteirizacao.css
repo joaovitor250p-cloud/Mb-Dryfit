@@ -286,3 +286,8 @@
 /* V20 — mapa estável e sem cartão flutuante de ETA */
 .routing-eta-card{display:none!important}
 #mapaRoteirizacao .maplibregl-canvas,#mapaNavegacao .maplibregl-canvas{image-rendering:auto!important;filter:none!important}
+
+
+/* V24 — antes da otimização, a rota ainda não possui numeração oficial. */
+.routing-stop-card.is-unordered{grid-template-columns:minmax(0,1fr)}
+.routing-selected-stop.is-unordered{grid-template-columns:minmax(0,1fr) auto}

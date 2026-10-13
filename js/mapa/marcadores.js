@@ -46,10 +46,11 @@
     return `id:${String(parada?.id || '')}`;
   }
 
-  function nomeIcone(prefixo, ordem, quantidade, selecionado, status) {
-    const ordemInt = Math.max(1, Math.round(numeroSeguro(ordem, 1)));
+  function nomeIcone(prefixo, ordem, quantidade, selecionado, status, mostrarNumero) {
     const qtdInt = Math.max(1, Math.round(numeroSeguro(quantidade, 1)));
     const statusNorm = statusSeguro(status);
+    if (mostrarNumero === false) return `${prefixo}-draft-${qtdInt}-${selecionado ? 'sel' : statusNorm}`;
+    const ordemInt = Math.max(1, Math.round(numeroSeguro(ordem, 1)));
     return `${prefixo}-${ordemInt}-${qtdInt}-${selecionado ? 'sel' : statusNorm}`;
   }
 
@@ -74,17 +75,47 @@
   function criarIcone(mapa, opcoes) {
     if (!mapa || !global.document) return '';
     const prefixo = String(opcoes?.prefixo || 'pemato-stop-v12');
-    const ordem = Math.max(1, Math.round(numeroSeguro(opcoes?.ordem, 1)));
+    const mostrarNumero = opcoes?.mostrarNumero !== false;
+    const ordem = mostrarNumero ? Math.max(1, Math.round(numeroSeguro(opcoes?.ordem, 1))) : 0;
     const quantidade = Math.max(1, Math.round(numeroSeguro(opcoes?.quantidade, 1)));
     const selecionado = opcoes?.selecionado === true;
     const status = statusSeguro(opcoes?.status);
-    const nome = nomeIcone(prefixo, ordem, quantidade, selecionado, status);
+    const nome = nomeIcone(prefixo, ordem, quantidade, selecionado, status, mostrarNumero);
     if (mapa.hasImage?.(nome)) return nome;
 
     const ratio = Math.max(2, Math.min(3, Number(global.devicePixelRatio || 2)));
     const canvas = global.document.createElement('canvas');
     const ctx = contexto2d(canvas);
     if (!ctx) return '';
+
+    if (!mostrarNumero) {
+      const tamanhoCss = 16;
+      canvas.width = Math.round(tamanhoCss * ratio);
+      canvas.height = Math.round(tamanhoCss * ratio);
+      const c = contexto2d(canvas);
+      if (!c) return '';
+      c.scale(ratio, ratio);
+      c.clearRect(0, 0, tamanhoCss, tamanhoCss);
+      const cores = paleta(status, selecionado);
+      c.beginPath();
+      c.arc(tamanhoCss / 2, tamanhoCss / 2, 6, 0, Math.PI * 2);
+      c.fillStyle = selecionado ? '#059669' : '#ffffff';
+      c.fill();
+      c.lineWidth = 2;
+      c.strokeStyle = selecionado ? '#ffffff' : '#059669';
+      c.stroke();
+      c.beginPath();
+      c.arc(tamanhoCss / 2, tamanhoCss / 2, 2.1, 0, Math.PI * 2);
+      c.fillStyle = selecionado ? '#ffffff' : '#059669';
+      c.fill();
+      try {
+        mapa.addImage(nome, c.getImageData(0, 0, canvas.width, canvas.height), { pixelRatio: ratio });
+        let nomes = REGISTRY.get(mapa);
+        if (!nomes) { nomes = new Set(); REGISTRY.set(mapa, nomes); }
+        nomes.add(nome);
+      } catch (_) {}
+      return nome;
+    }
 
     const numero = String(ordem);
     const badge = quantidade > 1 ? `${quantidade}x` : '';
@@ -182,12 +213,15 @@
       const props = feature.properties || (feature.properties = {});
       const raw = props[propriedadeSelecao];
       const selecionado = raw === true || raw === 1 || raw === '1' || raw === 'true';
+      const rawNumbered = props.numbered;
+      const mostrarNumero = rawNumbered === undefined || rawNumbered === null || rawNumbered === true || rawNumbered === 1 || rawNumbered === '1' || rawNumbered === 'true';
       props[propriedadeIcone] = criarIcone(mapa, {
         prefixo,
         ordem: props.order,
         quantidade: props.multi,
         selecionado,
-        status: props.status
+        status: props.status,
+        mostrarNumero
       });
     });
     return features;
@@ -198,7 +232,7 @@
     return (features || []).map(feature => {
       const p = feature.properties || {};
       const c = feature.geometry?.coordinates || [];
-      return `${p.id || ''}:${p.order || ''}:${p.multi || ''}:${p.status || ''}:${p[prop] || ''}:${c[0] || ''}:${c[1] || ''}`;
+      return `${p.id || ''}:${p.order || ''}:${p.numbered ?? ''}:${p.multi || ''}:${p.status || ''}:${p[prop] || ''}:${c[0] || ''}:${c[1] || ''}`;
     }).join('|');
   }
 
