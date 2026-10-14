@@ -356,7 +356,9 @@
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
-        garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
+        garantirCamadas(); bindEventosMapa();
+        global.PacoteEMatoPostos?.registrarMapa?.('roteirizacao', mapa, { host: document.querySelector('.routing-map-pane'), buttonId: 'routingFuelBtn' });
+        try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
       loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 8500);
       mapa.on('load', mapaPronto);
@@ -717,6 +719,7 @@
   }
 
   function destruir() {
+    global.PacoteEMatoPostos?.destruir?.('roteirizacao');
     clearTimeout(loadTimer); loadTimer = null;
     if (resizeObserver) { try { resizeObserver.disconnect(); } catch (_) {} resizeObserver = null; }
     if (mapa) { try { mapa.remove(); } catch (_) {} }

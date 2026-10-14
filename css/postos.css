@@ -1,0 +1,28 @@
+/* V31 — Postos de combustível próximos */
+.pemato-fuel-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.pemato-fuel-toggle.active{background:#ecfdf5!important;color:#047857!important;border-color:#6ee7b7!important;box-shadow:0 0 0 3px rgba(16,185,129,.12),0 5px 16px rgba(15,23,42,.12)!important}
+.pemato-fuel-toggle[data-loading="1"]{position:relative;color:transparent!important;pointer-events:none}
+.pemato-fuel-toggle[data-loading="1"]:after{content:"";position:absolute;width:15px;height:15px;border:2px solid #a7f3d0;border-top-color:#047857;border-radius:50%;animation:pemato-fuel-spin .7s linear infinite}
+@keyframes pemato-fuel-spin{to{transform:rotate(360deg)}}
+
+.pemato-fuel-card{position:absolute;z-index:31;width:min(330px,calc(100% - 28px));padding:14px;border:1px solid #dbe7e1;border-radius:18px;background:rgba(255,255,255,.98);box-shadow:0 18px 48px rgba(15,23,42,.18);backdrop-filter:blur(10px);color:#111}
+.routing-map-pane>.pemato-fuel-card{left:14px;bottom:16px}
+.navigation-map-wrap>.pemato-fuel-card{left:14px;bottom:14px}
+.pemato-fuel-close{position:absolute;right:9px;top:9px;width:30px;height:30px;display:grid;place-items:center;padding:0;border:1px solid #dbe7e1;border-radius:50%;background:#fff;color:#111;font-size:19px;line-height:1;cursor:pointer}
+.pemato-fuel-card-brand{display:grid;grid-template-columns:46px minmax(0,1fr);align-items:center;gap:10px;padding-right:34px}
+.pemato-fuel-card-logo{width:44px;height:44px;display:grid;place-items:center;border:2px solid #047857;border-radius:50%;font:900 14px/1 Arial,sans-serif;letter-spacing:-.04em}
+.pemato-fuel-card-brand small{display:block;color:#059669;font-size:.54rem;font-weight:900;letter-spacing:.08em}
+.pemato-fuel-card-name{display:block;margin-top:2px;color:#111;font-size:.84rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pemato-fuel-card-meta{margin-top:10px;color:#047857;font-size:.64rem;font-weight:900}
+.pemato-fuel-card-address{margin-top:5px;color:#475569;font-size:.62rem;line-height:1.45;min-height:18px}
+.pemato-fuel-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.pemato-fuel-actions button{min-height:40px;border-radius:12px;border:1px solid #dbe7e1;font-weight:900;font-size:.66rem;cursor:pointer}
+.pemato-fuel-waze{background:#ecfeff;color:#0e7490}
+.pemato-fuel-maps{background:#ecfdf5;color:#047857}
+
+@media(max-width:820px){
+  .routing-map-pane>.pemato-fuel-card{left:10px;bottom:92px;width:min(320px,calc(100% - 76px))}
+  .navigation-map-wrap>.pemato-fuel-card{left:10px;bottom:calc(35dvh + 12px);width:min(320px,calc(100% - 76px))}
+  .pemato-fuel-card{padding:12px;border-radius:16px}
+  .pemato-fuel-card-logo{width:40px;height:40px}
+}

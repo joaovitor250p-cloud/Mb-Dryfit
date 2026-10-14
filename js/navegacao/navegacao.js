@@ -330,6 +330,7 @@
         removerCamadas3D();
         garantirCamadas();
         bindEventosMarcadoresNav();
+        global.PacoteEMatoPostos?.registrarMapa?.('navegacao', mapa, { host: document.querySelector('.navigation-map-wrap'), buttonId: 'navFuelBtn' });
         try { mapa.resize(); mapa.triggerRepaint?.(); } catch (_) {}
         posicionarMapaNaRotaSemGPS();
         desenharRota();
@@ -781,6 +782,7 @@
   function reconstruirMapaNavegacao(){
     if(reconstruindoMapa) return;
     reconstruindoMapa=true;
+    global.PacoteEMatoPostos?.destruir?.('navegacao');
     try{ mapa?.remove?.(); }catch(_){}
     mapa=null; mapReady=false; fallbackBaseAtivo=false; clearTimeout(mapLoadTimer); assinaturaParadasV11='';
     const container=$('mapaNavegacao'); if(container) container.innerHTML='';
