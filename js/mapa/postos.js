@@ -3,7 +3,7 @@
 
   const RADIUS_METERS = 5000;
   const MAX_RESULTS = 30;
-  const CACHE_TTL_MS = 8 * 60 * 1000;
+  const CACHE_TTL_MS = 10 * 60 * 1000;
   const CACHE_MOVE_METERS = 1800;
   const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
@@ -12,6 +12,7 @@
 
   const contexts = new Map();
   let cache = null;
+  let buscaToken = 0;
 
   function $(id) { return document.getElementById(id); }
 
@@ -135,6 +136,7 @@
   }
 
   async function buscarPostos(posicao) {
+    const token = ++buscaToken;
     if (cache && Date.now() - cache.at < CACHE_TTL_MS && haversine(posicao, cache.center) < CACHE_MOVE_METERS) {
       return cache.items;
     }
@@ -142,7 +144,8 @@
     let ultimoErro = null;
     for (const endpoint of OVERPASS_ENDPOINTS) {
       try {
-        const data = await fetchComTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 10000);
+        const data = await fetchComTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 6000);
+        if (token !== buscaToken) throw new Error('Busca de postos cancelada por uma nova pesquisa.');
         const vistos = new Set();
         const items = (Array.isArray(data?.elements) ? data.elements : [])
           .map(el => parseElement(el, posicao))

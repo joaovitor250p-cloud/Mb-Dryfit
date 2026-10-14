@@ -446,7 +446,10 @@
     const feature = geometry ? { type: 'Feature', properties: { planned: true }, geometry } : null;
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
     const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
-    atualizarSource(SOURCE_ROUTE_STATUS, featureCollection(segmentosStatus));
+    // V32.1: status de entrega permanece nos marcadores.
+    // A linha da rota não recebe mais segmentos verdes/vermelhos por status.
+    // Isso evita a rota fragmentada e mantém o desenho limpo estilo V28.
+    atualizarSource(SOURCE_ROUTE_STATUS, featureCollection([]));
   }
 
   function renderizarMarcadores() {
