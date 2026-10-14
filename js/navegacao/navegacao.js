@@ -917,5 +917,11 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true}); else bind();
-  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar});
+  async function navegarParaPostoTemporario(posto){
+    if(!posto || !Number.isFinite(Number(posto.lat)) || !Number.isFinite(Number(posto.lon))) return;
+    try { sessionStorage.setItem('pemato_posto_temporario', JSON.stringify(posto)); } catch(_) {}
+    global.notificar?.('Destino temporário do posto selecionado.');
+  }
+
+  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar,navegarParaPostoTemporario});
 })(window);

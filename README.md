@@ -259,3 +259,6 @@ Veja `RELATORIO-V29-RETOMADA-RAPIDA-STATUS-CARD.md`.
 - Toque no posto abre um card com nome, bandeira, distância, endereço e atalhos para Waze/Google Maps.
 - Os resultados ficam em cache por alguns minutos para evitar consultas repetidas durante a entrega.
 - A camada é separada das paradas da rota: não altera numeração, otimização ou status das entregas.
+
+## V32 — Logos dos postos
+Os marcadores de postos conhecidos agora usam os logotipos das bandeiras (Shell, Ipiranga, Petrobras/BR, ALE, Esso e Texaco), com fallback genérico quando a marca não é informada ou a imagem não carrega.

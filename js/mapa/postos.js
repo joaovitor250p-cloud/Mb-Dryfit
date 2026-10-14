@@ -1,8 +1,6 @@
 (function iniciarPostosProximos(global) {
   'use strict';
 
-  const SOURCE_ID = 'pemato-fuel-stations';
-  const LAYER_ID = 'pemato-fuel-stations-layer';
   const RADIUS_METERS = 5000;
   const MAX_RESULTS = 30;
   const CACHE_TTL_MS = 8 * 60 * 1000;
@@ -49,14 +47,45 @@
   }
 
   function brandMeta(key) {
+    const commons = file => `https://commons.wikimedia.org/wiki/Special:Redirect/file/${file}`;
     return ({
-      shell: { label: 'S', title: 'Shell', bg: '#ffd500', fg: '#d71920', border: '#d71920' },
-      ipiranga: { label: 'IP', title: 'Ipiranga', bg: '#0057b8', fg: '#ffffff', border: '#f4cf00' },
-      br: { label: 'BR', title: 'BR / Petrobras', bg: '#009739', fg: '#ffffff', border: '#ffd100' },
-      ale: { label: 'ALE', title: 'ALE', bg: '#e31837', fg: '#ffffff', border: '#ffffff' },
-      esso: { label: 'E', title: 'Esso', bg: '#ffffff', fg: '#e31837', border: '#0057b8' },
-      texaco: { label: 'T', title: 'Texaco', bg: '#d71920', fg: '#ffffff', border: '#ffffff' },
-      generic: { label: '⛽', title: 'Posto', bg: '#ffffff', fg: '#047857', border: '#047857' }
+      // Shell usa o símbolo da concha, não apenas a letra S.
+      shell: {
+        title: 'Shell',
+        logo: 'https://cdn.simpleicons.org/shell/D71920',
+        markerClass: 'is-shell'
+      },
+      // Logos completos oficiais/identificáveis. Se o host externo falhar, cai para o ícone genérico.
+      ipiranga: {
+        title: 'Ipiranga',
+        logo: commons('Ipiranga_logo_(2023).svg'),
+        markerClass: 'is-ipiranga'
+      },
+      br: {
+        title: 'BR / Petrobras',
+        logo: commons('Logotipo_da_Petrobras_(vertical).svg'),
+        markerClass: 'is-petrobras'
+      },
+      ale: {
+        title: 'ALE',
+        logo: commons('AleSat_Combust%C3%ADveis.svg'),
+        markerClass: 'is-ale'
+      },
+      esso: {
+        title: 'Esso',
+        logo: commons('Esso_textlogo.svg'),
+        markerClass: 'is-esso'
+      },
+      texaco: {
+        title: 'Texaco',
+        logo: commons('Texaco_logo.svg'),
+        markerClass: 'is-texaco'
+      },
+      generic: {
+        title: 'Posto',
+        logo: '',
+        markerClass: 'is-generic'
+      }
     })[key] || null;
   }
 
@@ -135,75 +164,71 @@
     throw ultimoErro || new Error('Não foi possível consultar postos próximos.');
   }
 
-  function criarIconeMapa(meta) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const c = canvas.getContext('2d');
-    if (!c) return null;
-    c.clearRect(0,0,64,64);
-    c.beginPath(); c.arc(32,32,27,0,Math.PI*2); c.fillStyle = '#ffffff'; c.fill();
-    c.beginPath(); c.arc(32,32,24,0,Math.PI*2); c.fillStyle = meta.bg; c.fill();
-    c.lineWidth = 3; c.strokeStyle = meta.border; c.stroke();
-    c.fillStyle = meta.fg;
-    const len = String(meta.label).length;
-    c.font = `900 ${len >= 3 ? 14 : len === 2 ? 19 : 26}px Arial, sans-serif`;
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(meta.label, 32, 33);
-    return c.getImageData(0,0,64,64);
-  }
+  function criarImagemMarca(key, classeExtra) {
+    const meta = brandMeta(key) || brandMeta('generic');
+    const wrap = document.createElement('span');
+    wrap.className = `pemato-fuel-brand-visual ${meta.markerClass || ''} ${classeExtra || ''}`.trim();
 
-  function garantirImagens(ctx) {
-    if (!ctx?.map) return;
-    ['shell','ipiranga','br','ale','esso','texaco','generic'].forEach(key => {
-      const name = `pemato-fuel-${key}`;
-      try {
-        if (!ctx.map.hasImage?.(name)) {
-          const img = criarIconeMapa(brandMeta(key));
-          if (img) ctx.map.addImage(name, img, { pixelRatio: 2 });
-        }
-      } catch (_) {}
-    });
-  }
-
-  function fc(features) { return { type:'FeatureCollection', features: Array.isArray(features) ? features : [] }; }
-
-  function featuresDosPostos(items) {
-    return fc((items || []).map(item => ({
-      type:'Feature', id:item.id,
-      geometry:{ type:'Point', coordinates:[item.lon,item.lat] },
-      properties:{ id:item.id, icon:`pemato-fuel-${item.brandKey}`, name:item.name, brand:item.brand, distance:Math.round(item.distance) }
-    })));
-  }
-
-  function garantirCamada(ctx) {
-    const map = ctx?.map;
-    if (!map || !map.getStyle?.()) return false;
-    try {
-      garantirImagens(ctx);
-      if (!map.getSource(SOURCE_ID)) map.addSource(SOURCE_ID, { type:'geojson', data:fc([]) });
-      if (!map.getLayer(LAYER_ID)) map.addLayer({
-        id:LAYER_ID, type:'symbol', source:SOURCE_ID,
-        layout:{
-          'icon-image':['get','icon'],
-          'icon-size':['interpolate',['linear'],['zoom'],10,.58,13,.72,16,.82],
-          'icon-allow-overlap':true,
-          'icon-ignore-placement':true,
-          'icon-anchor':'center',
-          'symbol-sort-key':['get','distance']
-        }
-      });
-      return true;
-    } catch (erro) {
-      console.warn('Pacote É Mato: não foi possível montar camada de postos.', erro);
-      return false;
+    if (meta.logo) {
+      const img = document.createElement('img');
+      img.src = meta.logo;
+      img.alt = meta.title || 'Posto';
+      img.loading = 'eager';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', () => {
+        img.remove();
+        wrap.classList.add('logo-fallback');
+        wrap.textContent = '⛽';
+      }, { once:true });
+      wrap.appendChild(img);
+    } else {
+      wrap.classList.add('logo-fallback');
+      wrap.textContent = '⛽';
     }
+    return wrap;
   }
 
-  function removerFonte(ctx) {
-    const map = ctx?.map;
-    if (!map) return;
-    try { if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID); } catch (_) {}
-    try { if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID); } catch (_) {}
+  function criarElementoMarcador(posto, ctx, indice) {
+    const meta = brandMeta(posto.brandKey) || brandMeta('generic');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `pemato-fuel-marker ${meta.markerClass || ''}`;
+    btn.setAttribute('aria-label', `${meta.title || 'Posto'}: ${posto.name}`);
+    btn.title = posto.name;
+    btn.style.zIndex = String(3000 - Math.min(2500, indice || 0));
+    btn.appendChild(criarImagemMarca(posto.brandKey, 'pemato-fuel-marker-logo'));
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      mostrarCard(ctx, posto);
+    });
+    return btn;
+  }
+
+  function limparMarcadores(ctx) {
+    if (!ctx?.markers) return;
+    for (const marker of ctx.markers.values()) {
+      try { marker.remove(); } catch (_) {}
+    }
+    ctx.markers.clear();
+  }
+
+  function renderizarMarcadores(ctx, items) {
+    if (!ctx?.map || !global.maplibregl?.Marker) return;
+    limparMarcadores(ctx);
+    (items || []).forEach((posto, index) => {
+      if (!coordValida(posto.lat, posto.lon)) return;
+      try {
+        const element = criarElementoMarcador(posto, ctx, index);
+        const marker = new global.maplibregl.Marker({ element, anchor:'center' })
+          .setLngLat([Number(posto.lon), Number(posto.lat)])
+          .addTo(ctx.map);
+        ctx.markers.set(String(posto.id), marker);
+      } catch (erro) {
+        console.warn('Pacote É Mato: falha ao desenhar logo do posto.', posto?.name, erro);
+      }
+    });
   }
 
   function formatarDistancia(m) {
@@ -230,12 +255,17 @@
     el.style.display = 'none';
     el.innerHTML = `
       <button class="pemato-fuel-close" type="button" aria-label="Fechar">×</button>
-      <div class="pemato-fuel-card-brand"><span class="pemato-fuel-card-logo">⛽</span><div><small>POSTO PRÓXIMO</small><strong class="pemato-fuel-card-name">Posto</strong></div></div>
+      <div class="pemato-fuel-card-brand"><span class="pemato-fuel-card-logo"></span><div><small>POSTO PRÓXIMO</small><strong class="pemato-fuel-card-name">Posto</strong></div></div>
       <div class="pemato-fuel-card-meta"></div>
       <div class="pemato-fuel-card-address"></div>
-      <div class="pemato-fuel-actions"><button class="pemato-fuel-waze" type="button">Waze</button><button class="pemato-fuel-maps" type="button">Google Maps</button></div>`;
+      <div class="pemato-fuel-actions"><button class="pemato-fuel-internal" type="button">Navegar pelo Pacote É Mato</button><button class="pemato-fuel-waze" type="button">Waze</button><button class="pemato-fuel-maps" type="button">Google Maps</button></div>`;
     host.appendChild(el);
     el.querySelector('.pemato-fuel-close')?.addEventListener('click', () => fecharCard(ctx));
+    el.querySelector('.pemato-fuel-internal')?.addEventListener('click', () => {
+      const p = ctx.selecionado; if (!p) return;
+      if (global.PacoteEMatoNavegacao?.navegarParaPostoTemporario) { global.PacoteEMatoNavegacao.navegarParaPostoTemporario(p); }
+      else { global.notificar?.('Navegação interna de posto indisponível nesta versão.'); }
+    });
     el.querySelector('.pemato-fuel-waze')?.addEventListener('click', () => {
       const p = ctx.selecionado; if (!p) return;
       abrirUrl(`https://www.waze.com/ul?ll=${encodeURIComponent(`${p.lat},${p.lon}`)}&navigate=yes`);
@@ -252,35 +282,17 @@
     const card = criarCard(ctx);
     if (!card || !posto) return;
     ctx.selecionado = posto;
-    const meta = brandMeta(posto.brandKey);
+    const meta = brandMeta(posto.brandKey) || brandMeta('generic');
     const logo = card.querySelector('.pemato-fuel-card-logo');
     if (logo) {
-      logo.textContent = meta?.label || '⛽';
-      logo.style.background = meta?.bg || '#fff';
-      logo.style.color = meta?.fg || '#047857';
-      logo.style.borderColor = meta?.border || '#047857';
+      logo.replaceChildren(criarImagemMarca(posto.brandKey, 'pemato-fuel-card-logo-inner'));
+      logo.className = `pemato-fuel-card-logo ${meta.markerClass || ''}`;
     }
     const name = card.querySelector('.pemato-fuel-card-name'); if (name) name.textContent = posto.name;
     const brand = posto.brand || meta?.title || 'Posto';
     const m = card.querySelector('.pemato-fuel-card-meta'); if (m) m.textContent = `${brand} • ${formatarDistancia(posto.distance)}`;
     const a = card.querySelector('.pemato-fuel-card-address'); if (a) a.textContent = posto.address || 'Endereço não informado pelo mapa.';
     card.style.display = 'block';
-  }
-
-  function encontrarPosto(ctx, feature) {
-    const id = String(feature?.properties?.id || feature?.id || '');
-    return (ctx.items || []).find(p => String(p.id) === id) || null;
-  }
-
-  function bindClicks(ctx) {
-    if (!ctx?.map || ctx.bound) return;
-    ctx.bound = true;
-    ctx.map.on('click', LAYER_ID, event => {
-      const posto = encontrarPosto(ctx, event?.features?.[0]);
-      if (posto) mostrarCard(ctx, posto);
-    });
-    ctx.map.on('mouseenter', LAYER_ID, () => { try { ctx.map.getCanvas().style.cursor = 'pointer'; } catch (_) {} });
-    ctx.map.on('mouseleave', LAYER_ID, () => { try { ctx.map.getCanvas().style.cursor = ''; } catch (_) {} });
   }
 
   function atualizarBotao(ctx) {
@@ -303,7 +315,7 @@
     if (!ctx) return;
     ctx.ativo = false;
     fecharCard(ctx);
-    try { if (ctx.map?.getSource(SOURCE_ID)) ctx.map.getSource(SOURCE_ID).setData(fc([])); } catch (_) {}
+    limparMarcadores(ctx);
     atualizarBotao(ctx);
     if (restaurar && ctx.previousView && ctx.map) {
       try { ctx.map.easeTo({ center:ctx.previousView.center, zoom:ctx.previousView.zoom, duration:280 }); } catch (_) {}
@@ -324,9 +336,7 @@
       const items = await buscarPostos(pos);
       ctx.items = items;
       if (!ctx.ativo) return;
-      if (!garantirCamada(ctx)) throw new Error('Não foi possível criar a camada de postos no mapa.');
-      bindClicks(ctx);
-      ctx.map.getSource(SOURCE_ID)?.setData?.(featuresDosPostos(items));
+      renderizarMarcadores(ctx, items);
       try { ctx.map.easeTo({ center:[pos.lon,pos.lat], zoom:Math.max(13, Math.min(14.2, ctx.map.getZoom())), duration:320 }); } catch (_) {}
       if (!items.length) global.notificar?.('Nenhum posto cadastrado foi encontrado em até 5 km.');
       else global.notificar?.(`${items.length} posto(s) próximo(s) encontrado(s).`);
@@ -350,11 +360,12 @@
     chave = String(chave);
     let ctx = contexts.get(chave);
     if (!ctx) {
-      ctx = { chave, map:null, host:null, buttonId:'', ativo:false, loading:false, items:[], card:null, selecionado:null, bound:false, previousView:null };
+      ctx = { chave, map:null, host:null, buttonId:'', ativo:false, loading:false, items:[], card:null, selecionado:null, previousView:null, markers:new Map() };
       contexts.set(chave, ctx);
     }
     if (ctx.map && ctx.map !== map) {
-      removerFonte(ctx); ctx.bound = false; ctx.card?.remove?.(); ctx.card = null;
+      limparMarcadores(ctx);
+      ctx.card?.remove?.(); ctx.card = null;
     }
     ctx.map = map;
     ctx.host = opcoes?.host || map?.getContainer?.()?.parentElement || null;
@@ -365,29 +376,19 @@
       btn.addEventListener('click', () => alternar(chave));
     }
     atualizarBotao(ctx);
-    try {
-      if (!map.__pematoFuelStyleBound) {
-        map.__pematoFuelStyleBound = true;
-        map.on('style.load', () => {
-          const atual = contexts.get(chave);
-          if (!atual || atual.map !== map || !atual.ativo) return;
-          setTimeout(() => {
-            if (garantirCamada(atual)) {
-              bindClicks(atual);
-              atual.map.getSource(SOURCE_ID)?.setData?.(featuresDosPostos(atual.items));
-            }
-          }, 0);
-        });
-      }
-    } catch (_) {}
+    if (ctx.ativo && ctx.items?.length) {
+      setTimeout(() => renderizarMarcadores(ctx, ctx.items), 0);
+    }
     return ctx;
   }
 
   function destruir(chave) {
     const ctx = contexts.get(String(chave));
     if (!ctx) return;
-    desligar(ctx, false); removerFonte(ctx); ctx.card?.remove?.(); contexts.delete(String(chave));
+    desligar(ctx, false);
+    ctx.card?.remove?.();
+    contexts.delete(String(chave));
   }
 
-  global.PacoteEMatoPostos = Object.freeze({ registrarMapa, alternar, destruir, buscarPostos, _parseElement:parseElement, _brandKey:brandKey });
+  global.PacoteEMatoPostos = Object.freeze({ registrarMapa, alternar, destruir, buscarPostos, _parseElement:parseElement, _brandKey:brandKey, _brandMeta:brandMeta });
 })(window);
