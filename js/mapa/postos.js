@@ -127,7 +127,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch(url, { method: 'GET', credentials: 'omit', signal: controller.signal, cache: 'no-store' });
+      const response = await fetch(url, { method: 'GET', credentials: 'omit', signal: controller.signal, cache: 'force-cache' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } finally {
@@ -144,7 +144,7 @@
     let ultimoErro = null;
     for (const endpoint of OVERPASS_ENDPOINTS) {
       try {
-        const data = await fetchComTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 6000);
+        const data = await fetchComTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 3500);
         if (token !== buscaToken) throw new Error('Busca de postos cancelada por uma nova pesquisa.');
         const vistos = new Set();
         const items = (Array.isArray(data?.elements) ? data.elements : [])
@@ -261,10 +261,6 @@
       <div class="pemato-fuel-card-brand"><span class="pemato-fuel-card-logo"></span><div><small>POSTO PRÓXIMO</small><strong class="pemato-fuel-card-name">Posto</strong></div></div>
       <div class="pemato-fuel-card-meta"></div>
       <div class="pemato-fuel-card-address"></div>
-      <div class="pemato-fuel-prices">
-        <strong>Combustíveis</strong>
-        <div class="pemato-fuel-price-list">Preço não informado</div>
-      </div>
       <div class="pemato-fuel-actions"><button class="pemato-fuel-internal" type="button">Navegar pelo Pacote É Mato</button><button class="pemato-fuel-waze" type="button">Waze</button><button class="pemato-fuel-maps" type="button">Google Maps</button></div>`;
     host.appendChild(el);
     el.querySelector('.pemato-fuel-close')?.addEventListener('click', () => fecharCard(ctx));
@@ -299,17 +295,6 @@
     const brand = posto.brand || meta?.title || 'Posto';
     const m = card.querySelector('.pemato-fuel-card-meta'); if (m) m.textContent = `${brand} • ${formatarDistancia(posto.distance)}`;
     const a = card.querySelector('.pemato-fuel-card-address'); if (a) a.textContent = posto.address || 'Endereço não informado pelo mapa.';
-    const prices = card.querySelector('.pemato-fuel-price-list');
-    if (prices) {
-      // A fonte de preços deve ser confiável; não exibimos valores inventados.
-      const combustiveis = posto.prices || null;
-      if (combustiveis && Object.keys(combustiveis).length) {
-        prices.innerHTML = Object.entries(combustiveis)
-          .map(([tipo, valor]) => `<div>${tipo}: ${valor}</div>`).join('');
-      } else {
-        prices.textContent = 'Preço não informado';
-      }
-    }
     card.style.display = 'block';
   }
 

@@ -46,7 +46,3 @@
   .pemato-fuel-marker{width:42px;height:42px}
   .pemato-fuel-card-logo{width:44px;height:44px}
 }
-
-.pemato-fuel-prices{margin-top:10px;padding:10px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;font-size:.72rem;color:#334155}
-.pemato-fuel-prices strong{display:block;color:#047857;margin-bottom:5px;font-size:.72rem}
-.pemato-fuel-price-list{line-height:1.5}
