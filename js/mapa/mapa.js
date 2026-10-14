@@ -252,7 +252,7 @@
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#16a34a', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .78, 'line-blur': 0 }
+      paint: { 'line-color': '#10b981', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .62, 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({
       id: LAYER_ROUTE_STATUS_CASE, type: 'line', source: SOURCE_ROUTE_STATUS,
@@ -263,7 +263,7 @@
       id: LAYER_ROUTE_STATUS, type: 'line', source: SOURCE_ROUTE_STATUS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#059669',
+        'line-color': '#047857',
         'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 12, 3.5, 14, 4.6, 16, 6.2],
         'line-opacity': 0
       }

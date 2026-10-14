@@ -115,6 +115,9 @@
       address: enderecoDeTags(tags),
       operator: String(tags.operator || '').trim(),
       openingHours: String(tags.opening_hours || '').trim(),
+      fuelPrices: null,
+      priceStatus: 'Preço não informado',
+      source: 'OpenStreetMap/Overpass',
       distance: haversine(origem, { lat, lon })
     };
   }
@@ -293,7 +296,7 @@
     }
     const name = card.querySelector('.pemato-fuel-card-name'); if (name) name.textContent = posto.name;
     const brand = posto.brand || meta?.title || 'Posto';
-    const m = card.querySelector('.pemato-fuel-card-meta'); if (m) m.textContent = `${brand} • ${formatarDistancia(posto.distance)}`;
+    const m = card.querySelector('.pemato-fuel-card-meta'); if (m) m.textContent = `${brand} • ${formatarDistancia(posto.distance)} • ${posto.priceStatus || 'Preço não informado'}`;
     const a = card.querySelector('.pemato-fuel-card-address'); if (a) a.textContent = posto.address || 'Endereço não informado pelo mapa.';
     card.style.display = 'block';
   }
@@ -342,7 +345,7 @@
       renderizarMarcadores(ctx, items);
       try { ctx.map.easeTo({ center:[pos.lon,pos.lat], zoom:Math.max(13, Math.min(14.2, ctx.map.getZoom())), duration:320 }); } catch (_) {}
       if (!items.length) global.notificar?.('Nenhum posto cadastrado foi encontrado em até 5 km.');
-      else global.notificar?.(`${items.length} posto(s) próximo(s) encontrado(s).`);
+      else global.notificar?.(`${items.length} posto(s) próximo(s) encontrado(s). Distâncias calculadas pela posição atual.`);
     } finally {
       ctx.loading = false; if (btn) delete btn.dataset.loading;
     }
