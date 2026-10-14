@@ -263,9 +263,9 @@
       id: LAYER_ROUTE_STATUS, type: 'line', source: SOURCE_ROUTE_STATUS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#047857',
+        'line-color': ['case', ['==', ['get','trecho'], 'concluido'], '#9ca3af', ['==', ['get','trecho'], 'atual'], '#059669', '#34d399'],
         'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 12, 3.5, 14, 4.6, 16, 6.2],
-        'line-opacity': 0
+        'line-opacity': ['case', ['==', ['get','trecho'], 'concluido'], .45, ['==', ['get','trecho'], 'atual'], 1, .45]
       }
     }, before);
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({

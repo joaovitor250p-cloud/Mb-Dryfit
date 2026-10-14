@@ -46,3 +46,8 @@
   .pemato-fuel-marker{width:30px;height:30px}
   .pemato-fuel-card-logo{width:44px;height:44px}
 }
+
+/* V32.6: marcadores compactos e estaveis */
+.pemato-fuel-marker{width:34px!important;height:34px!important;transform:translateZ(0);}
+.pemato-fuel-brand-visual{width:26px!important;height:26px!important;}
+.pemato-fuel-brand-visual img{max-width:22px!important;max-height:22px!important;}

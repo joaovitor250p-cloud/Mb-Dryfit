@@ -13,6 +13,7 @@
   const contexts = new Map();
   let cache = null;
   let buscaToken = 0;
+  let buscaEmAndamento = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -116,6 +117,7 @@
       operator: String(tags.operator || '').trim(),
       openingHours: String(tags.opening_hours || '').trim(),
       fuelPrices: null,
+      distanceType: 'linha_reta',
       priceStatus: 'Preço não informado',
       source: 'OpenStreetMap/Overpass',
       distance: haversine(origem, { lat, lon })
@@ -139,6 +141,8 @@
   }
 
   async function buscarPostos(posicao) {
+    const chave = `${Number(posicao.lat).toFixed(4)}|${Number(posicao.lon).toFixed(4)}`;
+    if (buscaEmAndamento?.chave === chave) return buscaEmAndamento.promise;
     const token = ++buscaToken;
     if (cache && Date.now() - cache.at < CACHE_TTL_MS && haversine(posicao, cache.center) < CACHE_MOVE_METERS) {
       return cache.items;
