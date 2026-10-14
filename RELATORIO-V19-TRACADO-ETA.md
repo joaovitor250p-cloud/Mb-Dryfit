@@ -4,7 +4,7 @@
 A V18 apresentava dois pontos visíveis no teste real:
 
 1. Ao afastar o mapa, o traçado verde ficava visualmente serrilhado/ruidoso.
-2. A previsão de término ficava muito acima da referência do Circuit.
+2. A previsão de término ficava muito acima da referência do rota.
 
 ## Diagnóstico da previsão
 O aplicativo carregava por padrão `180 segundos` (3 minutos) de atendimento em **cada parada**.
@@ -61,6 +61,6 @@ A distância, ordem das paradas, geometria armazenada e instruções de navegaç
 
 ## Testes que ainda dependem do aparelho
 - aparência exata da linha verde no mesmo celular e nos mesmos níveis de zoom dos prints;
-- comparação de término com uma rota real calculada pelo Circuit no mesmo instante;
+- comparação de término com uma rota real calculada pelo rota no mesmo instante;
 - comportamento visual durante pan/zoom contínuo no WebView/PWA;
 - tráfego real retornado pelo provedor de roteamento.

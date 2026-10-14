@@ -49,7 +49,7 @@ O mapa agrupava corretamente paradas no mesmo ponto físico, porém sempre usava
 ## Testes que dependem do aparelho/serviço real
 
 - Distância final real retornada pelo Route Planner para o XLSX do usuário.
-- Comparação da nova sequência/duração contra Circuit/Spoke.
+- Comparação da nova sequência/duração contra rota/rota.
 - Comportamento visual ao tocar nas paradas 81, 82, 83 etc. no aparelho.
 - Reotimização com GPS real e serviço publicado.
 

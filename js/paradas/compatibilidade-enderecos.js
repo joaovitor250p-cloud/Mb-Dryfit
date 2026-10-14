@@ -144,7 +144,7 @@ window.extrairEnderecoReal = extrairEnderecoReal;
 /* ===== Preservado de correcao-v18.js ===== */
 /*
  V18 - AGRUPAMENTO INTELIGENTE DE RUAS
- Melhora abreviações e pequenas diferenças de leitura do Circuit.
+ Melhora abreviações e pequenas diferenças de leitura do rota.
  Mantém número do imóvel como regra obrigatória.
 */
 
@@ -225,7 +225,7 @@ window.normalizarRuaV20 = function(rua){
 /* ===== Preservado de correcao-v26.js ===== */
 /*
  V26 - LIMPEZA DO ENDEREÇO BRUTO
- Remove sufixos internos do Circuit antes da criação da parada.
+ Remove sufixos internos do rota antes da criação da parada.
 */
 
 (function(){
@@ -246,7 +246,7 @@ window.limparEnderecoBrutoV26 = function(valor){
 
 /* ===== Preservado de correcao-v32.js ===== */
 /*
- V32 - Base v27 + correção exclusiva de código interno Circuit
+ V32 - Base v27 + correção exclusiva de código interno rota
 
  Mantém a contagem original da v27.
  Corrige somente duplicidades causadas por sufixos:
@@ -254,7 +254,7 @@ window.limparEnderecoBrutoV26 = function(valor){
  Não faz agrupamento geral por rua/número.
 */
 
-window.removerCodigoCircuitV32 = function(valor){
+window.removerCodigorotaV32 = function(valor){
     if(!valor) return "";
     return String(valor)
       .replace(/_s\d+/gi,"")

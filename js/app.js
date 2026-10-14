@@ -2686,7 +2686,7 @@ function tocarIntroPs2Audio() {
       texto = texto.replace(/^bipados_/i, '');
 
       // Remove sufixo numérico interno usado para diferenciar arquivo/tamanho.
-      // Ex.: "Circuit (20).pdf_101720" -> "Circuit (20).pdf"
+      // Ex.: "rota (20).pdf_101720" -> "rota (20).pdf"
       texto = texto.replace(/(\.pdf)_\d+$/i, '$1');
 
       // Se por acaso vier qualquer conteúdo após ".pdf", conserva só o nome do PDF.
@@ -3152,7 +3152,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return t.trim();
     }
 
-    function normalizarTokenLogradouroCircuit(token) {
+    function normalizarTokenLogradourorota(token) {
       const mapa = {
         'doutor':'dr', 'dr':'dr',
         'doutora':'dra', 'dra':'dra',
@@ -3179,7 +3179,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return mapa[token] || token;
     }
 
-    function decomporEnderecoCircuit(texto) {
+    function decomporEnderecorota(texto) {
       if (!texto) return null;
 
       const original = extrairEnderecoExibicao(texto);
@@ -3207,7 +3207,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
 
       // ============================================================
-      // V16 - RECUPERA ENDEREÇOS COLADOS DO CIRCUIT
+      // V16 - RECUPERA ENDEREÇOS COLADOS DO rota
       // Alguns PDFs chegam assim:
       // marquesvalencaapto113bsaopaulo_595
       // mqvalencaapto93asaopaulo_595
@@ -3268,7 +3268,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
         valor.split(/\s+/)
           .filter(Boolean)
           .filter(token => !['da','de','do','das','dos','e'].includes(token))
-          .map(normalizarTokenLogradouroCircuit)
+          .map(normalizarTokenLogradourorota)
           .filter(Boolean);
 
       const tokensRua = normalizarTokens(ruaBruta);
@@ -3288,13 +3288,13 @@ document.getElementById('cardRetomarRota').style.display = 'none';
     }
 
     function normalizarEndereco(texto) {
-      const d = decomporEnderecoCircuit(texto);
+      const d = decomporEnderecorota(texto);
       if (!d) return "";
 
       // CORREÇÃO V12:
       // Parada é o imóvel: LOGRADOURO + NÚMERO.
       // Apartamento, bloco, torre, sala e complementos não criam nova parada.
-      // Também remove abreviações comuns do Circuit.
+      // Também remove abreviações comuns do rota.
       const aliases = {
         'mq': 'marques',
         'cnsl': 'conselheiro',
@@ -3309,7 +3309,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return `${rua}_${d.numero}`;
     }
 
-    function linhaPareceEnderecoCircuit(texto) {
+    function linhaPareceEnderecorota(texto) {
       if (!texto) return false;
 
       const limpo = removerAcentosEndereco(String(texto)).toLowerCase();
@@ -3320,16 +3320,16 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       );
     }
 
-    function encontrarLinhaEnderecoCircuit(linhas, indice) {
+    function encontrarLinhaEnderecorota(linhas, indice) {
       const atual = String(linhas[indice] || '');
 
       // Se endereço e código já vieram na mesma linha, usa a própria linha.
-      if (linhaPareceEnderecoCircuit(atual) && normalizarEndereco(atual)) {
+      if (linhaPareceEnderecorota(atual) && normalizarEndereco(atual)) {
         return atual;
       }
 
       /*
-       * O PDF do Circuit frequentemente posiciona a coluna "Notes"
+       * O PDF do rota frequentemente posiciona a coluna "Notes"
        * alguns pixels acima/abaixo da coluna "Address".
        * O PDF.js então pode criar duas linhas:
        *   BR26874888166
@@ -3341,7 +3341,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
       for (const off of offsets) {
         const candidato = String(linhas[indice + off] || '');
-        if (linhaPareceEnderecoCircuit(candidato) && normalizarEndereco(candidato)) {
+        if (linhaPareceEnderecorota(candidato) && normalizarEndereco(candidato)) {
           return candidato;
         }
       }
@@ -3349,7 +3349,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return atual;
     }
 
-    function extrairNumeroParadaCircuit(texto, fallback) {
+    function extrairNumeroParadarota(texto, fallback) {
       const t = String(texto || '').trim();
       const m = t.match(/^(\d{1,3})\b/);
       return m ? parseInt(m[1], 10) : fallback;
@@ -3459,7 +3459,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           atualizarTelaCarregamentoPdf(18, 'PDF aberto com sucesso...', 'Lendo sua rota');
           const pdf = await pdfjsLib.getDocument(typedarray).promise;
 
-          const registrosCircuit = [];
+          const registrosrota = [];
           const codigosGlobais = new Set();
 
           // Buffer compatível com o leitor antigo.
@@ -3533,7 +3533,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
             });
 
             /*
-             * Âncoras da coluna "#" do Circuit.
+             * Âncoras da coluna "#" do rota.
              * Não agrupamos mais linhas por arredondamento variável.
              * Cada número da coluna esquerda define matematicamente a faixa
              * vertical daquela entrega.
@@ -3554,7 +3554,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
                 item.numero <= 999
               );
 
-            // Elimina falsos números escolhendo a sequência crescente do Circuit.
+            // Elimina falsos números escolhendo a sequência crescente do rota.
             const ordenadosY = candidatosNumero
               .slice()
               .sort((a, b) => b.y - a.y);
@@ -3635,7 +3635,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
               if (!endereco) continue;
 
-              registrosCircuit.push({
+              registrosrota.push({
                 numeroParada: atual.numero,
                 endereco,
                 codigos,
@@ -3645,12 +3645,12 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           }
 
           const codigosLidos = new Set();
-          registrosCircuit.forEach(r =>
+          registrosrota.forEach(r =>
             r.codigos.forEach(c => codigosLidos.add(c))
           );
 
           const numerosParada = [...new Set(
-            registrosCircuit.map(r => Number(r.numeroParada))
+            registrosrota.map(r => Number(r.numeroParada))
           )].sort((a, b) => a - b);
 
           const maiorParada = numerosParada.length
@@ -3662,8 +3662,8 @@ document.getElementById('cardRetomarRota').style.display = 'none';
             numerosParada.length === maiorParada &&
             numerosParada.every((n, i) => n === i + 1);
 
-          const paradasSemEnderecoValido = registrosCircuit
-            .filter(r => !decomporEnderecoCircuit(r.endereco))
+          const paradasSemEnderecoValido = registrosrota
+            .filter(r => !decomporEnderecorota(r.endereco))
             .map(r => r.numeroParada);
 
           atualizarTelaCarregamentoPdf(
@@ -3696,7 +3696,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
           if (leituraEstritaOk) {
             try {
-              processarRegistrosCircuit(registrosCircuit, file.name);
+              processarRegistrosrota(registrosrota, file.name);
               processado = todosPacotes && todosPacotes.size > 0;
             } catch (erroEstrito) {
               console.warn(
@@ -3742,7 +3742,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           );
 
         } catch (err) {
-          console.error("Erro leitura PDF Circuit:", err);
+          console.error("Erro leitura PDF rota:", err);
 
           const msg = String(err?.message || err || '');
           let mensagemErro =
@@ -3781,7 +3781,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
     }
 
     function tokensRuaCanonica(texto) {
-      const d = decomporEnderecoCircuit(texto);
+      const d = decomporEnderecorota(texto);
       if (d) return d.tokens;
 
       return removerAcentosEndereco(String(texto || ''))
@@ -3794,7 +3794,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           'est','estrada','rod','rodovia','pca','praca',
           'da','de','do','das','dos','e'
         ].includes(t))
-        .map(normalizarTokenLogradouroCircuit);
+        .map(normalizarTokenLogradourorota);
     }
 
     function tokenRuaEquivalente(a, b) {
@@ -3852,7 +3852,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return acertos >= 2 && (acertos / menor.length) >= 0.75;
     }
 
-    function hashLeituraCircuit(texto) {
+    function hashLeiturarota(texto) {
       // FNV-1a 32-bit: diagnóstico simples e determinístico entre aparelhos.
       let h = 0x811c9dc5;
       const s = String(texto || '');
@@ -3863,7 +3863,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return (h >>> 0).toString(16).padStart(8, '0').toUpperCase();
     }
 
-    function processarRegistrosCircuit(registros, nomeArquivo) {
+    function processarRegistrosrota(registros, nomeArquivo) {
       mapaRotas = {};
       stopCorrespondente = {};
       nomeExibicao = {};
@@ -3916,9 +3916,9 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       const entregas = Array.from(porNumeroParada.values())
         .sort((a, b) => a.numeroParada - b.numeroParada);
 
-      // Como todos os PDFs são do mesmo modelo do Circuit, nenhuma entrega
+      // Como todos os PDFs são do mesmo modelo do rota, nenhuma entrega
       // é aceita sem LOGRADOURO + NÚMERO. É melhor bloquear do que inventar.
-      const semEndereco = entregas.filter(e => !decomporEnderecoCircuit(e.endereco));
+      const semEndereco = entregas.filter(e => !decomporEnderecorota(e.endereco));
 
       if (semEndereco.length) {
         throw new Error(
@@ -3973,7 +3973,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
         codigos.forEach(codigo => {
           if (brGrupoAlvos.has(codigo)) {
-            const dados = decomporEnderecoCircuit(entrega.endereco);
+            const dados = decomporEnderecorota(entrega.endereco);
 
             console.log(
               codigo +
@@ -3990,7 +3990,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       console.log("===== FIM DIAGNOSTICO BR GRUPO =====");
 
 
-      const dadosEndereco = entregas.map(e => decomporEnderecoCircuit(e.endereco));
+      const dadosEndereco = entregas.map(e => decomporEnderecorota(e.endereco));
 
       function complementosPodemSerUnidos(a, b) {
         /*
@@ -4032,7 +4032,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           // continuam sendo a mesma parada.
 
           // V17 - comparação inteligente de logradouro
-          // Alguns PDFs Circuit abreviam a mesma rua:
+          // Alguns PDFs rota abreviam a mesma rua:
           // marquesvalenca x mqvalenca
           // conselheirolafaiette x cnsolafaiette
           // freigaspar x frgaspar
@@ -4095,7 +4095,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           .map(g => String(g.endereco || ''))
           .sort((a, b) => b.length - a.length || a.localeCompare(b))[0];
 
-        const d = decomporEnderecoCircuit(exibicao);
+        const d = decomporEnderecorota(exibicao);
 
         // V22 - chave final reforçada no ponto real de criação da parada
         // Aqui é onde o mapaRotas nasce.
@@ -4143,7 +4143,7 @@ ruaFinal = ruaFinal
 ruaFinal = ruaFinal.replace(/[^a-z]/gi,'');
 
 
-// V25 - remove sufixos internos do Circuit antes da chave final
+// V25 - remove sufixos internos do rota antes da chave final
 ruaFinal = ruaFinal
   .replace(/_s\d+$/gi,'')
   .replace(/_x\d+$/gi,'')
@@ -4253,13 +4253,13 @@ try {
   console.log("Erro diagnóstico real:", e);
 }
 
-      const assinatura = hashLeituraCircuit(diagnostico.join('\n'));
+      const assinatura = hashLeiturarota(diagnostico.join('\n'));
 
       // Guarda um diagnóstico mínimo. Se dois aparelhos lerem o mesmo PDF,
       // a assinatura deve ser a mesma.
       try {
         localStorage.setItem(
-          'circuit_ultima_leitura_diagnostico',
+          'rota_ultima_leitura_diagnostico',
           JSON.stringify({
             arquivo: nomeArquivo,
             pacotes: todosPacotes.size,
@@ -4314,9 +4314,9 @@ try {
       pacotesBipados = new Set();
 
       /*
-       * Leitura específica e robusta para PDF exportado pelo Circuit.
+       * Leitura específica e robusta para PDF exportado pelo rota.
        *
-       * A coluna "#" do Circuit é a fonte de verdade da parada original.
+       * A coluna "#" do rota é a fonte de verdade da parada original.
        * Cada linha que começa com 1, 2, 3... abre uma nova linha de entrega.
        * O código BR pode vir na mesma linha ou logo abaixo, por causa da forma
        * como o PDF.js separa as colunas. Em vez de "adivinhar" pelo endereço
@@ -4350,9 +4350,9 @@ try {
             continue;
           }
 
-          // CORREÇÃO PONTUAL: qualquer nova linha numerada do Circuit
+          // CORREÇÃO PONTUAL: qualquer nova linha numerada do rota
           // encerra a parada atual. Antes, a próxima parada só encerrava o
-          // bloco se linhaPareceEnderecoCircuit() também reconhecesse o texto;
+          // bloco se linhaPareceEnderecorota() também reconhecesse o texto;
           // quando o PDF.js fragmentava a linha, o BR da parada seguinte podia
           // vazar para a parada anterior e gerar falso "mesmo endereço".
           if (/^\d{1,3}\s+\S/.test(prox)) {
@@ -4405,7 +4405,7 @@ try {
       }
 
       /*
-       * Fallback: caso uma versão do Circuit não traga o número da parada no
+       * Fallback: caso uma versão do rota não traga o número da parada no
        * começo da linha extraída pelo PDF.js, usa o método de proximidade.
        */
       if (registros.length === 0) {
@@ -4424,8 +4424,8 @@ try {
 
           seqStopAuto++;
 
-          const linhaEndereco = encontrarLinhaEnderecoCircuit(linhas, idx);
-          const numeroParada = extrairNumeroParadaCircuit(
+          const linhaEndereco = encontrarLinhaEnderecorota(linhas, idx);
+          const numeroParada = extrairNumeroParadarota(
             linhaEndereco,
             seqStopAuto
           );
@@ -4446,7 +4446,7 @@ try {
       }
 
       // CORREÇÃO PONTUAL DE SEGURANÇA:
-      // cada código BR só pode pertencer a uma parada original do Circuit.
+      // cada código BR só pode pertencer a uma parada original do rota.
       // Se uma leitura fragmentada ainda repetir um BR em registros consecutivos,
       // mantém a ocorrência mais recente (a própria parada seguinte) e remove o
       // vazamento da parada anterior. Isso não altera o agrupamento de endereços.
