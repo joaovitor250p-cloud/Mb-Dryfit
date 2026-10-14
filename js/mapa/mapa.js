@@ -252,7 +252,7 @@
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#3f9d72', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.9, 12, 2.7, 14, 3.6, 16, 5], 'line-opacity': .68, 'line-blur': 0 }
+      paint: { 'line-color': '#059669', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .96, 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({
       id: LAYER_ROUTE_STATUS_CASE, type: 'line', source: SOURCE_ROUTE_STATUS,
@@ -263,9 +263,9 @@
       id: LAYER_ROUTE_STATUS, type: 'line', source: SOURCE_ROUTE_STATUS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': ['match', ['get', 'status'], 'passado', '#9ca3af', 'proxima', '#047857', '#047857'],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.4, 12, 3.4, 14, 4.7, 16, 6.4],
-        'line-opacity': ['match', ['get', 'status'], 'passado', 0.82, 'proxima', 1, 0.9]
+        'line-color': ['match', ['get', 'status'], 'nao_entregue', '#dc2626', 'concluida', '#166534', '#166534'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 12, 3.5, 14, 4.6, 16, 6.2],
+        'line-opacity': .98
       }
     }, before);
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({

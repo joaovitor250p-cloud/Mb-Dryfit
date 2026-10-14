@@ -141,7 +141,10 @@
 
     try { await global.PacoteEMatoSessao?.restaurar?.(); } catch (_) {}
     const restaurado = recuperarEstadoUI();
-    const desejado = restaurado || (global.appState?.ui?.moduloAtual === 'inicio' ? 'roteirizacao' : global.appState?.ui?.moduloAtual) || 'roteirizacao';
+    const navegacaoPersistidaAtiva = global.appState?.navegacao?.ativa === true;
+    // Se o entregador fechou/alternou o app com uma navegação ativa, a rota tem prioridade
+    // sobre um estado visual antigo salvo pelo shell. Assim não abrimos no centro padrão.
+    const desejado = navegacaoPersistidaAtiva ? 'navegacao' : (restaurado || (global.appState?.ui?.moduloAtual === 'inicio' ? 'roteirizacao' : global.appState?.ui?.moduloAtual) || 'roteirizacao');
     await abrirModulo(desejado);
     iniciando = false;
   }
