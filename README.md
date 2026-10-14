@@ -243,22 +243,6 @@ O planejamento passa a usar `free_flow` para evitar previsão inflada por tráfe
 - A base visual da rota é preservada para que os trechos concluídos continuem visíveis mesmo após recálculos durante a navegação.
 - Desfazer status remove também a cor/ícone de status e devolve a parada a Pendente.
 
-## V29 — Retomada rápida e status no card
-Veja `RELATORIO-V29-RETOMADA-RAPIDA-STATUS-CARD.md`.
+## V28 — Linha de rota por progresso
 
-## V30 — Status do card e preservação das linhas
-- Reposicionado `Entregue` / `Não entregue` para baixo no card, sem colisão com o botão X.
-- Mantido o tamanho/cor dos status da V29.
-- Mantido integralmente o comportamento visual das linhas da rota da V28/V29.
-
-## V31 — Postos de combustível próximos
-- Novo botão de posto (⛽) no mapa de planejamento e na navegação.
-- A busca usa a localização atual somente quando o motorista toca no botão.
-- Consulta postos em até 5 km via OpenStreetMap/Overpass, ordenando os mais próximos.
-- Postos conhecidos recebem símbolo por bandeira (Shell, Ipiranga, BR/Petrobras, ALE, Esso e Texaco); demais usam ícone genérico.
-- Toque no posto abre um card com nome, bandeira, distância, endereço e atalhos para Waze/Google Maps.
-- Os resultados ficam em cache por alguns minutos para evitar consultas repetidas durante a entrega.
-- A camada é separada das paradas da rota: não altera numeração, otimização ou status das entregas.
-
-## V32 — Logos dos postos
-Os marcadores de postos conhecidos agora usam os logotipos das bandeiras (Shell, Ipiranga, Petrobras/BR, ALE, Esso e Texaco), com fallback genérico quando a marca não é informada ou a imagem não carrega.
+A V28 mantém os marcadores com ✓/× da V27 e simplifica o traçado: caminho anterior cinza, próximo trecho destacado em verde e restante da rota em verde mais discreto. Consulte `RELATORIO-V28-LINHA-ROTA-LIMPA.md`.

@@ -252,7 +252,7 @@
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': ['case', ['==', ['get','trecho'], 'concluido'], '#94a3b8', ['==', ['get','trecho'], 'atual'], '#059669', '#10b981'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': ['case', ['==', ['get','trecho'], 'concluido'], .35, ['==', ['get','trecho'], 'atual'], .95, .38], 'line-blur': 0 }
+      paint: { 'line-color': '#3f9d72', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.9, 12, 2.7, 14, 3.6, 16, 5], 'line-opacity': .68, 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({
       id: LAYER_ROUTE_STATUS_CASE, type: 'line', source: SOURCE_ROUTE_STATUS,
@@ -263,9 +263,9 @@
       id: LAYER_ROUTE_STATUS, type: 'line', source: SOURCE_ROUTE_STATUS,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': ['case', ['==', ['get','trecho'], 'concluido'], '#9ca3af', ['==', ['get','trecho'], 'atual'], '#059669', '#34d399'],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 12, 3.5, 14, 4.6, 16, 6.2],
-        'line-opacity': ['case', ['==', ['get','trecho'], 'concluido'], .45, ['==', ['get','trecho'], 'atual'], 1, .45]
+        'line-color': ['match', ['get', 'status'], 'passado', '#9ca3af', 'proxima', '#047857', '#047857'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.4, 12, 3.4, 14, 4.7, 16, 6.4],
+        'line-opacity': ['match', ['get', 'status'], 'passado', 0.82, 'proxima', 1, 0.9]
       }
     }, before);
     if (!mapa.getLayer(LAYER_STOPS_GROUP_RING)) mapa.addLayer({
@@ -356,9 +356,7 @@
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
         pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
-        garantirCamadas(); bindEventosMapa();
-        global.PacoteEMatoPostos?.registrarMapa?.('roteirizacao', mapa, { host: document.querySelector('.routing-map-pane'), buttonId: 'routingFuelBtn' });
-        try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
+        garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
       loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 8500);
       mapa.on('load', mapaPronto);
@@ -443,10 +441,8 @@
   function atualizarRota() {
     const rota = state();
     const geometry = normalizarGeometriaVisual(rota?.geometria);
-    const feature = geometry ? { type: 'Feature', properties: { planned: true, trecho: 'futuro' }, geometry } : null;
+    const feature = geometry ? { type: 'Feature', properties: { planned: true }, geometry } : null;
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
-    // V32.5: a linha continua independente da seleção de parada.
-    // A próxima parada operacional será usada como destaque em atualizações futuras.
     const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
     atualizarSource(SOURCE_ROUTE_STATUS, featureCollection(segmentosStatus));
   }
@@ -721,7 +717,6 @@
   }
 
   function destruir() {
-    global.PacoteEMatoPostos?.destruir?.('roteirizacao');
     clearTimeout(loadTimer); loadTimer = null;
     if (resizeObserver) { try { resizeObserver.disconnect(); } catch (_) {} resizeObserver = null; }
     if (mapa) { try { mapa.remove(); } catch (_) {} }

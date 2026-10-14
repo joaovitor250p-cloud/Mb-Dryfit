@@ -198,11 +198,14 @@
     adicionarSource(SOURCE_ROUTE, fc([])); adicionarSource(SOURCE_ROUTE_STATUS, fc([])); adicionarSource(SOURCE_PROGRESS, fc([])); adicionarSource(SOURCE_DRIVER, fc([])); adicionarSourceParadas();
     garantirImagemBalao();
     const before = antesRotulos();
-    if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4,13,5.5,16,8,18,9],'line-opacity':.9,'line-blur':0}}, before);
-    if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({ id:LAYER_ROUTE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#059669','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
-    if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#047857','line-width':['interpolate',['linear'],['zoom'],10,2.2,13,3.4,16,5.2,18,6],'line-opacity':.94,'line-blur':0}}, before);
-    if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({ id:LAYER_ROUTE_STATUS_CASE,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4.6,13,6,16,8.8,18,9.8],'line-opacity':.94}}, before);
-    if (!mapa.getLayer(LAYER_ROUTE_STATUS)) mapa.addLayer({ id:LAYER_ROUTE_STATUS,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['match',['get','status'],'nao_entregue','#dc2626','concluida','#166534','#166534'],'line-width':['interpolate',['linear'],['zoom'],10,2.6,13,3.8,16,5.8,18,6.6],'line-opacity':.98}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_CASE)) mapa.addLayer({ id:LAYER_ROUTE_CASE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,3.8,13,5.2,16,7.6,18,8.6],'line-opacity':.72,'line-blur':0}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({ id:LAYER_ROUTE,type:'line',source:SOURCE_ROUTE,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3f9d72','line-width':['interpolate',['linear'],['zoom'],10,1.9,13,3,16,4.8,18,5.5],'line-opacity':.64,'line-blur':0}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({ id:LAYER_ROUTE_STATUS_CASE,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],10,4.4,13,5.9,16,8.5,18,9.5],'line-opacity':.86}}, before);
+    if (!mapa.getLayer(LAYER_ROUTE_STATUS)) mapa.addLayer({ id:LAYER_ROUTE_STATUS,type:'line',source:SOURCE_ROUTE_STATUS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['match',['get','status'],'passado','#9ca3af','proxima','#047857','#047857'],'line-width':['interpolate',['linear'],['zoom'],10,2.5,13,3.8,16,5.9,18,6.7],'line-opacity':['match',['get','status'],'passado',0.84,'proxima',1,0.9]}}, before);
+    // V28: o trecho efetivamente percorrido fica por cima em cinza. Assim,
+    // conforme o motorista avança, o caminho atrás dele deixa de competir
+    // visualmente com o próximo trecho destacado.
+    if (!mapa.getLayer(LAYER_PROGRESS)) mapa.addLayer({ id:LAYER_PROGRESS,type:'line',source:SOURCE_PROGRESS,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#7d8794','line-width':['interpolate',['linear'],['zoom'],10,2.6,13,3.9,16,6,18,6.8],'line-opacity':.9,'line-blur':0}}, before);
     if (!mapa.getLayer(LAYER_DRIVER_RING)) mapa.addLayer({ id:LAYER_DRIVER_RING,type:'circle',source:SOURCE_DRIVER,paint:{'circle-radius':12,'circle-color':'rgba(5,150,105,.16)','circle-stroke-color':'rgba(5,150,105,.35)','circle-stroke-width':1} });
     if (!mapa.getLayer(LAYER_DRIVER_DOT)) mapa.addLayer({ id:LAYER_DRIVER_DOT,type:'circle',source:SOURCE_DRIVER,filter:['==',['get','mode'],'external'],paint:{'circle-radius':7,'circle-color':'#059669','circle-stroke-color':'#ffffff','circle-stroke-width':3} });
     if (!mapa.getLayer(LAYER_DRIVER)) mapa.addLayer({ id:LAYER_DRIVER,type:'symbol',source:SOURCE_DRIVER,filter:['==',['get','mode'],'internal'],layout:{'icon-image':'pemato-driver-arrow','icon-size':1,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-rotation-alignment':'map','icon-rotate':['coalesce',['get','heading'],0]} });
@@ -274,28 +277,6 @@
     }
   }
 
-  function centroInicialDaNavegacao() {
-    const candidatos = [];
-    if (ultimaPosicao && coordenadaValida(ultimaPosicao.lat, ultimaPosicao.lon)) candidatos.push([Number(ultimaPosicao.lon), Number(ultimaPosicao.lat)]);
-    const selecionada = paradasPorOrdem().find(p => String(p.id) === String(cartaoSelecionadoId || rota?.paradaSelecionadaId || ''));
-    if (selecionada && coordenadaValida(selecionada.latitude, selecionada.longitude)) candidatos.push([Number(selecionada.longitude), Number(selecionada.latitude)]);
-    const prox = proxima();
-    if (prox && coordenadaValida(prox.latitude, prox.longitude)) candidatos.push([Number(prox.longitude), Number(prox.latitude)]);
-    const primeiraValida = paradasPorOrdem().find(p => coordenadaValida(p.latitude, p.longitude));
-    if (primeiraValida) candidatos.push([Number(primeiraValida.longitude), Number(primeiraValida.latitude)]);
-    return candidatos[0] || cfg().initialCenter || [-46.6333,-23.5505];
-  }
-
-  function posicionarMapaNaRotaSemGPS() {
-    if (!mapa || !mapReady || (ultimaPosicao && coordenadaValida(ultimaPosicao.lat, ultimaPosicao.lon))) return;
-    const alvo = paradasPorOrdem().find(p => String(p.id) === String(cartaoSelecionadoId || rota?.paradaSelecionadaId || '')) || proxima() || paradasPorOrdem().find(p => coordenadaValida(p.latitude,p.longitude));
-    if (!alvo || !coordenadaValida(alvo.latitude, alvo.longitude)) return;
-    try {
-      const interna = navegacaoInternaAtiva();
-      mapa.jumpTo({ center:[Number(alvo.longitude),Number(alvo.latitude)], zoom:interna?16.4:15.5, pitch:0, bearing:0 });
-    } catch (_) {}
-  }
-
   function garantirMapa() {
     const container = $('mapaNavegacao');
     if (!container || mapa || !global.maplibregl) return mapa;
@@ -308,7 +289,7 @@
         container,
         // V18: volta para a mesma base vetorial que funcionava na V14.
         style: cfg().mapStyleUrl,
-        center: centroInicialDaNavegacao(),
+        center: cfg().initialCenter || [-46.6333,-23.5505],
         zoom: 15,
         pitch: 0,
         bearing: 0,
@@ -330,9 +311,7 @@
         removerCamadas3D();
         garantirCamadas();
         bindEventosMarcadoresNav();
-        global.PacoteEMatoPostos?.registrarMapa?.('navegacao', mapa, { host: document.querySelector('.navigation-map-wrap'), buttonId: 'navFuelBtn' });
         try { mapa.resize(); mapa.triggerRepaint?.(); } catch (_) {}
-        posicionarMapaNaRotaSemGPS();
         desenharRota();
         atualizarFontesPontos();
       };
@@ -759,8 +738,6 @@
     if(rota?.precisaRecalculo){global.notificar?.('A rota foi alterada. Recalcule o trajeto antes de iniciar a navegação.');return;}
     if(!rota||!geometriaValida(rota.geometria)){global.notificar?.('Calcule uma rota válida antes de iniciar a navegação.');return;}
     global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rota, false);
-    const posPersistida = global.appState?.navegacao?.ultimaPosicao;
-    if (!ultimaPosicao && posPersistida && coordenadaValida(posPersistida.lat,posPersistida.lon)) ultimaPosicao = { ...posPersistida };
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
     if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
     garantirMapa(); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
@@ -782,7 +759,6 @@
   function reconstruirMapaNavegacao(){
     if(reconstruindoMapa) return;
     reconstruindoMapa=true;
-    global.PacoteEMatoPostos?.destruir?.('navegacao');
     try{ mapa?.remove?.(); }catch(_){}
     mapa=null; mapReady=false; fallbackBaseAtivo=false; clearTimeout(mapLoadTimer); assinaturaParadasV11='';
     const container=$('mapaNavegacao'); if(container) container.innerHTML='';
@@ -796,18 +772,9 @@
     if(!global.appState?.navegacao?.ativa)return;
     try{ const salva=await global.PacoteEMatoRotaStore?.obterRotaAtiva?.(); if(salva) rota=global.PacoteEMatoRotaStore.normalizarRota(salva); }catch(_){}
     atualizarPendentes();
-    const saudavel = mapaNavegacaoSaudavel();
-    // Retomar o app não deve destruir um mapa saudável: reconstruir o WebGL a cada volta
-    // era a principal causa de tela branca/travada em celulares. Só remontamos se o mapa
-    // realmente perdeu canvas/style/contêiner.
-    if(!saudavel) reconstruirMapaNavegacao();
-    else {
-      try{mapa.resize();mapa.triggerRepaint?.();}catch(_){}
-      garantirCamadas();
-      posicionarMapaNaRotaSemGPS();
-      desenharRota();
-      atualizarFontesPontos();
-    }
+    const forcar=opcoes?.forcarMapa===true || !mapaNavegacaoSaudavel();
+    if(forcar) reconstruirMapaNavegacao();
+    else { try{mapa.resize();mapa.triggerRepaint?.();}catch(_){} garantirCamadas();desenharRota();atualizarFontesPontos(); }
     atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     pararGPS(); iniciarGPS();
     if($('navGpsStatus'))$('navGpsStatus').textContent='Retorno ao Pacote É Mato · GPS retomado';
@@ -908,20 +875,14 @@
     $('navCompletionFinishBtn')?.addEventListener('click',finalizarRota); $('navCompletionReviewBtn')?.addEventListener('click',revisarResultados);
     document.addEventListener('visibilitychange',()=>{
       if(document.hidden&&global.appState?.navegacao?.ativa){backgroundEm=Date.now();if($('navGpsStatus'))$('navGpsStatus').textContent='Aplicativo em segundo plano; rota preservada.';persistirSelecao({motivo:'background_navegacao'});}
-      else if(!document.hidden&&document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa){const tempo=Date.now()-backgroundEm;setTimeout(()=>retomar(),80);}
+      else if(!document.hidden&&document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa){const tempo=Date.now()-backgroundEm;setTimeout(()=>retomar({forcarMapa:tempo>1200}),120);}
     });
-    global.addEventListener('pageshow',()=>{if(document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa)setTimeout(()=>retomar(),80);});
-    global.addEventListener('focus',()=>{if(document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa&&Date.now()-backgroundEm>1200)setTimeout(()=>retomar(),100);});
-    global.addEventListener('pemato:resume',()=>{if(document.body.dataset.pematoModule==='navegacao')retomar();});
+    global.addEventListener('pageshow',()=>{if(document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa)setTimeout(()=>retomar({forcarMapa:true}),120);});
+    global.addEventListener('focus',()=>{if(document.body.dataset.pematoModule==='navegacao'&&global.appState?.navegacao?.ativa&&Date.now()-backgroundEm>1200)setTimeout(()=>retomar({forcarMapa:true}),150);});
+    global.addEventListener('pemato:resume',()=>{if(document.body.dataset.pematoModule==='navegacao')retomar({forcarMapa:true});});
     $('navDeliveryNote')?.addEventListener('change',async()=>{const p=paradasPorOrdem().find(s=>String(s.id)===String(cartaoSelecionadoId))||proxima();if(!p||!rota)return;p.observacaoEntrega=String($('navDeliveryNote').value||'');await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true}); else bind();
-  async function navegarParaPostoTemporario(posto){
-    if(!posto || !Number.isFinite(Number(posto.lat)) || !Number.isFinite(Number(posto.lon))) return;
-    try { sessionStorage.setItem('pemato_posto_temporario', JSON.stringify(posto)); } catch(_) {}
-    global.notificar?.('Destino temporário do posto selecionado.');
-  }
-
-  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar,navegarParaPostoTemporario});
+  global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar});
 })(window);
