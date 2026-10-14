@@ -242,3 +242,7 @@ O planejamento passa a usar `free_flow` para evitar previsão inflada por tráfe
 - O trecho da rota que leva a uma parada tratada recebe cor de status.
 - A base visual da rota é preservada para que os trechos concluídos continuem visíveis mesmo após recálculos durante a navegação.
 - Desfazer status remove também a cor/ícone de status e devolve a parada a Pendente.
+
+## V28 — Linha de rota por progresso
+
+A V28 mantém os marcadores com ✓/× da V27 e simplifica o traçado: caminho anterior cinza, próximo trecho destacado em verde e restante da rota em verde mais discreto. Consulte `RELATORIO-V28-LINHA-ROTA-LIMPA.md`.

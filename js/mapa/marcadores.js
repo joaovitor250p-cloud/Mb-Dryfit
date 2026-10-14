@@ -131,34 +131,89 @@
 
     const byId = new Map((Array.isArray(rota.paradas) ? rota.paradas : []).map(p => [String(p.id), p]));
     const ordemIds = Array.isArray(base.ordem) && base.ordem.length ? base.ordem.map(String) : [...byId.keys()];
-    const features = [];
-    let anterior = entradas[0];
 
+    // V28: em vez de pintar um trecho diferente para CADA entrega concluída,
+    // localizamos as paradas na geometria uma única vez e produzimos só dois
+    // estados operacionais: caminho já percorrido (cinza) e próximo trecho
+    // ativo (verde destacado). Os ✓/× continuam sendo responsabilidade dos
+    // marcadores, evitando o "mapa arco-íris" que deixava a rota confusa.
+    const ancoras = [];
+    let cursor = entradas[0];
     ordemIds.forEach(id => {
       const parada = byId.get(String(id));
       if (!parada) return;
       const lat = Number(parada.latitude), lon = Number(parada.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       let melhor = null, melhorDist = Infinity;
-      for (let i = anterior.global; i < entradas.length; i++) {
+      for (let i = cursor.global; i < entradas.length; i++) {
         const item = entradas[i];
         const d = distanciaMetros(item.coord, [lon, lat]);
         if (d < melhorDist) { melhor = item; melhorDist = d; }
-        // Depois de encontrar um ponto praticamente em cima da parada, não há motivo para varrer o restante.
         if (melhorDist <= 4) break;
       }
       if (!melhor) return;
-      const status = statusSeguro(parada.statusEntrega);
-      if (status === 'concluida' || status === 'nao_entregue') {
-        const geometry = recortarGeometriaEntre(partes, anterior, melhor);
-        if (geometry) features.push({
-          type: 'Feature',
-          properties: { status, paradaId: String(parada.id) },
-          geometry
-        });
-      }
-      anterior = melhor;
+      ancoras.push({ id: String(id), parada, ponto: melhor, status: statusSeguro(parada.statusEntrega) });
+      cursor = melhor;
     });
+    if (!ancoras.length) return [];
+
+    let finalizadasConsecutivas = 0;
+    while (finalizadasConsecutivas < ancoras.length) {
+      const st = ancoras[finalizadasConsecutivas].status;
+      if (st !== 'concluida' && st !== 'nao_entregue') break;
+      finalizadasConsecutivas++;
+    }
+
+    const features = [];
+    const inicio = entradas[0];
+
+    // Tudo que ficou para trás vira um único traço cinza contínuo.
+    if (finalizadasConsecutivas > 0) {
+      const fimPassado = ancoras[finalizadasConsecutivas - 1].ponto;
+      const geometry = recortarGeometriaEntre(partes, inicio, fimPassado);
+      if (geometry) features.push({
+        type: 'Feature',
+        properties: { status: 'passado', ateParadaId: ancoras[finalizadasConsecutivas - 1].id },
+        geometry
+      });
+    }
+
+    // Destaca somente o trecho que leva à PRÓXIMA parada pendente.
+    // Para esse trecho preferimos a geometria ATUAL da rota, pois ela pode ter
+    // sido recalculada a partir da posição real do motorista. O histórico cinza
+    // continua usando a base original para não desaparecer após o recálculo.
+    const proximaAncora = ancoras[finalizadasConsecutivas];
+    if (proximaAncora) {
+      let geometry = null;
+      if (geometriaRotaValida(rota.geometria)) {
+        const atuais = (rota.geometria.type === 'LineString' ? [rota.geometria.coordinates] : rota.geometria.coordinates)
+          .map(linha => (Array.isArray(linha) ? linha.filter(c => Array.isArray(c) && Number.isFinite(Number(c[0])) && Number.isFinite(Number(c[1]))) : []))
+          .filter(linha => linha.length >= 2);
+        const entradasAtuais = [];
+        let globalAtual = 0;
+        atuais.forEach((linha, parte) => linha.forEach((coord, indice) => entradasAtuais.push({ parte, indice, global: globalAtual++, coord })));
+        if (entradasAtuais.length >= 2) {
+          const alvo = [Number(proximaAncora.parada.longitude), Number(proximaAncora.parada.latitude)];
+          let melhor = null, melhorDist = Infinity;
+          for (const item of entradasAtuais) {
+            const d = distanciaMetros(item.coord, alvo);
+            if (d < melhorDist) { melhor = item; melhorDist = d; }
+            if (melhorDist <= 4) break;
+          }
+          if (melhor && melhor.global > 0) geometry = recortarGeometriaEntre(atuais, entradasAtuais[0], melhor);
+        }
+      }
+      if (!geometry) {
+        const origem = finalizadasConsecutivas > 0 ? ancoras[finalizadasConsecutivas - 1].ponto : inicio;
+        geometry = recortarGeometriaEntre(partes, origem, proximaAncora.ponto);
+      }
+      if (geometry) features.push({
+        type: 'Feature',
+        properties: { status: 'proxima', paradaId: proximaAncora.id },
+        geometry
+      });
+    }
+
     return features;
   }
 
