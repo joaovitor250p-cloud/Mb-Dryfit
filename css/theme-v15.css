@@ -89,3 +89,35 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 #navStatusActions,#navLastStatusBar,#navLastUndoBtn{display:none!important}
 .nav-card-undo-status{align-items:center;justify-content:center;width:max-content;margin-top:9px;padding:8px 11px;border:1px solid #86efac;border-radius:10px;background:#fff;color:#047857;font-size:.62rem;font-weight:900;cursor:pointer}
 .nav-card-undo-status:hover,.nav-card-undo-status:focus{background:#ecfdf5;outline:none}
+
+/* Ajuste V28 - card de parada/status */
+.nav-card-top-actions{
+  top:12px!important;
+  right:12px!important;
+  gap:8px!important;
+  align-items:center!important;
+}
+.nav-card-top-actions button{
+  width:42px!important;
+  height:42px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:50%!important;
+}
+.nav-next-card .status,
+.nav-next-card .nav-status,
+.nav-next-card [class*="status"]{
+  font-size:0.82rem!important;
+  font-weight:900!important;
+}
+.nav-next-card .status-pendente{
+  font-size:0.9rem!important;
+}
+.nav-action-danger,
+button[data-action="nao-entregue"]{
+  color:#dc2626!important;
+  border-color:#fecaca!important;
+  background:#fff!important;
+  font-weight:900!important;
+}
