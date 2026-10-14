@@ -179,7 +179,7 @@
       const img = document.createElement('img');
       img.src = meta.logo;
       img.alt = meta.title || 'Posto';
-      img.loading = 'eager';
+      img.loading = 'lazy';
       img.decoding = 'async';
       img.referrerPolicy = 'no-referrer';
       img.addEventListener('error', () => {

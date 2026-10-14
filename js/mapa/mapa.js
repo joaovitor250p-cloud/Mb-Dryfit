@@ -252,7 +252,7 @@
     if (!mapa.getLayer(LAYER_ROUTE)) mapa.addLayer({
       id: LAYER_ROUTE, type: 'line', source: SOURCE_ROUTE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#10b981', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': .62, 'line-blur': 0 }
+      paint: { 'line-color': ['case', ['==', ['get','trecho'], 'concluido'], '#94a3b8', ['==', ['get','trecho'], 'atual'], '#059669', '#10b981'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.2, 12, 3, 14, 4, 16, 5.5], 'line-opacity': ['case', ['==', ['get','trecho'], 'concluido'], .35, ['==', ['get','trecho'], 'atual'], .95, .38], 'line-blur': 0 }
     }, before);
     if (!mapa.getLayer(LAYER_ROUTE_STATUS_CASE)) mapa.addLayer({
       id: LAYER_ROUTE_STATUS_CASE, type: 'line', source: SOURCE_ROUTE_STATUS,
@@ -443,13 +443,12 @@
   function atualizarRota() {
     const rota = state();
     const geometry = normalizarGeometriaVisual(rota?.geometria);
-    const feature = geometry ? { type: 'Feature', properties: { planned: true }, geometry } : null;
+    const feature = geometry ? { type: 'Feature', properties: { planned: true, trecho: 'futuro' }, geometry } : null;
     atualizarSource(SOURCE_ROUTE, featureCollection(feature ? [feature] : []));
+    // V32.5: a linha continua independente da seleção de parada.
+    // A próxima parada operacional será usada como destaque em atualizações futuras.
     const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
-    // V32.1: status de entrega permanece nos marcadores.
-    // A linha da rota não recebe mais segmentos verdes/vermelhos por status.
-    // Isso evita a rota fragmentada e mantém o desenho limpo estilo V28.
-    atualizarSource(SOURCE_ROUTE_STATUS, featureCollection([]));
+    atualizarSource(SOURCE_ROUTE_STATUS, featureCollection(segmentosStatus));
   }
 
   function renderizarMarcadores() {

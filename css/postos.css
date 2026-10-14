@@ -6,19 +6,19 @@
 @keyframes pemato-fuel-spin{to{transform:rotate(360deg)}}
 
 /* Marcadores nativos do MapLibre, ancorados em latitude/longitude, sem deslocar o posto. */
-.pemato-fuel-marker{appearance:none;-webkit-appearance:none;width:44px;height:44px;padding:0;border:2px solid #fff;border-radius:50%;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.26);display:grid;place-items:center;cursor:pointer;overflow:hidden;transition:transform .14s ease,box-shadow .14s ease;border-color .14s ease}
-.pemato-fuel-marker:hover,.pemato-fuel-marker:focus-visible{transform:scale(1.1);box-shadow:0 6px 18px rgba(15,23,42,.32);outline:none;border-color:#86efac}
+.pemato-fuel-marker{transform:translateZ(0);will-change:transform;appearance:none;-webkit-appearance:none;width:30px;height:30px;padding:0;border:2px solid #fff;border-radius:50%;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.26);display:grid;place-items:center;cursor:pointer;overflow:hidden;transition:transform .14s ease,box-shadow .14s ease;border-color .14s ease}
+.pemato-fuel-marker:hover,.pemato-fuel-marker:focus-visible{transform:scale(1.04);box-shadow:0 6px 18px rgba(15,23,42,.32);outline:none;border-color:#86efac}
 .pemato-fuel-marker.is-shell{background:#ffd500}
 .pemato-fuel-marker.is-generic{border-color:#047857;background:#fff}
 .pemato-fuel-brand-visual{display:grid;place-items:center;width:100%;height:100%;overflow:hidden;color:#047857;font:900 18px/1 system-ui,sans-serif}
-.pemato-fuel-brand-visual img{display:block;max-width:84%;max-height:76%;width:auto;height:auto;object-fit:contain;object-position:center}
+.pemato-fuel-brand-visual img{display:block;max-width:76%;max-height:68%;width:auto;height:auto;object-fit:contain;object-position:center}
 .pemato-fuel-marker.is-shell .pemato-fuel-brand-visual img{max-width:72%;max-height:72%}
 .pemato-fuel-marker.is-petrobras .pemato-fuel-brand-visual img{max-width:78%;max-height:78%}
 .pemato-fuel-marker.is-ipiranga .pemato-fuel-brand-visual img{max-width:88%;max-height:60%}
 .pemato-fuel-marker.is-ale .pemato-fuel-brand-visual img{max-width:88%;max-height:60%}
 .pemato-fuel-marker.is-texaco .pemato-fuel-brand-visual img{max-width:82%;max-height:72%}
 .pemato-fuel-marker.is-esso .pemato-fuel-brand-visual img{max-width:74%;max-height:68%}
-.pemato-fuel-brand-visual.logo-fallback{font-size:21px}
+.pemato-fuel-brand-visual.logo-fallback{font-size:15px}
 
 .pemato-fuel-card{position:absolute;z-index:31;width:min(330px,calc(100% - 28px));padding:14px;border:1px solid #dbe7e1;border-radius:18px;background:rgba(255,255,255,.98);box-shadow:0 18px 48px rgba(15,23,42,.18);backdrop-filter:blur(10px);color:#111}
 .routing-map-pane>.pemato-fuel-card{left:14px;bottom:16px}
@@ -43,6 +43,6 @@
   .routing-map-pane>.pemato-fuel-card{left:10px;bottom:92px;width:min(320px,calc(100% - 76px))}
   .navigation-map-wrap>.pemato-fuel-card{left:10px;bottom:calc(35dvh + 12px);width:min(320px,calc(100% - 76px))}
   .pemato-fuel-card{padding:12px;border-radius:16px}
-  .pemato-fuel-marker{width:42px;height:42px}
+  .pemato-fuel-marker{width:30px;height:30px}
   .pemato-fuel-card-logo{width:44px;height:44px}
 }
