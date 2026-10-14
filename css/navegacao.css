@@ -53,3 +53,41 @@ body[data-pemato-module="navegacao"] #routingEtaCard{display:none!important}
 .nav-location-symbol{font-size:1rem;line-height:1}
 .nav-package-chooser button>strong,.nav-package-chooser button>span{display:block}
 .nav-package-chooser button>span{margin-top:3px;color:#64748b;font-size:.58rem;font-weight:650}
+
+
+/* Ajuste visual do card de entrega - 14/10/2026 */
+.nav-card-top-actions .nav-back-btn,
+.nav-card-top-actions button[aria-label*="Voltar"]{
+  width:38px;
+  height:38px;
+  min-width:38px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  font-size:24px;
+  padding:0;
+}
+
+.nav-next-card[data-status="entregue"]{
+  border:2px solid #22c55e!important;
+  box-shadow:0 0 18px rgba(34,197,94,.35)!important;
+}
+
+.nav-next-card[data-status="nao_entregue"]{
+  border:2px solid #ef4444!important;
+  box-shadow:0 0 18px rgba(239,68,68,.35)!important;
+}
+
+.nav-next-card[data-status="entregue"] .nav-stop-status-badge{
+  color:#16a34a!important;
+  font-size:1rem!important;
+  font-weight:900!important;
+}
+
+.nav-next-card[data-status="nao_entregue"] .nav-stop-status-badge{
+  color:#dc2626!important;
+  font-size:1rem!important;
+  font-weight:900!important;
+}
