@@ -261,6 +261,10 @@
       <div class="pemato-fuel-card-brand"><span class="pemato-fuel-card-logo"></span><div><small>POSTO PRÓXIMO</small><strong class="pemato-fuel-card-name">Posto</strong></div></div>
       <div class="pemato-fuel-card-meta"></div>
       <div class="pemato-fuel-card-address"></div>
+      <div class="pemato-fuel-prices">
+        <strong>Combustíveis</strong>
+        <div class="pemato-fuel-price-list">Preço não informado</div>
+      </div>
       <div class="pemato-fuel-actions"><button class="pemato-fuel-internal" type="button">Navegar pelo Pacote É Mato</button><button class="pemato-fuel-waze" type="button">Waze</button><button class="pemato-fuel-maps" type="button">Google Maps</button></div>`;
     host.appendChild(el);
     el.querySelector('.pemato-fuel-close')?.addEventListener('click', () => fecharCard(ctx));
@@ -295,6 +299,17 @@
     const brand = posto.brand || meta?.title || 'Posto';
     const m = card.querySelector('.pemato-fuel-card-meta'); if (m) m.textContent = `${brand} • ${formatarDistancia(posto.distance)}`;
     const a = card.querySelector('.pemato-fuel-card-address'); if (a) a.textContent = posto.address || 'Endereço não informado pelo mapa.';
+    const prices = card.querySelector('.pemato-fuel-price-list');
+    if (prices) {
+      // A fonte de preços deve ser confiável; não exibimos valores inventados.
+      const combustiveis = posto.prices || null;
+      if (combustiveis && Object.keys(combustiveis).length) {
+        prices.innerHTML = Object.entries(combustiveis)
+          .map(([tipo, valor]) => `<div>${tipo}: ${valor}</div>`).join('');
+      } else {
+        prices.textContent = 'Preço não informado';
+      }
+    }
     card.style.display = 'block';
   }
 

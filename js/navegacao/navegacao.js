@@ -411,8 +411,10 @@
     if (!mapa || !mapReady) return;
     const g = normalizarGeometriaVisual(rota?.geometria);
     setSource(SOURCE_ROUTE, fc(g ? [{type:'Feature',properties:{},geometry:g}] : []));
-    const segmentosStatus = global.PacoteEMatoMarcadores?.segmentosStatusDaRota?.(rota) || [];
-    setSource(SOURCE_ROUTE_STATUS, fc(segmentosStatus));
+    // V32.2: a linha da rota não recebe cores de status por parada.
+    // Entregue/não entregue continuam sendo exibidos nos marcadores.
+    // Isso evita fragmentação visual com vários trechos verdes/vermelhos.
+    setSource(SOURCE_ROUTE_STATUS, fc([]));
   }
 
   function atualizarFontesPontos() {
