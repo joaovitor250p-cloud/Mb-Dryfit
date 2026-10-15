@@ -238,7 +238,8 @@ function tocarIntroPs2Audio() {
     };
 
     function mudarTema(tipo) {
-      let p = paletas[tipo] || paletas.black_Preto;
+      if (tipo !== 'Branco') tipo = 'Branco';
+      let p = paletas.Branco;
       document.documentElement.style.setProperty('--bg-body', p.bg_body);
       document.documentElement.style.setProperty('--surface-1', p.surface_1);
       document.documentElement.style.setProperty('--surface-2', p.surface_2);
@@ -614,7 +615,8 @@ function tocarIntroPs2Audio() {
       let lang = localStorage.getItem('idioma_preferido') || 'pt';
       mudarIdioma(lang);
 
-      let tema = localStorage.getItem('tema_preferido') || 'black_Preto';
+      let tema = 'Branco';
+      localStorage.setItem('tema_preferido', tema);
       mudarTema(tema);
 
       let voz = localStorage.getItem('voz_preferida') || 'navegacao_feminina';

@@ -703,11 +703,10 @@
     <div class="sidebar-label">SEU ESPAÇO</div>
     <nav class="sidebar-nav" aria-label="Navegação principal">
       <button type="button" data-pemato-nav="roteirizacao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v14H6zM9 9h6M9 13h6M9 16h3"/></svg><span><strong>Minha rota</strong><small>Paradas e progresso</small></span><span class="sidebar-arrow">›</span></button>
-      <button type="button" id="sidebarFuelBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8v18H6zM8 6h4M14 8h2l2 2v7a2 2 0 0 0 2 2M18 10l2-2"/></svg><span><strong>Combustível</strong><small>Postos perto de mim</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V43</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V44</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -889,6 +888,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5zM14 14h5v5h-5zM8 14c2-5 5-3 8-7"></path></svg>
             <span><strong>Otimizar rota</strong><small>Calcular ordem e trajeto pelas ruas</small></span>
           </button>
+          <button id="routingRefineMenuBtn" class="routing-action-row routing-route-ready-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"></path></svg>
+            <span><strong>Refinar rota</strong><small>Reorganizar as paradas pendentes, inverter ou desenhar no mapa</small></span>
+          </button>
           <button id="routingExportPdfBtn" class="routing-action-row" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 14h6M9 17h5"></path></svg>
             <span><strong>Exportar PDF</strong><small>Gerar uma cópia para conferência</small></span>
@@ -962,7 +965,6 @@
           <button id="routingRefineUndoBtn" class="routing-refine-action routing-refine-undo" type="button"><strong>Desfazer última alteração</strong><small>Voltar à ordem anterior ao último refinamento manual.</small></button>
         </div>
         <div class="routing-review-actions">
-          <button id="routingReviewRefineBtn" class="pemato-secondary" type="button">Refinar</button>
           <button id="routingReviewConfirmBtn" class="pemato-primary" type="button">Confirmar rota</button>
         </div>
       </section>
@@ -1134,7 +1136,7 @@
       <section class="settings-card">
         <div class="settings-card-head"><strong>Aparência</strong><span>Tema da interface</span></div>
         <label>Tema</label>
-        <div class="segmented-control-grid3"><button class="segmented-btn active" id="theme_black_Preto" onclick="mudarTema('black_Preto')">Preto</button><button class="segmented-btn" id="theme_Branco" onclick="mudarTema('Branco')">Branco</button><button class="segmented-btn" id="theme_gray" onclick="mudarTema('gray')">Cinza</button></div>
+        <div class="segmented-control-grid3" style="grid-template-columns:1fr"><button class="segmented-btn active" id="theme_Branco" onclick="mudarTema('Branco')">Branco e verde</button></div><small style="display:block;margin-top:8px;color:#6b7280;font-size:.72rem">Tema único do Pacote É Mato para manter a interface padronizada.</small>
       </section>
 
       <section class="settings-card">
