@@ -90,7 +90,7 @@
     if (!rota) return;
     const ativa = await global.PacoteEMatoRotaStore?.obterRotaAtiva?.();
     if (ativa && String(ativa.id) !== String(rota.id)) {
-      const ok = global.confirm(`Abrir “${rota.nome || 'esta rota'}” no mapa?\n\nA rota que está aberta agora continuará salva no Histórico.`);
+      const ok = await global.PacoteEMatoDialog.confirmar({titulo:'Abrir rota no mapa?',mensagem:`A rota “${rota.nome || 'esta rota'}” será aberta agora. A rota atual continuará salva no Histórico.`,confirmar:'Abrir rota',cancelar:'Cancelar'});
       if (!ok) return;
     }
     const carregada = await global.PacoteEMatoRotaStore?.ativarRotaExistente?.(rota.id);

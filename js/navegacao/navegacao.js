@@ -104,14 +104,31 @@
     return ids.map(id => byId.get(String(id))).filter(Boolean);
   }
 
+  function paradaFinalizada(p) {
+    return ['entregue', 'concluida', 'nao_entregue'].includes(String(p?.statusEntrega || ''));
+  }
+
+  // V39: a parada verde é o ponto de continuidade da corrida, não necessariamente
+  // a primeira pendente da lista. Se o motorista estiver na 2, abrir a 4 e concluir
+  // a 4, a 2 continua pendente/branca e a 5 passa a ser a parada ativa/verde.
   function atualizarPendentes() {
-    ordemPendente = paradasPorOrdem().filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega));
+    const ordenadas = paradasPorOrdem();
+    ordemPendente = ordenadas.filter(p => !paradaFinalizada(p));
+
+    let ativa = ordenadas.find(p => String(p.id) === String(rota?.proximaParadaId || '') && !paradaFinalizada(p));
+    if (!ativa) ativa = ordemPendente[0] || null;
+    if (rota) rota.proximaParadaId = ativa?.id || null;
+
     if (global.appState?.navegacao) {
-      global.appState.navegacao.paradaAtualId = ordemPendente[0]?.id || null;
-      global.appState.navegacao.proximaParadaId = ordemPendente[0]?.id || null;
+      global.appState.navegacao.paradaAtualId = ativa?.id || null;
+      global.appState.navegacao.proximaParadaId = ativa?.id || null;
     }
   }
-  function proxima() { return ordemPendente[0] || null; }
+  function proxima() {
+    if (!rota) return ordemPendente[0] || null;
+    const ativa = paradasPorOrdem().find(p => String(p.id) === String(rota.proximaParadaId || '') && !paradaFinalizada(p));
+    return ativa || ordemPendente[0] || null;
+  }
   function proximaPendenteDepois(idAtual) {
     const ordenadas = paradasPorOrdem();
     const indice = ordenadas.findIndex(p => String(p.id) === String(idAtual || ''));
@@ -436,7 +453,7 @@
       grupo.sort((a,b) => a.order - b.order);
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      // V38: o cartão exibido e a próxima entrega são estados diferentes.
+      // V39: o cartão exibido e a próxima entrega são estados diferentes.
       // Ao deslizar entre cartões, o marcador verde deve continuar preso à
       // próxima parada pendente da corrida, e não ao cartão que está na tela.
       const idAtivo = String(p?.id || rota?.proximaParadaId || '');
@@ -593,7 +610,6 @@
     if (p.apartamento) add(`Apartamento ${p.apartamento}`);
     if (p.sala) add(`Sala ${p.sala}`);
     if (p.loja) add(`Loja ${p.loja}`);
-    add(p.observacao);
     const vis = new Set(Array.isArray(rota?.camposVisiveisParada) ? rota.camposVisiveisParada : ['pacote','endereco','bairro','cidade']);
     if (vis.has('atId') && p.atId) add(`AT ID: ${p.atId}`);
     if (vis.has('sequenceOrigem') && p.sequenceOrigem && p.sequenceOrigem !== '-') add(`Sequence: ${p.sequenceOrigem}`);
@@ -613,6 +629,9 @@
     if($('navStopNumber')) $('navStopNumber').textContent=pos>=0?`PARADA ${String(pos+1).padStart(2,'0')}`:'SEM PARADA';
     if($('navNextAddress')) $('navNextAddress').textContent=p?.enderecoOriginal||'Nenhuma parada pendente';
     if($('navNextComplement')) $('navNextComplement').textContent=detalhesDaParada(p);
+    const obsCliente = String(p?.observacao || '').trim();
+    if($('navCustomerObservationText')) $('navCustomerObservationText').textContent = obsCliente || 'Sem observações do cliente.';
+    if($('navCustomerObservation')) $('navCustomerObservation').classList.toggle('is-empty', !obsCliente);
     if($('navNextPackages')) {
       const quantidadeFisica = p ? (global.PacoteEMatoOperacoesPacotes?.quantidadePacotesFisicos?.(rota, p) ?? (p?.pacotes?.length || 0)) : 0;
       $('navNextPackages').textContent = `${quantidadeFisica} ${quantidadeFisica === 1 ? 'pacote' : 'pacotes'}`;
@@ -820,7 +839,7 @@
     if(!ordemPendente.length)mostrarConclusao();
   }
 
-  function encerrar(){if(!global.confirm('Sair da navegação? A rota e o progresso serão preservados.'))return;pararGPS();try{global.speechSynthesis?.cancel?.();}catch(_){};if(global.appState?.navegacao)global.appState.navegacao.ativa=false;global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao');}
+  async function encerrar(){const ok=await global.PacoteEMatoDialog?.confirmar?.({titulo:'Sair da navegação?',mensagem:'A rota e todo o progresso serão preservados para você continuar depois.',confirmar:'Sair da navegação',cancelar:'Continuar na rota'});if(ok===false)return;pararGPS();try{global.speechSynthesis?.cancel?.();}catch(_){};if(global.appState?.navegacao)global.appState.navegacao.ativa=false;global.PacoteEMatoAppShell?.abrirModulo?.('roteirizacao');}
   function pausar(){pararGPS();try{global.speechSynthesis?.cancel?.();}catch(_){};}
   function mapaNavegacaoSaudavel(){
     try {

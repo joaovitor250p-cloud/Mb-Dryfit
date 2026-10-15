@@ -1983,11 +1983,12 @@ function tocarIntroPs2Audio() {
         return;
       }
 
-      if (!confirm(
-        `Alterar somente a senha da conta ${zap}?\n\nO plano, vencimento e dias restantes serão mantidos exatamente como estão.`
-      )) {
-        return;
-      }
+      if (!(await window.PacoteEMatoDialog.confirmar({
+        titulo: 'Alterar senha da conta?',
+        mensagem: `Conta: ${zap}\n\nO plano, vencimento e dias restantes serão mantidos exatamente como estão.`,
+        confirmar: 'Alterar senha',
+        cancelar: 'Cancelar'
+      }))) return;
 
       try {
         const data = await adminWorkerFetch('/admin/alterar-senha', {
@@ -2200,9 +2201,13 @@ function tocarIntroPs2Audio() {
     }
 
     async function deletarUsuarioAdmin(zap) {
-      if (!confirm(`Deseja realmente excluir a conta ${zap}?\n\nIsso também removerá o usuário do login seguro quando houver vínculo.`)) {
-        return;
-      }
+      if (!(await window.PacoteEMatoDialog.confirmar({
+        titulo: 'Excluir esta conta?',
+        mensagem: `Conta: ${zap}\n\nO usuário também será removido do login seguro quando houver vínculo.`,
+        confirmar: 'Excluir conta',
+        cancelar: 'Cancelar',
+        perigo: true
+      }))) return;
 
       try {
         await adminWorkerFetch('/admin/excluir-usuario', {

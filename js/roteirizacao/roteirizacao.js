@@ -985,7 +985,7 @@
   }
 
   async function removerTodasRotas() {
-    if (!global.confirm('Remover todas as rotas carregadas do mapa? O histórico já salvo não será apagado.')) return;
+    if (!(await global.PacoteEMatoDialog.confirmar({titulo:'Remover rotas do mapa?',mensagem:'As rotas carregadas serão removidas do mapa. O histórico que já foi salvo continuará disponível.',confirmar:'Remover rotas',cancelar:'Cancelar',perigo:true}))) return;
     try { await global.PacoteEMatoRotaStore.limparRotaAtiva?.(); } catch (_) {}
     await criarNovaRotaVazia();
     notificar('Rotas removidas do mapa.');
@@ -1406,7 +1406,7 @@
     const byId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
     const pendentes = (rotaAtual.ordem || []).map(String).filter(id => !paradaFinalizada(byId.get(id)));
     if (pendentes.length < 2) return notificar('Não há paradas pendentes suficientes para inverter.');
-    if (rotaAtual.iniciadoEm && !global.confirm('Inverter somente as paradas pendentes? As entregas já registradas serão preservadas.')) return;
+    if (rotaAtual.iniciadoEm && !(await global.PacoteEMatoDialog.confirmar({titulo:'Inverter paradas pendentes?',mensagem:'As entregas já registradas serão preservadas. Apenas as paradas que ainda estão pendentes terão a ordem invertida.',confirmar:'Inverter pendentes',cancelar:'Cancelar'}))) return;
     fecharRevisaoOtimizacao();
     const novaOrdem = reconstruirComPendentes([...pendentes].reverse());
     await aplicarOrdemRefinada(novaOrdem, 'inverter', 'Ordem das paradas pendentes invertida.', { abrirRevisao: true });
@@ -1614,7 +1614,7 @@
   async function removerParada(id) {
     const p = rotaAtual?.paradas.find(item => item.id === id);
     if (!p) return;
-    if (!confirm(`Remover a parada "${p.enderecoOriginal || 'sem endereço'}"?`)) return;
+    if (!(await global.PacoteEMatoDialog.confirmar({titulo:'Remover esta parada?',mensagem:`${p.enderecoOriginal || 'Parada sem endereço'}\n\nEla será retirada da rota atual.`,confirmar:'Remover parada',cancelar:'Cancelar',perigo:true}))) return;
     const tinhaRotaCalculada = !!rotaAtual.geometria;
     rotaAtual.paradas = rotaAtual.paradas.filter(item => item.id !== id);
     rotaAtual.ordem = rotaAtual.ordem.filter(item => item !== id);
