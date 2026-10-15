@@ -436,9 +436,14 @@
       grupo.sort((a,b) => a.order - b.order);
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      const idSelecionado = String(cartaoSelecionadoId || p?.id || '');
-      const selecionado = grupo.find(item => String(item.stop?.id || '') === idSelecionado);
-      const principal = selecionado || grupoVisual[0];
+      // V38: o cartão exibido e a próxima entrega são estados diferentes.
+      // Ao deslizar entre cartões, o marcador verde deve continuar preso à
+      // próxima parada pendente da corrida, e não ao cartão que está na tela.
+      const idAtivo = String(p?.id || rota?.proximaParadaId || '');
+      const idExibido = String(cartaoSelecionadoId || '');
+      const ativaNoGrupo = grupo.find(item => String(item.stop?.id || '') === idAtivo);
+      const exibidaNoGrupo = grupo.find(item => String(item.stop?.id || '') === idExibido);
+      const principal = ativaNoGrupo || exibidaNoGrupo || grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
@@ -448,7 +453,7 @@
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
       const ids = grupo.map(item => String(item.stop.id));
-      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:deslocamentoMarcador(stackIndex),status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:deslocamentoMarcador(stackIndex),status:stop.statusEntrega||'pendente',current:ids.includes(String(p?.id || rota?.proximaParadaId || ''))},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {

@@ -115,25 +115,6 @@
     if (!(chave in state.navegacao)) state.navegacao[chave] = navegacaoPadrao[chave];
   });
 
-
-  if (!state.combustivel || typeof state.combustivel !== 'object') state.combustivel = {};
-  const combustivelPadrao = {
-    visivel: false,
-    carregando: false,
-    postos: [],
-    raioMetros: 8000,
-    ultimaPosicao: null,
-    atualizadoEm: null,
-    postoSelecionadoId: null,
-    erro: null
-  };
-  Object.keys(combustivelPadrao).forEach((chave) => {
-    if (!(chave in state.combustivel)) {
-      const valor = combustivelPadrao[chave];
-      state.combustivel[chave] = Array.isArray(valor) ? valor.slice() : valor;
-    }
-  });
-
   if (!state.ui || typeof state.ui !== 'object') state.ui = {};
   if (!state.ui.moduloAtual || state.ui.moduloAtual === 'inicio') state.ui.moduloAtual = 'roteirizacao';
   if (!['expanded','intermediate','collapsed'].includes(state.ui.painelRoteirizacao)) state.ui.painelRoteirizacao = 'collapsed';
