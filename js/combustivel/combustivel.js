@@ -3,7 +3,7 @@
 
   const SOURCE = 'pemato-fuel-stations';
   const LAYER = 'pemato-fuel-symbols';
-  const DEFAULT_RADIUS = 8000;
+  const DEFAULT_RADIUS = 5000;
   const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -30,7 +30,7 @@
       visivel: s.combustivel.visivel === true,
       carregando: s.combustivel.carregando === true,
       postos: Array.isArray(s.combustivel.postos) ? s.combustivel.postos : [],
-      raioMetros: Number(s.combustivel.raioMetros || DEFAULT_RADIUS),
+      raioMetros: DEFAULT_RADIUS,
       ultimaPosicao: s.combustivel.ultimaPosicao || null,
       atualizadoEm: s.combustivel.atualizadoEm || null,
       postoSelecionadoId: s.combustivel.postoSelecionadoId || null,
@@ -155,10 +155,62 @@
     return {lat,lon};
   }
   function queryOverpass(pos,raio){return `[out:json][timeout:18];(node["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon});way["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon});relation["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon}););out center tags;`;}
+  function parecePosto(props){
+    const p=props||{};
+    const texto=[p.amenity,p.class,p.subclass,p.type,p.category,p.kind,p.poi_class,p.name,p.name_en,p.brand,p.operator]
+      .filter(Boolean).join(' ').toLowerCase();
+    return /(^|\s)(fuel|gas_station|gas station|petrol|posto|combust[ií]vel)(\s|$)/i.test(texto) || p.amenity==='fuel' || p.class==='fuel' || p.subclass==='fuel';
+  }
+  function elementoDeFeatureMapa(feature,indice){
+    const props=feature?.properties||{};
+    if(!parecePosto(props))return null;
+    const coords=feature?.geometry?.type==='Point'?feature.geometry.coordinates:null;
+    const lon=numero(coords?.[0]),lat=numero(coords?.[1]);
+    if(lat==null||lon==null)return null;
+    return {type:'map',id:String(feature.id||`${Math.round(lat*1e6)}-${Math.round(lon*1e6)}-${indice}`),lat,lon,tags:Object.assign({amenity:'fuel'},props)};
+  }
+  function boundsRaio(pos,raio){
+    const dLat=raio/111320;
+    const dLon=raio/(111320*Math.max(.2,Math.cos(rad(pos.lat))));
+    return [[pos.lon-dLon,pos.lat-dLat],[pos.lon+dLon,pos.lat+dLat]];
+  }
+  async function aguardarMapaPronto(mapa,timeoutMs){
+    if(!mapa)return;
+    await new Promise(resolve=>{
+      let terminou=false;
+      const fim=()=>{if(terminou)return;terminou=true;clearTimeout(timer);try{mapa.off?.('idle',fim);}catch(_){}resolve();};
+      const timer=setTimeout(fim,timeoutMs||1800);
+      try{mapa.once?.('idle',fim);}catch(_){setTimeout(fim,120);}
+    });
+  }
+  async function buscarNosDadosDoMapa(pos,raio,opcoes){
+    const mapa=global.PacoteEMatoMapa?.getMapa?.();
+    if(!mapa||!mapa.isStyleLoaded?.())return [];
+    if(opcoes?.prepararViewport!==false){
+      try{mapa.fitBounds(boundsRaio(pos,raio),{padding:{top:110,right:70,bottom:250,left:70},duration:350,maxZoom:14});}catch(_){}
+      await aguardarMapaPronto(mapa,2100);
+    }
+    const style=mapa.getStyle?.()||{};
+    const pares=[];const vistos=new Set();
+    (style.layers||[]).forEach(layer=>{
+      if(!layer?.source||!layer['source-layer'])return;
+      const sl=String(layer['source-layer']);
+      const id=String(layer.id||'');
+      if(!/poi|place|amenity|transportation_name/i.test(`${sl} ${id}`))return;
+      const key=`${layer.source}|${sl}`;if(vistos.has(key))return;vistos.add(key);pares.push([layer.source,sl]);
+    });
+    // Alguns estilos OpenMapTiles usam explicitamente a source-layer "poi".
+    Object.keys(style.sources||{}).forEach(source=>{const key=`${source}|poi`;if(!vistos.has(key)){vistos.add(key);pares.push([source,'poi']);}});
+    const encontrados=[];
+    pares.forEach(([source,sourceLayer])=>{
+      try{(mapa.querySourceFeatures(source,{sourceLayer})||[]).forEach((f,i)=>{const el=elementoDeFeatureMapa(f,encontrados.length+i);if(el)encontrados.push(el);});}catch(_){}
+    });
+    return encontrados.filter(el=>distanciaMetros(pos,{lat:Number(el.lat),lon:Number(el.lon)})<=raio+60);
+  }
   async function buscarViaWorker(pos,raio){
     const base=String(global.PEMATO_MAP_CONFIG?.workerBaseUrl||'').replace(/\/+$/,'');
     if(!base)throw new Error('Worker não configurado');
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
     try{
       const r=await fetch(`${base}/fuel`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-Pacote-Em-Mato-Client':'map-v1'},body:JSON.stringify({lat:pos.lat,lon:pos.lon,radius:raio}),signal:controller.signal});
       if(!r.ok)throw new Error(`Worker HTTP ${r.status}`);
@@ -167,12 +219,28 @@
       return data.elements;
     }finally{clearTimeout(timer);}
   }
+  async function buscarNominatim(pos,raio){
+    const b=boundsRaio(pos,raio);
+    const viewbox=`${b[0][0]},${b[1][1]},${b[1][0]},${b[0][1]}`;
+    const qs=new URLSearchParams({format:'jsonv2',q:'posto de combustível',bounded:'1',viewbox,limit:'50',addressdetails:'1',extratags:'1','accept-language':'pt-BR'});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?${qs.toString()}`,{headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store'});
+      if(!r.ok)throw new Error(`Nominatim HTTP ${r.status}`);
+      const data=await r.json();
+      if(!Array.isArray(data))throw new Error('Resposta inválida');
+      return data.map((item,i)=>{
+        const lat=numero(item.lat),lon=numero(item.lon);if(lat==null||lon==null)return null;
+        const a=item.address||{},x=item.extratags||{};
+        return {type:'nominatim',id:String(item.osm_id||`n-${i}`),lat,lon,tags:{amenity:'fuel',name:item.name||item.display_name?.split(',')?.[0]||'Posto de combustível',brand:x.brand||'',operator:x.operator||'', 'addr:street':a.road||a.pedestrian||'', 'addr:housenumber':a.house_number||'', 'addr:suburb':a.suburb||a.neighbourhood||'', 'addr:city':a.city||a.town||a.municipality||''}};
+      }).filter(Boolean).filter(el=>distanciaMetros(pos,{lat:el.lat,lon:el.lon})<=raio+60);
+    }finally{clearTimeout(timer);}
+  }
   async function buscarOverpassDireto(pos,raio){
     const corpo=queryOverpass(pos,raio); let ultimoErro=null;
     for(const endpoint of OVERPASS_ENDPOINTS){
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
       try{
-        // GET evita o preflight CORS que falha em alguns WebViews/Android ao usar POST direto no Overpass.
         const url=`${endpoint}?data=${encodeURIComponent(corpo)}`;
         const r=await fetch(url,{method:'GET',headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store'});
         if(!r.ok)throw new Error(`HTTP ${r.status}`);
@@ -181,13 +249,15 @@
     }
     throw ultimoErro||new Error('Serviço público de postos indisponível');
   }
-  async function buscarOverpass(pos,raio){
-    let erroWorker=null;
-    try{return await buscarViaWorker(pos,raio);}catch(e){erroWorker=e;}
-    try{return await buscarOverpassDireto(pos,raio);}catch(e){
-      console.warn('Pacote É Mato: falha ao consultar postos.',{worker:erroWorker?.message,direto:e?.message});
-      throw new Error('Não foi possível consultar os postos agora. Verifique a conexão e tente novamente.');
-    }
+  async function buscarPostos(pos,raio,opcoes){
+    // 1) Usa os POIs dos tiles que o próprio mapa já carregou: não há CORS nem servidor extra.
+    try{const locais=await buscarNosDadosDoMapa(pos,raio,{prepararViewport:opcoes?.prepararViewport!==false});if(locais.length)return locais;}catch(e){console.warn('Pacote É Mato: POIs locais indisponíveis.',e);}
+    // 2) Se o Worker atualizado estiver publicado, usa a rota /fuel.
+    try{const worker=await buscarViaWorker(pos,raio);if(worker.length)return worker;}catch(e){console.warn('Pacote É Mato: Worker de combustível indisponível.',e?.message||e);}
+    // 3) Fallback sem Worker, ainda limitado a 5 km e filtrado pela distância real.
+    try{const nom=await buscarNominatim(pos,raio);if(nom.length)return nom;}catch(e){console.warn('Pacote É Mato: Nominatim indisponível.',e?.message||e);}
+    try{return await buscarOverpassDireto(pos,raio);}catch(e){console.warn('Pacote É Mato: Overpass indisponível.',e?.message||e);}
+    throw new Error('Não foi possível consultar os postos agora.');
   }
   function deduplicar(postos){
     const vistos=new Set(); return postos.filter(p=>{const k=`${p.nome.toLowerCase()}|${p.lat.toFixed(5)}|${p.lon.toFixed(5)}`;if(vistos.has(k))return false;vistos.add(k);return true;});
@@ -201,13 +271,13 @@
     st.carregando=true;st.erro=null;atualizarBotao();
     try{
       const pos=await obterPosicao(); st.ultimaPosicao=pos;
-      const elementos=await buscarOverpass(pos,st.raioMetros||DEFAULT_RADIUS);
-      st.postos=deduplicar(elementos.map(el=>normalizarElemento(el,pos)).filter(Boolean)).sort((a,b)=>a.distanciaMetros-b.distanciaMetros).slice(0,80);
+      const elementos=await buscarPostos(pos,DEFAULT_RADIUS,{prepararViewport:true});
+      st.postos=deduplicar(elementos.map(el=>normalizarElemento(el,pos)).filter(Boolean).filter(p=>p.distanciaMetros<=DEFAULT_RADIUS+60)).sort((a,b)=>a.distanciaMetros-b.distanciaMetros).slice(0,80);
       st.atualizadoEm=Date.now(); garantirCamada();
       if(opcoes?.centralizar!==false){const mapa=global.PacoteEMatoMapa?.getMapa?.();try{mapa?.easeTo?.({center:[pos.lon,pos.lat],zoom:Math.max(13.5,mapa.getZoom()),duration:420});}catch(_){}}
-      if(!st.postos.length)global.notificar?.('Nenhum posto foi encontrado no raio pesquisado.');
+      if(!st.postos.length)global.notificar?.('Nenhum posto foi encontrado em até 5 km da sua localização.');
       return st.postos;
-    }catch(e){st.erro=e?.message||String(e);global.notificar?.(`Não foi possível carregar os postos: ${st.erro}`);return [];}finally{st.carregando=false;atualizarBotao();}
+    }catch(e){st.erro=e?.message||String(e);global.notificar?.(`Não foi possível carregar os postos em até 5 km: ${st.erro}`);return [];}finally{st.carregando=false;atualizarBotao();}
   }
   async function ativar(opcoes){
     const st=estado();st.visivel=true;atualizarBotao();

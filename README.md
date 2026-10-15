@@ -1,3 +1,14 @@
+## V35 — Postos em 5 km + busca sem depender do Overpass (15/10/2026)
+
+- O raio de combustível agora é fixado em **5 km da localização atual**.
+- A busca tenta primeiro os próprios POIs já carregados nos tiles do mapa, evitando CORS e `Failed to fetch`.
+- Se necessário, há contingência pelo Worker, Nominatim e Overpass.
+- O Worker `/fuel` agora prioriza **Geoapify Places (`service.vehicle.fuel`)** quando a chave já configurada estiver disponível.
+- Todos os resultados são filtrados novamente pela distância real antes de entrar no mapa.
+- Postos continuam em uma camada própria, sem alterar as paradas da rota.
+
+Consulte `RELATORIO-V35-COMBUSTIVEL-5KM.md`.
+
 # Pacote É Mato
 
 ## V34 — Combustível corrigido + mapa limpo (15/10/2026)

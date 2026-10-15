@@ -386,6 +386,49 @@ async function handleFuel(request, env, origin) {
     return clone;
   }
 
+  // Primeira opção: Geoapify Places, usando a mesma chave já usada pela geocodificação/rota.
+  // É mais estável para o app móvel do que depender exclusivamente de instâncias públicas do Overpass.
+  if (env.GEOAPIFY_API_KEY) {
+    try {
+      const placesUrl = new URL('https://api.geoapify.com/v2/places');
+      placesUrl.searchParams.set('categories', 'service.vehicle.fuel');
+      placesUrl.searchParams.set('filter', `circle:${lon},${lat},${Math.round(radius)}`);
+      placesUrl.searchParams.set('bias', `proximity:${lon},${lat}`);
+      placesUrl.searchParams.set('limit', '100');
+      placesUrl.searchParams.set('lang', 'pt');
+      placesUrl.searchParams.set('apiKey', env.GEOAPIFY_API_KEY);
+      const geoResponse = await providerFetch(placesUrl.toString(), { headers: { 'Accept': 'application/geo+json,application/json' } }, 12000);
+      if (geoResponse.ok) {
+        const geo = await geoResponse.json();
+        const elements = (Array.isArray(geo?.features) ? geo.features : []).map((feature, index) => {
+          const props = feature?.properties || {};
+          const coords = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
+          if (!Array.isArray(coords) || !Number.isFinite(Number(coords[0])) || !Number.isFinite(Number(coords[1]))) return null;
+          return {
+            type: 'geoapify',
+            id: String(props.place_id || props.datasource?.raw?.osm_id || `geo-${index}`),
+            lat: Number(coords[1]), lon: Number(coords[0]),
+            tags: {
+              amenity: 'fuel',
+              name: props.name || props.address_line1 || 'Posto de combustível',
+              brand: props.brand || props.datasource?.raw?.brand || '',
+              operator: props.operator || props.datasource?.raw?.operator || '',
+              'addr:street': props.street || '',
+              'addr:housenumber': props.housenumber || '',
+              'addr:suburb': props.suburb || props.district || '',
+              'addr:city': props.city || '',
+              website: props.website || '', phone: props.contact?.phone || ''
+            }
+          };
+        }).filter(Boolean);
+        const payload = JSON.stringify({ ok: true, provider: 'geoapify-places', elements });
+        const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...corsHeaders(origin, true) } });
+        await cache.put(cacheKey, response.clone());
+        return response;
+      }
+    } catch (_) {}
+  }
+
   const query = fuelQuery(lat, lon, radius);
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
