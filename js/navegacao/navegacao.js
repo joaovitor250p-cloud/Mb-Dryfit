@@ -205,7 +205,7 @@
   function prepararIconesParadasV12(features) {
     return global.PacoteEMatoMarcadores?.prepararFeatures?.(mapa, features, {
       prefixo: 'pemato-nav-v12',
-      propriedadeSelecao: 'current',
+      propriedadeSelecao: 'highlighted',
       propriedadeIcone: 'iconV12'
     }) || features;
   }
@@ -268,16 +268,16 @@
       'symbol-sort-key':['get','order']
     };
     if(!mapa.getLayer(LAYER_STOPS)) mapa.addLayer({id:LAYER_STOPS,type:'symbol',source:SOURCE_STOPS,
-      filter:['all',['<=',['get','multi'],1],['!=',['get','current'],true]],
+      filter:['all',['<=',['get','multi'],1],['!=',['get','highlighted'],true]],
       layout:{...layoutMarcadorV12}});
     if(!mapa.getLayer(LAYER_STOPS_MULTI)) mapa.addLayer({id:LAYER_STOPS_MULTI,type:'symbol',source:SOURCE_STOPS,
-      filter:['all',['>',['get','multi'],1],['!=',['get','current'],true]],
+      filter:['all',['>',['get','multi'],1],['!=',['get','highlighted'],true]],
       layout:{...layoutMarcadorV12}});
     if(!mapa.getLayer(LAYER_STOPS_ACTIVE)) mapa.addLayer({id:LAYER_STOPS_ACTIVE,type:'symbol',source:SOURCE_STOPS,
-      filter:['all',['<=',['get','multi'],1],['==',['get','current'],true]],
+      filter:['all',['<=',['get','multi'],1],['==',['get','highlighted'],true]],
       layout:{...layoutMarcadorV12,'icon-allow-overlap':true,'icon-ignore-placement':true}});
     if(!mapa.getLayer(LAYER_STOPS_MULTI_ACTIVE)) mapa.addLayer({id:LAYER_STOPS_MULTI_ACTIVE,type:'symbol',source:SOURCE_STOPS,
-      filter:['all',['>',['get','multi'],1],['==',['get','current'],true]],
+      filter:['all',['>',['get','multi'],1],['==',['get','highlighted'],true]],
       layout:{...layoutMarcadorV12,'icon-allow-overlap':true,'icon-ignore-placement':true}});
 
   }
@@ -494,13 +494,17 @@
       // real da parada e não muda de posição ao selecionar, entregar ou recalcular.
       const stackIndex = 0;
       const ids = grupo.map(item => String(item.stop.id));
-      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:[0,0],status:stop.statusEntrega||'pendente',current:ids.includes(idAtivo)},geometry:{type:'Point',coordinates:[lon,lat]}});
+      const current = ids.includes(idAtivo);
+      const selected = ids.includes(idConsultado) && idConsultado !== '';
+      // V47: dois verdes independentes. A parada ativa da corrida permanece verde
+      // e a parada consultada pelo motorista também fica verde sem substituir a ativa.
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:[0,0],status:stop.statusEntrega||'pendente',current,selected,highlighted:(current||selected)},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {
       const p = f.properties || {};
       const c = f.geometry?.coordinates || [];
-      return `${p.id}:${p.order}:${p.multi}:${p.status||''}:${p.current?1:0}:${p.iconV12||''}:${c[0]}:${c[1]}`;
+      return `${p.id}:${p.order}:${p.multi}:${p.status||''}:${p.current?1:0}:${p.selected?1:0}:${p.highlighted?1:0}:${p.iconV12||''}:${c[0]}:${c[1]}`;
     }).join('|');
     if (assinatura !== assinaturaParadasV11) {
       assinaturaParadasV11 = assinatura;
@@ -832,6 +836,9 @@
     global.requestAnimationFrame(() => {
       atualizarPainel();
       animarCardParada(delta>0?'left':'right');
+      // V47: atualiza o destaque da parada consultada sem alterar a parada ativa.
+      // Os ícones são cacheados, então esta atualização é bem mais leve que reconstruir o mapa.
+      atualizarFontesPontos();
     });
     persistirCartaoComAtraso();
     if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){
