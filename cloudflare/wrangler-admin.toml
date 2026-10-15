@@ -1,0 +1,16 @@
+name = "pacote-emato-admin-gateway"
+main = "admin-gateway-worker.js"
+compatibility_date = "2026-10-01"
+
+# Variáveis NÃO secretas podem ser configuradas aqui ou no painel Cloudflare.
+# Troque pela URL EXATA onde /admin está publicado.
+[vars]
+ADMIN_ORIGIN = "https://SEU-DOMINIO-OU-GITHUB-PAGES"
+UPSTREAM_ADMIN_URL = "https://holy-frog-272c.joaovitor250p.workers.dev"
+
+# Configure como secrets, NUNCA coloque valores aqui:
+# npx wrangler secret put OWNER_EMAIL --config wrangler-admin.toml
+# npx wrangler secret put OWNER_PIN --config wrangler-admin.toml
+# npx wrangler secret put SESSION_SECRET --config wrangler-admin.toml
+# npx wrangler secret put UPSTREAM_ADMIN_PASSWORD --config wrangler-admin.toml
+# npx wrangler secret put GATEWAY_SHARED_SECRET --config wrangler-admin.toml

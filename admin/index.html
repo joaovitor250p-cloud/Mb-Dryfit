@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests">
+  <title>Pacote É Mato · Painel do Dono</title>
+  <link rel="icon" href="../icon-192.png">
+  <link rel="stylesheet" href="admin.css?v=54">
+</head>
+<body>
+  <div id="loginView" class="login-shell">
+    <section class="login-card">
+      <img src="../icon-192.png" alt="" class="logo">
+      <span class="eyebrow">ACESSO RESTRITO</span>
+      <h1>Painel do Dono</h1>
+      <p>Administração do Pacote É Mato em uma área separada do aplicativo dos motoristas.</p>
+      <form id="loginForm" autocomplete="off">
+        <label>E-mail do proprietário<input id="ownerEmail" type="email" autocomplete="username" required maxlength="160" placeholder="seu@email.com"></label>
+        <label>PIN administrativo<input id="ownerPin" type="password" inputmode="numeric" autocomplete="current-password" required minlength="6" maxlength="12" placeholder="••••••"></label>
+        <button id="loginBtn" class="primary" type="submit">Entrar com segurança</button>
+      </form>
+      <div id="loginError" class="error" hidden></div>
+      <small class="security-note">A sessão expira automaticamente. O PIN nunca é salvo neste dispositivo.</small>
+    </section>
+  </div>
+
+  <div id="appView" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand"><img src="../icon-192.png" alt=""><div><strong>PACOTE É MATO</strong><span>Painel do Dono</span></div></div>
+      <nav>
+        <button data-view="dashboard" class="active">Dashboard</button>
+        <button data-view="clientes">Clientes</button>
+        <button data-view="pagamentos">Pagamentos</button>
+        <button data-view="comunicados">Comunicados</button>
+        <button data-view="seguranca">Segurança</button>
+      </nav>
+      <div class="sidebar-bottom"><span id="ownerIdentity"></span><button id="logoutBtn">Sair do painel</button></div>
+    </aside>
+    <main>
+      <header class="topbar"><button id="menuBtn" aria-label="Menu">☰</button><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2 id="pageTitle">Dashboard</h2></div><button id="refreshBtn" class="ghost">Atualizar</button></header>
+
+      <section id="view-dashboard" class="view active">
+        <div class="metrics">
+          <article><span>Contas</span><strong id="metricTotal">—</strong></article>
+          <article><span>Ativos</span><strong id="metricAtivos">—</strong></article>
+          <article><span>Expirados</span><strong id="metricExpirados">—</strong></article>
+          <article><span>Bloqueados</span><strong id="metricBloqueados">—</strong></article>
+          <article><span>Vitalícios</span><strong id="metricVitalicios">—</strong></article>
+          <article><span>Faturamento registrado</span><strong id="metricRevenue">—</strong></article>
+        </div>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">VISÃO GERAL</span><h3>Contas recentes</h3></div><button data-go="clientes" class="ghost">Ver clientes</button></div><div id="recentClients" class="client-list"></div></section>
+      </section>
+
+      <section id="view-clientes" class="view">
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">CONTAS</span><h3>Clientes</h3></div></div>
+          <div class="filters"><input id="clientSearch" type="search" placeholder="Buscar por WhatsApp ou e-mail"><select id="clientFilter"><option value="todos">Todos</option><option value="ativos">Ativos</option><option value="expirados">Expirados</option><option value="bloqueados">Bloqueados</option><option value="vitalicios">Vitalícios</option></select></div>
+          <div id="clientsList" class="client-list"></div>
+        </section>
+      </section>
+
+      <section id="view-pagamentos" class="view"><section class="panel"><div class="panel-head"><div><span class="eyebrow">FINANCEIRO</span><h3>Pagamentos</h3></div></div><div id="paymentsList" class="payment-list"></div></section></section>
+
+      <section id="view-comunicados" class="view"><section class="panel narrow"><span class="eyebrow">COMUNICAÇÃO</span><h3>Novo comunicado</h3><label>Mensagem<textarea id="broadcastText" maxlength="500" placeholder="Mensagem para os motoristas"></textarea></label><label>Duração<select id="broadcastHours"><option value="1">1 hora</option><option value="3">3 horas</option><option value="6">6 horas</option><option value="12">12 horas</option><option value="24">24 horas</option></select></label><div class="actions"><button id="broadcastSend" class="primary">Publicar aviso</button><button id="broadcastClear" class="ghost">Apagar aviso</button></div></section></section>
+
+      <section id="view-seguranca" class="view"><section class="panel narrow"><span class="eyebrow">SEGURANÇA</span><h3>Proteções administrativas</h3><div class="security-grid"><div><strong>Sessão temporária</strong><span>Token assinado e com expiração curta.</span></div><div><strong>Rate limit</strong><span>Bloqueia tentativas repetidas de login.</span></div><div><strong>Origem restrita</strong><span>O gateway aceita apenas a URL do painel configurada.</span></div><div><strong>Segredos no Worker</strong><span>E-mail, PIN, senha upstream e chave da sessão não ficam no front-end.</span></div></div><p class="muted">Para a proteção máxima, o Worker administrativo antigo também deve ser alterado para aceitar operações administrativas apenas pelo gateway.</p></section></section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal-backdrop" hidden><section class="modal"><button id="modalClose" class="modal-close">×</button><span class="eyebrow">CLIENTE</span><h3 id="modalTitle">Gerenciar conta</h3><div id="modalBody"></div></section></div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="config.js?v=54"></script>
+  <script src="admin.js?v=54"></script>
+</body>
+</html>

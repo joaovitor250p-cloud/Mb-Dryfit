@@ -1,12 +1,32 @@
-# Pacote É Mato — V38
+# Pacote É Mato — V55
 
-## V38 — marcador ativo estável e remoção de combustível
+Projeto organizado para publicação no GitHub.
 
-- O sistema de postos/combustível foi removido por completo do aplicativo.
-- A próxima parada pendente da corrida permanece destacada em verde no mapa.
-- Deslizar para visualizar cartões de outras paradas não muda mais o marcador verde.
-- Ao concluir a parada ativa, o verde avança automaticamente para a próxima parada pendente.
-- Marcadores concluídos continuam exibindo o check de entrega normalmente.
-- O mapa continua com a limpeza visual de POIs aplicada nas versões anteriores.
+## Estrutura principal
 
-A navegação externa via Waze e Google Maps das paradas da rota continua disponível.
+- `index.html` — aplicativo principal do motorista
+- `admin/` — Painel do Dono
+- `css/` — estilos do aplicativo
+- `js/` — lógica do aplicativo
+- `cloudflare/` — Workers e configurações de backend
+- `docs/` — documentação e histórico de desenvolvimento
+- `manifest.json` e ícones — PWA
+- `politica-privacidade.html`, `termos-de-uso.html`, `licencas.html` — páginas legais
+
+## Relatórios antigos
+
+Todos os relatórios individuais foram consolidados em:
+
+`docs/HISTORICO-DE-DESENVOLVIMENTO.md`
+
+Isso reduz bastante a quantidade de arquivos do projeto e facilita o envio pelo GitHub sem perder o histórico.
+
+## Painel do Dono
+
+A documentação de publicação e segurança está em:
+
+`docs/ADMIN-DEPLOY-SEGURO.md`
+
+O Worker completo de referência permanece em:
+
+`cloudflare/WORKER-HOLY-FROG-SEGURO-COMPLETO.txt`

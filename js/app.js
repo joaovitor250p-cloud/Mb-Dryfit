@@ -1577,31 +1577,10 @@ function tocarIntroPs2Audio() {
     let timerCliques = null;
 
     function registrarCliqueAdmin(event) {
-      // O Modo Dono só pode ser aberto pela LOGO da tela de login.
-      const telaLogin = document.getElementById('telaBloqueio');
-      const alvo = event && event.currentTarget;
-
-      if (!telaLogin || telaLogin.style.display === 'none') {
-        cliquesAdmin = 0;
-        return;
-      }
-
-      if (!alvo || !alvo.closest('.auth-logo-shell')) {
-        cliquesAdmin = 0;
-        return;
-      }
-
-      cliquesAdmin++;
-      clearTimeout(timerCliques);
-      timerCliques = setTimeout(() => { cliquesAdmin = 0; }, 2000);
-
-      if (cliquesAdmin >= 5) {
-        cliquesAdmin = 0;
-        document.getElementById('modalAdmin').style.display = 'flex';
-        if (document.getElementById('areaGeradorAdmin').style.display === 'flex') {
-          carregarUsuariosAdmin();
-        }
-      }
+      // V53: o painel administrativo foi separado do aplicativo do motorista.
+      // O antigo atalho de cinco toques permanece desativado por segurança.
+      cliquesAdmin = 0;
+      return false;
     }
 
     function fecharModalAdmin() {
