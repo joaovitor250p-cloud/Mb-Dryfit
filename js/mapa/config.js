@@ -82,7 +82,33 @@
 
   derivarEndpoints(inicial);
 
+  // Usa somente fontes de construções já declaradas pelo estilo carregado.
+  // Converte a representação 3D em plantas 2D, sem uma nova requisição de dados.
+  function exibirConstrucoes2D(mapa) {
+    const camadas = mapa?.getStyle?.()?.layers || [];
+    const bases = camadas.filter(l => l['source-layer'] &&
+      /building/i.test(l['source-layer']) && ['fill','fill-extrusion'].includes(l.type));
+    const fontes = new Map();
+    bases.forEach(l => fontes.set(`${l.source}:${l['source-layer']}`, l));
+    let indice = 0;
+    fontes.forEach(base => {
+      const id = `pemato-construcoes-2d-${indice++}`;
+      if (mapa.getLayer(id)) return;
+      const antes = camadas.find(l => l.source === base.source && l['source-layer'] === base['source-layer'])?.id;
+      mapa.addLayer({
+        id, type:'fill', source:base.source, 'source-layer':base['source-layer'], minzoom:14,
+        layout:{visibility:'visible'},
+        paint:{'fill-color':'#f0efed', 'fill-outline-color':'#b5b9bd',
+          'fill-opacity':['interpolate',['linear'],['zoom'],14,0.45,16,0.85]}
+      }, antes);
+      // Evita que o preenchimento original esconda os contornos adicionados.
+      bases.filter(l => l.source === base.source && l['source-layer'] === base['source-layer'])
+        .forEach(l => mapa.setLayoutProperty(l.id, 'visibility', 'none'));
+    });
+  }
+
   global.PacoteEMatoMapaConfig = Object.freeze({
+    exibirConstrucoes2D,
     configurarWorkerBaseUrl,
     obterWorkerBaseUrl,
     derivarEndpoints

@@ -173,6 +173,7 @@
   function removerCamadas3D() {
     if (!mapa || !pronto) return;
     try {
+      global.PacoteEMatoMapaConfig?.exibirConstrucoes2D?.(mapa);
       (mapa.getStyle()?.layers || []).filter(layer => layer.type === 'fill-extrusion').forEach(layer => {
         try { mapa.setLayoutProperty(layer.id, 'visibility', 'none'); } catch (_) {}
       });

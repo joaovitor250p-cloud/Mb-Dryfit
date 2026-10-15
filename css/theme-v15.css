@@ -105,3 +105,15 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 .nav-route-eta span{display:block;font-size:11px;color:#5f6b65;font-weight:700}
 .nav-route-eta strong{display:block;font-size:20px;color:#047857;line-height:1.25}
 .navigation-map-wrap .nav-map-controls{top:calc(var(--nav-overlay-top,112px) + 74px)!important}
+
+/* V30 — término discreto e ícones geometricamente centralizados. */
+#navStopCard .nav-card-top-actions{gap:7px;align-items:center}
+#navStopCard .nav-card-top-actions button{width:34px;height:34px;min-width:34px;min-height:34px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0;flex:none}
+#navStopCard .nav-card-top-actions svg{display:block;width:16px;height:16px;flex:none}
+#navBackBtn svg{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+#navMoreBtn svg{fill:currentColor;stroke:none}
+.nav-route-eta{gap:6px;padding:5px 8px;border-radius:11px}
+.nav-route-eta img{width:24px;height:24px;border-radius:6px}
+.nav-route-eta span{font-size:9px;line-height:1.15}
+.nav-route-eta strong{font-size:16px;line-height:1.15}
+.navigation-map-wrap .nav-map-controls{top:calc(var(--nav-overlay-top,112px) + 52px)!important}
