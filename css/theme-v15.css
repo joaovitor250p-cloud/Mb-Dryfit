@@ -144,3 +144,84 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 .sidebar-version{text-align:center;font-size:9px;letter-spacing:.12em;color:#97a69e}
 #sidebar button:focus-visible,#sidebar a:focus-visible{outline:2px solid #059669;outline-offset:3px}
 .settings-vehicle-hint{font-size:12px;line-height:1.5;color:#61746a;margin:12px 0 0}
+
+
+/* ===== V43 — identidade clara: branco + verde, preto somente para texto ===== */
+:root{
+  --pemato-green:#159a68;
+  --pemato-green-dark:#087653;
+  --pemato-green-soft:#eef9f4;
+  --pemato-white:#fff;
+  --pemato-ink:#17211d;
+  --pemato-muted:#67736d;
+  --pemato-line:#dce9e3;
+  --pemato-shadow:0 12px 34px rgba(18,62,46,.10);
+}
+html,body{background:#fff!important;color:var(--pemato-ink)!important}
+body::before,body::after{filter:none!important}
+
+/* Login e cadastro */
+#telaBloqueio{background:#fff!important;color:var(--pemato-ink)!important}
+.auth-wrapper,.auth-wrapper-premium{background:#fff!important;color:var(--pemato-ink)!important}
+.auth-access-card,.auth-plans-card,.auth-plan-stack .plan-item,.login-card{
+  background:#fff!important;color:var(--pemato-ink)!important;border:1px solid var(--pemato-line)!important;box-shadow:var(--pemato-shadow)!important
+}
+.auth-logo-shell{background:var(--pemato-green-soft)!important;border-color:#bfe7d4!important;box-shadow:0 12px 30px rgba(21,154,104,.13)!important}
+.auth-title-premium,.auth-section-heading h2,.auth-plans-header h3{color:var(--pemato-ink)!important}
+.auth-copy-premium,.auth-plans-note,.auth-helper,.auth-access-card .form-label-pro{color:var(--pemato-muted)!important}
+.auth-kicker,.auth-section-eyebrow,.auth-inline-link,.auth-support-link strong{color:var(--pemato-green-dark)!important}
+.auth-access-card .input-auth,.input-auth{background:#fff!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important}
+.auth-access-card .input-auth:focus,.input-auth:focus{background:#fff!important;border-color:var(--pemato-green)!important;box-shadow:0 0 0 3px rgba(21,154,104,.12)!important}
+.auth-mode-tabs{background:#f6faf8!important;border-color:var(--pemato-line)!important}
+.auth-mode-btn.active,.auth-main-button,.auth-payment-button{background:var(--pemato-green)!important;color:#fff!important;border-color:var(--pemato-green)!important;box-shadow:0 8px 22px rgba(21,154,104,.18)!important}
+.auth-trial-button,.auth-secondary-button{background:#fff!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important}
+.auth-plan-stack .plan-item.featured{background:var(--pemato-green-soft)!important;border-color:#9bd9bd!important}
+
+/* Superfícies gerais */
+.pemato-module,.home-panel,.settings-card,.history-route-card,.history-route-card-v2,.routing-list-pane,.routing-actions-menu,.routing-review-card,.route-editor-modal-card,.route-decision-card,.route-import-modal-card,.nav-route-actions-card,.nav-completion-card,.modal-card{
+  background:#fff!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important
+}
+.top-nav{background:rgba(255,255,255,.96)!important;border-color:var(--pemato-line)!important;box-shadow:0 4px 20px rgba(18,62,46,.07)!important}
+.nav-btn,.routing-map-icon,.nav-map-controls button,.pemato-secondary{background:#fff!important;color:var(--pemato-ink)!important;border:1px solid var(--pemato-line)!important;box-shadow:0 4px 14px rgba(18,62,46,.07)!important}
+.pemato-primary,.btn-action-primary,.routing-start-route-btn{background:var(--pemato-green)!important;color:#fff!important;border-color:var(--pemato-green)!important;box-shadow:0 6px 16px rgba(21,154,104,.16)!important}
+.pemato-danger,.routing-action-row.danger,.nav-route-actions-card>button.danger,#navNotDeliveredBtn{
+  background:#fff!important;color:var(--pemato-ink)!important;border:1px solid var(--pemato-line)!important
+}
+.pemato-danger:hover,.routing-action-row.danger:hover,#navNotDeliveredBtn:hover{background:var(--pemato-green-soft)!important;color:var(--pemato-green-dark)!important;border-color:#a8dbc5!important}
+
+/* Status sem arco-íris: verde para concluído/ativo e neutro para restante */
+.nav-stop-status-badge.is-pending{background:#f4f7f5!important;color:var(--pemato-ink)!important}
+.nav-stop-status-badge.is-delivered{background:var(--pemato-green-soft)!important;color:var(--pemato-green-dark)!important;border:1px solid #bce4d2!important}
+.nav-stop-status-badge.is-failed{background:#f4f7f5!important;color:var(--pemato-ink)!important;border:1px solid var(--pemato-line)!important}
+.routing-import-status[data-status="warning"],.settings-inline-status[data-status="warning"],.settings-inline-status[data-status="error"]{color:var(--pemato-green-dark)!important}
+.route-import-error,.auth-error-message{color:var(--pemato-ink)!important;background:#f6faf8!important;border-color:var(--pemato-line)!important}
+
+/* Importação */
+.route-import-choice{background:var(--pemato-green)!important;color:#fff!important;border:1px solid var(--pemato-green)!important;box-shadow:none!important}
+.route-import-choice strong,.route-import-choice span{color:#fff!important}
+.route-import-choice:hover,.route-import-choice:focus{background:var(--pemato-green-dark)!important;border-color:var(--pemato-green-dark)!important}
+
+/* Diálogos: claros e legíveis */
+.pemato-dialog-backdrop{background:rgba(12,28,21,.38)!important;backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
+.pemato-dialog-card{background:#fff!important;color:var(--pemato-ink)!important;border:1px solid #bfe1d2!important;box-shadow:0 24px 65px rgba(13,45,34,.22)!important}
+.pemato-dialog-kicker{color:var(--pemato-green-dark)!important}.pemato-dialog-title{color:var(--pemato-ink)!important}.pemato-dialog-message{color:var(--pemato-muted)!important}
+.pemato-dialog-cancel{background:#fff!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important}
+.pemato-dialog-confirm,.pemato-dialog-confirm.is-danger{background:var(--pemato-green)!important;color:#fff!important;border-color:var(--pemato-green)!important}
+
+/* Drawer e cards */
+#sidebar{background:#fff!important;border-right:1px solid var(--pemato-line)!important;box-shadow:14px 0 44px rgba(18,62,46,.12)!important}
+.sidebar-nav button:hover,.sidebar-nav button.active,.sidebar-nav a:hover{background:var(--pemato-green-soft)!important;color:var(--pemato-green-dark)!important}
+.nav-next-card,.navigation-panel{background:#fff!important;border-color:var(--pemato-line)!important}
+.nav-customer-observation{background:#fff!important;border-color:#bfe3d3!important;box-shadow:none!important}
+
+/* Mantém o mapa em sua cartografia original; overlays seguem branco/verde. */
+.nav-maneuver-card,.nav-route-eta,.nav-gps-status{background:rgba(255,255,255,.97)!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important}
+.nav-maneuver-distance,.nav-route-eta strong,.module-kicker,.routing-action-group-title,.nav-action-group-title{color:var(--pemato-green-dark)!important}
+
+/* Admin também adota a identidade clara. */
+#modalAdmin .modal-card{background:#fff!important;color:var(--pemato-ink)!important;border-color:var(--pemato-line)!important;box-shadow:var(--pemato-shadow)!important}
+
+/* Pequenos refinamentos */
+button,input,select,textarea{-webkit-tap-highlight-color:transparent}
+button{transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .12s ease}
+button:active{transform:scale(.985)}

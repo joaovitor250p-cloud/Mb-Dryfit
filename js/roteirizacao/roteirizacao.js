@@ -1379,6 +1379,24 @@
       candidata.confirmadaEm = null;
       candidata.status = 'ativa';
       candidata.otimizadoEm = Date.now();
+
+      // V43: depois de qualquer otimização nova, a operação sempre começa na
+      // primeira parada da NOVA ordem calculada. Isso evita herdar o ID que
+      // estava selecionado antes da otimização (que podia virar a parada 6, 15 etc.).
+      const primeiraDaNovaOrdem = candidata.ordem?.[0] ? String(candidata.ordem[0]) : null;
+      candidata.paradaSelecionadaId = primeiraDaNovaOrdem;
+      candidata.proximaParadaId = primeiraDaNovaOrdem;
+      if (global.appState?.roteirizacao) {
+        global.appState.roteirizacao.paradaSelecionadaId = primeiraDaNovaOrdem;
+        global.appState.roteirizacao.proximaParadaId = primeiraDaNovaOrdem;
+      }
+      if (global.appState?.navegacao) {
+        global.appState.navegacao.paradaExibidaId = primeiraDaNovaOrdem;
+        global.appState.navegacao.paradaAtualId = primeiraDaNovaOrdem;
+        global.appState.navegacao.proximaParadaId = primeiraDaNovaOrdem;
+      }
+      try { sessionStorage.removeItem('pemato_parada_externa'); } catch (_) {}
+
       candidata.resumoOtimizacao = {
         provider: otimizada.provider || 'geoapify-route-planner',
         comparacao: otimizada.comparacao,

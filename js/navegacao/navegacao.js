@@ -26,6 +26,7 @@
   let fallbackBaseAtivo = false;
   const falasFeitas = new Set();
   let assinaturaParadasV11 = '';
+  let persistenciaCartaoTimer = null;
 
   const SOURCE_ROUTE = 'pemato-nav-route';
   const SOURCE_ROUTE_STATUS = 'pemato-nav-route-status';
@@ -110,12 +111,20 @@
 
   function animarCardParada(direcao) {
     const card = $('navStopCard');
-    if (!card) return;
-    card.classList.remove('nav-card-shift-left','nav-card-shift-right','nav-card-pulse');
-    void card.offsetWidth;
-    const classe = direcao === 'left' ? 'nav-card-shift-left' : direcao === 'right' ? 'nav-card-shift-right' : 'nav-card-pulse';
-    card.classList.add(classe);
-    global.setTimeout(() => card.classList.remove(classe), 280);
+    if (!card || typeof card.animate !== 'function') return;
+    try { card.getAnimations?.().forEach(a => a.cancel()); } catch (_) {}
+    const x = direcao === 'left' ? 12 : direcao === 'right' ? -12 : 0;
+    const frames = x
+      ? [{ transform:`translate3d(${x}px,0,0)`, opacity:.90 }, { transform:'translate3d(0,0,0)', opacity:1 }]
+      : [{ transform:'scale(.994)', opacity:.94 }, { transform:'scale(1)', opacity:1 }];
+    card.animate(frames,{duration:180,easing:'cubic-bezier(.2,.75,.25,1)',fill:'none'});
+  }
+
+  function persistirCartaoComAtraso(){
+    clearTimeout(persistenciaCartaoTimer);
+    persistenciaCartaoTimer = global.setTimeout(() => {
+      persistirSelecao({motivo:'troca_cartao'});
+    }, 180);
   }
 
 
@@ -802,13 +811,28 @@
     try{await global.PacoteEMatoSessao?.persistirAgora?.(Object.assign({motivo:'navegacao',paradaSelecionadaId:alvo,proximaParadaId:rota.proximaParadaId,navegacaoAtiva:true},extra||{}));}catch(_){}
   }
   function selecionarCartao(delta){
-    const lista=paradasPorOrdem();if(!lista.length)return;const id=cartaoSelecionadoId||proxima()?.id;
+    const lista=paradasPorOrdem(); if(!lista.length)return;
+    const id=cartaoSelecionadoId||proxima()?.id;
     const indice=Math.max(0,lista.findIndex(s=>String(s.id)===String(id)));
     const anterior=lista[indice];
     if(anterior && $('navDeliveryNote')) anterior.observacaoEntrega=String($('navDeliveryNote').value||'').trim();
     const alvo=lista[Math.max(0,Math.min(lista.length-1,indice+delta))];
-    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;animarCardParada(delta>0?'left':'right');atualizarPainel();atualizarFontesPontos();persistirSelecao({motivo:'troca_cartao'});
-    if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){const interna=navegacaoInternaAtiva();mapa.easeTo({center:[Number(alvo.longitude),Number(alvo.latitude)],zoom:interna?17:Math.max(15,mapa.getZoom()),pitch:interna?48:0,duration:350});}
+    if(!alvo || String(alvo.id)===String(id))return;
+    definirAcompanhamento(false);
+    cartaoSelecionadoId=alvo.id;
+    // V43: o marcador verde pertence à continuidade da corrida, então navegar
+    // pelos cards não precisa reconstruir a source de marcadores. Evita duas
+    // repinturas pesadas e deixa o gesto muito mais fluido em celulares.
+    global.requestAnimationFrame(() => {
+      atualizarPainel();
+      animarCardParada(delta>0?'left':'right');
+    });
+    persistirCartaoComAtraso();
+    if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){
+      const interna=navegacaoInternaAtiva();
+      try { mapa.stop?.(); } catch (_) {}
+      mapa.easeTo({center:[Number(alvo.longitude),Number(alvo.latitude)],zoom:interna?17:Math.max(15,mapa.getZoom()),pitch:interna?48:0,duration:240,easing:t=>1-Math.pow(1-t,3)});
+    }
   }
   async function abrirExterno(provider){
     const p=paradasPorOrdem().find(s=>String(s.id)===String(cartaoSelecionadoId))||proxima();if(!p)return;
