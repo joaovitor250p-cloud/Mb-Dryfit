@@ -179,8 +179,7 @@
     const id=ids[0];
     if(!id)return;
     cartaoSelecionadoId=id;
-    seguirPosicao=false;
-    atualizarBotaoFollow();
+    definirAcompanhamento(false);
     atualizarPainel();
     persistirSelecao({motivo:'selecionar_marcador_mapa'});
   }
@@ -321,16 +320,16 @@
         pitch: 0,
         bearing: 0,
         maxPitch: 60,
-        dragRotate: false,
-        touchPitch: false,
+        dragRotate: true,
+        touchPitch: true,
         attributionControl: true,
         fadeDuration: 120
       });
       contextoPerdido = false;
       mapa.on('webglcontextlost', () => { contextoPerdido = true; });
       mapa.on('webglcontextrestored', () => { contextoPerdido = false; });
-      mapa.touchZoomRotate?.disableRotation?.();
-      mapa.on('dragstart', () => { seguirPosicao = false; atualizarBotaoFollow(); });
+      mapa.touchZoomRotate?.enableRotation?.();
+      ['dragstart','zoomstart','rotatestart','pitchstart'].forEach(nome => mapa.on(nome, explorarMapa));
       mapa.on('zoomend', () => { atualizarProgressoVisual(nearestOnRoute(ultimaPosicao)); });
 
       const ready = () => {
@@ -339,6 +338,7 @@
         ocultarFallbackMapa();
         assinaturaParadasV11 = '';
         removerCamadas3D();
+        acompanharCamera(0);
         garantirCamadas();
         bindEventosMarcadoresNav();
         try { mapa.resize(); mapa.triggerRepaint?.(); } catch (_) {}
@@ -427,7 +427,7 @@
   function atualizarFontesPontos() {
     if (!mapa || !mapReady) return;
     const p = proxima();
-    setSource(SOURCE_DRIVER, fc(ultimaPosicao && coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon) ? [{type:'Feature',properties:{heading:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):0,mode:navegacaoInternaAtiva()?'internal':'external'},geometry:{type:'Point',coordinates:[Number(ultimaPosicao.lon),Number(ultimaPosicao.lat)]}}] : []));
+    setSource(SOURCE_DRIVER, fc(ultimaPosicao && coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon) ? [{type:'Feature',properties:{heading:direcaoCamera(),mode:navegacaoInternaAtiva()?'internal':'external'},geometry:{type:'Point',coordinates:[Number(ultimaPosicao.lon),Number(ultimaPosicao.lat)]}}] : []));
     const ordenadas = paradasPorOrdem();
     const grupos = new Map();
     ordenadas.forEach((stop, i) => {
@@ -537,7 +537,48 @@
     }
   }
 
-  function atualizarBotaoFollow(){ const b=$('navFollowBtn'); if(b){b.classList.toggle('active',seguirPosicao);b.title=seguirPosicao?'Acompanhando sua posição':'Voltar a acompanhar sua posição';} }
+  function definirAcompanhamento(ativo) {
+    seguirPosicao = ativo;
+    if(global.appState?.navegacao) global.appState.navegacao.seguirPosicao = ativo;
+    atualizarBotaoFollow();
+  }
+  function atualizarBotaoFollow() {
+    const b=$('navFollowBtn');
+    if(b){ b.hidden=seguirPosicao; b.title='Recentralizar e acompanhar'; b.setAttribute('aria-label','Recentralizar e acompanhar'); }
+  }
+  function explorarMapa(event) {
+    if(event?.originalEvent) definirAcompanhamento(false);
+  }
+  function direcaoCamera() {
+    const h = ultimaPosicao?.heading;
+    if(h != null && Number.isFinite(Number(h))) return Number(h);
+    const pos = ultimaPosicao || {lon:centroDaRota()[0],lat:centroDaRota()[1]};
+    const perto=nearestOnRoute(pos), pontos=geometriaPontos(rota?.geometria);
+    if(perto && perto.distance < 100 && pontos[perto.index+1]) {
+      const a=pontos[perto.index], b=pontos[perto.index+1];
+      return bearingEntre({lon:a[0],lat:a[1]},{lon:b[0],lat:b[1]}) ?? mapa?.getBearing?.() ?? 0;
+    }
+    return mapa?.getBearing?.() || 0;
+  }
+  function acompanharCamera(duracao=500) {
+    if(!seguirPosicao || !mapa || !mapReady) return;
+    const interna=navegacaoInternaAtiva(), container=$('mapaNavegacao');
+    const area=container?.getBoundingClientRect();
+    let offset=[0,0];
+    if(area?.height && interna){
+      const painel=$('navigationPanel')?.getBoundingClientRect();
+      const manobra=container.parentElement?.querySelector('.nav-maneuver-card')?.getBoundingClientRect();
+      const topo=Math.max(0,(manobra?.bottom || area.top)-area.top)+16;
+      const sobrepoe=painel && painel.left<area.right && painel.right>area.left && painel.top<area.bottom;
+      const fundo=sobrepoe ? Math.max(topo, painel.top-area.top-24) : area.height-24;
+      offset=[0,topo+(fundo-topo)*0.72-area.height/2];
+    }
+    const recente=ultimaPosicao && Date.now()-ultimaPosicao.at<30000;
+    mapa.easeTo({center:recente?[ultimaPosicao.lon,ultimaPosicao.lat]:centroDaRota(),
+      zoom:interna?17.5:16, pitch:interna?58:0, bearing:interna?direcaoCamera():0,
+      offset, duration:duracao});
+  }
+
   function atualizarBotaoVoz(){ const b=$('navVoiceBtn'); if(b){const interna=navegacaoInternaAtiva();b.style.display=interna?'':'none';b.classList.toggle('active',vozAtiva&&interna);b.textContent=vozAtiva?'Voz ativa':'Voz muda';if(!interna)try{global.speechSynthesis?.cancel?.();}catch(_){}} }
 
   function detalhesDaParada(p) {
@@ -609,6 +650,7 @@
     const points=[{lat:ultimaPosicao.lat,lon:ultimaPosicao.lon}];
     ordemPendente.forEach(p=>{if(coordenadaValida(p.latitude,p.longitude))points.push({lat:Number(p.latitude),lon:Number(p.longitude)});});
     if(rota.retornarAoInicio&&rota.pontoInicial&&coordenadaValida(rota.pontoInicial.lat,rota.pontoInicial.lon))points.push({lat:Number(rota.pontoInicial.lat),lon:Number(rota.pontoInicial.lon)});
+    else if(rota.pontoFinal&&coordenadaValida(rota.pontoFinal.lat,rota.pontoFinal.lon))points.push({lat:Number(rota.pontoFinal.lat),lon:Number(rota.pontoFinal.lon)});
     if(points.length<2) return false;
     const btn=$('navRecalculateBtn');
     const textoBtn=btn?.textContent||'Recalcular rota';
@@ -639,10 +681,10 @@
   }
 
   function processarPosicao(pos) {
-    const nova={lat:Number(pos.coords.latitude),lon:Number(pos.coords.longitude),accuracy:Number(pos.coords.accuracy||0),heading:Number.isFinite(Number(pos.coords.heading))?Number(pos.coords.heading):null,at:Date.now()};
+    const nova={lat:Number(pos.coords.latitude),lon:Number(pos.coords.longitude),accuracy:Number(pos.coords.accuracy||0),heading:pos.coords.heading!=null&&Number.isFinite(Number(pos.coords.heading))&&Number(pos.coords.heading)>=0?Number(pos.coords.heading):null,at:Date.now()};
     if(nova.heading==null && posicaoAnterior && coordenadaValida(posicaoAnterior.lat,posicaoAnterior.lon)) {
       const mov=haversine([posicaoAnterior.lon,posicaoAnterior.lat],[nova.lon,nova.lat]);
-      if(Number.isFinite(mov)&&mov>=3) nova.heading=bearingEntre(posicaoAnterior,nova);
+      if(Number.isFinite(mov)&&mov>=Math.max(8, nova.accuracy || 0)) nova.heading=bearingEntre(posicaoAnterior,nova);
     }
     ultimaPosicao=nova;
     if(!coordenadaValida(ultimaPosicao.lat,ultimaPosicao.lon)) return;
@@ -667,9 +709,7 @@
     if(seguirPosicao&&mapa&&mapReady&&Date.now()-ultimaCentralizacao>1200){
       ultimaCentralizacao=Date.now();
       try{
-        const interna=navegacaoInternaAtiva();
-        const heading=Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):mapa.getBearing();
-        mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:interna?17.35:Math.max(mapa.getZoom(),15.5),bearing:interna?heading:0,pitch:interna?48:0,duration:500});
+        acompanharCamera();
       }catch(_){}
     }
   }
@@ -758,10 +798,10 @@
     if(global.appState?.navegacao)global.appState.navegacao.provider=pref;
     if(pref==='waze'||pref==='google') { try{global.speechSynthesis?.cancel?.();}catch(_){} atualizarBotaoVoz(); atualizarFontesPontos(); return abrirExterno(pref); }
     await persistirSelecao({motivo:'navegacao_interna',navegacaoProvider:'pacote_emato'});
-    seguirPosicao=true;atualizarBotaoFollow();
+    definirAcompanhamento(true);
     if(watchId==null)iniciarGPS();
     if($('navGpsStatus'))$('navGpsStatus').textContent='Navegação Pacote É Mato ativa';
-    if(ultimaPosicao&&mapa&&mapReady)mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:17.35,pitch:48,bearing:Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):mapa.getBearing(),duration:350});
+    acompanharCamera(350);
   }
 
   async function iniciar(rotaEntrada){
@@ -771,7 +811,7 @@
     global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rota, false);
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
     if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
-    garantirMapa(); mapa?.jumpTo?.({center:centroDaRota(), zoom:15, pitch:0, bearing:0}); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
+    garantirMapa(); acompanharCamera(0); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     iniciarGPS();
     if(pref!=='pacote_emato'&&$('navGpsStatus'))$('navGpsStatus').textContent=`GPS ativo · navegação preferida: ${pref==='waze'?'Waze':'Google Maps'}`;
     await persistirSelecao({motivo:'abrir_navegacao',navegacaoProvider:pref});
@@ -806,7 +846,7 @@
     const forcar=!mapa || contextoPerdido || !mapa.getCanvas?.()?.isConnected;
     if(forcar) reconstruirMapaNavegacao();
     else { try{mapa.resize();mapa.triggerRepaint?.();}catch(_){} garantirCamadas();desenharRota();atualizarFontesPontos(); }
-    mapa?.jumpTo?.({center:centroDaRota(), zoom:15, pitch:0, bearing:0});
+    if(seguirPosicao) acompanharCamera(0);
     atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     pararGPS(); iniciarGPS();
     if($('navGpsStatus'))$('navGpsStatus').textContent='Retorno ao Pacote É Mato · GPS retomado';
@@ -897,10 +937,8 @@
     $('navActionExit')?.addEventListener('click',()=>{fecharAcoesRota();encerrar();});
     $('navRecalculateBtn')?.addEventListener('click',()=>recalcular('manual')); $('navEndBtn')?.addEventListener('click',encerrar);
     $('navFollowBtn')?.addEventListener('click',()=>{
-      seguirPosicao=true;if(global.appState?.navegacao)global.appState.navegacao.seguirPosicao=true;atualizarBotaoFollow();
-      const centralizar=()=>{if(ultimaPosicao&&mapa&&mapReady){const interna=navegacaoInternaAtiva();mapa.easeTo({center:[ultimaPosicao.lon,ultimaPosicao.lat],zoom:interna?17.35:16,pitch:interna?48:0,bearing:interna&&Number.isFinite(Number(ultimaPosicao.heading))?Number(ultimaPosicao.heading):0,duration:350});}};
-      if(ultimaPosicao)centralizar();
-      else if(navigator.geolocation)navigator.geolocation.getCurrentPosition(pos=>{processarPosicao(pos);centralizar();},()=>{if($('navGpsStatus'))$('navGpsStatus').textContent='Não foi possível obter sua localização';},{enableHighAccuracy:true,maximumAge:1000,timeout:12000});
+      definirAcompanhamento(true);
+      acompanharCamera(350);
       iniciarGPS();
     });
     $('navVoiceBtn')?.addEventListener('click',()=>{if(!navegacaoInternaAtiva())return;vozAtiva=!vozAtiva;if(global.appState?.navegacao)global.appState.navegacao.vozAtiva=vozAtiva;if(!vozAtiva)try{global.speechSynthesis?.cancel?.();}catch(_){};atualizarBotaoVoz();});

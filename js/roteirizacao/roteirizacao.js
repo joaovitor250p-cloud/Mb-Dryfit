@@ -1338,7 +1338,7 @@
       const candidata = clone(rotaAtual);
       if (!candidata.preferenciaRota) candidata.preferenciaRota = 'short';
       atualizarProcessamento('Calculando melhor sequência', 'Otimização pela rede viária. Nenhuma distância em linha reta é usada.');
-      const otimizada = await global.PacoteEMatoServicoRota.otimizar(candidata);
+      const otimizada = await global.PacoteEMatoServicoRota.otimizarComparando(candidata, atualizarProcessamento);
       const orderIds = Array.isArray(otimizada.orderIds) ? otimizada.orderIds : [];
       if (!orderIds.length) throw new Error('O otimizador não retornou uma ordem de paradas.');
 
@@ -1346,44 +1346,22 @@
       candidata.ordem = ordered.map(p => p.id);
 
       atualizarProcessamento('Traçando percurso pelas ruas', 'Calculando a geometria completa, distância e tempo em blocos seguros.');
-      const route = await global.PacoteEMatoServicoRota.calcularRotaPelasRuas(candidata);
+      const route = otimizada.route;
       const feature = route.feature;
       candidata.geometria = feature.geometry;
       if (!(candidata.paradas || []).some(paradaFinalizada)) global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(candidata, true);
       candidata.pernas = Array.isArray(feature.properties?.legs) ? feature.properties.legs : [];
       candidata.instrucoes = global.PacoteEMatoServicoRota.extrairInstrucoes(feature);
 
-      // V26: a ordem, a distância e o tempo de planejamento passam a ter uma
-      // única fonte autoritativa: o próprio Route Planner que decidiu a ordem.
-      // A segunda chamada /route existe para desenhar a geometria e obter
-      // instruções detalhadas, mas não substitui as métricas da otimização.
-      const distanciaPlanejador = Number(otimizada.distance);
-      const direcaoPlanejador = Number(otimizada.drivingTime);
-      const totalPlanejador = Number(otimizada.totalTime);
-      const distanciaGeometria = Number(feature.properties?.distance || 0);
-      const direcaoGeometria = Number(feature.properties?.time || 0);
-      const pendentes = candidata.paradas.filter(p => !['entregue', 'concluida', 'nao_entregue'].includes(p.statusEntrega)).length;
-      const atendimentoConfigurado = pendentes * Number(candidata.tempoParadaSegundos || 0);
-
-      candidata.distanciaGeometriaMetros = Number.isFinite(distanciaGeometria) && distanciaGeometria > 0 ? distanciaGeometria : null;
-      candidata.duracaoGeometriaSegundos = Number.isFinite(direcaoGeometria) && direcaoGeometria > 0 ? direcaoGeometria : null;
-      candidata.distanciaTotalMetros = Number.isFinite(distanciaPlanejador) && distanciaPlanejador > 0 ? distanciaPlanejador : distanciaGeometria;
-      candidata.duracaoDirecaoSegundos = Number.isFinite(direcaoPlanejador) && direcaoPlanejador > 0 ? direcaoPlanejador : direcaoGeometria;
-
-      // Geoapify documenta `time` como tempo de viagem e `total_time` como
-      // viagem + duração das ações. Portanto, quando o planejador devolve os
-      // dois valores, usamos a diferença para representar exatamente o tempo
-      // de atendimento que ele considerou (ex.: 3 min por parada).
-      const atendimentoPlanejador = Number.isFinite(totalPlanejador) && Number.isFinite(direcaoPlanejador) && totalPlanejador >= direcaoPlanejador
-        ? totalPlanejador - direcaoPlanejador
-        : NaN;
-      candidata.duracaoParadasSegundos = Number.isFinite(atendimentoPlanejador)
-        ? atendimentoPlanejador
-        : atendimentoConfigurado;
-      candidata.duracaoTotalSegundos = Number.isFinite(totalPlanejador) && totalPlanejador > 0
-        ? totalPlanejador
-        : Number(candidata.duracaoDirecaoSegundos || 0) + Number(candidata.duracaoParadasSegundos || 0);
-      candidata.duracaoPlanejadorSegundos = Number.isFinite(totalPlanejador) ? totalPlanejador : null;
+      // Distância, tempo e instruções pertencem ao MESMO percurso confirmado.
+      const distanciaGeometria = Number(feature.properties.distance);
+      const direcaoGeometria = Number(feature.properties.time);
+      const pendentes = candidata.paradas.filter(p => !['entregue','concluida','nao_entregue'].includes(p.statusEntrega)).length;
+      candidata.distanciaGeometriaMetros = candidata.distanciaTotalMetros = distanciaGeometria;
+      candidata.duracaoGeometriaSegundos = candidata.duracaoDirecaoSegundos = direcaoGeometria;
+      candidata.duracaoParadasSegundos = pendentes * Math.max(0, Number(candidata.tempoParadaSegundos || 0));
+      candidata.duracaoTotalSegundos = direcaoGeometria + candidata.duracaoParadasSegundos;
+      candidata.duracaoPlanejadorSegundos = null;
       candidata.horarioTerminoEstimado = Date.now() + candidata.duracaoTotalSegundos * 1000;
       candidata.rotaOtimizada = true;
       candidata.precisaRecalculo = false;
@@ -1392,6 +1370,8 @@
       candidata.otimizadoEm = Date.now();
       candidata.resumoOtimizacao = {
         provider: otimizada.provider || 'geoapify-route-planner',
+        comparacao: otimizada.comparacao,
+        tipoPercursoEscolhido: otimizada.tipo,
         preferencia: candidata.preferenciaRota || 'short',
         pontoInicial: clone(candidata.pontoInicial),
         distanciaPlanejadorMetros: Number(otimizada.distance || 0),

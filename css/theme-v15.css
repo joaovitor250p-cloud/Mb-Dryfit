@@ -117,3 +117,7 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 .nav-route-eta span{font-size:9px;line-height:1.15}
 .nav-route-eta strong{font-size:16px;line-height:1.15}
 .navigation-map-wrap .nav-map-controls{top:calc(var(--nav-overlay-top,112px) + 52px)!important}
+
+/* V31: só aparece após exploração manual do mapa. */
+#navFollowBtn[hidden]{display:none!important}
+#navFollowBtn:not([hidden]){display:flex!important;align-items:center;justify-content:center;gap:5px;width:auto!important;padding:0 10px!important;font-size:11px!important;min-height:38px}

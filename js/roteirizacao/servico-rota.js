@@ -122,7 +122,7 @@
     }
     if (!pendentes.length) throw new Error('Não existem paradas pendentes para otimizar.');
 
-    const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
+    const mode = perfilVeiculo(rota.veiculo);
     const resultado = await postComRetry(endpoint('optimize'), {
       mode, start, end: rota.pontoFinal ? coord(rota.pontoFinal) : null,
       returnToStart: rota.retornarAoInicio === true,
@@ -213,7 +213,7 @@
 
     respostas.forEach((resposta, indiceResposta) => {
       const feature = resposta?.feature;
-      if (!feature || !geometriaValida(feature.geometry)) return;
+      if (!feature || !geometriaValida(feature.geometry)) throw new Error('Trecho incompleto: rota preservada.');
       provider = provider || String(resposta?.provider || '');
       linhasDaGeometria(feature.geometry).forEach(linha => linhas.push(linha));
       distance += Math.max(0, Number(feature.properties?.distance || 0));
@@ -246,7 +246,7 @@
   }
 
   async function calcularBlocoRota(rota, bloco, blocoIndex, totalBlocos) {
-    const mode = rota.modoRoteamento || perfilVeiculo(rota.veiculo);
+    const mode = perfilVeiculo(rota.veiculo);
     try {
       const resposta = await postComRetry(endpoint('route'), {
         mode,
@@ -259,6 +259,8 @@
         const erro = new Error(`O trecho ${blocoIndex + 1}/${totalBlocos} voltou sem geometria rodoviária válida.`);
         erro.code = 'GEOMETRIA_INVALIDA'; erro.detail = resposta; throw erro;
       }
+      const props = resposta.feature.properties;
+      if (props?.distance == null || props?.time == null || !Number.isFinite(Number(props.distance)) || Number(props.distance) < 0 || !Number.isFinite(Number(props.time)) || Number(props.time) < 0) throw new Error('O serviço retornou métricas inválidas.');
       return resposta;
     } catch (erro) {
       const detalheStatus = Number(erro?.detail?.status || erro?.detail?.detail?.status || 0);
@@ -286,6 +288,69 @@
       respostas.push(await calcularBlocoRota(rota, blocos[i], i, blocos.length));
     }
     return mesclarRespostasRota(respostas);
+  }
+
+  // Cada alternativa é medida na rede viária, no sentido real de deslocamento.
+  // Não usamos distâncias simétricas/em linha reta para escolher a vencedora.
+  async function otimizarComparando(rota, progresso = () => {}) {
+    const ativas = (rota.paradas || []).filter(p => !['entregue','concluida','nao_entregue'].includes(p.statusEntrega));
+    if (!coord(rota.pontoInicial) || !ativas.length || ativas.some(p => !coord(p))) throw new Error('Confira as coordenadas de todas as paradas antes de otimizar.');
+    if (new Set(ativas.map(p => String(p.id))).size !== ativas.length) throw new Error('Há identificadores repetidos de paradas. Corrija a importação antes de otimizar.');
+    if (rota.pontoFinal && !coord(rota.pontoFinal)) throw new Error('O destino final não tem coordenadas válidas.');
+    const copia = () => JSON.parse(JSON.stringify(rota));
+    const candidatos = [], vistos = new Set(), falhas = [];
+    const objetivo = tipoRota(rota);
+    async function avaliar(ordem, tipo, origem) {
+      const teste = copia(); teste.ordem = ordem; teste.preferenciaRota = tipo;
+      const chave = JSON.stringify([ordem.map(String), tipo]);
+      if (vistos.has(chave)) return null;
+      vistos.add(chave);
+      progresso('Comparando percursos reais', `${origem}: distância e tempo calculados pelas ruas.`);
+      try {
+        const route = await calcularRotaPelasRuas(teste);
+        const d = Number(route.feature.properties.distance), t = Number(route.feature.properties.time);
+        if (!Number.isFinite(d) || d < 0 || !Number.isFinite(t) || t < 0) throw new Error('Métricas de rota inválidas.');
+        const c = {ordem, tipo, origem, route, distance:d, drivingTime:t};
+        candidatos.push(c); return c;
+      } catch (e) { falhas.push({origem, mensagem:e.message}); return null; }
+    }
+    const atual = ordenarParadas(copia(), rota.ordem || []).map(p => p.id);
+    await avaliar(atual, objetivo, 'Sequência atual');
+    for (const tipo of [...new Set([objetivo, 'short', 'balanced'])]) {
+      progresso('Buscando outra sequência', tipo === 'short' ? 'Priorizando menor distância.' : 'Comparando tempo e distância.');
+      try {
+        const teste = copia(); teste.preferenciaRota = tipo;
+        const plano = await otimizar(teste);
+        const ordem = ordenarParadas(teste, plano.orderIds).map(p => p.id);
+        await avaliar(ordem, tipo, `Planejamento ${tipo}`);
+      } catch(e) { falhas.push({origem:tipo, mensagem:e.message}); }
+    }
+    const comparar = (a,b) => objetivo === 'short'
+      ? a.distance - b.distance || a.drivingTime - b.drivingTime
+      : a.drivingTime - b.drivingTime || a.distance - b.distance;
+    if (!candidatos.length) throw new Error('Não foi possível confirmar um percurso completo pelas ruas. A rota anterior foi preservada.');
+    candidatos.sort(comparar);
+    // Refinamento limitado: deslocar uma parada perto de um trecho caro.
+    // Recalcula o percurso inteiro, pois A→B pode ser diferente de B→A.
+    const base = candidatos[0];
+    const pendentes = base.ordem.filter(id => !(rota.paradas || []).some(p => String(p.id) === String(id) && ['entregue','concluida','nao_entregue'].includes(p.statusEntrega)));
+    if (pendentes.length >= 3 && pendentes.length <= 60) {
+      const legs = base.route.feature.properties.legs || [];
+      let pior = 0;
+      for(let i=1;i<Math.min(legs.length,pendentes.length);i++) if(Number(legs[i].distance)>Number(legs[pior]?.distance||0)) pior=i;
+      const finalizadas = base.ordem.filter(id => !pendentes.includes(id));
+      for (const deslocamento of [-1,1]) {
+        const destino = pior + deslocamento;
+        if(destino < 0 || destino >= pendentes.length) continue;
+        const ordem = pendentes.slice(); const [id] = ordem.splice(pior,1); ordem.splice(destino,0,id);
+        await avaliar([...finalizadas,...ordem], base.tipo, 'Refinamento de trecho');
+      }
+    }
+    candidatos.sort(comparar);
+    const melhor = candidatos[0];
+    return {...melhor, orderIds:melhor.ordem, provider:'geoapify-comparacao-viaria',
+      totalTime:melhor.drivingTime + pendentes.length * Math.max(0,Number(rota.tempoParadaSegundos||0)),
+      comparacao:{objetivo, avaliadas:candidatos.map(c => ({origem:c.origem,tipo:c.tipo,distancia:c.distance,tempo:c.drivingTime})), falhas}};
   }
 
   function textoInstrucao(step) {
@@ -317,5 +382,5 @@
     return instrucoes;
   }
 
-  global.PacoteEMatoServicoRota = Object.freeze({ endpoint, healthEndpoint, verificarServico, perfilVeiculo, tipoRota, otimizar, ordenarParadas, calcularRotaPelasRuas, pontosDaRota, extrairInstrucoes, coord, geometriaValida });
+  global.PacoteEMatoServicoRota = Object.freeze({ endpoint, healthEndpoint, verificarServico, perfilVeiculo, tipoRota, otimizar, otimizarComparando, ordenarParadas, calcularRotaPelasRuas, pontosDaRota, extrairInstrucoes, coord, geometriaValida });
 })(window);
