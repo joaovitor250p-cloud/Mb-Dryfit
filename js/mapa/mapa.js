@@ -349,7 +349,7 @@
       });
       mapa.touchZoomRotate?.disableRotation?.();
       const mapaPronto = () => {
-        pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D();
+        pronto = true; clearTimeout(loadTimer); if (state()) state().mapaDisponivel = true; ocultarFallback(); removerCamadas3D(); global.PacoteEMatoMapaConfig?.limparPontosInteresse?.(mapa);
         garantirCamadas(); bindEventosMapa(); try { mapa.resize(); } catch (_) {} renderizar({ fit: !fitFeito });
       };
       loadTimer = setTimeout(() => { if (!pronto && !ativarMapaBaseFallback()) mostrarFallback('O mapa base não respondeu. Verifique sua conexão.'); }, 8500);

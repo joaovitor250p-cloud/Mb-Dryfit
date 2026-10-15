@@ -139,7 +139,7 @@
   function removerCamadas3D() {
     if (!mapa || !mapReady) return;
     try {
-      global.PacoteEMatoMapaConfig?.exibirConstrucoes2D?.(mapa);
+      global.PacoteEMatoMapaConfig?.exibirConstrucoes2D?.(mapa); global.PacoteEMatoMapaConfig?.limparPontosInteresse?.(mapa);
       (mapa.getStyle()?.layers || []).forEach(layer => {
         if (layer?.type === 'fill-extrusion' && mapa.getLayer(layer.id)) mapa.removeLayer(layer.id);
       });

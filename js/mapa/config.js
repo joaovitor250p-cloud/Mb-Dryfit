@@ -63,6 +63,22 @@
     return cfg;
   }
 
+
+  // V34: mapa operacional limpo. Mantém ruas, bairros e referências viárias,
+  // mas remove ícones/rótulos de POIs que disputavam espaço com paradas e postos.
+  function limparPontosInteresse(mapa) {
+    if (!mapa?.getStyle) return;
+    const padrao = /(poi|amenity|hospital|clinic|pharmacy|school|university|college|kindergarten|bus|transit|station|railway|subway|tram|airport|aeroway|shop|store|restaurant|cafe|bar|fast.?food|hotel|motel|lodging|tourism|attraction|museum|theatre|cinema|place.?of.?worship|religion|parking)/i;
+    const preservar = /(road|street|highway|motorway|trunk|primary|secondary|tertiary|route|place|city|town|village|neighbourhood|neighborhood|water|boundary)/i;
+    (mapa.getStyle()?.layers || []).forEach(layer => {
+      if (layer.type !== 'symbol') return;
+      const texto = `${layer.id || ''} ${layer['source-layer'] || ''}`;
+      if (padrao.test(texto) && !preservar.test(texto)) {
+        try { mapa.setLayoutProperty(layer.id, 'visibility', 'none'); } catch (_) {}
+      }
+    });
+  }
+
   function configurarWorkerBaseUrl(url) {
     const b = limparBase(url);
     try {
@@ -109,6 +125,7 @@
 
   global.PacoteEMatoMapaConfig = Object.freeze({
     exibirConstrucoes2D,
+    limparPontosInteresse,
     configurarWorkerBaseUrl,
     obterWorkerBaseUrl,
     derivarEndpoints

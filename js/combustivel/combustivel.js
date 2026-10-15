@@ -6,7 +6,8 @@
   const DEFAULT_RADIUS = 8000;
   const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter'
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
   ];
   const BRAND_RULES = [
     { re: /petrobras|br distribuidora|posto br|vibra/i, code: 'BR', name: 'Petrobras / BR' },
@@ -154,16 +155,39 @@
     return {lat,lon};
   }
   function queryOverpass(pos,raio){return `[out:json][timeout:18];(node["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon});way["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon});relation["amenity"="fuel"](around:${Math.round(raio)},${pos.lat},${pos.lon}););out center tags;`;}
-  async function buscarOverpass(pos,raio){
+  async function buscarViaWorker(pos,raio){
+    const base=String(global.PEMATO_MAP_CONFIG?.workerBaseUrl||'').replace(/\/+$/,'');
+    if(!base)throw new Error('Worker não configurado');
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
+    try{
+      const r=await fetch(`${base}/fuel`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-Pacote-Em-Mato-Client':'map-v1'},body:JSON.stringify({lat:pos.lat,lon:pos.lon,radius:raio}),signal:controller.signal});
+      if(!r.ok)throw new Error(`Worker HTTP ${r.status}`);
+      const data=await r.json();
+      if(!data?.ok||!Array.isArray(data.elements))throw new Error('Resposta inválida do serviço de postos');
+      return data.elements;
+    }finally{clearTimeout(timer);}
+  }
+  async function buscarOverpassDireto(pos,raio){
     const corpo=queryOverpass(pos,raio); let ultimoErro=null;
     for(const endpoint of OVERPASS_ENDPOINTS){
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),14000);
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
       try{
-        const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:`data=${encodeURIComponent(corpo)}`,signal:controller.signal});
-        if(!r.ok)throw new Error(`HTTP ${r.status}`); const data=await r.json(); if(!Array.isArray(data.elements))throw new Error('Resposta inválida'); return data.elements;
+        // GET evita o preflight CORS que falha em alguns WebViews/Android ao usar POST direto no Overpass.
+        const url=`${endpoint}?data=${encodeURIComponent(corpo)}`;
+        const r=await fetch(url,{method:'GET',headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store'});
+        if(!r.ok)throw new Error(`HTTP ${r.status}`);
+        const data=await r.json(); if(!Array.isArray(data.elements))throw new Error('Resposta inválida'); return data.elements;
       }catch(e){ultimoErro=e;}finally{clearTimeout(timer);}
     }
-    throw ultimoErro||new Error('Serviço de postos indisponível.');
+    throw ultimoErro||new Error('Serviço público de postos indisponível');
+  }
+  async function buscarOverpass(pos,raio){
+    let erroWorker=null;
+    try{return await buscarViaWorker(pos,raio);}catch(e){erroWorker=e;}
+    try{return await buscarOverpassDireto(pos,raio);}catch(e){
+      console.warn('Pacote É Mato: falha ao consultar postos.',{worker:erroWorker?.message,direto:e?.message});
+      throw new Error('Não foi possível consultar os postos agora. Verifique a conexão e tente novamente.');
+    }
   }
   function deduplicar(postos){
     const vistos=new Set(); return postos.filter(p=>{const k=`${p.nome.toLowerCase()}|${p.lat.toFixed(5)}|${p.lon.toFixed(5)}`;if(vistos.has(k))return false;vistos.add(k);return true;});

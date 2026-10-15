@@ -1,3 +1,16 @@
+# Pacote É Mato
+
+## V34 — Combustível corrigido + mapa limpo (15/10/2026)
+
+- Corrige a consulta de postos: tenta primeiro o Cloudflare Worker (`/fuel`) e usa consulta GET direta como contingência.
+- Evita o erro genérico `Failed to fetch` em WebViews que bloqueiam POST direto para Overpass.
+- Remove do mapa operacional ícones/rótulos de hospitais, pontos de ônibus, lojas, restaurantes e outros POIs, preservando ruas e referências viárias.
+- Mantém os postos de combustível em camada exclusiva e fixa nas coordenadas reais.
+- Waze e Google Maps permanecem disponíveis no card do posto.
+
+**Importante:** para usar o caminho principal e mais estável de postos, publique novamente o Worker em `cloudflare/geocodificacao-worker.js`, pois a V34 adiciona a rota `/fuel`. Mesmo sem republicar, o app tenta um fallback direto.
+
+Consulte `RELATORIO-V34-COMBUSTIVEL-MAPA-LIMPO.md`.
 
 ## V33 — Combustível perto de mim (15/10/2026)
 

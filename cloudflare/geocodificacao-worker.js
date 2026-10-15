@@ -360,6 +360,60 @@ async function handleRoute(request, env, origin) {
   return json({ ok: true, provider: 'geoapify-routing', feature }, 200, origin, env);
 }
 
+
+function fuelQuery(lat, lon, radius) {
+  return `[out:json][timeout:20];(node["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon});way["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon});relation["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon}););out center tags;`;
+}
+
+async function handleFuel(request, env, origin) {
+  const body = await parseJson(request);
+  const lat = Number(body?.lat), lon = Number(body?.lon);
+  const radius = Math.max(500, Math.min(15000, Number(body?.radius || 8000)));
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+    return json({ ok: false, error: 'invalid_coordinate' }, 400, origin, env);
+  }
+
+  const cacheUrl = new URL('https://pemato-cache.internal/fuel');
+  cacheUrl.searchParams.set('lat', (Math.round(lat * 1000) / 1000).toFixed(3));
+  cacheUrl.searchParams.set('lon', (Math.round(lon * 1000) / 1000).toFixed(3));
+  cacheUrl.searchParams.set('radius', String(Math.round(radius / 500) * 500));
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const clone = new Response(cached.body, cached);
+    clone.headers.set('Access-Control-Allow-Origin', origin);
+    return clone;
+  }
+
+  const query = fuelQuery(lat, lon, radius);
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
+  ];
+  let lastError = null;
+  for (const endpoint of endpoints) {
+    try {
+      const providerResponse = await providerFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'Accept': 'application/json' },
+        body: `data=${encodeURIComponent(query)}`
+      }, 18000);
+      if (!providerResponse.ok) { lastError = `HTTP ${providerResponse.status}`; continue; }
+      const data = await providerResponse.json();
+      const elements = Array.isArray(data?.elements) ? data.elements.slice(0, 160) : [];
+      const payload = JSON.stringify({ ok: true, provider: 'openstreetmap-overpass', elements });
+      const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=180', ...corsHeaders(origin, true) } });
+      await cache.put(cacheKey, response.clone());
+      return response;
+    } catch (error) {
+      lastError = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error);
+    }
+  }
+  return json({ ok: false, error: 'fuel_provider_unavailable', detail: lastError }, 502, origin, env);
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -386,12 +440,15 @@ export default {
 
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405, origin, env);
     if (!checkRateLimit(request)) return json({ ok: false, error: 'rate_limited' }, 429, origin, env);
-    if (!env.GEOAPIFY_API_KEY) return json({ ok: false, error: 'provider_not_configured' }, 503, origin, env);
 
     const client = request.headers.get('X-Pacote-Em-Mato-Client');
     if (!['map-v1', 'routing-v1'].includes(client)) {
       return json({ ok: false, error: 'invalid_client' }, 400, origin, env);
     }
+
+    // Postos não dependem da chave Geoapify: o Worker faz proxy seguro do Overpass.
+    if (url.pathname === '/fuel') return handleFuel(request, env, origin);
+    if (!env.GEOAPIFY_API_KEY) return json({ ok: false, error: 'provider_not_configured' }, 503, origin, env);
 
     if (url.pathname === '/geocode') return handleGeocode(request, env, origin);
     if (url.pathname === '/optimize') return handleOptimize(request, env, origin);
