@@ -80,7 +80,8 @@
       await global.PacoteEMatoRoteirizacao?.carregarRotaAtiva?.();
       setTimeout(() => global.PacoteEMatoMapa?.renderizar({ fit: true }), 100);
     } else if (nome === 'bipagem') {
-      if (opcoes?.usarRotaAtiva !== false) await global.PacoteEMatoBipagemBridge?.prepararRotaAtivaParaBipagem?.({ iniciarScanner: true });
+      global.PacoteEMatoBipagemArea?.abrir?.('scanner');
+      if (opcoes?.usarRotaAtiva === true) await global.PacoteEMatoBipagemBridge?.prepararRotaAtivaParaBipagem?.({ iniciarScanner: true });
     } else if (nome === 'operacoes-pacotes') {
       // A tela e o scanner desta operação são controlados pelo módulo de Adicionar/Remover pacotes.
     } else if (nome === 'historico') {

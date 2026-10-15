@@ -4767,6 +4767,7 @@ try {
     }
 
     function playBeepSucesso() {
+      if (window.PacoteEMatoBipagemArea?.somAtivo?.() === false) return;
       try {
         let ctx = getAudioContext();
         let osc = ctx.createOscillator();
@@ -4786,6 +4787,7 @@ try {
     }
 
     function playBeepErro() {
+      if (window.PacoteEMatoBipagemArea?.somAtivo?.() === false) return;
       try {
         let ctx = getAudioContext();
         let osc = ctx.createOscillator();
@@ -4805,6 +4807,7 @@ try {
     }
 
     function falarParada(num, ehDuplo, stopOutro) {
+      if (window.PacoteEMatoBipagemArea?.vozAtiva?.() === false) return;
       // Versão reforçada: fala diretamente, sem depender da fila antiga.
       // Nesta versão a voz inicia ATIVA por padrão.
       let tipo = localStorage.getItem('voz_preferida') || 'navegacao_feminina';

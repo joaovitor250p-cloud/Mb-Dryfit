@@ -703,10 +703,11 @@
     <div class="sidebar-label">SEU ESPAÇO</div>
     <nav class="sidebar-nav" aria-label="Navegação principal">
       <button type="button" data-pemato-nav="roteirizacao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v14H6zM9 9h6M9 13h6M9 16h3"/></svg><span><strong>Minha rota</strong><small>Paradas e progresso</small></span><span class="sidebar-arrow">›</span></button>
+      <button type="button" data-pemato-nav="bipagem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5zM8 8h8v3H8zM8 14h3M14 14h2M8 17h8"/></svg><span><strong>Bipagem</strong><small>Conferir e bipar pacotes</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V47</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V48</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -781,6 +782,7 @@
             <button id="routingMainImportBtn" class="pemato-secondary" type="button">Importar XLSX</button>
             <button id="routingMainOptimizeBtn" class="pemato-primary" type="button">Otimizar rota</button>
           </div>
+          <button id="routingQuickBipagemBtn" class="pemato-bipagem-quick" type="button" data-pemato-nav="bipagem"><span class="pemato-bipagem-quick-icon">▦</span><span><strong>Abrir Bipagem</strong><small>Conferir pacotes sem precisar iniciar a rota</small></span><span>›</span></button>
           <button id="routingPrimaryActionBtn" class="pemato-primary routing-start-route-btn" type="button" style="display:none">Iniciar rota</button>
         </div>
       </aside>
@@ -1157,7 +1159,28 @@
     <!-- BANNER DE AVISO GERAL (BROADCAST) COM ANIMAÇÃO -->
     <div id="bannerBroadcast"></div>
     
-    <div class="pemato-bipagem-back"><button class="pemato-secondary pemato-back-route" type="button" data-pemato-nav="roteirizacao">← Voltar à rota</button></div>
+    <section class="bipagem-area-head">
+      <div class="bipagem-area-brand"><img src="icon-192.png" alt=""><div><span class="module-kicker">CONFERÊNCIA DE PACOTES</span><h1>Bipagem</h1><p>Use a rota atual ou importe um PDF e confira os pacotes rapidamente.</p></div></div>
+      <button class="bipagem-close-route" type="button" data-pemato-nav="roteirizacao" aria-label="Voltar para Minha rota">×</button>
+    </section>
+    <nav class="bipagem-tabs" aria-label="Área de Bipagem">
+      <button type="button" class="active" data-bipagem-view="scanner"><span>▦</span><strong>Bipar pacotes</strong></button>
+      <button type="button" data-bipagem-view="historico"><span>↶</span><strong>Histórico</strong></button>
+      <button type="button" data-bipagem-view="config"><span>⚙</span><strong>Configurações</strong></button>
+    </nav>
+    <section id="bipagemHistoryView" class="bipagem-subview" style="display:none">
+      <div class="bipagem-section-title"><div><span class="module-kicker">BIPAGEM</span><h2>Histórico de bipagem</h2><p>Somente conferências realizadas pelo sistema de Bipagem.</p></div><button id="bipagemHistoryRefresh" class="pemato-secondary" type="button">Atualizar</button></div>
+      <div id="bipagemHistoryList" class="bipagem-history-list"></div>
+    </section>
+    <section id="bipagemConfigView" class="bipagem-subview" style="display:none">
+      <div class="bipagem-section-title"><div><span class="module-kicker">BIPAGEM</span><h2>Configurações da bipagem</h2><p>Estas preferências afetam somente o scanner e a conferência de pacotes.</p></div></div>
+      <div class="bipagem-config-grid">
+        <label class="bipagem-config-card"><span><strong>Som e vibração</strong><small>Confirmar bipagens corretas e avisar erros.</small></span><input id="bipagemSoundToggle" type="checkbox" checked></label>
+        <label class="bipagem-config-card"><span><strong>Falar número da parada</strong><small>Anunciar a parada depois de uma leitura válida.</small></span><input id="bipagemVoiceToggle" type="checkbox" checked></label>
+      </div>
+      <div class="bipagem-config-note">As configurações de navegação continuam separadas. Aqui ficam apenas opções da Bipagem.</div>
+    </section>
+    <div id="bipagemScannerView">
 
     <div class="hero-banner hero-banner-compacto">
       <svg class="app-logo-pro" viewBox="0 0 100 100" style="width:38px; height:38px; margin:0 auto 2px;">
@@ -1309,6 +1332,7 @@
 
       <input type="text" class="input-auth" id="inputManual" placeholder="Digite o código manualmente..." style="margin-bottom:8px; font-size:0.82rem; padding:10px 12px;" onchange="processarCodigo(this.value)" data-i18n-placeholder="manual_placeholder">
     </div>
+    </div><!-- /bipagemScannerView -->
   </div>
 
   <div id="routeImportMappingModal" class="modal-backdrop" style="display:none;z-index:12200">
@@ -1420,8 +1444,9 @@
   <script src="js/exportacao/pdf-rota.js?v=20261015-v43"></script>
   <script src="js/roteirizacao/roteirizacao.js?v=20261015-v43"></script>
   <script src="js/historico/historico-rotas.js?v=20261015-v43"></script>
-  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v43"></script>
-  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v43"></script>
+  <script src="js/bipagem/bipagem-area.js?v=20261015-v48"></script>
+  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v48"></script>
+  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v48"></script>
   <script src="js/navegacao/navegacao.js?v=20261015-v43"></script>
   <script src="js/ui/app-shell.js?v=20261015-v43"></script>
 
