@@ -87,6 +87,11 @@
     return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }
 
+  function deslocamentoMarcador(indice) {
+    if (!indice) return [0,0];
+    const anel = Math.ceil(indice / 8), angulo = ((indice - 1) % 8) * Math.PI / 4;
+    return [Math.round(Math.cos(angulo)*44*anel), Math.round(Math.sin(angulo)*44*anel)];
+  }
   function chaveFisicaMarcador(p) {
     return global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || `id:${String(p?.id || '')}`;
   }
@@ -96,10 +101,9 @@
     const lista = paradas().filter(coordenadaValida);
     const grupos = new Map();
 
-    // Um ponto físico = um único balão. Se houver mais de um pacote no ponto,
-    // o balão mostra a parada e a quantidade (ex.: 38 3x).
+    // Uma parada = um marcador, mesmo quando as coordenadas são iguais.
     lista.forEach(p => {
-      const key = chaveFisicaMarcador(p);
+      const key = String(p.id);
       if (!grupos.has(key)) grupos.set(key, []);
       grupos.get(key).push(p);
     });
@@ -139,7 +143,7 @@
           selected: ids.includes(String(selectedId)) ? 1 : 0,
           groupSelected: grupoVisual.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,
           multi: totalPacotes,
-          stackIndex
+          stackIndex, markerOffset: deslocamentoMarcador(stackIndex)
         }
       });
     });
@@ -278,18 +282,7 @@
       'icon-image': ['get', 'iconV12'],
       'icon-anchor': 'center',
       'icon-size': ['interpolate', ['linear'], ['zoom'], 9, .62, 12, .72, 14, .86, 16, 1, 18, 1.04],
-      'icon-offset': ['case',
-        ['==',['get','stackIndex'],0],['literal',[0,0]],
-        ['==',['get','stackIndex'],1],['literal',[24,0]],
-        ['==',['get','stackIndex'],2],['literal',[-24,0]],
-        ['==',['get','stackIndex'],3],['literal',[0,22]],
-        ['==',['get','stackIndex'],4],['literal',[0,-22]],
-        ['==',['get','stackIndex'],5],['literal',[20,18]],
-        ['==',['get','stackIndex'],6],['literal',[-20,18]],
-        ['==',['get','stackIndex'],7],['literal',[20,-18]],
-        ['==',['get','stackIndex'],8],['literal',[-20,-18]],
-        ['literal',[0,0]]
-      ],
+      'icon-offset': ['get','markerOffset'],
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
       'icon-padding': 1,

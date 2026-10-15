@@ -79,6 +79,11 @@
     return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }
 
+  function deslocamentoMarcador(indice) {
+    if (!indice) return [0,0];
+    const anel = Math.ceil(indice / 8), angulo = ((indice - 1) % 8) * Math.PI / 4;
+    return [Math.round(Math.cos(angulo)*44*anel), Math.round(Math.sin(angulo)*44*anel)];
+  }
   function chaveFisicaMarcador(p) {
     return global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || `id:${String(p?.id || '')}`;
   }
@@ -214,18 +219,7 @@
       'icon-image':['get','iconV12'],
       'icon-anchor':'center',
       'icon-size':['interpolate',['linear'],['zoom'],9,.62,12,.72,14,.86,16,1,18,1.04],
-      'icon-offset': ['case',
-        ['==',['get','stackIndex'],0],['literal',[0,0]],
-        ['==',['get','stackIndex'],1],['literal',[24,0]],
-        ['==',['get','stackIndex'],2],['literal',[-24,0]],
-        ['==',['get','stackIndex'],3],['literal',[0,22]],
-        ['==',['get','stackIndex'],4],['literal',[0,-22]],
-        ['==',['get','stackIndex'],5],['literal',[20,18]],
-        ['==',['get','stackIndex'],6],['literal',[-20,18]],
-        ['==',['get','stackIndex'],7],['literal',[20,-18]],
-        ['==',['get','stackIndex'],8],['literal',[-20,-18]],
-        ['literal',[0,0]]
-      ],
+      'icon-offset': ['get','markerOffset'],
       'icon-allow-overlap':true,
       'icon-ignore-placement':true,
       'icon-padding':1,
@@ -432,7 +426,7 @@
     const grupos = new Map();
     ordenadas.forEach((stop, i) => {
       if (!coordenadaValida(stop.latitude, stop.longitude)) return;
-      const key = chaveFisicaMarcador(stop);
+      const key = String(stop.id);
       if (!grupos.has(key)) grupos.set(key, []);
       grupos.get(key).push({ stop, order: i + 1 });
     });
@@ -454,7 +448,7 @@
       const stackIndex = ocupacaoVisual.get(visualKey) || 0;
       ocupacaoVisual.set(visualKey, stackIndex + 1);
       const ids = grupo.map(item => String(item.stop.id));
-      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:deslocamentoMarcador(stackIndex),status:stop.statusEntrega||'pendente',current:ids.includes(String(cartaoSelecionadoId||p?.id||''))},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {
@@ -727,6 +721,7 @@
     // O motorista pode digitar uma nota e tocar em Navegar sem tirar o foco do campo.
     // Copiamos o valor antes de abrir outro aplicativo para não perder esse texto.
     if(exibida&&$('navDeliveryNote')) exibida.observacaoEntrega=String($('navDeliveryNote').value||'').trim();
+    rota.navegacaoSeguirPosicao=seguirPosicao;
     rota.paradaSelecionadaId=alvo;
     rota.proximaParadaId=proxima()?.id||null;
     if(global.appState?.navegacao){global.appState.navegacao.paradaExibidaId=alvo;global.appState.navegacao.proximaParadaId=rota.proximaParadaId;}
@@ -736,8 +731,10 @@
   function selecionarCartao(delta){
     const lista=paradasPorOrdem();if(!lista.length)return;const id=cartaoSelecionadoId||proxima()?.id;
     const indice=Math.max(0,lista.findIndex(s=>String(s.id)===String(id)));
+    const anterior=lista[indice];
+    if(anterior && $('navDeliveryNote')) anterior.observacaoEntrega=String($('navDeliveryNote').value||'').trim();
     const alvo=lista[Math.max(0,Math.min(lista.length-1,indice+delta))];
-    if(!alvo)return;cartaoSelecionadoId=alvo.id;atualizarPainel();persistirSelecao({motivo:'troca_cartao'});
+    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;atualizarPainel();persistirSelecao({motivo:'troca_cartao'});
     if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){const interna=navegacaoInternaAtiva();mapa.easeTo({center:[Number(alvo.longitude),Number(alvo.latitude)],zoom:interna?17:Math.max(15,mapa.getZoom()),pitch:interna?48:0,duration:350});}
   }
   async function abrirExterno(provider){
@@ -810,7 +807,7 @@
     if(!rota||!geometriaValida(rota.geometria)){global.notificar?.('Calcule uma rota válida antes de iniciar a navegação.');return;}
     global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rota, false);
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
-    if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
+    if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=rota.navegacaoSeguirPosicao!==false;global.appState.navegacao.seguirPosicao=seguirPosicao;}
     garantirMapa(); acompanharCamera(0); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     iniciarGPS();
     if(pref!=='pacote_emato'&&$('navGpsStatus'))$('navGpsStatus').textContent=`GPS ativo · navegação preferida: ${pref==='waze'?'Waze':'Google Maps'}`;

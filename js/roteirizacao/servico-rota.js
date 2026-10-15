@@ -78,7 +78,8 @@
 
   function perfilVeiculo(veiculo) {
     if (veiculo === 'moto') return 'motorcycle';
-    if (veiculo === 'caminhao') return 'light_truck';
+    if (veiculo === 'caminhao_leve') return 'light_truck';
+    if (veiculo === 'caminhao') return 'truck';
     return 'drive';
   }
 

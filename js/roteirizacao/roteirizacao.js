@@ -1668,26 +1668,29 @@
   }
 
   async function aplicarConfiguracoesNaRota(cfgRecebida) {
-    if (!rotaAtual) return;
-    const cfg = cfgRecebida || global.PacoteEMatoConfiguracoes?.obter?.() || {};
-    const proximoVeiculo = cfg.veiculo || 'carro';
-    const proximoTempo = Math.max(0, Number(cfg.tempoParadaSegundos || 0));
-    const proximoRetorno = cfg.retornarAoInicio === true;
-    const proximoPonto = cfg.pontoInicial || null;
-    const pontoAnterior = JSON.stringify(rotaAtual.pontoInicial || null);
-    const mudouCalculo = rotaAtual.veiculo !== proximoVeiculo
-      || Number(rotaAtual.tempoParadaSegundos || 0) !== proximoTempo
-      || rotaAtual.retornarAoInicio !== proximoRetorno
-      || pontoAnterior !== JSON.stringify(proximoPonto);
-
-    rotaAtual.veiculo = proximoVeiculo;
-    rotaAtual.modoRoteamento = global.PacoteEMatoRotaStore.modoPorVeiculo(proximoVeiculo);
-    rotaAtual.tempoParadaSegundos = proximoTempo;
-    rotaAtual.retornarAoInicio = proximoRetorno;
-    rotaAtual.pontoInicial = clone(proximoPonto);
-    if (mudouCalculo && (rotaAtual.rotaOtimizada || rotaAtual.geometria)) invalidarRotaCalculada();
-    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
-    renderizarTudo({ fit: true });
+    const cfg = cfgRecebida || {};
+    const campos = cfg.camposAlterados || [];
+    const relevantes = campos.filter(k => ['veiculo','tempoParadaSegundos','retornarAoInicio','pontoInicial'].includes(k));
+    if (!relevantes.length) return; // Troca de app de mapa não altera a rota.
+    const atual = await global.PacoteEMatoRotaStore.obterRotaAtiva();
+    if (!atual) return;
+    rotaAtual = atual; // Inclui as entregas mais recentes feitas na navegação.
+    const mudouVeiculo = relevantes.includes('veiculo') && rotaAtual.veiculo !== cfg.veiculo;
+    if(relevantes.includes('veiculo')) {
+      rotaAtual.veiculo=cfg.veiculo;
+      rotaAtual.modoRoteamento=global.PacoteEMatoRotaStore.modoPorVeiculo(cfg.veiculo);
+    }
+    if(relevantes.includes('tempoParadaSegundos')) rotaAtual.tempoParadaSegundos=Math.max(0,Number(cfg.tempoParadaSegundos||0));
+    if(relevantes.includes('retornarAoInicio')) rotaAtual.retornarAoInicio=cfg.retornarAoInicio===true;
+    if(relevantes.includes('pontoInicial')) rotaAtual.pontoInicial=clone(cfg.pontoInicial);
+    const refazer=mudouVeiculo || relevantes.includes('pontoInicial') || relevantes.includes('retornarAoInicio');
+    if(refazer && rotaAtual.geometria) rotaAtual.precisaRecalculo=true;
+    await global.PacoteEMatoRotaStore.salvarRota(rotaAtual,{ativa:true});
+    renderizarTudo({fit:false});
+    if(mudouVeiculo && rotaAtual.paradas.some(p=>!paradaFinalizada(p))) {
+      await otimizarRota();
+      if(rotaAtual.precisaRecalculo) notificar('Veículo salvo. Recalcule a rota antes de navegar com o novo perfil.');
+    }
   }
 
   function abrirEscolhaPacotes() {
@@ -1869,7 +1872,7 @@
     global.addEventListener('pemato:import:adicionar', () => { if (rotaImportacaoPendente) abrirEditor(null, 'conferencia'); });
 
     global.addEventListener('pemato:map-selection-change', event => atualizarToolbarDesenho(event.detail || {}));
-    global.addEventListener('pemato:config:update', event => aplicarConfiguracoesNaRota(event.detail));
+
     global.addEventListener('pemato:worker:update', () => { renderizarPreferencias(); atualizarDisponibilidadeAcoes(); atualizarAcaoPrincipal(); });
     global.addEventListener('pemato:geo:update', () => { renderizarResumo(); renderizarLista(); global.PacoteEMatoMapa?.renderizar(); });
     global.addEventListener('pemato:geo:progress', event => {
@@ -1922,6 +1925,7 @@
     abrirEditor,
     geocodificarTodas,
     otimizarRota,
+    aplicarConfiguracoesNaRota,
     inverterRota,
     recalcularOrdemAtual,
     usarRotaLegada,

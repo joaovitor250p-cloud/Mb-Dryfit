@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230b0b0d' stroke='%2334d399' stroke-width='2'/%3E%3Cpath d='M22 68 Q10 46 28 32 Q38 50 22 68 Z' fill='%2310b981'/%3E%3Cpath d='M78 68 Q90 46 72 32 Q62 50 78 68 Z' fill='%2310b981'/%3E%3Cpolygon points='50,22 78,36 50,50 22,36' fill='%2310b981' stroke='%2334d399' stroke-width='1.5'/%3E%3Cpolygon points='22,36 50,50 50,78 22,64' fill='%23059669' stroke='%23047857' stroke-width='1.5'/%3E%3Cpolygon points='78,36 50,50 50,78 78,64' fill='%23047857' stroke='%23065f46' stroke-width='1.5'/%3E%3Cpath d='M50 22 L50 50 M36 43 L64 43' stroke='%23a7f3d0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50 78 Q40 60 50 42 Q60 60 50 78 Z' fill='%2334d399'/%3E%3Cpath d='M50 56 Q44 48 38 52 Q42 60 50 56 Z' fill='%236ee7b7'/%3E%3Cpath d='M50 50 Q56 42 62 46 Q58 54 50 50 Z' fill='%236ee7b7'/%3E%3C/svg%3E">
   
   <!-- PWA Setup -->
-  <link rel="manifest" href="manifest.json?v=20261015-v31">
+  <link rel="manifest" href="manifest.json?v=20261015-v32">
   <meta name="theme-color" content="#000000" id="metaThemeColor">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -33,15 +33,15 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
-    <link rel="stylesheet" href="css/style.css?v=20261015-v31">
+    <link rel="stylesheet" href="css/style.css?v=20261015-v32">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="css/mapa.css?v=20261015-v31">
-    <link rel="stylesheet" href="css/app-shell.css?v=20261015-v31">
-    <link rel="stylesheet" href="css/roteirizacao.css?v=20261015-v31">
-  <link rel="stylesheet" href="css/importacao-fluxo.css?v=20261015-v31">
-    <link rel="stylesheet" href="css/navegacao.css?v=20261015-v31">
-    <link rel="stylesheet" href="css/theme-v15.css?v=20261015-v31">
-    <link rel="stylesheet" href="css/operacoes-pacotes.css?v=20261015-v31">
+    <link rel="stylesheet" href="css/mapa.css?v=20261015-v32">
+    <link rel="stylesheet" href="css/app-shell.css?v=20261015-v32">
+    <link rel="stylesheet" href="css/roteirizacao.css?v=20261015-v32">
+  <link rel="stylesheet" href="css/importacao-fluxo.css?v=20261015-v32">
+    <link rel="stylesheet" href="css/navegacao.css?v=20261015-v32">
+    <link rel="stylesheet" href="css/theme-v15.css?v=20261015-v32">
+    <link rel="stylesheet" href="css/operacoes-pacotes.css?v=20261015-v32">
 
 
 
@@ -384,32 +384,6 @@
     </div>
   </div>
 
-  <!-- MODAL TUTORIAL EM VÍDEO -->
-  <div id="modalTutorialVideo" class="modal-backdrop" onclick="if(event.target===this) fecharTutorialVideo()">
-    <div class="modal-card tutorial-video-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div class="tutorial-video-title">▶ Como usar o Pacote É Mato</div>
-        <button onclick="fecharTutorialVideo()" aria-label="Fechar tutorial" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:4px 8px;"></button>
-      </div>
-      <video id="videoTutorialApp" class="tutorial-video" controls playsinline preload="metadata">
-        <source src="tutorial-pacote-e-mato.mp4" type="video/mp4">
-        Seu navegador não suporta reprodução de vídeo.
-      </video>
-      <button class="btn-action-primary" onclick="fecharTutorialVideo()" style="margin-top:10px;">Entendi, começar a usar</button>
-    </div>
-  </div>
-
-  <!-- AVISO DE TUTORIAL NO PRIMEIRO ACESSO -->
-  <div id="modalPrimeiroTutorial" class="modal-backdrop">
-    <div class="modal-card tutorial-video-card" style="text-align:center;">
-      <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,.14);border:1px solid rgba(52,211,153,.28);font-size:1.45rem;">▶</div>
-      <div class="tutorial-video-title" style="font-size:1.08rem;">Bem-vindo ao Pacote É Mato</div>
-      <p style="color:var(--text-muted);font-size:.82rem;line-height:1.5;margin:0 0 14px;">Antes da sua primeira rota, recomendamos assistir ao tutorial rápido para conhecer as principais funções do aplicativo.</p>
-      <button class="btn-action-primary" onclick="assistirTutorialPrimeiroAcesso()">▶ Assistir tutorial</button>
-      <button class="btn-action-trial" onclick="fecharAvisoPrimeiroTutorial()" style="margin-top:8px;">Agora não</button>
-    </div>
-  </div>
-
   <!-- MODAL INDIQUE E GANHE DIAS GRÁTIS -->
   <div id="modalIndicacao" class="modal-backdrop">
     <div class="modal-card" style="max-width:390px; text-align:left;">
@@ -724,21 +698,16 @@
 
   <div class="drawer-mask" id="overlay" onclick="toggleSidebar()"></div>
 
-  <div class="drawer-panel" id="sidebar">
-    <div style="font-weight:900;font-size:1.05rem;margin-bottom:2px;color:var(--text-main);">PACOTE É MATO</div>
-    <div style="font-size:.68rem;color:#34d399;font-weight:800;margin-bottom:12px;">Plataforma de Logística</div>
+  <aside class="drawer-panel" id="sidebar" aria-label="Menu principal">
+    <header class="sidebar-brand"><img src="icon-192.png" alt="" width="44" height="44"><div><strong>PACOTE É MATO</strong><span>Sua operação, organizada.</span></div><button class="sidebar-close" type="button" aria-label="Fechar menu" onclick="PacoteEMatoAppShell.fecharSidebar()">×</button></header>
+    <div class="sidebar-label">SEU ESPAÇO</div>
     <nav class="sidebar-nav" aria-label="Navegação principal">
-      <button type="button" data-pemato-nav="historico">Histórico de rotas</button>
-      <button type="button" data-pemato-nav="configuracoes">Configurações</button>
-      <div class="sidebar-separator"></div>
-      <button type="button" onclick="abrirTutorialVideo(); PacoteEMatoAppShell.fecharSidebar();">Vídeo tutorial</button>
+      <button type="button" data-pemato-nav="roteirizacao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v14H6zM9 9h6M9 13h6M9 16h3"/></svg><span><strong>Minha rota</strong><small>Paradas e progresso</small></span><span class="sidebar-arrow">›</span></button>
+      <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
+      <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <div class="sidebar-version">Versão operacional</div>
-    <div style="display:grid;gap:7px;margin-top:10px">
-      <a href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato" style="text-decoration:none"><button class="pemato-secondary" style="width:100%" type="button">Suporte</button></a>
-      <button onclick="sairDoApp()" class="pemato-danger" type="button">Desconectar conta</button>
-    </div>
-  </div>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V32</div></footer>
+  </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
 
@@ -1121,9 +1090,9 @@
       </section>
 
       <section class="settings-card">
-        <div class="settings-card-head"><strong>Veículo</strong><span>Perfil usado pelo serviço de roteamento</span></div>
+        <div class="settings-card-head"><strong>Veículo</strong><span>Rotas calculadas para o veículo selecionado</span></div>
         <label for="settingsVehicle">Tipo de veículo</label>
-        <select id="settingsVehicle" class="pemato-field"><option value="carro">Carro</option><option value="moto">Moto</option><option value="caminhao">Caminhão</option></select>
+        <select id="settingsVehicle" class="pemato-field"><option value="carro">Carro</option><option value="moto">Moto</option><option value="caminhao_leve">Caminhão leve · até 3,5 t</option><option value="caminhao">Caminhão · até 22 t</option></select><p class="settings-vehicle-hint">Trocar o veículo recalcula as paradas restantes. Caminhão leve: perfil de até 3,2 m; caminhão: até 4,1 m. Use um perfil compatível com seu veículo.</p>
       </section>
 
       <section class="settings-card">
@@ -1423,34 +1392,34 @@
     </div>
   </div>
 
-  <script src="js/state.js?v=20261015-v31"></script>
-  <script src="js/app.js?v=20261015-v31"></script>
-  <script src="js/suporte.js?v=20261015-v31"></script>
-  <script src="js/diagnosticos/diagnostico-rota.js?v=20261015-v31"></script>
-  <script src="js/diagnosticos/diagnostico-ui.js?v=20261015-v31"></script>
-  <script src="js/paradas/compatibilidade-enderecos.js?v=20261015-v31"></script>
+  <script src="js/state.js?v=20261015-v32"></script>
+  <script src="js/app.js?v=20261015-v32"></script>
+  <script src="js/suporte.js?v=20261015-v32"></script>
+  <script src="js/diagnosticos/diagnostico-rota.js?v=20261015-v32"></script>
+  <script src="js/diagnosticos/diagnostico-ui.js?v=20261015-v32"></script>
+  <script src="js/paradas/compatibilidade-enderecos.js?v=20261015-v32"></script>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script src="js/mapa/config.js?v=20261015-v31"></script>
-  <script src="js/mapa/cache-geocodificacao.js?v=20261015-v31"></script>
-  <script src="js/mapa/geocodificacao.js?v=20261015-v31"></script>
-  <script src="js/mapa/localizacao-atual.js?v=20261015-v31"></script>
-  <script src="js/mapa/marcadores.js?v=20261015-v31"></script>
-  <script src="js/mapa/mapa.js?v=20261015-v31"></script>
+  <script src="js/mapa/config.js?v=20261015-v32"></script>
+  <script src="js/mapa/cache-geocodificacao.js?v=20261015-v32"></script>
+  <script src="js/mapa/geocodificacao.js?v=20261015-v32"></script>
+  <script src="js/mapa/localizacao-atual.js?v=20261015-v32"></script>
+  <script src="js/mapa/marcadores.js?v=20261015-v32"></script>
+  <script src="js/mapa/mapa.js?v=20261015-v32"></script>
 
-  <script src="js/core/rota-store.js?v=20261015-v31"></script>
-  <script src="js/core/sessao-operacional.js?v=20261015-v31"></script>
-  <script src="js/configuracoes/configuracoes.js?v=20261015-v31"></script>
-  <script src="js/importacao/xlsx.js?v=20261015-v31"></script>
-  <script src="js/importacao/fluxo-importacao.js?v=20261015-v31"></script>
-  <script src="js/roteirizacao/servico-rota.js?v=20261015-v31"></script>
-  <script src="js/exportacao/pdf-rota.js?v=20261015-v31"></script>
-  <script src="js/roteirizacao/roteirizacao.js?v=20261015-v31"></script>
-  <script src="js/historico/historico-rotas.js?v=20261015-v31"></script>
-  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v31"></script>
-  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v31"></script>
-  <script src="js/navegacao/navegacao.js?v=20261015-v31"></script>
-  <script src="js/ui/app-shell.js?v=20261015-v31"></script>
+  <script src="js/core/rota-store.js?v=20261015-v32"></script>
+  <script src="js/core/sessao-operacional.js?v=20261015-v32"></script>
+  <script src="js/configuracoes/configuracoes.js?v=20261015-v32"></script>
+  <script src="js/importacao/xlsx.js?v=20261015-v32"></script>
+  <script src="js/importacao/fluxo-importacao.js?v=20261015-v32"></script>
+  <script src="js/roteirizacao/servico-rota.js?v=20261015-v32"></script>
+  <script src="js/exportacao/pdf-rota.js?v=20261015-v32"></script>
+  <script src="js/roteirizacao/roteirizacao.js?v=20261015-v32"></script>
+  <script src="js/historico/historico-rotas.js?v=20261015-v32"></script>
+  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v32"></script>
+  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v32"></script>
+  <script src="js/navegacao/navegacao.js?v=20261015-v32"></script>
+  <script src="js/ui/app-shell.js?v=20261015-v32"></script>
 
 </body>
 </html>

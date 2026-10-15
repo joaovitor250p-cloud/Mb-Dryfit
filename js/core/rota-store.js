@@ -103,7 +103,8 @@
 
   function modoPorVeiculo(veiculo) {
     if (veiculo === 'moto') return 'motorcycle';
-    if (veiculo === 'caminhao') return 'light_truck';
+    if (veiculo === 'caminhao_leve') return 'light_truck';
+    if (veiculo === 'caminhao') return 'truck';
     return 'drive';
   }
 
@@ -119,8 +120,9 @@
     r.criadoEm = created;
     r.alteradoEm = r.alteradoEm || created;
     r.status = ['planejamento', 'ativa', 'aguardando_finalizacao', 'concluida', 'arquivada'].includes(r.status) ? r.status : 'planejamento';
-    r.veiculo = ['carro', 'moto', 'caminhao'].includes(r.veiculo) ? r.veiculo : 'carro';
-    r.modoRoteamento = String(r.modoRoteamento || modoPorVeiculo(r.veiculo));
+    r.veiculo = ['carro', 'moto', 'caminhao_leve', 'caminhao'].includes(r.veiculo) ? r.veiculo : 'carro';
+    if(r.veiculo === 'caminhao' && r.modoRoteamento === 'light_truck' && r.geometria) r.precisaRecalculo = true;
+    r.modoRoteamento = modoPorVeiculo(r.veiculo);
     r.preferenciaRota = ['short', 'balanced', 'less_maneuvers'].includes(String(r.preferenciaRota || ''))
       ? String(r.preferenciaRota)
       : 'short';

@@ -45,6 +45,8 @@
   }
 
   async function abrirModulo(nome, opcoes) {
+    if(document.body.dataset.pematoModule === 'navegacao' && nome !== 'navegacao') await global.PacoteEMatoNavegacao?.persistirSelecao?.({motivo:'troca_modulo'});
+    await global.PacoteEMatoConfiguracoes?.aguardarAplicacao?.();
     if (nome === 'inicio') nome = 'roteirizacao';
     if (!modulos.includes(nome)) nome = 'roteirizacao';
     if (nome === 'navegacao') {

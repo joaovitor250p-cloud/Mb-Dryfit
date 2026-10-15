@@ -121,3 +121,26 @@ body.pemato-package-operation #pkgOpBanner::before{background:#ecfdf5!important;
 /* V31: só aparece após exploração manual do mapa. */
 #navFollowBtn[hidden]{display:none!important}
 #navFollowBtn:not([hidden]){display:flex!important;align-items:center;justify-content:center;gap:5px;width:auto!important;padding:0 10px!important;font-size:11px!important;min-height:38px}
+/* V32 — menu lateral com identidade e hierarquia. */
+#sidebar{width:min(330px,90vw);left:-360px;padding:24px 18px max(20px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px;background:linear-gradient(165deg,#f0faf5 0%,#fff 42%)!important;box-shadow:16px 0 60px #062f2226;box-sizing:border-box}
+#sidebar.active{left:0}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding-bottom:22px;border-bottom:1px solid #dcebe3}
+.sidebar-brand img{border-radius:13px;flex:none}
+.sidebar-brand strong{display:block;font-size:13px;letter-spacing:.035em;color:#064e3b}
+.sidebar-brand span{display:block;margin-top:4px;font-size:11px;color:#687b71}
+#sidebar .sidebar-close{margin-left:auto;width:30px;min-width:30px;height:30px;padding:0;border:0;border-radius:50%;font-size:22px;background:transparent!important;cursor:pointer}
+.sidebar-label{font-size:10px;font-weight:800;letter-spacing:.16em;color:#779082;padding:0 12px}
+#sidebar .sidebar-nav{margin:-12px 0 0;gap:9px}
+#sidebar .sidebar-nav button{padding:15px 12px;border:1px solid transparent;border-radius:15px;gap:12px;background:transparent!important;text-align:left;min-height:68px}
+#sidebar .sidebar-nav button:hover,#sidebar .sidebar-nav button.active{background:#e5f5ec!important;border-color:#c5e6d4;color:#065f46!important}
+#sidebar .sidebar-nav svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#sidebar .sidebar-nav strong{display:block;font-size:14px;font-weight:800}
+#sidebar .sidebar-nav small{display:block;margin-top:4px;font-size:11px;font-weight:500;color:#708078}
+#sidebar .sidebar-arrow{margin-left:auto;font-size:22px;color:#87a193}
+.sidebar-footer{margin-top:auto;display:grid;gap:14px;padding-top:24px}
+.sidebar-support{display:block;padding:16px;border:1px solid #dcebe3;border-radius:16px;background:#f5faf7;color:#6b7c72;text-decoration:none;font-size:12px;line-height:1.7}
+.sidebar-support strong{display:block;color:#047857;font-size:13px}
+#sidebar .sidebar-signout{background:transparent!important;border:0;padding:10px;color:#6e7b74!important;font-size:12px;cursor:pointer}
+.sidebar-version{text-align:center;font-size:9px;letter-spacing:.12em;color:#97a69e}
+#sidebar button:focus-visible,#sidebar a:focus-visible{outline:2px solid #059669;outline-offset:3px}
+.settings-vehicle-hint{font-size:12px;line-height:1.5;color:#61746a;margin:12px 0 0}

@@ -3,6 +3,7 @@
 
   const KEY = 'pemato_config_v2';
   let autoSaveTimer = null;
+  let aplicacaoPendente = Promise.resolve();
 
   const DEFAULTS = {
     navegacao: 'pacote_emato',
@@ -32,9 +33,12 @@
   }
 
   function salvar(parcial) {
-    const cfg = Object.assign(obter(), parcial || {});
+    const anterior = obter();
+    const cfg = Object.assign({}, anterior, parcial || {});
+    const campos = Object.keys(parcial || {}).filter(k => JSON.stringify(anterior[k]) !== JSON.stringify(cfg[k]));
     try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (_) {}
     renderizar();
+    aplicacaoPendente = aplicacaoPendente.then(() => global.PacoteEMatoRoteirizacao?.aplicarConfiguracoesNaRota?.({...cfg, camposAlterados:campos})).catch(erro => { status($('settingsAutosaveStatus'), erro.message || 'Não foi possível aplicar à rota.', 'error'); });
     try { global.dispatchEvent(new CustomEvent('pemato:config:update', { detail: cfg })); } catch (_) {}
     return cfg;
   }
@@ -221,5 +225,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
   else bind();
 
-  global.PacoteEMatoConfiguracoes = Object.freeze({ obter, salvar, renderizar, validarEnderecoPartida, testarWorker });
+  global.PacoteEMatoConfiguracoes = Object.freeze({ aguardarAplicacao: () => aplicacaoPendente, obter, salvar, renderizar, validarEnderecoPartida, testarWorker });
 })(window);

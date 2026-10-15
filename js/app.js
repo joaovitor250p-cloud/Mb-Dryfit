@@ -43,39 +43,6 @@ function tocarIntroPs2Audio() {
             }, 2400);
         }
 
-    function abrirTutorialVideo() {
-      const modal = document.getElementById('modalTutorialVideo');
-      const video = document.getElementById('videoTutorialApp');
-      if (modal) modal.style.display = 'flex';
-      if (video) { video.currentTime = 0; video.play().catch(() => {}); }
-    }
-
-    function fecharTutorialVideo() {
-      const modal = document.getElementById('modalTutorialVideo');
-      const video = document.getElementById('videoTutorialApp');
-      if (video) video.pause();
-      if (modal) modal.style.display = 'none';
-    }
-
-    function verificarTutorialPrimeiroAcesso(zap) {
-      if (!zap) return;
-      const chave = 'tutorial_video_primeiro_acesso_' + zap;
-      if (localStorage.getItem(chave) === '1') return;
-      localStorage.setItem(chave, '1');
-      const modal = document.getElementById('modalPrimeiroTutorial');
-      if (modal) setTimeout(() => { modal.style.display = 'flex'; }, 450);
-    }
-
-    function fecharAvisoPrimeiroTutorial() {
-      const modal = document.getElementById('modalPrimeiroTutorial');
-      if (modal) modal.style.display = 'none';
-    }
-
-    function assistirTutorialPrimeiroAcesso() {
-      fecharAvisoPrimeiroTutorial();
-      abrirTutorialVideo();
-    }
-
     const traducoes = {
       pt: {
         download_app: "Baixar App no Celular",
@@ -1500,7 +1467,7 @@ function tocarIntroPs2Audio() {
           document.getElementById('diasRestantes').innerText = "Acesso Ativo";
         }
         document.getElementById('telaBloqueio').style.display = 'none';
-        verificarTutorialPrimeiroAcesso(zap);
+
       });
     }
 
