@@ -207,6 +207,62 @@
     });
     return encontrados.filter(el=>distanciaMetros(pos,{lat:Number(el.lat),lon:Number(el.lon)})<=raio+60);
   }
+  async function buscarPhoton(pos,raio){
+    // Photon/Komoot: geocoder público baseado em OpenStreetMap.
+    // Filtra explicitamente amenity=fuel e usa a posição atual como forte viés local.
+    // O corte final de 5 km é feito novamente no cliente, então nunca exibimos
+    // um resultado distante apenas porque o geocoder o classificou bem.
+    const termos=['posto','gasolina','combustivel'];
+    const encontrados=[];
+    let ultimoErro=null;
+    for(const termo of termos){
+      const qs=new URLSearchParams({
+        q:termo,
+        lat:String(pos.lat),
+        lon:String(pos.lon),
+        limit:'50',
+        lang:'pt',
+        location_bias_scale:'0',
+        osm_tag:'amenity:fuel'
+      });
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+      try{
+        const r=await fetch(`https://photon.komoot.io/api/?${qs.toString()}`,{
+          method:'GET',headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store',mode:'cors'
+        });
+        if(!r.ok)throw new Error(`Photon HTTP ${r.status}`);
+        const data=await r.json();
+        const features=Array.isArray(data?.features)?data.features:[];
+        features.forEach((f,i)=>{
+          const props=f?.properties||{},coords=f?.geometry?.coordinates||[];
+          const lon=numero(coords[0]),lat=numero(coords[1]);
+          if(lat==null||lon==null)return;
+          const d=distanciaMetros(pos,{lat,lon});
+          if(d>raio+60)return;
+          encontrados.push({
+            type:'photon',
+            id:String(props.osm_id||`ph-${Math.round(lat*1e6)}-${Math.round(lon*1e6)}-${i}`),
+            lat,lon,
+            tags:{
+              amenity:'fuel',
+              name:props.name||props.brand||'Posto de combustível',
+              brand:props.brand||'',
+              operator:props.operator||'',
+              'addr:street':props.street||'',
+              'addr:housenumber':props.housenumber||'',
+              'addr:suburb':props.district||props.locality||'',
+              'addr:city':props.city||props.county||''
+            }
+          });
+        });
+        if(encontrados.length)break;
+      }catch(e){ultimoErro=e;}
+      finally{clearTimeout(timer);}
+    }
+    if(encontrados.length)return encontrados;
+    if(ultimoErro)throw ultimoErro;
+    return [];
+  }
   async function buscarViaWorker(pos,raio){
     const base=String(global.PEMATO_MAP_CONFIG?.workerBaseUrl||'').replace(/\/+$/,'');
     if(!base)throw new Error('Worker não configurado');
@@ -252,9 +308,11 @@
   async function buscarPostos(pos,raio,opcoes){
     // 1) Usa os POIs dos tiles que o próprio mapa já carregou: não há CORS nem servidor extra.
     try{const locais=await buscarNosDadosDoMapa(pos,raio,{prepararViewport:opcoes?.prepararViewport!==false});if(locais.length)return locais;}catch(e){console.warn('Pacote É Mato: POIs locais indisponíveis.',e);}
-    // 2) Se o Worker atualizado estiver publicado, usa a rota /fuel.
+    // 2) Photon: busca pública OSM com filtro amenity=fuel e viés pela posição atual.
+    try{const photon=await buscarPhoton(pos,raio);if(photon.length)return photon;}catch(e){console.warn('Pacote É Mato: Photon indisponível.',e?.message||e);}
+    // 3) Se o Worker atualizado estiver publicado, usa a rota /fuel.
     try{const worker=await buscarViaWorker(pos,raio);if(worker.length)return worker;}catch(e){console.warn('Pacote É Mato: Worker de combustível indisponível.',e?.message||e);}
-    // 3) Fallback sem Worker, ainda limitado a 5 km e filtrado pela distância real.
+    // 4) Fallbacks adicionais, sempre filtrados pela distância real.
     try{const nom=await buscarNominatim(pos,raio);if(nom.length)return nom;}catch(e){console.warn('Pacote É Mato: Nominatim indisponível.',e?.message||e);}
     try{return await buscarOverpassDireto(pos,raio);}catch(e){console.warn('Pacote É Mato: Overpass indisponível.',e?.message||e);}
     throw new Error('Não foi possível consultar os postos agora.');

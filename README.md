@@ -1,4 +1,12 @@
-## V35 — Postos em 5 km + busca sem depender do Overpass (15/10/2026)
+## V36 — Combustível 5 km com Photon (15/10/2026)
+
+- A busca principal de postos agora usa o Photon/Komoot, baseado em OpenStreetMap, filtrando `amenity=fuel`.
+- A localização atual é usada como viés e todo resultado é validado novamente para ficar em no máximo **5 km**.
+- A leitura de POIs já carregados no mapa continua como primeira opção sem rede extra.
+- Worker `/fuel`, Nominatim e Overpass permanecem apenas como contingência.
+- O mapa continua limpo, sem hospitais, pontos de ônibus e outros POIs genéricos.
+
+## V36 — Postos em 5 km + busca sem depender do Overpass (15/10/2026)
 
 - O raio de combustível agora é fixado em **5 km da localização atual**.
 - A busca tenta primeiro os próprios POIs já carregados nos tiles do mapa, evitando CORS e `Failed to fetch`.
