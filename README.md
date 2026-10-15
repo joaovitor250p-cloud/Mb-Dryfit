@@ -1,3 +1,12 @@
+## V37 — Combustível 5 km sem bloqueio de CORS (15/10/2026)
+
+- `/fuel` passa a aceitar GET simples e CORS público somente nessa rota.
+- Resolve PWA/WebView com Origin `null` ou diferente do domínio autorizado.
+- Raio máximo travado em 5 km no cliente e no Worker.
+- O navegador não consulta mais Photon/Nominatim/Overpass diretamente; toda consulta externa passa pelo Worker.
+- Fallback local continua tentando POIs dos tiles já carregados no mapa.
+- Rotas privadas `/geocode`, `/optimize` e `/route` continuam protegidas por origem e cliente.
+
 ## V36 — Combustível 5 km com Photon (15/10/2026)
 
 - A busca principal de postos agora usa o Photon/Komoot, baseado em OpenStreetMap, filtrando `amenity=fuel`.

@@ -266,11 +266,13 @@
   async function buscarViaWorker(pos,raio){
     const base=String(global.PEMATO_MAP_CONFIG?.workerBaseUrl||'').replace(/\/+$/,'');
     if(!base)throw new Error('Worker não configurado');
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+    const qs=new URLSearchParams({lat:String(pos.lat),lon:String(pos.lon),radius:String(Math.min(5000,Math.max(500,raio||5000))),v:String(Date.now())});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
     try{
-      const r=await fetch(`${base}/fuel`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-Pacote-Em-Mato-Client':'map-v1'},body:JSON.stringify({lat:pos.lat,lon:pos.lon,radius:raio}),signal:controller.signal});
-      if(!r.ok)throw new Error(`Worker HTTP ${r.status}`);
-      const data=await r.json();
+      const r=await fetch(`${base}/fuel?${qs.toString()}`,{method:'GET',headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store'});
+      let data=null;
+      try{data=await r.json();}catch(_){}
+      if(!r.ok)throw new Error(data?.error?`Worker ${r.status}: ${data.error}`:`Worker HTTP ${r.status}`);
       if(!data?.ok||!Array.isArray(data.elements))throw new Error('Resposta inválida do serviço de postos');
       return data.elements;
     }finally{clearTimeout(timer);}
@@ -306,16 +308,16 @@
     throw ultimoErro||new Error('Serviço público de postos indisponível');
   }
   async function buscarPostos(pos,raio,opcoes){
-    // 1) Usa os POIs dos tiles que o próprio mapa já carregou: não há CORS nem servidor extra.
+    // V37: o caminho principal é o Worker público /fuel via GET simples.
+    // Evita CORS/preflight e funciona em PWA/WebView com Origin null.
+    let erroWorker=null;
+    try{const worker=await buscarViaWorker(pos,raio);if(worker.length)return worker;}catch(e){erroWorker=e;console.warn('Pacote É Mato: Worker /fuel indisponível.',e?.message||e);}
+    // Contingência offline: tenta POIs já presentes nos tiles carregados pelo mapa.
     try{const locais=await buscarNosDadosDoMapa(pos,raio,{prepararViewport:opcoes?.prepararViewport!==false});if(locais.length)return locais;}catch(e){console.warn('Pacote É Mato: POIs locais indisponíveis.',e);}
-    // 2) Photon: busca pública OSM com filtro amenity=fuel e viés pela posição atual.
-    try{const photon=await buscarPhoton(pos,raio);if(photon.length)return photon;}catch(e){console.warn('Pacote É Mato: Photon indisponível.',e?.message||e);}
-    // 3) Se o Worker atualizado estiver publicado, usa a rota /fuel.
-    try{const worker=await buscarViaWorker(pos,raio);if(worker.length)return worker;}catch(e){console.warn('Pacote É Mato: Worker de combustível indisponível.',e?.message||e);}
-    // 4) Fallbacks adicionais, sempre filtrados pela distância real.
-    try{const nom=await buscarNominatim(pos,raio);if(nom.length)return nom;}catch(e){console.warn('Pacote É Mato: Nominatim indisponível.',e?.message||e);}
-    try{return await buscarOverpassDireto(pos,raio);}catch(e){console.warn('Pacote É Mato: Overpass indisponível.',e?.message||e);}
-    throw new Error('Não foi possível consultar os postos agora.');
+    const msg=String(erroWorker?.message||'').toLowerCase();
+    if(msg.includes('404')||msg.includes('not_found')) throw new Error('O serviço de postos ainda não foi publicado no Worker. Atualize o Worker da V37.');
+    if(msg.includes('403')||msg.includes('origin_not_allowed')) throw new Error('O Worker antigo bloqueou o acesso do celular. Publique o Worker da V37.');
+    throw new Error('O serviço de postos não respondeu. Publique/atualize o Worker da V37 e tente novamente.');
   }
   function deduplicar(postos){
     const vistos=new Set(); return postos.filter(p=>{const k=`${p.nome.toLowerCase()}|${p.lat.toFixed(5)}|${p.lon.toFixed(5)}`;if(vistos.has(k))return false;vistos.add(k);return true;});

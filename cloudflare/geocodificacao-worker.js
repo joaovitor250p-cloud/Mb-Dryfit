@@ -146,7 +146,7 @@ async function handleGeocode(request, env, origin) {
   const cached = await cache.match(cacheKey);
   if (cached) {
     const clone = new Response(cached.body, cached);
-    clone.headers.set('Access-Control-Allow-Origin', origin);
+    clone.headers.set('Access-Control-Allow-Origin', '*');
     return clone;
   }
 
@@ -365,12 +365,40 @@ function fuelQuery(lat, lon, radius) {
   return `[out:json][timeout:20];(node["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon});way["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon});relation["amenity"="fuel"](around:${Math.round(radius)},${lat},${lon}););out center tags;`;
 }
 
-async function handleFuel(request, env, origin) {
-  const body = await parseJson(request);
-  const lat = Number(body?.lat), lon = Number(body?.lon);
-  const radius = Math.max(500, Math.min(15000, Number(body?.radius || 8000)));
+function fuelCorsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Accept',
+    'Access-Control-Max-Age': '86400'
+  };
+}
+
+function fuelJson(payload, status = 200, cacheControl = 'no-store') {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': cacheControl,
+      ...fuelCorsHeaders()
+    }
+  });
+}
+
+async function handleFuel(request, env) {
+  const url = new URL(request.url);
+  let input = null;
+  if (request.method === 'GET') {
+    input = { lat: url.searchParams.get('lat'), lon: url.searchParams.get('lon'), radius: url.searchParams.get('radius') };
+  } else if (request.method === 'POST') {
+    input = await parseJson(request);
+  } else {
+    return fuelJson({ ok: false, error: 'method_not_allowed' }, 405);
+  }
+  const lat = Number(input?.lat), lon = Number(input?.lon);
+  const radius = Math.max(500, Math.min(5000, Number(input?.radius || 5000)));
   if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
-    return json({ ok: false, error: 'invalid_coordinate' }, 400, origin, env);
+    return fuelJson({ ok: false, error: 'invalid_coordinate' }, 400);
   }
 
   const cacheUrl = new URL('https://pemato-cache.internal/fuel');
@@ -422,7 +450,7 @@ async function handleFuel(request, env, origin) {
           };
         }).filter(Boolean);
         const payload = JSON.stringify({ ok: true, provider: 'geoapify-places', elements });
-        const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...corsHeaders(origin, true) } });
+        const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...fuelCorsHeaders() } });
         await cache.put(cacheKey, response.clone());
         return response;
       }
@@ -447,14 +475,14 @@ async function handleFuel(request, env, origin) {
       const data = await providerResponse.json();
       const elements = Array.isArray(data?.elements) ? data.elements.slice(0, 160) : [];
       const payload = JSON.stringify({ ok: true, provider: 'openstreetmap-overpass', elements });
-      const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=180', ...corsHeaders(origin, true) } });
+      const response = new Response(payload, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=180', ...fuelCorsHeaders() } });
       await cache.put(cacheKey, response.clone());
       return response;
     } catch (error) {
       lastError = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error);
     }
   }
-  return json({ ok: false, error: 'fuel_provider_unavailable', detail: lastError }, 502, origin, env);
+  return fuelJson({ ok: false, error: 'fuel_provider_unavailable', detail: lastError }, 502);
 }
 
 export default {
@@ -473,6 +501,14 @@ export default {
       }, 200, origin, env);
     }
 
+    // Combustível é consulta pública somente de leitura. Ela fica fora da trava de Origin
+    // porque PWAs/WebViews podem enviar Origin "null". GET simples também evita preflight.
+    if (url.pathname === '/fuel') {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: fuelCorsHeaders() });
+      if (!checkRateLimit(request)) return fuelJson({ ok: false, error: 'rate_limited' }, 429);
+      return handleFuel(request, env);
+    }
+
     if (request.method === 'OPTIONS') {
       if (!allowed) return new Response(null, { status: 403 });
       return new Response(null, { status: 204, headers: corsHeaders(origin, true) });
@@ -488,9 +524,6 @@ export default {
     if (!['map-v1', 'routing-v1'].includes(client)) {
       return json({ ok: false, error: 'invalid_client' }, 400, origin, env);
     }
-
-    // Postos não dependem da chave Geoapify: o Worker faz proxy seguro do Overpass.
-    if (url.pathname === '/fuel') return handleFuel(request, env, origin);
     if (!env.GEOAPIFY_API_KEY) return json({ ok: false, error: 'provider_not_configured' }, 503, origin, env);
 
     if (url.pathname === '/geocode') return handleGeocode(request, env, origin);
