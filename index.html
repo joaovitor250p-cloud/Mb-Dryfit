@@ -706,7 +706,7 @@
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V44</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V45</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -957,7 +957,10 @@
         </div>
         <div class="routing-review-list" id="routingReviewStopsList"></div>
         <div id="routingRefinePanel" class="routing-refine-panel" style="display:none">
-          <strong>Refinar rota</strong>
+          <div class="routing-refine-head">
+            <div><span class="module-kicker">ORGANIZAÇÃO</span><strong>Refinar rota</strong></div>
+            <button id="routingRefineCloseBtn" class="routing-refine-close" type="button" aria-label="Fechar refinamento">×</button>
+          </div>
           <span class="routing-refine-copy">Escolha como reorganizar as paradas pendentes. Entregas já registradas e os IDs das paradas são preservados.</span>
           <button id="routingRefineAutoBtn" class="routing-refine-action" type="button"><strong>Otimizar automaticamente</strong><small>Recalcular a melhor sequência pelo serviço real de roteirização.</small></button>
           <button id="routingRefineInvertBtn" class="routing-refine-action" type="button"><strong>Inverter ordem</strong><small>Inverter somente os espaços das paradas ainda pendentes.</small></button>

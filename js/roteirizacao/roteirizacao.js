@@ -302,6 +302,28 @@
       rotaAtual.tipoRefino = tipo || 'manual';
       rotaAtual.otimizadoEm = Date.now();
       rotaAtual.confirmadaEm = null;
+
+      // V45: antes de a operação começar, qualquer refinamento redefine a
+      // primeira parada operacional pela NOVA ordem. Assim, ao inverter a rota,
+      // a antiga última parada passa de fato a ser a primeira da corrida.
+      if (!rotaAtual.iniciadoEm) {
+        const porId = new Map((rotaAtual.paradas || []).map(p => [String(p.id), p]));
+        const primeiraPendenteNovaOrdem = (rotaAtual.ordem || []).map(String)
+          .find(id => porId.get(id) && !paradaFinalizada(porId.get(id))) || null;
+        rotaAtual.paradaSelecionadaId = primeiraPendenteNovaOrdem;
+        rotaAtual.proximaParadaId = primeiraPendenteNovaOrdem;
+        if (global.appState?.roteirizacao) {
+          global.appState.roteirizacao.paradaSelecionadaId = primeiraPendenteNovaOrdem;
+          global.appState.roteirizacao.proximaParadaId = primeiraPendenteNovaOrdem;
+        }
+        if (global.appState?.navegacao) {
+          global.appState.navegacao.paradaExibidaId = primeiraPendenteNovaOrdem;
+          global.appState.navegacao.paradaAtualId = primeiraPendenteNovaOrdem;
+          global.appState.navegacao.proximaParadaId = primeiraPendenteNovaOrdem;
+        }
+        try { sessionStorage.removeItem('pemato_parada_externa'); } catch (_) {}
+      }
+
       await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
       renderizarTudo({ fit: true });
       atualizarBotoesRefino();
@@ -1826,6 +1848,7 @@
     $('routingReviewCloseBtn')?.addEventListener('click', fecharRevisaoOtimizacao);
     $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
     $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
+    $('routingRefineCloseBtn')?.addEventListener('click', () => { if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none'; });
     $('routingRefineAutoBtn')?.addEventListener('click', otimizarAutomaticamenteRefino);
     $('routingRefineInvertBtn')?.addEventListener('click', inverterRota);
     $('routingRefineDrawBtn')?.addEventListener('click', iniciarRefinoDesenho);
