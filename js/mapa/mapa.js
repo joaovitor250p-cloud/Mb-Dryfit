@@ -124,11 +124,9 @@
       const lat = Number(p.latitude), lon = Number(p.longitude);
       // Agrupa visualmente pontos muito próximos para que os balões sejam
       // deslocados em vez de ficarem um em cima do outro.
-      const gridLat = Math.round(lat / 0.00032);
-      const gridLon = Math.round(lon / 0.00032);
-      const visualKey = `${gridLat}|${gridLon}`;
-      const stackIndex = ocupacaoVisual.get(visualKey) || 0;
-      ocupacaoVisual.set(visualKey, stackIndex + 1);
+      // V40: os balões permanecem ancorados na coordenada real. A seleção ou
+      // alteração de status não desloca visualmente os marcadores.
+      const stackIndex = 0;
       const ids = grupo.map(item => String(item.id));
       features.push({
         type: 'Feature',
@@ -143,7 +141,7 @@
           selected: ids.includes(String(selectedId)) ? 1 : 0,
           groupSelected: grupoVisual.some(item => idsSelecaoDesenho.has(String(item.id))) ? 1 : 0,
           multi: totalPacotes,
-          stackIndex, markerOffset: deslocamentoMarcador(stackIndex)
+          stackIndex, markerOffset: [0,0]
         }
       });
     });

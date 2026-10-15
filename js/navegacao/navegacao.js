@@ -203,6 +203,7 @@
     cartaoSelecionadoId=id;
     definirAcompanhamento(false);
     atualizarPainel();
+    atualizarFontesPontos();
     persistirSelecao({motivo:'selecionar_marcador_mapa'});
   }
 
@@ -453,24 +454,21 @@
       grupo.sort((a,b) => a.order - b.order);
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      // V39: o cartão exibido e a próxima entrega são estados diferentes.
-      // Ao deslizar entre cartões, o marcador verde deve continuar preso à
-      // próxima parada pendente da corrida, e não ao cartão que está na tela.
-      const idAtivo = String(p?.id || rota?.proximaParadaId || '');
-      const idExibido = String(cartaoSelecionadoId || '');
-      const ativaNoGrupo = grupo.find(item => String(item.stop?.id || '') === idAtivo);
+      // V40: o marcador verde acompanha exatamente a parada que o motorista
+      // selecionou/está vendo. Tocar um balão ou deslizar o card muda somente
+      // a seleção visual. Ao concluir a parada selecionada, o card avança e o
+      // próximo balão passa a verde automaticamente.
+      const idExibido = String(cartaoSelecionadoId || p?.id || rota?.proximaParadaId || '');
       const exibidaNoGrupo = grupo.find(item => String(item.stop?.id || '') === idExibido);
-      const principal = ativaNoGrupo || exibidaNoGrupo || grupoVisual[0];
+      const principal = exibidaNoGrupo || grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
-      const gridLat = Math.round(lat / 0.00032);
-      const gridLon = Math.round(lon / 0.00032);
-      const visualKey = `${gridLat}|${gridLon}`;
-      const stackIndex = ocupacaoVisual.get(visualKey) || 0;
-      ocupacaoVisual.set(visualKey, stackIndex + 1);
+      // V40: sem deslocamento dinâmico. O balão fica ancorado na coordenada
+      // real da parada e não muda de posição ao selecionar, entregar ou recalcular.
+      const stackIndex = 0;
       const ids = grupo.map(item => String(item.stop.id));
-      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:deslocamentoMarcador(stackIndex),status:stop.statusEntrega||'pendente',current:ids.includes(String(p?.id || rota?.proximaParadaId || ''))},geometry:{type:'Point',coordinates:[lon,lat]}});
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:[0,0],status:stop.statusEntrega||'pendente',current:ids.includes(idExibido)},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {
@@ -622,6 +620,39 @@
     return itens.join('\n');
   }
 
+  function observacaoClienteDaParada(p) {
+    if (!p) return '';
+    const itens = [];
+    const add = valor => {
+      const texto = String(valor || '').trim();
+      if (!texto) return;
+      if (!itens.some(v => v.toLocaleLowerCase('pt-BR') === texto.toLocaleLowerCase('pt-BR'))) itens.push(texto);
+    };
+
+    // Campo de observação da planilha é sempre prioritário.
+    add(p.observacao);
+
+    // Complementos operacionais também são instruções úteis para o entregador.
+    if (p.apartamento) add(/^ap(?:to|artamento)?\b/i.test(String(p.apartamento)) ? p.apartamento : `Ap ${p.apartamento}`);
+    if (p.bloco) add(/^bloco\b/i.test(String(p.bloco)) ? p.bloco : `Bloco ${p.bloco}`);
+    if (p.sala) add(/^sala\b/i.test(String(p.sala)) ? p.sala : `Sala ${p.sala}`);
+    if (p.loja) add(/^loja\b/i.test(String(p.loja)) ? p.loja : `Loja ${p.loja}`);
+    add(p.complemento);
+
+    // Algumas planilhas trazem o apartamento/instrução dentro do endereço.
+    // Captura somente trechos claramente operacionais, sem copiar o endereço inteiro.
+    const endereco = String(p.enderecoOriginal || '');
+    const padroes = [
+      /\b(?:ap|apt|apto|apartamento)\.?\s*[-º°#:]?\s*[a-z0-9-]+/ig,
+      /\bbloco\s*[-º°#:]?\s*[a-z0-9-]+/ig,
+      /\b(?:casa|sala|loja)\s*[-º°#:]?\s*[a-z0-9-]+/ig,
+      /\b(?:tocar|toque)\s+(?:a\s+)?campainha\b[^,;|]*/ig,
+      /\b(?:ligar|chamar|interfone|portaria)\b[^,;|]*/ig
+    ];
+    padroes.forEach(re => (endereco.match(re) || []).forEach(add));
+    return itens.join(' · ');
+  }
+
   function atualizarPainel() {
     atualizarTermino();
     atualizarPendentes(); const p=paradasPorOrdem().find(s=>String(s.id)===String(cartaoSelecionadoId)) || proxima();
@@ -629,7 +660,7 @@
     if($('navStopNumber')) $('navStopNumber').textContent=pos>=0?`PARADA ${String(pos+1).padStart(2,'0')}`:'SEM PARADA';
     if($('navNextAddress')) $('navNextAddress').textContent=p?.enderecoOriginal||'Nenhuma parada pendente';
     if($('navNextComplement')) $('navNextComplement').textContent=detalhesDaParada(p);
-    const obsCliente = String(p?.observacao || '').trim();
+    const obsCliente = observacaoClienteDaParada(p);
     if($('navCustomerObservationText')) $('navCustomerObservationText').textContent = obsCliente || 'Sem observações do cliente.';
     if($('navCustomerObservation')) $('navCustomerObservation').classList.toggle('is-empty', !obsCliente);
     if($('navNextPackages')) {
@@ -758,7 +789,7 @@
     const anterior=lista[indice];
     if(anterior && $('navDeliveryNote')) anterior.observacaoEntrega=String($('navDeliveryNote').value||'').trim();
     const alvo=lista[Math.max(0,Math.min(lista.length-1,indice+delta))];
-    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;atualizarPainel();persistirSelecao({motivo:'troca_cartao'});
+    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;atualizarPainel();atualizarFontesPontos();persistirSelecao({motivo:'troca_cartao'});
     if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){const interna=navegacaoInternaAtiva();mapa.easeTo({center:[Number(alvo.longitude),Number(alvo.latitude)],zoom:interna?17:Math.max(15,mapa.getZoom()),pitch:interna?48:0,duration:350});}
   }
   async function abrirExterno(provider){
