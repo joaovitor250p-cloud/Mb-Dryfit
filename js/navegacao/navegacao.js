@@ -4,6 +4,7 @@
   let rota = null;
   let mapa = null;
   let mapReady = false;
+  let contextoPerdido = false;
   let watchId = null;
   let ordemPendente = [];
   let ultimaPosicao = null;
@@ -277,6 +278,31 @@
     }
   }
 
+  // O primeiro quadro já mostra a rota, mesmo sem GPS ou rede disponíveis.
+  function centroDaRota() {
+    const p = ordemPendente.find(p => coordenadaValida(p.latitude, p.longitude)) || paradasPorOrdem().find(p => coordenadaValida(p.latitude, p.longitude));
+    if (p && coordenadaValida(p.latitude, p.longitude)) return [Number(p.longitude), Number(p.latitude)];
+    const g = normalizarGeometriaVisual(rota?.geometria);
+    const c = g?.type === 'MultiLineString' ? g.coordinates?.[0]?.[0] : g?.coordinates?.[0];
+    return c && coordenadaValida(c[1], c[0]) ? c : (cfg().initialCenter || [-46.6333,-23.5505]);
+  }
+
+  function atualizarTermino() {
+    const el = $('navRouteEtaTime');
+    const fim = Number(rota?.horarioTerminoEstimado);
+    if (el) el.textContent = fim > 0 && Number.isFinite(fim)
+      ? new Date(fim).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '—';
+    posicionarSobreposicoes();
+  }
+
+  function posicionarSobreposicoes() {
+    const wrap = $('mapaNavegacao')?.parentElement;
+    const card = wrap?.querySelector('.nav-maneuver-card');
+    if (!wrap || !card) return;
+    const topo = Math.max(100, card.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top + 14);
+    wrap.style.setProperty('--nav-overlay-top', `${topo}px`);
+  }
+
   function garantirMapa() {
     const container = $('mapaNavegacao');
     if (!container || mapa || !global.maplibregl) return mapa;
@@ -289,7 +315,7 @@
         container,
         // V18: volta para a mesma base vetorial que funcionava na V14.
         style: cfg().mapStyleUrl,
-        center: cfg().initialCenter || [-46.6333,-23.5505],
+        center: centroDaRota(),
         zoom: 15,
         pitch: 0,
         bearing: 0,
@@ -299,6 +325,9 @@
         attributionControl: true,
         fadeDuration: 120
       });
+      contextoPerdido = false;
+      mapa.on('webglcontextlost', () => { contextoPerdido = true; });
+      mapa.on('webglcontextrestored', () => { contextoPerdido = false; });
       mapa.touchZoomRotate?.disableRotation?.();
       mapa.on('dragstart', () => { seguirPosicao = false; atualizarBotaoFollow(); });
       mapa.on('zoomend', () => { atualizarProgressoVisual(nearestOnRoute(ultimaPosicao)); });
@@ -537,6 +566,7 @@
   }
 
   function atualizarPainel() {
+    atualizarTermino();
     atualizarPendentes(); const p=paradasPorOrdem().find(s=>String(s.id)===String(cartaoSelecionadoId)) || proxima();
     const pos=paradasPorOrdem().findIndex(s=>String(s.id)===String(p?.id));
     if($('navStopNumber')) $('navStopNumber').textContent=pos>=0?`PARADA ${String(pos+1).padStart(2,'0')}`:'SEM PARADA';
@@ -740,7 +770,7 @@
     global.PacoteEMatoMarcadores?.capturarBaseVisualStatus?.(rota, false);
     atualizarPendentes();let idExterno=null;try{idExterno=sessionStorage.getItem('pemato_parada_externa');sessionStorage.removeItem('pemato_parada_externa');}catch(_){}cartaoSelecionadoId=idExterno||rota.paradaSelecionadaId||global.appState?.navegacao?.paradaExibidaId||proxima()?.id||null;posicaoAnterior=null; const pref=global.PacoteEMatoConfiguracoes?.obter?.().navegacao||'pacote_emato';
     if(global.appState?.navegacao){global.appState.navegacao.ativa=true;global.appState.navegacao.provider=pref;global.appState.navegacao.iniciadaEm=global.appState.navegacao.iniciadaEm||Date.now();global.appState.navegacao.paradaExibidaId=cartaoSelecionadoId;rota.iniciadoEm=rota.iniciadoEm||global.appState.navegacao.iniciadaEm;vozAtiva=pref==='pacote_emato' && global.appState.navegacao.vozAtiva!==false;seguirPosicao=true;global.appState.navegacao.seguirPosicao=true;}
-    garantirMapa(); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
+    garantirMapa(); mapa?.jumpTo?.({center:centroDaRota(), zoom:15, pitch:0, bearing:0}); desenharRota(); atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     iniciarGPS();
     if(pref!=='pacote_emato'&&$('navGpsStatus'))$('navGpsStatus').textContent=`GPS ativo · navegação preferida: ${pref==='waze'?'Waze':'Google Maps'}`;
     await persistirSelecao({motivo:'abrir_navegacao',navegacaoProvider:pref});
@@ -770,11 +800,12 @@
   async function retomar(opcoes){
     const agora=Date.now(); if(agora-ultimoRetomar<350)return; ultimoRetomar=agora;
     if(!global.appState?.navegacao?.ativa)return;
-    try{ const salva=await global.PacoteEMatoRotaStore?.obterRotaAtiva?.(); if(salva) rota=global.PacoteEMatoRotaStore.normalizarRota(salva); }catch(_){}
+    if(!rota) try{ const salva=await global.PacoteEMatoRotaStore?.obterRotaAtiva?.(); if(salva) rota=global.PacoteEMatoRotaStore.normalizarRota(salva); }catch(_){}
     atualizarPendentes();
-    const forcar=opcoes?.forcarMapa===true || !mapaNavegacaoSaudavel();
+    const forcar=!mapa || contextoPerdido || !mapa.getCanvas?.()?.isConnected;
     if(forcar) reconstruirMapaNavegacao();
     else { try{mapa.resize();mapa.triggerRepaint?.();}catch(_){} garantirCamadas();desenharRota();atualizarFontesPontos(); }
+    mapa?.jumpTo?.({center:centroDaRota(), zoom:15, pitch:0, bearing:0});
     atualizarPainel(); atualizarBotaoFollow(); atualizarBotaoVoz();
     pararGPS(); iniciarGPS();
     if($('navGpsStatus'))$('navGpsStatus').textContent='Retorno ao Pacote É Mato · GPS retomado';
@@ -883,6 +914,14 @@
     $('navDeliveryNote')?.addEventListener('change',async()=>{const p=paradasPorOrdem().find(s=>String(s.id)===String(cartaoSelecionadoId))||proxima();if(!p||!rota)return;p.observacaoEntrega=String($('navDeliveryNote').value||'');await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});});
   }
 
+  if (global.ResizeObserver) {
+    const observar = () => {
+      const card = document.querySelector('.nav-maneuver-card');
+      if (card) new ResizeObserver(posicionarSobreposicoes).observe(card);
+    };
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', observar, {once:true}); else observar();
+  }
+  global.addEventListener('resize', posicionarSobreposicoes);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true}); else bind();
   global.PacoteEMatoNavegacao=Object.freeze({iniciar,recalcular,encerrar,pausar,abrirExterno,navegarPreferido,salvarStatusParadaAtual,finalizarRota,selecionarCartao,persistirSelecao,retomar});
 })(window);
