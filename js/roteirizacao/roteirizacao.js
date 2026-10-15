@@ -1849,6 +1849,8 @@
     $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
     $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
     $('routingRefineCloseBtn')?.addEventListener('click', () => { if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none'; });
+    const refinePanel = $('routingRefinePanel');
+    ['touchmove','wheel'].forEach(tipo => refinePanel?.addEventListener(tipo, event => event.stopPropagation(), { passive: true }));
     $('routingRefineAutoBtn')?.addEventListener('click', otimizarAutomaticamenteRefino);
     $('routingRefineInvertBtn')?.addEventListener('click', inverterRota);
     $('routingRefineDrawBtn')?.addEventListener('click', iniciarRefinoDesenho);

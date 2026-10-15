@@ -706,7 +706,7 @@
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V45</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V46</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -880,10 +880,6 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
             <span><strong>Adicionar parada</strong><small>Criar uma parada manualmente</small></span>
           </button>
-          <button id="routingGeocodeBtn" class="routing-action-row routing-service-action" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"></path><circle cx="12" cy="10" r="2"></circle></svg>
-            <span><strong>Validar endereços e posições</strong><small>Auditoria completa das coordenadas da planilha</small></span>
-          </button>
           <button id="routingOptimizeBtn" class="routing-action-row routing-service-action" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5zM14 14h5v5h-5zM8 14c2-5 5-3 8-7"></path></svg>
             <span><strong>Otimizar rota</strong><small>Calcular ordem e trajeto pelas ruas</small></span>
@@ -961,7 +957,7 @@
             <div><span class="module-kicker">ORGANIZAÇÃO</span><strong>Refinar rota</strong></div>
             <button id="routingRefineCloseBtn" class="routing-refine-close" type="button" aria-label="Fechar refinamento">×</button>
           </div>
-          <span class="routing-refine-copy">Escolha como reorganizar as paradas pendentes. Entregas já registradas e os IDs das paradas são preservados.</span>
+          <span class="routing-refine-copy">Escolha uma ação. Esta área rola sozinha e não movimenta a lista de endereços atrás dela.</span>
           <button id="routingRefineAutoBtn" class="routing-refine-action" type="button"><strong>Otimizar automaticamente</strong><small>Recalcular a melhor sequência pelo serviço real de roteirização.</small></button>
           <button id="routingRefineInvertBtn" class="routing-refine-action" type="button"><strong>Inverter ordem</strong><small>Inverter somente os espaços das paradas ainda pendentes.</small></button>
           <button id="routingRefineDrawBtn" class="routing-refine-action" type="button"><strong>Desenhar no mapa</strong><small>Contorne um grupo ou toque nas paradas uma a uma para reorganizá-las.</small></button>
@@ -1027,14 +1023,11 @@
               <button id="navActionNewRoute" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14M4 4h16v16H4z"></path></svg><span><strong>Nova rota</strong><small>Começar outra rota sem misturar com a atual</small></span></button>
               <button id="navActionClearRoutes" class="routing-action-row danger" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V5h6v2M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"></path></svg><span><strong>Remover todas as rotas</strong><small>Limpar as rotas carregadas do mapa</small></span></button>
               <button id="navActionAddStop" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span><strong>Adicionar parada</strong><small>Criar uma parada manualmente</small></span></button>
-              <button id="navActionValidate" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"></path><circle cx="12" cy="10" r="2"></circle></svg><span><strong>Validar endereços e posições</strong><small>Auditoria completa das coordenadas da planilha</small></span></button>
               <button id="navActionOptimize" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5zM14 14h5v5h-5zM8 14c2-5 5-3 8-7"></path></svg><span><strong>Otimizar rota</strong><small>Recalcular a ordem de todas as paradas</small></span></button>
-              <button id="navActionRefine" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M4 17h16M17 14v6"></path></svg><span><strong>Organizar paradas</strong><small>Ajustar a sequência usando o mapa</small></span></button>
               <button id="navActionBipagem" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5zM8 8h8v3H8zM8 14h3M14 14h2M8 17h8"></path></svg><span><strong>Bipagem</strong><small>Abrir a bipagem normal da rota</small></span></button>
               <button id="navActionExportPdf" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 14h6M9 17h5"></path></svg><span><strong>Exportar PDF</strong><small>Gerar uma cópia para conferência</small></span></button>
               <button id="navActionSettings" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 3.1h5l.4-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4L19 13a7 7 0 0 0 0-1Z"></path></svg><span><strong>Configurações</strong><small>Navegação, voz e preferências</small></span></button>
               <button id="navActionRecalculate" class="routing-action-row" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"></path></svg><span><strong>Recalcular trajeto</strong><small>Atualizar a linha da rota a partir da posição atual</small></span></button>
-              <button id="navActionExit" class="routing-action-row danger" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"></path></svg><span><strong>Sair da navegação</strong><small>Voltar mantendo a rota e o progresso salvos</small></span></button>
             </div>
           </section>
         </div>
@@ -1057,7 +1050,7 @@
         <div class="nav-delivery-actions"><button id="navNavigateBtn" class="pemato-secondary" type="button">Navegar</button><button id="navNotDeliveredBtn" class="pemato-danger" type="button">Não entregue</button><button id="navDeliveredBtn" class="pemato-primary" type="button">Entregue</button></div>
         <div id="navExtrasPanel" class="nav-extras-panel" style="display:none">
           <section class="nav-delivery-note"><label for="navDeliveryNote">Nota da entrega</label><textarea id="navDeliveryNote" class="pemato-field" rows="2" placeholder="Informações úteis desta parada"></textarea></section>
-          <div class="nav-secondary-actions"><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular rota</button><button id="navEndBtn" class="pemato-danger" type="button">Sair da navegação</button></div>
+          <div class="nav-secondary-actions nav-secondary-actions-single"><button id="navRecalculateBtn" class="pemato-secondary" type="button">Recalcular rota</button></div>
           <section class="nav-instructions-card"><h4>Próximas instruções</h4><div id="navInstructions"></div></section>
         </div>
       </aside>

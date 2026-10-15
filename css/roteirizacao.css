@@ -297,3 +297,25 @@
 .route-import-mode-actions .route-import-choice{width:100%;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
 .route-import-mode-actions .route-import-choice strong{color:inherit}
 .route-import-mode-actions .route-import-choice span{font-size:.72rem;opacity:.86;font-weight:650}
+
+
+/* V46 — refinamento isolado da lista: rolagem própria, sem arrastar os endereços atrás */
+.routing-refine-panel{
+  position:sticky!important;
+  bottom:0;
+  z-index:30;
+  max-height:min(60dvh,520px);
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch;
+  padding:14px!important;
+  border:1px solid #cfe7dc!important;
+  border-radius:20px!important;
+  background:#fff!important;
+  box-shadow:0 -10px 34px rgba(18,62,46,.14)!important;
+}
+.routing-refine-panel .routing-refine-head{position:sticky;top:-14px;z-index:2;background:#fff;padding:4px 0 10px;margin-bottom:4px;border-bottom:1px solid #e5f0eb}
+.routing-refine-action{min-height:72px!important;border-radius:15px!important;background:#fff!important;border:1px solid #dce9e3!important;box-shadow:none!important}
+.routing-refine-action:active{background:#eef9f4!important}
+.routing-refine-close{width:38px!important;height:38px!important;border-radius:12px!important;background:#f5faf7!important;border:1px solid #dce9e3!important;color:#17211d!important}

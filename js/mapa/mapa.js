@@ -101,9 +101,10 @@
     const lista = paradas().filter(coordenadaValida);
     const grupos = new Map();
 
-    // Uma parada = um marcador, mesmo quando as coordenadas são iguais.
+    // V46: paradas no mesmo endereço físico voltam a compartilhar um balão
+    // com a quantidade ao lado. O número exibido acompanha a parada consultada.
     lista.forEach(p => {
-      const key = String(p.id);
+      const key = chaveFisicaMarcador(p);
       if (!grupos.has(key)) grupos.set(key, []);
       grupos.get(key).push(p);
     });

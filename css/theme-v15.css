@@ -227,7 +227,7 @@ button{transition:background-color .16s ease,border-color .16s ease,box-shadow .
 button:active{transform:scale(.985)}
 
 
-/* V45 — limpeza visual, remoção definitiva do combustível e padronização dos menus */
+/* V46 — limpeza visual, remoção definitiva do combustível e padronização dos menus */
 #sidebarFuelBtn{display:none!important}
 body[data-pemato-module="roteirizacao"] .top-nav{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important}
 body[data-pemato-module="roteirizacao"] .top-nav .nav-btn{background:transparent!important;border-color:transparent!important;box-shadow:none!important;width:44px!important;height:44px!important;padding:0!important}
@@ -247,7 +247,7 @@ body[data-pemato-module="roteirizacao"] .top-nav .nav-btn span[aria-hidden="true
 #theme_black_Preto,#theme_gray{display:none!important}
 
 
-/* ===== V45 — acabamento visual + refinamento ===== */
+/* ===== V46 — acabamento visual + refinamento ===== */
 /* Ações destrutivas de menu ficam neutras; vermelho fica reservado a "Não entregue". */
 .routing-action-row.danger,.nav-route-actions-card>button.danger,#navActionClearRoutes,#navActionExit,#routingClearRoutesBtn,#navEndBtn{
   background:#fff!important;color:var(--pemato-ink)!important;border:1px solid transparent!important;box-shadow:none!important
@@ -310,3 +310,9 @@ body[data-pemato-module="configuracoes"] .segmented-btn.active{background:var(--
 .routing-action-list{gap:4px!important}.routing-action-row{min-height:64px!important;padding:11px 14px!important;border-radius:16px!important}
 .routing-action-row svg{color:#53665d!important}.routing-action-row strong{color:#18251f!important}.routing-action-row small{color:#87928d!important}
 .routing-action-row:hover svg,.routing-action-row:hover strong{color:var(--pemato-green-dark)!important}
+
+
+/* V46 — menus operacionais mais enxutos */
+.nav-secondary-actions-single{grid-template-columns:1fr!important}
+#routingActionsMenu .routing-action-row,#navRouteActionsBackdrop .routing-action-row{background:#fff!important;color:var(--pemato-ink)!important;border-color:transparent!important}
+#routingActionsMenu .routing-action-row:hover,#navRouteActionsBackdrop .routing-action-row:hover{background:var(--pemato-green-soft)!important;border-color:#cbe9da!important}

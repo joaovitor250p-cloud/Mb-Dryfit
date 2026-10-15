@@ -79,6 +79,9 @@
   function quantidadePacotesDaParada(p) {
     return global.PacoteEMatoMarcadores?.quantidadePacotesDaParada?.(p) || 1;
   }
+  function chaveFisicaMarcador(p) {
+    return global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || `id:${String(p?.id || '')}`;
+  }
 
   function deslocamentoMarcador(indice) {
     if (!indice) return [0,0];
@@ -465,7 +468,7 @@
     const grupos = new Map();
     ordenadas.forEach((stop, i) => {
       if (!coordenadaValida(stop.latitude, stop.longitude)) return;
-      const key = String(stop.id);
+      const key = chaveFisicaMarcador(stop);
       if (!grupos.has(key)) grupos.set(key, []);
       grupos.get(key).push({ stop, order: i + 1 });
     });
@@ -480,7 +483,10 @@
       // desliza e consulta a parada 5. Se ele concluir a 4 fora de ordem, a 2
       // continua pendente/branca e a 5 passa a ser a continuação verde.
       const idAtivo = String(p?.id || rota?.proximaParadaId || '');
-      const principal = grupoVisual[0];
+      const idConsultado = String(cartaoSelecionadoId || global.appState?.navegacao?.paradaExibidaId || '');
+      const consultada = grupo.find(item => String(item.stop?.id) === idConsultado);
+      const ativa = grupo.find(item => String(item.stop?.id) === idAtivo);
+      const principal = consultada || ativa || grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
