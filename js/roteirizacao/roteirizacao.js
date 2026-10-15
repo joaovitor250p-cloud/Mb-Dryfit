@@ -233,10 +233,26 @@
     notificar('Rota confirmada. Você pode iniciar a navegação ou abrir a Bipagem.');
   }
 
+  function abrirRefinoStandalone() {
+    atualizarBotoesRefino();
+    const backdrop = $('routingRefineBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function fecharRefinoStandalone() {
+    const backdrop = $('routingRefineBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }
+
   function alternarRefino() {
-    const panel = $('routingRefinePanel');
-    if (!panel) return;
-    panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
+    const backdrop = $('routingRefineBackdrop');
+    if (!backdrop) return;
+    if (backdrop.style.display === 'flex') fecharRefinoStandalone();
+    else abrirRefinoStandalone();
   }
 
 
@@ -358,6 +374,7 @@
   async function desfazerUltimoRefino() {
     if (!rotaAtual) return;
     const rollback = clone(rotaAtual);
+    fecharRefinoStandalone();
     fecharRevisaoOtimizacao();
     const historico = Array.isArray(rotaAtual.historicoRefino) ? [...rotaAtual.historicoRefino] : [];
     const ultimo = historico.pop();
@@ -365,7 +382,8 @@
     const ordemAntes = [...rotaAtual.ordem];
     rotaAtual.historicoRefino = historico;
     rotaAtual.ordem = ultimo.ordem.map(String);
-    const ok = await recalcularAposRefino('desfazer', 'Última alteração de ordem desfeita.', { abrirRevisao: true, rollback });
+    const ok = await recalcularAposRefino('desfazer', 'Última alteração de ordem desfeita.', { abrirRevisao: false, rollback });
+    if (ok) abrirRefinoStandalone();
     if (!ok) {
       rotaAtual.ordem = ordemAntes;
       rotaAtual.historicoRefino = [...historico, ultimo];
@@ -375,7 +393,7 @@
   async function otimizarAutomaticamenteRefino() {
     if (!rotaAtual) return;
     rotaAtual.preferenciaRota = 'short';
-    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none';
+    fecharRefinoStandalone();
     fecharRevisaoOtimizacao();
     await otimizarRota({ refinamento: true });
   }
@@ -394,6 +412,7 @@
     if (!rotaAtual?.geometria) return notificar('Calcule a rota antes de organizar pelo mapa.');
     const localizadasPendentes = rotaAtual.paradas.filter(p => !paradaFinalizada(p) && paradaLocalizada(p));
     if (!localizadasPendentes.length) return notificar('Não há paradas pendentes com coordenadas válidas para selecionar.');
+    fecharRefinoStandalone();
     fecharRevisaoOtimizacao();
     fecharMenuAcoes();
     estadoPainelAntesDesenho = estadoPainel;
@@ -411,7 +430,7 @@
     if ($('routingDrawToolbar')) $('routingDrawToolbar').style.display = 'none';
     if (estadoPainelAntesDesenho && opcoes?.restaurarPainel !== false) definirEstadoPainel(estadoPainelAntesDesenho);
     estadoPainelAntesDesenho = null;
-    if (opcoes?.reabrir !== false && rotaAtual?.geometria) abrirRevisaoOtimizacao();
+    if (opcoes?.reabrir !== false && rotaAtual?.geometria) abrirRefinoStandalone();
   }
 
   async function aplicarSelecaoDesenho(destino) {
@@ -433,7 +452,7 @@
     const ok = await aplicarOrdemRefinada(novaOrdem, `desenho_${destino}`, texto, { abrirRevisao: false });
     if (ok) {
       cancelarRefinoDesenho({ reabrir: false });
-      abrirRevisaoOtimizacao();
+      abrirRefinoStandalone();
     }
   }
 
@@ -1440,7 +1459,8 @@
       renderizarTudo({ fit: true });
       definirStatusImportacao('Rota calculada. Confira a sequência antes de iniciar.', 'success');
       esconderProcessamento();
-      abrirRevisaoOtimizacao();
+      if (opcoes?.refinamento) abrirRefinoStandalone();
+      else abrirRevisaoOtimizacao();
       if (!opcoes?.refinamento) notificar('Rota calculada. Confira a sequência e confirme.');
     } catch (erro) {
       console.error(erro);
@@ -1458,9 +1478,11 @@
     const pendentes = (rotaAtual.ordem || []).map(String).filter(id => !paradaFinalizada(byId.get(id)));
     if (pendentes.length < 2) return notificar('Não há paradas pendentes suficientes para inverter.');
     if (rotaAtual.iniciadoEm && !(await global.PacoteEMatoDialog.confirmar({titulo:'Inverter paradas pendentes?',mensagem:'As entregas já registradas serão preservadas. Apenas as paradas que ainda estão pendentes terão a ordem invertida.',confirmar:'Inverter pendentes',cancelar:'Cancelar'}))) return;
+    fecharRefinoStandalone();
     fecharRevisaoOtimizacao();
     const novaOrdem = reconstruirComPendentes([...pendentes].reverse());
-    await aplicarOrdemRefinada(novaOrdem, 'inverter', 'Ordem das paradas pendentes invertida.', { abrirRevisao: true });
+    const ok = await aplicarOrdemRefinada(novaOrdem, 'inverter', 'Ordem das paradas pendentes invertida.', { abrirRevisao: false });
+    if (ok) abrirRefinoStandalone();
   }
 
 
@@ -1830,7 +1852,7 @@
     $('routingMapSettingsBtn')?.addEventListener('click', () => global.PacoteEMatoAppShell?.abrirModulo?.('configuracoes'));
     $('routingGeocodeBtn')?.addEventListener('click', () => { fecharMenuAcoes(); geocodificarTodas(); });
     $('routingOptimizeBtn')?.addEventListener('click', () => { fecharMenuAcoes(); otimizarRota(); });
-    $('routingRefineMenuBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirRevisaoOtimizacao(); setTimeout(() => alternarRefino(), 90); });
+    $('routingRefineMenuBtn')?.addEventListener('click', () => { fecharMenuAcoes(); abrirRefinoStandalone(); });
     $('routingMainOptimizeBtn')?.addEventListener('click', otimizarRota);
     $('routingInvertBtn')?.addEventListener('click', () => { fecharMenuAcoes(); inverterRota(); });
     $('routingExportPdfBtn')?.addEventListener('click', () => { fecharMenuAcoes(); exportarPdf(); });
@@ -1846,6 +1868,7 @@
     $('routingBipagemCurrentRouteBtn')?.addEventListener('click', abrirBipagemDaRota);
     $('routingBipagemPdfBtn')?.addEventListener('click', abrirBipagemPdf);
     $('routingReviewCloseBtn')?.addEventListener('click', fecharRevisaoOtimizacao);
+    $('routingRefineBackdrop')?.addEventListener('click', event => { if (event.target === $('routingRefineBackdrop')) fecharRefinoStandalone(); });
     $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
     $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
     $('routingRefineCloseBtn')?.addEventListener('click', () => { if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none'; });

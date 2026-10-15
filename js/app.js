@@ -2969,11 +2969,14 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
       document.getElementById('contadorTodos').innerText = totalTodosCount;
       document.getElementById('contadorDuplos').innerText = totalPacotesMultiplos;
+      const contagemTopo = document.getElementById('rotaModalContagem');
+      if (contagemTopo) contagemTopo.textContent = `${totalTodosCount} paradas • ${Array.from(todosPacotes || []).length} pacotes`;
 
       const resumo = document.getElementById('resumoMultiplosRota');
       if (resumo) {
+        const totalPacotesRota = Array.from(todosPacotes || []).length;
         resumo.innerText =
-          `${totalParadasMultiplas} parada(s) com múltiplos pacotes • ${totalPacotesMultiplos} pacote(s) nessas paradas`;
+          `${totalTodosCount} paradas • ${totalPacotesRota} pacotes • ${totalParadasMultiplas} múltiplas (${totalPacotesMultiplos} pacotes)`;
       }
 
       if (listaCards.length === 0) {
@@ -3176,6 +3179,9 @@ document.getElementById('cardRetomarRota').style.display = 'none';
         .replace(/\bestrada\b/g, ' est ')
         .replace(/\brodovia\b/g, ' rod ')
         .replace(/\bpraca\b/g, ' pca ')
+        .replace(/\blargo\b/g, ' lg ')
+        .replace(/\bviela\b/g, ' vl ')
+        .replace(/\bpassagem\b/g, ' psg ')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -3205,7 +3211,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       const numeroEnderecoPattern = '(\\d{1,6}|s\\s*\\/?\\s*n|sem\\s+numero)';
 
       let m = t.match(
-        new RegExp('(?:^|\\s)(?:r|av|al|tv|est|rod|pca)\\s+(.+?)\\s*,\\s*' + numeroEnderecoPattern + '(.*)$', 'i')
+        new RegExp('(?:^|\\s)(?:r|av|al|tv|est|rod|pca|lg|vl|psg)\\s+(.+?)\\s*,\\s*' + numeroEnderecoPattern + '(.*)$', 'i')
       );
 
       if (!m) {
@@ -3217,7 +3223,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       if (!m) return null;
 
       let ruaBruta = m[1]
-        .replace(/^(?:r|av|al|tv|est|rod|pca)\s+/i, '')
+        .replace(/^(?:r|av|al|tv|est|rod|pca|lg|vl|psg)\s+/i, '')
         .replace(/[.,\-_/]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -3289,7 +3295,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       const limpo = removerAcentosEndereco(String(texto)).toLowerCase();
 
       return (
-        /(?:\brua\b|\br\.?\s|\bavenida\b|\bav\.?\s|\balameda\b|\btravessa\b|\bestrada\b|\brodovia\b).+?,\s*\d{1,6}\b/i.test(limpo) ||
+        /(?:\brua\b|\br\.?\s|\bavenida\b|\bav\.?\s|\balameda\b|\btravessa\b|\bestrada\b|\brodovia\b|\bpraca\b|\bpraça\b|\blargo\b|\bviela\b|\bpassagem\b).+?,\s*\d{1,6}\b/i.test(limpo) ||
         /^\s*\d{1,3}\s+.+?,\s*\d{1,6}\b/i.test(limpo)
       );
     }
@@ -3329,6 +3335,93 @@ document.getElementById('cardRetomarRota').style.display = 'none';
       return m ? parseInt(m[1], 10) : fallback;
     }
 
+
+    // V50 - leitor universal de PDFs de rota (Spoke, Circuit e layouts semelhantes).
+    // Não depende da coluna #. A fonte de verdade passa a ser a associação visual/textual
+    // entre um código de pacote e um endereço próximo na tabela.
+    function extrairRegistrosPdfUniversal(linhas) {
+      const lista = (Array.isArray(linhas) ? linhas : [])
+        .map((linha, indice) => ({ indice, texto: String(linha || '').replace(/\s+/g, ' ').trim() }))
+        .filter(item => item.texto);
+
+      const cabecalho = /^(#|address|endereco|endereço|notes?|notas?|estimated arrival|time|tempo|powered by|route|rota)$/i;
+      const usados = new Set();
+      const registros = [];
+      let sequencia = 0;
+
+      function codigosDaLinha(texto) {
+        return [...new Set((String(texto || '').match(/BR[A-Za-z0-9]{8,25}/gi) || []).map(c => c.toUpperCase()))];
+      }
+
+      function limparCandidatoEndereco(texto) {
+        let t = String(texto || '').replace(/\s+/g, ' ').trim();
+        if (!t) return '';
+        // Remove cabeçalhos/labels que alguns exportadores colocam na mesma linha.
+        t = t.replace(/^\s*(?:#\s*)?(?:address|endereco|endereço)\s*[:\-]?\s*/i, '');
+        // Remove códigos e tudo que claramente pertence a Notes depois deles.
+        t = t.replace(/\s+BR[A-Za-z0-9]{8,25}[;,:]?\s*.*$/i, '');
+        // Remove prefixos de parada do Circuit/Spoke quando existirem.
+        t = t.replace(/^\s*(?:stop|parada)\s*#?\s*\d{1,4}\s*[:\-]?\s*/i, '');
+        t = t.replace(/^\s*\d{1,4}\s+(?=(?:Rua|R\.?|Avenida|Av\.?|Alameda|Travessa|Estrada|Rodovia|Pra[cç]a|Largo|Viela|Passagem)\b)/i, '');
+        // Remove horários/ETAs no fim.
+        t = t.replace(/\s+\d{1,2}:\d{2}(?:\s*(?:AM|PM))?\s*$/i, '');
+        return t.trim().replace(/[|]+$/g, '').trim();
+      }
+
+      function enderecoValido(texto) {
+        const limpo = limparCandidatoEndereco(texto);
+        return limpo && !!decomporEnderecorota(limpo);
+      }
+
+      lista.forEach((item, pos) => {
+        const codigos = codigosDaLinha(item.texto);
+        if (!codigos.length) return;
+
+        // 1) Preferência: endereço está na própria linha (Spoke clássico).
+        let candidato = limparCandidatoEndereco(item.texto);
+
+        // 2) Se Notes/código saiu em outra linha no PDF.js, procura linhas vizinhas.
+        if (!enderecoValido(candidato)) {
+          const offsets = [-1, 1, -2, 2, -3, 3, -4, 4];
+          let melhor = '';
+          for (const off of offsets) {
+            const vizinho = lista[pos + off];
+            if (!vizinho || cabecalho.test(vizinho.texto)) continue;
+            // Não rouba endereço de outra linha que já tenha outro pacote.
+            const outrosCodigos = codigosDaLinha(vizinho.texto);
+            if (outrosCodigos.length && vizinho.indice !== item.indice) continue;
+            const possivel = limparCandidatoEndereco(vizinho.texto);
+            if (enderecoValido(possivel)) { melhor = possivel; break; }
+          }
+          candidato = melhor;
+        }
+
+        if (!enderecoValido(candidato)) return;
+
+        const novosCodigos = codigos.filter(codigo => !usados.has(codigo));
+        if (!novosCodigos.length) return;
+        novosCodigos.forEach(codigo => usados.add(codigo));
+
+        // Se a linha trouxer um número de parada explícito, preserva. Caso contrário,
+        // cria sequência 1..N na ordem visual do PDF (caso do Spoke enviado pelo usuário).
+        let numero = null;
+        const n1 = item.texto.match(/^\s*(\d{1,4})\s+(?=(?:Rua|R\.?|Avenida|Av\.?|Alameda|Travessa|Estrada|Rodovia|Pra[cç]a|Largo|Viela|Passagem)\b)/i);
+        const n2 = item.texto.match(/\b(?:stop|parada)\s*#?\s*(\d{1,4})\b/i);
+        if (n1 || n2) numero = Number((n1 || n2)[1]);
+        if (!Number.isFinite(numero) || numero <= 0) numero = ++sequencia;
+        else sequencia = Math.max(sequencia, numero);
+
+        registros.push({
+          numeroParada: numero,
+          endereco: candidato,
+          codigos: novosCodigos,
+          pagina: 0,
+          origemLeitura: 'universal'
+        });
+      });
+
+      return registros;
+    }
 
     function abrirTelaCarregamentoPdf(nomeArquivo) {
       const tela = document.getElementById('pdfLoadingScreen');
@@ -3681,6 +3774,20 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           }
 
           if (!processado) {
+            // V50: antes do leitor legado, tenta o leitor universal que não exige
+            // numeração na coluna # (Spoke/Circuit e outros exports tabulares).
+            try {
+              const universais = extrairRegistrosPdfUniversal(linhasFallbackPdf);
+              if (universais.length) {
+                processarRegistrosrota(universais, file.name);
+                processado = todosPacotes && todosPacotes.size > 0;
+              }
+            } catch (erroUniversal) {
+              console.warn('Leitor universal não concluiu este PDF. Tentando compatibilidade legada:', erroUniversal);
+            }
+          }
+
+          if (!processado) {
             processarLinhasExatas(linhasFallbackPdf, file.name);
             processado = todosPacotes && todosPacotes.size > 0;
           }
@@ -3730,7 +3837,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
               'Encontramos uma informação de endereço que não pôde ser validada. A rota não foi liberada.';
           } else if (msg.includes('NENHUM_PACOTE_VALIDO')) {
             mensagemErro =
-              'Nenhum pacote válido foi encontrado neste PDF. Confira se escolheu a rota correta.';
+              'Nenhum código de pacote reconhecível foi encontrado neste PDF. Se for um PDF escaneado como imagem, exporte-o com texto pesquisável ou use o arquivo original do sistema de rotas.';
           }
 
           document.getElementById('btnUploadTxt').innerHTML =

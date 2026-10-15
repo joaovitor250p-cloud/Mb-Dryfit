@@ -454,7 +454,7 @@
   <div id="modalVisualizarRota" class="modal-backdrop">
     <div class="modal-card" style="max-width:420px; text-align:left;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="color:var(--primary); font-weight:800; font-size:1.05rem;"> Paradas & Endereços</h3>
+        <div><h3 style="color:var(--primary); font-weight:800; font-size:1.05rem;margin:0;">Paradas & Endereços</h3><div id="rotaModalContagem" style="margin-top:4px;font-size:.68rem;color:var(--text-muted);font-weight:800;">0 paradas • 0 pacotes</div></div>
         <span onclick="fecharModalRota()" style="cursor:pointer; color:var(--text-muted); font-weight:bold;"></span>
       </div>
       
@@ -707,7 +707,7 @@
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V48</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V50</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -954,20 +954,23 @@
           <strong id="routingReviewStart">—</strong>
         </div>
         <div class="routing-review-list" id="routingReviewStopsList"></div>
-        <div id="routingRefinePanel" class="routing-refine-panel" style="display:none">
-          <div class="routing-refine-head">
-            <div><span class="module-kicker">ORGANIZAÇÃO</span><strong>Refinar rota</strong></div>
-            <button id="routingRefineCloseBtn" class="routing-refine-close" type="button" aria-label="Fechar refinamento">×</button>
-          </div>
-          <span class="routing-refine-copy">Escolha uma ação. Esta área rola sozinha e não movimenta a lista de endereços atrás dela.</span>
-          <button id="routingRefineAutoBtn" class="routing-refine-action" type="button"><strong>Otimizar automaticamente</strong><small>Recalcular a melhor sequência pelo serviço real de roteirização.</small></button>
-          <button id="routingRefineInvertBtn" class="routing-refine-action" type="button"><strong>Inverter ordem</strong><small>Inverter somente os espaços das paradas ainda pendentes.</small></button>
-          <button id="routingRefineDrawBtn" class="routing-refine-action" type="button"><strong>Desenhar no mapa</strong><small>Contorne um grupo ou toque nas paradas uma a uma para reorganizá-las.</small></button>
-          <button id="routingRefineUndoBtn" class="routing-refine-action routing-refine-undo" type="button"><strong>Desfazer última alteração</strong><small>Voltar à ordem anterior ao último refinamento manual.</small></button>
-        </div>
         <div class="routing-review-actions">
           <button id="routingReviewConfirmBtn" class="pemato-primary" type="button">Confirmar rota</button>
         </div>
+      </section>
+    </div>
+
+    <div id="routingRefineBackdrop" class="modal-backdrop routing-refine-backdrop" style="display:none;z-index:12360">
+      <section id="routingRefinePanel" class="routing-refine-panel routing-refine-standalone" role="dialog" aria-modal="true" aria-labelledby="routingRefineTitle">
+        <div class="routing-refine-head">
+          <div><span class="module-kicker">ORGANIZAÇÃO</span><strong id="routingRefineTitle">Refinar rota</strong></div>
+          <button id="routingRefineCloseBtn" class="routing-refine-close" type="button" aria-label="Fechar refinamento">×</button>
+        </div>
+        <span class="routing-refine-copy">Escolha apenas como deseja reorganizar as paradas pendentes.</span>
+        <button id="routingRefineAutoBtn" class="routing-refine-action" type="button"><strong>Otimizar automaticamente</strong><small>Recalcular a melhor sequência pelo serviço real de roteirização.</small></button>
+        <button id="routingRefineInvertBtn" class="routing-refine-action" type="button"><strong>Inverter ordem</strong><small>Fazer a última parada pendente virar a primeira e inverter a sequência restante.</small></button>
+        <button id="routingRefineDrawBtn" class="routing-refine-action" type="button"><strong>Desenhar no mapa</strong><small>Selecionar no mapa quais paradas devem vir primeiro ou por último.</small></button>
+        <button id="routingRefineUndoBtn" class="routing-refine-action routing-refine-undo" type="button"><strong>Desfazer última alteração</strong><small>Voltar à ordem anterior ao último refinamento manual.</small></button>
       </section>
     </div>
   </main>
@@ -1444,9 +1447,9 @@
   <script src="js/exportacao/pdf-rota.js?v=20261015-v43"></script>
   <script src="js/roteirizacao/roteirizacao.js?v=20261015-v43"></script>
   <script src="js/historico/historico-rotas.js?v=20261015-v43"></script>
-  <script src="js/bipagem/bipagem-area.js?v=20261015-v48"></script>
-  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v48"></script>
-  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v48"></script>
+  <script src="js/bipagem/bipagem-area.js?v=20261015-v50"></script>
+  <script src="js/bipagem/rota-ativa-bridge.js?v=20261015-v50"></script>
+  <script src="js/bipagem/operacoes-pacotes.js?v=20261015-v50"></script>
   <script src="js/navegacao/navegacao.js?v=20261015-v43"></script>
   <script src="js/ui/app-shell.js?v=20261015-v43"></script>
 
