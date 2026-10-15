@@ -1,3 +1,13 @@
+
+## V33 — Combustível perto de mim (15/10/2026)
+
+- Postos próximos no mapa em camada independente da rota.
+- Distância, identificação de bandeira e preços quando disponibilizados pela fonte pública.
+- Abertura do posto no Waze e Google Maps.
+- Consulta pública OpenStreetMap/Overpass com fallback de serviço.
+
+Consulte `RELATORIO-V33-COMBUSTIVEL.md` para detalhes.
+
 # Pacote É Mato
 
 Aplicativo web/PWA de logística com Roteirização, Navegação, Bipagem e Histórico compartilhando uma única Rota Ativa.
