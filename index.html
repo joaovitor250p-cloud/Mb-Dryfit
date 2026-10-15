@@ -707,7 +707,7 @@
       <button type="button" data-pemato-nav="configuracoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><strong>Configurações</strong><small>Veículo e navegação</small></span><span class="sidebar-arrow">›</span></button>
       <button type="button" data-pemato-nav="historico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 5v5h5M12 7v5l3 2"/></svg><span><strong>Histórico de rotas</strong><small>Consulte suas entregas</small></span><span class="sidebar-arrow">›</span></button>
     </nav>
-    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V51</div></footer>
+    <footer class="sidebar-footer"><a class="sidebar-support" href="https://wa.me/5511990059547?text=Ol%C3%A1%2C+preciso+de+suporte+no+app+Pacote+%C3%89+Mato">Precisa de ajuda? <strong>Fale com o suporte ↗</strong></a><button onclick="sairDoApp()" class="sidebar-signout" type="button">Desconectar conta</button><div class="sidebar-version">PACOTE É MATO · V52</div></footer>
   </aside>
 
   <main id="moduloInicio" class="pemato-module" style="display:none" aria-hidden="true"></main>
@@ -1107,30 +1107,6 @@
         <label for="settingsStopMinutes">Tempo médio por parada (minutos)</label>
         <input id="settingsStopMinutes" class="pemato-field" type="number" min="0" max="180" step="1" value="0">
         <label class="settings-check"><input id="settingsReturnStart" type="checkbox"> Retornar ao ponto inicial ao finalizar a rota</label>
-      </section>
-
-      <section class="settings-card settings-card-wide">
-        <div class="settings-card-head"><strong>Ponto de partida</strong><span>Use um endereço validado ou a localização atual</span></div>
-        <label for="settingsStartPoint">Endereço de partida</label>
-        <div class="settings-start-row">
-          <input id="settingsStartPoint" class="pemato-field" type="text" placeholder="Ex.: Rua Exemplo, 100, São Paulo - SP">
-          <button id="settingsGeocodeStartBtn" class="pemato-secondary" type="button">Validar endereço</button>
-          <button id="settingsUseGpsStartBtn" class="pemato-secondary" type="button">Usar minha localização</button>
-          <button id="settingsClearStartBtn" class="pemato-tertiary" type="button">Limpar</button>
-        </div>
-        <div id="settingsStartStatus" class="settings-inline-status">Nenhum ponto validado.</div>
-      </section>
-
-
-
-      <section class="settings-card settings-card-wide">
-        <div class="settings-card-head"><strong>Serviço de rotas</strong><span>Configure somente depois de publicar o Worker seguro</span></div>
-        <label for="settingsWorkerUrl">URL pública do Worker</label>
-        <div class="settings-start-row">
-          <input id="settingsWorkerUrl" class="pemato-field" type="url" placeholder="https://seu-worker.workers.dev">
-          <button id="settingsWorkerTestBtn" class="pemato-secondary" type="button">Testar conexão</button>
-        </div>
-        <div id="settingsWorkerStatus" class="settings-inline-status">Nenhum Worker configurado. Importação e conferência continuam funcionando localmente.</div>
       </section>
 
       <section class="settings-card">

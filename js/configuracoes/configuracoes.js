@@ -28,6 +28,9 @@
         cfg.tempoParadaSegundos = 0;
         cfg.tempoParadaPersonalizado = false;
       }
+      // V52: ponto de partida deixou de ser preferência do usuário.
+      // A roteirização atualiza a origem pelo GPS no momento de otimizar.
+      cfg.pontoInicial = null;
       return cfg;
     } catch (_) { return Object.assign({}, DEFAULTS); }
   }
@@ -69,23 +72,6 @@
     if ($('settingsVehicle')) $('settingsVehicle').value = cfg.veiculo;
     if ($('settingsStopMinutes')) $('settingsStopMinutes').value = String(Math.round(Number(cfg.tempoParadaSegundos || 0) / 60));
     if ($('settingsReturnStart')) $('settingsReturnStart').checked = cfg.retornarAoInicio === true;
-
-    const point = $('settingsStartPoint');
-    if (point && document.activeElement !== point) point.value = descricaoPonto(cfg.pontoInicial);
-    if (pontoValido(cfg.pontoInicial)) {
-      status($('settingsStartStatus'), `Ponto validado: ${descricaoPonto(cfg.pontoInicial) || 'coordenada salva'}`, 'ok');
-    } else {
-      status($('settingsStartStatus'), 'Nenhum ponto de partida validado.', 'warning');
-    }
-
-    const worker = global.PacoteEMatoMapaConfig?.obterWorkerBaseUrl?.() || String(global.PEMATO_MAP_CONFIG?.workerBaseUrl || '');
-    if ($('settingsWorkerUrl') && document.activeElement !== $('settingsWorkerUrl')) $('settingsWorkerUrl').value = worker;
-    if (!worker && $('settingsGeocodeStartBtn')) {
-      $('settingsGeocodeStartBtn').style.display = 'none';
-      status($('settingsStartStatus'), 'Use sua localização atual. A validação de endereço dependerá do serviço externo em uma etapa futura.', 'warning');
-    } else if ($('settingsGeocodeStartBtn')) {
-      $('settingsGeocodeStartBtn').style.display = '';
-    }
   }
 
   async function validarEnderecoPartida() {
@@ -170,19 +156,8 @@
     const veiculo = $('settingsVehicle')?.value || 'carro';
     const tempoParadaSegundos = Math.max(0, Number($('settingsStopMinutes')?.value || 0) * 60);
     const retornarAoInicio = $('settingsReturnStart')?.checked === true;
-    const textoPonto = String($('settingsStartPoint')?.value || '').trim();
-    let pontoInicial = atual.pontoInicial;
 
-    if (textoPonto !== descricaoPonto(atual.pontoInicial)) {
-      // Um texto alterado nunca herda as coordenadas anteriores.
-      pontoInicial = null;
-      if (textoPonto) status($('settingsStartStatus'), 'Endereço alterado. Valide o endereço ou use sua localização antes de otimizar.', 'warning');
-    }
-
-    const workerField = $('settingsWorkerUrl');
-    if (workerField) global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.(String(workerField.value || '').trim());
-
-    const cfg = salvar({ navegacao, veiculo, tempoParadaSegundos, tempoParadaPersonalizado: opcoes?.tempoParadaAlterado === true ? true : atual.tempoParadaPersonalizado === true, retornarAoInicio, pontoInicial });
+    const cfg = salvar({ navegacao, veiculo, tempoParadaSegundos, tempoParadaPersonalizado: opcoes?.tempoParadaAlterado === true ? true : atual.tempoParadaPersonalizado === true, retornarAoInicio, pontoInicial: null });
     const hint = $('settingsAutosaveStatus');
     if (hint) {
       hint.textContent = 'Alterações salvas automaticamente.';
@@ -200,22 +175,11 @@
   }
 
   function bind() {
-    // Compatibilidade com versões anteriores: o botão pode existir, mas não é mais necessário.
     $('settingsSaveBtn')?.addEventListener('click', () => salvarFormulario({ notificar: true }));
-    $('settingsGeocodeStartBtn')?.addEventListener('click', validarEnderecoPartida);
-    $('settingsUseGpsStartBtn')?.addEventListener('click', usarGpsPartida);
-    $('settingsClearStartBtn')?.addEventListener('click', limparPonto);
-    $('settingsWorkerTestBtn')?.addEventListener('click', testarWorker);
-
     ['settingsNavigation', 'settingsVehicle', 'settingsReturnStart'].forEach(id => {
       $(id)?.addEventListener('change', () => salvarFormulario({ notificar: false }));
     });
     $('settingsStopMinutes')?.addEventListener('input', () => { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => salvarFormulario({ notificar: false, tempoParadaAlterado: true }), 350); });
-    $('settingsStartPoint')?.addEventListener('input', () => agendarAutoSave(500));
-    $('settingsWorkerUrl')?.addEventListener('change', () => {
-      global.PacoteEMatoMapaConfig?.configurarWorkerBaseUrl?.($('settingsWorkerUrl')?.value || '');
-      salvarFormulario({ notificar: false });
-    });
 
     renderizar();
     const hint = $('settingsAutosaveStatus');

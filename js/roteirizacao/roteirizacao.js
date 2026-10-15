@@ -169,9 +169,6 @@
 
   async function garantirPontoInicialParaOtimizacao() {
     const atual = rotaAtual?.pontoInicial;
-    const precisaGps = !pontoValido(atual) || String(atual?.tipo || '') === 'gps';
-    if (!precisaGps) return atual;
-
     atualizarProcessamento('Obtendo ponto de partida', 'Atualizando sua posição antes de calcular a rota.');
     try {
       const local = await global.PacoteEMatoLocalizacaoAtual?.obter?.({ forcar: true });
@@ -189,8 +186,9 @@
       }
     } catch (_) {}
 
+    // Contingência: uma rota já carregada pode manter a última origem válida.
     if (pontoValido(atual)) return atual;
-    throw new Error('Não foi possível obter sua localização. Defina um ponto de partida nas Configurações e tente novamente.');
+    throw new Error('Não foi possível obter sua localização. Ative a permissão de localização e tente novamente.');
   }
 
   function preencherRevisaoOtimizacao() {
