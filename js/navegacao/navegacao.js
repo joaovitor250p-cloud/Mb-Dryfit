@@ -454,13 +454,12 @@
       grupo.sort((a,b) => a.order - b.order);
       const ativos = grupo.filter(item => !['entregue','concluida','nao_entregue'].includes(String(item.stop?.statusEntrega || '')));
       const grupoVisual = ativos.length ? ativos : grupo;
-      // V40: o marcador verde acompanha exatamente a parada que o motorista
-      // selecionou/está vendo. Tocar um balão ou deslizar o card muda somente
-      // a seleção visual. Ao concluir a parada selecionada, o card avança e o
-      // próximo balão passa a verde automaticamente.
-      const idExibido = String(cartaoSelecionadoId || p?.id || rota?.proximaParadaId || '');
-      const exibidaNoGrupo = grupo.find(item => String(item.stop?.id || '') === idExibido);
-      const principal = exibidaNoGrupo || grupoVisual[0];
+      // V41: o verde pertence à continuidade da corrida, não ao card aberto.
+      // Ex.: se a 28 foi concluída, a 29 continua verde mesmo quando o motorista
+      // desliza e consulta a parada 5. Se ele concluir a 4 fora de ordem, a 2
+      // continua pendente/branca e a 5 passa a ser a continuação verde.
+      const idAtivo = String(p?.id || rota?.proximaParadaId || '');
+      const principal = grupoVisual[0];
       const stop = principal.stop;
       const multi = grupoVisual.reduce((total,item) => total + quantidadePacotesDaParada(item.stop), 0);
       const lat = Number(stop.latitude), lon = Number(stop.longitude);
@@ -468,7 +467,7 @@
       // real da parada e não muda de posição ao selecionar, entregar ou recalcular.
       const stackIndex = 0;
       const ids = grupo.map(item => String(item.stop.id));
-      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:[0,0],status:stop.statusEntrega||'pendente',current:ids.includes(idExibido)},geometry:{type:'Point',coordinates:[lon,lat]}});
+      features.push({type:'Feature',properties:{id:String(stop.id),ids:ids.join(','),order:principal.order,multi,stackIndex,markerOffset:[0,0],status:stop.statusEntrega||'pendente',current:ids.includes(idAtivo)},geometry:{type:'Point',coordinates:[lon,lat]}});
     });
     prepararIconesParadasV12(features);
     const assinatura = features.map(f => {
@@ -626,7 +625,14 @@
     const add = valor => {
       const texto = String(valor || '').trim();
       if (!texto) return;
-      if (!itens.some(v => v.toLocaleLowerCase('pt-BR') === texto.toLocaleLowerCase('pt-BR'))) itens.push(texto);
+      const norm = texto.toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');
+      // Evita repetir um pedaço de uma observação maior. Ex.: se já temos
+      // "T3 ROMA APTO 402", não adiciona novamente apenas "APTO 402".
+      if (itens.some(v => {
+        const atual = String(v || '').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');
+        return atual === norm || atual.includes(norm) || norm.includes(atual);
+      })) return;
+      itens.push(texto);
     };
 
     // Campo de observação da planilha é sempre prioritário.

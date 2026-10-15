@@ -193,6 +193,25 @@
     return numeroFinal ? numeroFinal[1] : '';
   }
 
+  // V41: no arquivo SPX usado na operação, a observação não vem em uma
+  // coluna própria. Ela vem depois do número dentro de "Destination Address":
+  // "Rua X, 123, Pode jogar na garagem" ou "Rua Y, 145, T3 ROMA APTO 402".
+  // Mantemos o endereço original intacto para geocodificação/exibição e copiamos
+  // apenas o trecho posterior ao número para o campo de observação do card.
+  function inferirObservacaoDoEndereco(endereco, numero) {
+    const texto = String(endereco || '').replace(/\s+/g, ' ').trim();
+    if (!texto) return '';
+    const n = String(numero || '').trim();
+    if (n) {
+      const seguro = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`,\\s*${seguro}\\s*,\\s*(.+)$`, 'i');
+      const m = texto.match(re);
+      if (m && String(m[1] || '').trim()) return String(m[1]).trim().replace(/^[,;\s-]+|[,;\s-]+$/g, '');
+    }
+    const m = texto.match(/,\s*\d+[A-Za-z]?(?:[-\/]\d+[A-Za-z]?)?\s*,\s*(.+)$/i);
+    return m ? String(m[1] || '').trim().replace(/^[,;\s-]+|[,;\s-]+$/g, '') : '';
+  }
+
   function montarEndereco(campos) {
     const enderecoCompleto = String(campos.endereco || '').trim();
     let base = enderecoCompleto;
@@ -260,6 +279,7 @@
         longitude: valor(row, columns, 'longitude')
       };
       if (!campos.numero && campos.endereco) campos.numero = inferirNumeroEndereco(campos.endereco);
+      if (!campos.observacao && campos.endereco) campos.observacao = inferirObservacaoDoEndereco(campos.endereco, campos.numero);
       const enderecoOriginal = montarEndereco(campos);
       if (!enderecoOriginal) {
         erros.push({ linha: i + 1, motivo: 'Endereço vazio' });
