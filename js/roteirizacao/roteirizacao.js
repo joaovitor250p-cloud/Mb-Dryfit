@@ -1061,6 +1061,17 @@
       rotaAtual = candidata;
     }
     modoImportacaoAtual = 'substituir';
+    // V42: toda importação volta o foco operacional para a parada 1.
+    // Evita restaurar uma seleção antiga/aleatória de uma sessão anterior.
+    const primeiraImportada = Array.isArray(rotaAtual.ordem) && rotaAtual.ordem.length
+      ? String(rotaAtual.ordem[0])
+      : (rotaAtual.paradas?.[0]?.id ? String(rotaAtual.paradas[0].id) : null);
+    rotaAtual.paradaSelecionadaId = primeiraImportada;
+    rotaAtual.proximaParadaId = primeiraImportada;
+    if (global.appState?.roteirizacao) {
+      global.appState.roteirizacao.paradaSelecionadaId = primeiraImportada;
+      global.appState.roteirizacao.proximaParadaId = primeiraImportada;
+    }
     await global.PacoteEMatoRotaStore.salvarRota(rotaAtual, { ativa: true });
     global.PacoteEMatoFluxoImportacao?.fechar?.();
     renderizarTudo({ fit: true });

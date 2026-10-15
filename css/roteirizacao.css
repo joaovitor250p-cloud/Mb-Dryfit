@@ -291,3 +291,9 @@
 /* V24 — antes da otimização, a rota ainda não possui numeração oficial. */
 .routing-stop-card.is-unordered{grid-template-columns:minmax(0,1fr)}
 .routing-selected-stop.is-unordered{grid-template-columns:minmax(0,1fr) auto}
+
+
+/* V42 — as duas escolhas de importação têm a mesma hierarquia visual. */
+.route-import-mode-actions .route-import-choice{width:100%;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.route-import-mode-actions .route-import-choice strong{color:inherit}
+.route-import-mode-actions .route-import-choice span{font-size:.72rem;opacity:.86;font-weight:650}

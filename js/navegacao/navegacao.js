@@ -108,6 +108,17 @@
     return ['entregue', 'concluida', 'nao_entregue'].includes(String(p?.statusEntrega || ''));
   }
 
+  function animarCardParada(direcao) {
+    const card = $('navStopCard');
+    if (!card) return;
+    card.classList.remove('nav-card-shift-left','nav-card-shift-right','nav-card-pulse');
+    void card.offsetWidth;
+    const classe = direcao === 'left' ? 'nav-card-shift-left' : direcao === 'right' ? 'nav-card-shift-right' : 'nav-card-pulse';
+    card.classList.add(classe);
+    global.setTimeout(() => card.classList.remove(classe), 280);
+  }
+
+
   // V39: a parada verde é o ponto de continuidade da corrida, não necessariamente
   // a primeira pendente da lista. Se o motorista estiver na 2, abrir a 4 e concluir
   // a 4, a 2 continua pendente/branca e a 5 passa a ser a parada ativa/verde.
@@ -202,6 +213,7 @@
     if(!id)return;
     cartaoSelecionadoId=id;
     definirAcompanhamento(false);
+    animarCardParada('pulse');
     atualizarPainel();
     atualizarFontesPontos();
     persistirSelecao({motivo:'selecionar_marcador_mapa'});
@@ -795,7 +807,7 @@
     const anterior=lista[indice];
     if(anterior && $('navDeliveryNote')) anterior.observacaoEntrega=String($('navDeliveryNote').value||'').trim();
     const alvo=lista[Math.max(0,Math.min(lista.length-1,indice+delta))];
-    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;atualizarPainel();atualizarFontesPontos();persistirSelecao({motivo:'troca_cartao'});
+    if(!alvo)return;definirAcompanhamento(false);cartaoSelecionadoId=alvo.id;animarCardParada(delta>0?'left':'right');atualizarPainel();atualizarFontesPontos();persistirSelecao({motivo:'troca_cartao'});
     if(mapa&&mapReady&&coordenadaValida(alvo.latitude,alvo.longitude)){const interna=navegacaoInternaAtiva();mapa.easeTo({center:[Number(alvo.longitude),Number(alvo.latitude)],zoom:interna?17:Math.max(15,mapa.getZoom()),pitch:interna?48:0,duration:350});}
   }
   async function abrirExterno(provider){
@@ -842,6 +854,7 @@
       await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});
       await global.PacoteEMatoSessao?.persistirAgora?.({motivo:status==='entregue'?'parada_entregue':'parada_nao_entregue',paradaSelecionadaId:cartaoSelecionadoId,proximaParadaId:cartaoSelecionadoId,navegacaoAtiva:true});
       if($('navDeliveryNote'))$('navDeliveryNote').value=''; if($('navExtrasPanel'))$('navExtrasPanel').style.display='none'; ultimoIdNota='';
+      animarCardParada('left');
       atualizarPainel(); desenharRota(); global.PacoteEMatoHistorico?.renderizar?.(); global.PacoteEMatoAppShell?.atualizarInicio?.();
       if(ordemPendente.length){if(global.PacoteEMatoServicoRota?.endpoint?.('route'))await recalcular('proxima');else {atualizarFontesPontos();desenharRota();}}
       else{rota.status='aguardando_finalizacao';rota.conclusaoPendente=true;await global.PacoteEMatoRotaStore.salvarRota(rota,{ativa:true});mostrarConclusao();}

@@ -157,34 +157,32 @@
     });
     if (!ancoras.length) return [];
 
-    let finalizadasConsecutivas = 0;
-    while (finalizadasConsecutivas < ancoras.length) {
-      const st = ancoras[finalizadasConsecutivas].status;
-      if (st !== 'concluida' && st !== 'nao_entregue') break;
-      finalizadasConsecutivas++;
-    }
-
     const features = [];
     const inicio = entradas[0];
 
-    // Tudo que ficou para trás vira um único traço cinza contínuo.
-    if (finalizadasConsecutivas > 0) {
-      const fimPassado = ancoras[finalizadasConsecutivas - 1].ponto;
-      const geometry = recortarGeometriaEntre(partes, inicio, fimPassado);
+    // V42: cada parada tratada pinta de cinza o trecho que chega até ela,
+    // mesmo quando a entrega é feita fora da ordem. Antes, somente uma sequência
+    // concluída desde a parada 1 ficava cinza.
+    ancoras.forEach((ancora, indice) => {
+      if (ancora.status !== 'concluida' && ancora.status !== 'nao_entregue') return;
+      const origemTrecho = indice > 0 ? ancoras[indice - 1].ponto : inicio;
+      const geometry = recortarGeometriaEntre(partes, origemTrecho, ancora.ponto);
       if (geometry) features.push({
         type: 'Feature',
-        properties: { status: 'passado', ateParadaId: ancoras[finalizadasConsecutivas - 1].id },
+        properties: { status: 'passado', ateParadaId: ancora.id, trechoIndice: indice },
         geometry
       });
-    }
+    });
 
-    // Destaca somente o trecho que leva à PRÓXIMA parada pendente.
-    // Para esse trecho preferimos a geometria ATUAL da rota, pois ela pode ter
-    // sido recalculada a partir da posição real do motorista. O histórico cinza
-    // continua usando a base original para não desaparecer após o recálculo.
-    const proximaAncora = ancoras[finalizadasConsecutivas];
+    // O verde segue a continuidade operacional (proximaParadaId), e não
+    // necessariamente a primeira parada pendente da lista.
+    let indiceAtivo = ancoras.findIndex(a => String(a.id) === String(rota.proximaParadaId || '') && a.status !== 'concluida' && a.status !== 'nao_entregue');
+    if (indiceAtivo < 0) indiceAtivo = ancoras.findIndex(a => a.status !== 'concluida' && a.status !== 'nao_entregue');
+    const proximaAncora = indiceAtivo >= 0 ? ancoras[indiceAtivo] : null;
     if (proximaAncora) {
       let geometry = null;
+      // Para a parada ativa preferimos a rota recalculada atual, que começa na
+      // posição real do motorista e termina na continuação escolhida.
       if (geometriaRotaValida(rota.geometria)) {
         const atuais = (rota.geometria.type === 'LineString' ? [rota.geometria.coordinates] : rota.geometria.coordinates)
           .map(linha => (Array.isArray(linha) ? linha.filter(c => Array.isArray(c) && Number.isFinite(Number(c[0])) && Number.isFinite(Number(c[1]))) : []))
@@ -204,8 +202,8 @@
         }
       }
       if (!geometry) {
-        const origem = finalizadasConsecutivas > 0 ? ancoras[finalizadasConsecutivas - 1].ponto : inicio;
-        geometry = recortarGeometriaEntre(partes, origem, proximaAncora.ponto);
+        const origemAtiva = indiceAtivo > 0 ? ancoras[indiceAtivo - 1].ponto : inicio;
+        geometry = recortarGeometriaEntre(partes, origemAtiva, proximaAncora.ponto);
       }
       if (geometry) features.push({
         type: 'Feature',
