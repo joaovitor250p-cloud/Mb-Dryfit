@@ -3533,6 +3533,10 @@ document.getElementById('cardRetomarRota').style.display = 'none';
           // Se o layout novo/estrito não reconhecer o PDF, usamos estas linhas
           // para tentar a leitura por texto/proximidade em vez de bloquear a rota.
           const linhasFallbackPdf = [];
+          // V51: registros extraídos diretamente das linhas visuais do PDF.js.
+          // Não depende da coluna # e tolera código BR em item separado da coluna Address.
+          const registrosVisuaisPdf = [];
+          let sequenciaVisualPdf = 0;
 
           for (let pagina = 1; pagina <= pdf.numPages; pagina++) {
             const progressoPagina = 20 + Math.round((pagina / Math.max(1, pdf.numPages)) * 52);
@@ -3591,6 +3595,59 @@ document.getElementById('cardRetomarRota').style.display = 'none';
 
                 if (linha) linhasFallbackPdf.push(linha);
               });
+
+            // V51 — leitura direta por linha visual.
+            // Esta é a estratégia principal para Spoke/Circuit com coluna # vazia.
+            gruposLinhaFallback
+              .slice()
+              .sort((a, b) => b.y - a.y)
+              .forEach(grupo => {
+                const linhaItens = grupo.itens.slice().sort((a, b) => a.x - b.x);
+                if (!linhaItens.length) return;
+
+                let codigo = '';
+                let indiceCodigo = -1;
+                for (let i = 0; i < linhaItens.length; i++) {
+                  const compacto = String(linhaItens[i].str || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                  const m = compacto.match(/BR[A-Z0-9]{8,25}/);
+                  if (m) { codigo = m[0]; indiceCodigo = i; break; }
+                  if (compacto === 'BR' && i + 1 < linhaItens.length) {
+                    const prox = String(linhaItens[i + 1].str || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    if (/^[A-Z0-9]{8,25}$/.test(prox)) { codigo = `BR${prox}`; indiceCodigo = i; break; }
+                  }
+                }
+                if (!codigo || codigosGlobais.has(`VISUAL:${codigo}`)) return;
+
+                const limite = indiceCodigo >= 0 ? indiceCodigo : linhaItens.length;
+                let partesEndereco = linhaItens.slice(0, limite).map(i => i.str).filter(Boolean);
+                // Remove número da coluna # quando existir, mas não exige que ele exista.
+                let numeroExplicito = null;
+                if (partesEndereco.length && /^\d{1,4}$/.test(String(partesEndereco[0]).trim())) {
+                  numeroExplicito = Number(partesEndereco.shift());
+                }
+                let enderecoVisual = partesEndereco.join(' ').replace(/\s+/g, ' ').trim();
+                enderecoVisual = enderecoVisual
+                  .replace(/^\s*(?:#|Address|Endere[cç]o)\s*/i, '')
+                  .replace(/\s+\d{1,2}:\d{2}(?:\s*(?:AM|PM))?\s*$/i, '')
+                  .trim();
+
+                if (!decomporEnderecorota(enderecoVisual)) return;
+                if (!Number.isFinite(numeroExplicito) || numeroExplicito <= 0) numeroExplicito = ++sequenciaVisualPdf;
+                else sequenciaVisualPdf = Math.max(sequenciaVisualPdf, numeroExplicito);
+
+                registrosVisuaisPdf.push({
+                  numeroParada: numeroExplicito,
+                  endereco: enderecoVisual,
+                  codigos: [codigo],
+                  pagina,
+                  origemLeitura: 'visual-v51'
+                });
+                // marcador interno para não duplicar a mesma extração visual.
+                codigosGlobais.add(`VISUAL:${codigo}`);
+              });
+
+            // Remove marcadores internos antes da validação global.
+            [...codigosGlobais].filter(c => c.startsWith('VISUAL:')).forEach(c => codigosGlobais.delete(c));
 
             // Conta TODOS os códigos BR diretamente do PDF.
             // Essa contagem é independente do agrupamento de endereços.
@@ -3773,8 +3830,17 @@ document.getElementById('cardRetomarRota').style.display = 'none';
             }
           }
 
+          if (!processado && registrosVisuaisPdf.length) {
+            try {
+              processarRegistrosrota(registrosVisuaisPdf, file.name);
+              processado = todosPacotes && todosPacotes.size > 0;
+            } catch (erroVisual) {
+              console.warn('Leitura visual V51 não concluiu este PDF. Tentando leitor por texto:', erroVisual);
+            }
+          }
+
           if (!processado) {
-            // V50: antes do leitor legado, tenta o leitor universal que não exige
+            // V51: antes do leitor legado, tenta também o leitor universal por texto, que não exige
             // numeração na coluna # (Spoke/Circuit e outros exports tabulares).
             try {
               const universais = extrairRegistrosPdfUniversal(linhasFallbackPdf);
@@ -3837,7 +3903,7 @@ document.getElementById('cardRetomarRota').style.display = 'none';
               'Encontramos uma informação de endereço que não pôde ser validada. A rota não foi liberada.';
           } else if (msg.includes('NENHUM_PACOTE_VALIDO')) {
             mensagemErro =
-              'Nenhum código de pacote reconhecível foi encontrado neste PDF. Se for um PDF escaneado como imagem, exporte-o com texto pesquisável ou use o arquivo original do sistema de rotas.';
+              'Não foi possível associar os códigos aos endereços deste PDF. O arquivo não foi alterado; tente novamente ou use outro export do sistema de rotas.';
           }
 
           document.getElementById('btnUploadTxt').innerHTML =

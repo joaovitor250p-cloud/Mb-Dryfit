@@ -22,6 +22,23 @@
   let buscaEnderecoSeq = 0;
 
   function $(id) { return document.getElementById(id); }
+
+  function contarParadasFisicas(lista) {
+    const paradas = Array.isArray(lista) ? lista : [];
+    const chaves = new Set();
+    paradas.forEach((p, i) => {
+      let chave = '';
+      try { chave = global.PacoteEMatoMarcadores?.chaveFisicaMarcador?.(p) || ''; } catch (_) {}
+      if (!chave) {
+        const lat = Number(p?.latitude), lon = Number(p?.longitude);
+        chave = Number.isFinite(lat) && Number.isFinite(lon)
+          ? `coord:${lat.toFixed(5)}|${lon.toFixed(5)}`
+          : `id:${String(p?.id || i)}`;
+      }
+      chaves.add(chave);
+    });
+    return chaves.size;
+  }
   function clone(v) { return global.PacoteEMatoRotaStore?.clone?.(v) || JSON.parse(JSON.stringify(v)); }
   function agora() { return Date.now(); }
 
@@ -178,7 +195,7 @@
 
   function preencherRevisaoOtimizacao() {
     if (!rotaAtual) return;
-    if ($('routingReviewStops')) $('routingReviewStops').textContent = String(rotaAtual.paradas.length);
+    if ($('routingReviewStops')) $('routingReviewStops').textContent = String(contarParadasFisicas(rotaAtual.paradas));
     if ($('routingReviewDistance')) $('routingReviewDistance').textContent = formatarDistancia(rotaAtual.distanciaTotalMetros);
     if ($('routingReviewDrive')) $('routingReviewDrive').textContent = formatarTempo(rotaAtual.duracaoDirecaoSegundos);
     if ($('routingReviewService')) $('routingReviewService').textContent = formatarTempo(rotaAtual.duracaoParadasSegundos);
@@ -221,7 +238,6 @@
   function fecharRevisaoOtimizacao() {
     const backdrop = $('routingOptimizationReviewBackdrop');
     if (backdrop) backdrop.style.display = 'none';
-    if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none';
   }
 
   async function confirmarRevisaoOtimizacao() {
@@ -236,7 +252,9 @@
   function abrirRefinoStandalone() {
     atualizarBotoesRefino();
     const backdrop = $('routingRefineBackdrop');
-    if (!backdrop) return;
+    const painel = $('routingRefinePanel');
+    if (!backdrop || !painel) return;
+    painel.style.display = 'grid';
     backdrop.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
@@ -727,15 +745,17 @@
 
   function renderizarResumo() {
     if (!rotaAtual) return;
-    const total = rotaAtual.paradas.length;
-    const localizadas = rotaAtual.paradas.filter(p => paradaLocalizada(p)).length;
-    const problemas = total - localizadas;
+    const totalEntregas = rotaAtual.paradas.length;
+    const total = contarParadasFisicas(rotaAtual.paradas);
+    const localizadasFisicas = contarParadasFisicas(rotaAtual.paradas.filter(p => paradaLocalizada(p)));
+    const problemas = Math.max(0, total - localizadasFisicas);
     if ($('routingImportedCount')) $('routingImportedCount').textContent = String(total);
-    if ($('routingLocatedCount')) $('routingLocatedCount').textContent = String(localizadas);
+    if ($('routingDeliveryCount')) $('routingDeliveryCount').textContent = String(totalEntregas);
+    if ($('routingLocatedCount')) $('routingLocatedCount').textContent = String(localizadasFisicas);
     if ($('routingProblemCount')) $('routingProblemCount').textContent = String(problemas);
     const concluidas = rotaAtual.paradas.filter(p => ['entregue','concluida'].includes(p.statusEntrega)).length;
     const naoEntregues = rotaAtual.paradas.filter(p => p.statusEntrega === 'nao_entregue').length;
-    const pendentes = Math.max(0, total - concluidas - naoEntregues);
+    const pendentes = Math.max(0, totalEntregas - concluidas - naoEntregues);
     const calculada = !rotaAtual.precisaRecalculo && !!rotaAtual.geometria && Number.isFinite(Number(rotaAtual.distanciaTotalMetros));
     if ($('routeMetricStops')) $('routeMetricStops').textContent = String(total);
     if ($('routeMetricDelivered')) $('routeMetricDelivered').textContent = String(concluidas);
@@ -1871,7 +1891,7 @@
     $('routingRefineBackdrop')?.addEventListener('click', event => { if (event.target === $('routingRefineBackdrop')) fecharRefinoStandalone(); });
     $('routingReviewConfirmBtn')?.addEventListener('click', confirmarRevisaoOtimizacao);
     $('routingReviewRefineBtn')?.addEventListener('click', alternarRefino);
-    $('routingRefineCloseBtn')?.addEventListener('click', () => { if ($('routingRefinePanel')) $('routingRefinePanel').style.display = 'none'; });
+    $('routingRefineCloseBtn')?.addEventListener('click', fecharRefinoStandalone);
     const refinePanel = $('routingRefinePanel');
     ['touchmove','wheel'].forEach(tipo => refinePanel?.addEventListener(tipo, event => event.stopPropagation(), { passive: true }));
     $('routingRefineAutoBtn')?.addEventListener('click', otimizarAutomaticamenteRefino);

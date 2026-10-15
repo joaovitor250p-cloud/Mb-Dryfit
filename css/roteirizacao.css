@@ -345,3 +345,7 @@
   .routing-start-route-btn{min-height:52px!important;margin:9px 0 calc(8px + env(safe-area-inset-bottom))!important}
   .routing-list-pane{padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
 }
+
+
+/* V51 — painel de refinamento sempre visível quando o backdrop abre */
+#routingRefineBackdrop[style*="display: flex"] #routingRefinePanel{display:grid!important}
