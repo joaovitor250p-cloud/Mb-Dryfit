@@ -1,0 +1,10 @@
+{
+  "arquivo_origem": "Catalogo_Referencias_Atualizado_REF10359.xlsx",
+  "aba_principal": "POR NOME - A Z",
+  "modelos_importados": 194,
+  "modelos_com_referencia": 125,
+  "modelos_sem_referencia": 69,
+  "ref_confirmada": {"modelo":"BERM DRY NIKE SIMB BAS R.L","referencia":"REF.10359"},
+  "pendencias": [{"modelo":"CONJUNTO DRY G.A ADIDAS C/ FAIXAS LAT","referencias_preservadas":["REF.10277","REF.10278"],"status":"PENDENTE DE CONFERÊNCIA; ambas permanecem juntas, sem atribuição inventada"}],
+  "notas": ["Referências repetidas em modelos distintos foram preservadas.","Modelos sem referência foram importados como SEM CÓDIGO na interface e com referência vazia nos dados.","Dados iniciais em public/data/catalogo-inicial.json."]
+}
