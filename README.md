@@ -1,3 +1,20 @@
+# MB REFERENCIAS — CSV PRIMEIRO, FOTOS DEPOIS
+
+**Atualização da versão anterior. Não apague seu banco nem seus 194 modelos.**
+
+- **Importar CSV**: use o menu Catálogo → Importar CSV ou Importar planilha. Aceita CSV, XLS/XLSX e JSON; mostra prévia, não duplica nomes e permite atualizar somente quando você escolher. Se já cadastrou modelos, não precisa importar de novo.
+- **Fotos dos modelos**: nova aba. Procure por nome ou REF, clique em **Adicionar foto** e envie uma foto. Só existe **uma foto principal por modelo**, mesmo que tenha P/M/G/GG e várias cores. Modelos diferentes com a mesma REF continuam com fotos diferentes.
+- **Amostras**: lista pendências com foto (da OC ou do modelo), OC, nome, REF e costureiro. Não há Editar, Excluir ou Pronto nos cartões. **Nova amostra** permanece nessa página para iniciar a produção.
+- **Cortes**: toda nova amostra entra como **Em andamento**. Aqui ficam os botões **Pronto**, **Reabrir**, **Editar** e **Excluir**, além das duas listas Em andamento e Prontos.
+- **Foto opcional nas amostras**: você pode cadastrar OC e costureiro e completar a foto do modelo depois; a miniatura será mostrada automaticamente em ambas as telas.
+- **Fonte MeuComercio**: no momento `https://meucomercio.com.br/mbdryfit` informa que não há produtos publicados. **Não foi possível importar fotos automaticamente**. Use fotos próprias agora; quando o catálogo estiver público, será possível rever a correspondência por nomes. Não associe imagens apenas por REF porque modelos diferentes podem compartilhar uma referência.
+- **Segurança**: antes de enviar o novo código ao GitHub, publique a nova versão completa de `firestore.rules` em Firebase → Firestore Database → Regras. Ela também permite fotos compactadas de modelos e amostras sem foto.
+- **Armazenamento**: uma miniatura comprimida por modelo é salva diretamente no Firestore (máximo 90.000 caracteres) para não exigir Cloud Storage/Blaze. Fotos em alta resolução exigem outro armazenamento; evite milhares de imagens desse tipo no Firestore.
+- Não instale Node.js ou VS Code no seu computador; o GitHub Actions já compila o site na nuvem, no repositório Mb-Dryfit.
+- Nenhum dado real foi alterado no Firebase nesta preparação. Testar build, autenticação, edição e sincronização no seu ambiente após publicar.
+
+---
+
 ## NOVO: AMOSTRAS E CORTES
 
 O menu contém agora **Amostras** e **Cortes**. Ao cadastrar uma amostra, inclua foto da peça, OC, nome do modelo, referência e costureiro. Ela aparece em **Amostras** e em **Cortes → Em andamento**. Ao tocar em **Pronto**, desaparece das pendências e aparece em **Cortes → Prontos**. É possível reabrir uma peça, corrigir os dados e exportar a planilha de cortes. Todos os aparelhos recebem as mudanças por Firestore Realtime.
@@ -112,3 +129,16 @@ O modelo `BERM DRY NIKE SIMB BAS R.L` traz a `REF.10359`. A dupla `REF.10277 / R
 ## Estrutura
 
 `src/` React e Firebase SDK; `firestore.rules` regras a colar no Console; `.github/workflows/deploy.yml` compila e publica no GitHub; `.env.example` nomes de configuração (sem segredos). O projeto não depende mais do Supabase.
+
+## Publicação desta versão no repositório existente — sem terminal
+
+1. **Faça backup do Firestore:** pelo painel atual, clique em **Backup** (JSON) e guarde uma cópia fora do GitHub.
+2. Em **Firebase Console → Firestore Database → Regras**, substitua as regras atuais pelo conteúdo integral do arquivo `firestore.rules` deste pacote e publique. Não misture trechos das versões.
+3. Extraia o ZIP e envie os arquivos internos ao repositório `joaovitor250p-cloud/Mb-Dryfit` (substituindo os de mesmo caminho), preservando `.github/workflows/deploy.yml`. **Não envie seu CSV privado ao repositório público**.
+4. Veja a execução de **Publicar MB REFERENCIAS** na aba Actions; confira se `build` e `deploy` ficaram verdes.
+5. Entre no site com seu login atual. Verifique o menu **Fotos dos modelos**; experimente uma foto pequena em um modelo de teste. Importe seu CSV apenas se houver modelos novos ou correções.
+6. Cadastre uma OC em **Amostras** e confira se aparece em **Cortes → Em andamento**. Marque **Pronto** somente em **Cortes**.
+
+O endereço permanece `https://joaovitor250p-cloud.github.io/Mb-Dryfit/`. Os seis Repository secrets do Firebase permanecem os mesmos, e os dados já guardados no banco não são apagados ao publicar o novo front-end.
+
+**Verificação local desta entrega:** integridade do ZIP e análise sintática TS/TSX; compilação de produção não executada porque o ambiente não conseguiu baixar dependências do registro npm. Não se afirma que as ações com o Firestore real tenham sido testadas.

@@ -60,3 +60,13 @@
   .mobile-production-nav button.selected { background:#e4f4f7; color:#075b6b; }
   .dark .mobile-production-nav button.selected { background:#25454f; color:#b1f2f5; }
 }
+
+/* Galeria: uma foto por modelo */
+.photos-grid { padding: 18px; }
+.model-image { display:flex; align-items:center; justify-content:center; min-height:205px; }
+.model-photo-placeholder {display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#7c91a1; background:#eef5f7; width:100%; height:100%; min-height:180px; font-size:13px}
+.model-photo-ref {font-size:13px; color:#0d7080; font-weight:700; margin:12px 0}
+.photo-add-button {width:100%;justify-content:center}
+.model-list-thumb { width:100%; height:100%; object-fit:cover; border-radius:10px; }
+.production-photo .model-photo-placeholder {min-height:215px;}
+.photos-page .production-details h3 {min-height:42px;}

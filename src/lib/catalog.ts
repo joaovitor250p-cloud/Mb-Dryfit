@@ -1,4 +1,4 @@
-export type Model = { id:string; name:string; reference:string; pendingReview?:boolean; updatedAt?:string; updatedBy?:string|null };
+export type Model = { id:string; name:string; reference:string; pendingReview?:boolean; imageData?:string; updatedAt?:string; updatedBy?:string|null };
 export const normalizeText=(s:string)=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ').trim();
 export const normalizeReference=(value:string)=>{const raw=String(value??'').trim();if(!raw||/^sem c[oó]digo$/i.test(raw))return '';const refs=raw.split(/[;,\n]+|\s+\/\s+/).map(x=>x.trim()).filter(Boolean).map(x=>{const digits=x.replace(/^\s*(?:ref(?:er[eê]ncia)?\.?\s*)?/i,'').replace(/[^\d]/g,'');return digits?`REF.${digits}`:x.toUpperCase()});return [...new Set(refs)].join(' / ')};
 export const sameModel=(a:string,b:string)=>normalizeText(a).replace(/[.,;:()\-_/]/g,' ').replace(/\s+/g,' ').trim()===normalizeText(b).replace(/[.,;:()\-_/]/g,' ').replace(/\s+/g,' ').trim();

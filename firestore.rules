@@ -15,7 +15,13 @@ service cloud.firestore {
         && request.resource.data.reference is string
         && request.resource.data.reference.size() <= 200
         && request.resource.data.pendingReview is bool
-        && request.resource.data.updatedBy == request.auth.uid;
+        && request.resource.data.updatedBy == request.auth.uid
+        && (!request.resource.data.keys().hasAny(['imageData'])
+            || (request.resource.data.imageData is string
+                && request.resource.data.imageData.size() <= 90000
+                && (request.resource.data.imageData == ''
+                    || request.resource.data.imageData.matches('data:image/webp;base64,.*')
+                    || request.resource.data.imageData.matches('data:image/jpeg;base64,.*'))));
     }
 
     match /user_roles/{uid} {
@@ -53,9 +59,10 @@ service cloud.firestore {
         && request.resource.data.tailor.size() > 0
         && request.resource.data.tailor.size() <= 120
         && request.resource.data.imageData is string
-        && request.resource.data.imageData.size() > 0
+        && request.resource.data.imageData.size() >= 0
         && request.resource.data.imageData.size() <= 200000
-        && (request.resource.data.imageData.matches('data:image/webp;base64,.*')
+        && (request.resource.data.imageData == ''
+            || request.resource.data.imageData.matches('data:image/webp;base64,.*')
             || request.resource.data.imageData.matches('data:image/jpeg;base64,.*'))
         && request.resource.data.status in ['in_progress', 'done']
         && request.resource.data.updatedBy == request.auth.uid;
