@@ -153,3 +153,15 @@ O navegador tenta baixar cada imagem indicada e pode falhar se o site bloquear r
 ## Limitações de validação desta entrega
 
 O ZIP foi atualizado a partir do código recebido. Não foi possível concluir `npm install` dentro do ambiente de preparação, então a compilação TypeScript/Vite não foi confirmada aqui. Login, regras e sincronização do Firestore precisam ser testados no projeto Firebase real após a publicação. Nenhum dado foi gravado ou removido no Firebase durante a preparação.
+
+---
+
+## REVISÃO DE 28/10/2026 — FOTOS NO CATÁLOGO, OCs E 3 ESTADOS
+
+Este ZIP revisado foi preparado sem alterar o banco de produção. Leia também `RELATORIO-DE-CORRECOES-E-TESTES.md`.
+
+**Fotos ficam dentro da página Catálogo de Modelos:** abra Catálogo de Modelos > Fotos dos modelos > Importar CSV de fotos. Selecione, fora do repositório, o arquivo `fotos-modelos-MB-REFERENCIAS.csv` entregue separadamente. O sistema mostra a foto, nome, REF e resultado da conferência para cada linha. Marque as correspondências aprovadas e clique em Confirmar. As imagens existentes não são substituídas. Os links são testados no navegador antes do salvamento. Os 19 modelos sem foto correspondente podem receber fotos manualmente depois.
+
+**Amostras:** página de consulta das informações e foto de cada amostra, sem indicadores de produção. **Cortes:** controle Em andamento, Pronto e Foi pra loja; pesquisa por OC, modelo, REF e costureiro. Um cadastro de OC alimenta as duas páginas; a transição de status não cria novas OCs. Registros legados continuam com seus identificadores. Alterações de produção passam a registrar um evento no Histórico.
+
+**Publicação:** mantenha seus seis Secrets do Firebase; envie os arquivos do ZIP extraído, preserve a pasta `.github` e confira `npm run build` no GitHub Actions. Como a compilação completa não pôde ser realizada no ambiente desta revisão (dependências indisponíveis), não considere o pacote validado em produção até o workflow ficar verde. Faça backup antes de substituir os arquivos.

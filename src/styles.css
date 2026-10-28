@@ -74,3 +74,6 @@
 /* Estado adicional do fluxo de cortes: enviado para a loja */
 .production-status.store { color:#145c78; border-color:#b5dce8; background:#e4f6fb; }
 .dark .production-status.store { color:#b8ecf8; border-color:#326a7b; background:#203f4a; }
+
+/* Fotos ficam dentro de Catálogo de Modelos, não em uma aba operacional separada. */
+.catalog-internal-tabs{display:flex;gap:8px;margin:0 0 22px;flex-wrap:wrap}.catalog-internal-tabs button{border:1px solid #dbe5e9;border-radius:12px;padding:10px 17px;background:#fff;color:#15576a;display:inline-flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}.catalog-internal-tabs button.selected{background:#0c5362;color:#fff;border-color:#0c5362}.catalog-internal-tabs button:hover{filter:brightness(.96)}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Camera, Check, CheckCircle2, Clock3, FileSpreadsheet, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
@@ -9,11 +9,18 @@ import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 type Stage = 'in_progress' | 'done' | 'store';
 type Production = {
   id: string; oc: string; name: string; reference: string; tailor: string;
-  imageData: string; status: Stage; createdAt?: unknown; completedAt?: unknown;
+  imageData: string; status: Stage; createdAt?: unknown; completedAt?: unknown; completedBy?: string|null;
 };
 type View = 'samples' | 'cuts';
 type Props = { view: View; db: Firestore; user: User; canEdit: boolean; models: Model[] };
 const MAX_DATA_LENGTH = 200000;
+// Novo cadastro sempre usa o mesmo documento para a mesma OC, inclusive entre aparelhos.
+const normalizedOC=(oc:string)=>oc.trim().normalize('NFKC').toLocaleUpperCase('pt-BR').replace(/\s+/g,' ');
+const ocDocId=(oc:string)=>`oc_${encodeURIComponent(normalizedOC(oc))}`;
+const auditEntry=(user:User,action:string,p:Pick<Production,'oc'|'name'|'reference'|'status'>,before:unknown,after:unknown)=>({
+  actorUid:user.uid,actorEmail:user.email||'',action,modelName:`OC ${p.oc} — ${p.name}`,
+  before:before||null,after:after||null,at:serverTimestamp()
+});
 
 async function makePhoto(file: File): Promise<string> {
   if (!file.type.startsWith('image/')) throw Error('Selecione um arquivo de imagem.');
@@ -90,34 +97,64 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     finally { setBusy(false); }
   };
   const save = async () => {
-    if (!canEdit) return;
+    if (!canEdit || busy) return;
     if (!oc.trim() || !name.trim() || !tailor.trim()) return showMessage('Informe OC, nome da peça e costureiro.', true);
-    // Foto da amostra é opcional; poderá usar a imagem do catálogo e ser adicionada depois.
     if (imageData.length > MAX_DATA_LENGTH) return showMessage('Imagem acima do limite. Selecione outra foto.', true);
+    const cleanedOC=normalizedOC(oc);
+    if(cleanedOC.length>80)return showMessage('OC acima do limite de 80 caracteres.',true);
+    if(editing && normalizedOC(editing.oc)!==cleanedOC)return showMessage('Não altere a OC de um registro existente. O identificador deve ser preservado.',true);
     setBusy(true);
     try {
-      const data = { oc: oc.trim(), name: name.trim(), reference: normalizeReference(reference), tailor: tailor.trim(), imageData, updatedAt: serverTimestamp(), updatedBy: user.uid };
-      if (editing) await updateDoc(doc(db, 'production_samples', editing.id), data);
-      else await addDoc(collection(db, 'production_samples'), { ...data, status: 'in_progress', createdAt: serverTimestamp(), createdBy: user.uid, completedAt: null, completedBy: null });
+      const data = { oc: cleanedOC, name: name.trim(), reference: normalizeReference(reference), tailor: tailor.trim(), imageData, updatedAt: serverTimestamp(), updatedBy: user.uid };
+      const duplicate=items.find(p=>p.id!==editing?.id && normalizedOC(p.oc)===cleanedOC);
+      if(duplicate)throw Error(`A OC ${cleanedOC} já está cadastrada. Abra o registro existente em Cortes.`);
+      // Busca outros documentos legados, que podem ter sido criados com IDs automáticos.
+      const oldDocs=await getDocs(query(collection(db,'production_samples'),where('oc','==',cleanedOC)));
+      if(oldDocs.docs.some(d=>d.id!==editing?.id))throw Error(`A OC ${cleanedOC} já existe no Firebase.`);
+      if (editing){
+        const batch=writeBatch(db);
+        batch.update(doc(db,'production_samples',editing.id),data);
+        batch.set(doc(collection(db,'audit_log')),auditEntry(user,'editou_oc',{...editing,...data},editing,{...editing,...data}));
+        await batch.commit();
+      } else {
+        const recordRef=doc(db,'production_samples',ocDocId(cleanedOC));
+        await runTransaction(db,async transaction=>{
+          const current=await transaction.get(recordRef);
+          if(current.exists())throw Error(`A OC ${cleanedOC} já foi cadastrada por outro usuário.`);
+          const newRecord={...data,status:'in_progress' as Stage,createdAt:serverTimestamp(),createdBy:user.uid,completedAt:null,completedBy:null};
+          transaction.set(recordRef,newRecord);
+          transaction.set(doc(collection(db,'audit_log')),auditEntry(user,'criou_oc',newRecord,null,{oc:cleanedOC,name:data.name,reference:data.reference,status:'in_progress'}));
+        });
+      }
       setModal(false);
-      showMessage(editing ? 'Registro atualizado em todos os aparelhos.' : 'OC cadastrada e disponível na área Cortes.');
+      showMessage(editing ? 'Registro atualizado em todos os aparelhos.' : 'OC cadastrada uma única vez, disponível em Amostras e Cortes.');
     } catch (e) { showMessage('Erro ao salvar: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
   const mark = async (p: Production, status: Stage) => {
-    if (!canEdit) return;
+    if (!canEdit || busy || p.status===status) return;
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'production_samples', p.id), {status, completedAt: status === 'in_progress' ? null : (status === 'done' ? serverTimestamp() : (p.completedAt ?? serverTimestamp())), completedBy: status === 'in_progress' ? null : (status === 'done' ? user.uid : (p.completedBy ?? user.uid)), updatedAt: serverTimestamp(), updatedBy: user.uid});
+      const patch={status,completedAt:status==='in_progress'?null:(status==='done'?serverTimestamp():(p.completedAt??serverTimestamp())),
+        completedBy:status==='in_progress'?null:(status==='done'?user.uid:(p.completedBy??user.uid)),updatedAt:serverTimestamp(),updatedBy:user.uid};
+      const batch=writeBatch(db);
+      batch.update(doc(db,'production_samples',p.id),patch);
+      batch.set(doc(collection(db,'audit_log')),auditEntry(user,status==='done'?'corte_pronto':status==='store'?'enviou_loja':'reabriu_corte',p,{status:p.status},{status}));
+      await batch.commit();
       showMessage(status === 'done' ? 'Corte marcado como pronto.' : status === 'store' ? 'Corte marcado como enviado para a loja.' : 'Corte reaberto e devolvido para andamento.');
     } catch (e) { showMessage('Não foi possível atualizar o corte: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
   const remove = async (p: Production) => {
-    if (!canEdit || !window.confirm(`Excluir a OC ${p.oc} (${p.name})? Essa exclusão será definitiva em todos os aparelhos.`)) return;
+    if (!canEdit || busy || !window.confirm(`Excluir a OC ${p.oc} (${p.name})? Essa exclusão será definitiva em todos os aparelhos.`)) return;
     setBusy(true);
-    try { await deleteDoc(doc(db, 'production_samples', p.id)); showMessage('Registro excluído.'); }
-    catch (e) { showMessage('Falha ao excluir: ' + (e instanceof Error ? e.message : String(e)), true); }
+    try {
+      const batch=writeBatch(db);
+      batch.delete(doc(db,'production_samples',p.id));
+      batch.set(doc(collection(db,'audit_log')),auditEntry(user,'excluiu_oc',p,p,null));
+      await batch.commit();
+      showMessage('Registro excluído e operação registrada no histórico.');
+    } catch (e) { showMessage('Falha ao excluir: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
   const exportExcel = () => {
@@ -145,12 +182,12 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'As novas OCs são cadastradas na página Cortes.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=><article className="production-card" key={p.id}>
       <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData)?<img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData} alt={`Foto de ${p.name}`}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status}`}>{p.status==='store'?'FOI PRA LOJA':p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span>}</div>
-      <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{p.status === 'store' ? 'Enviado para loja' : 'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
+      <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
       {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>}{p.status==='done' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'store')}><CheckCircle2 size={16}/> Foi pra loja</button>}{p.status!=='in_progress' && <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
     </article>)}</div>}</section>
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">CADASTRO DE OC</span><h2>{editing?'Editar registro':'Nova OC'}</h2><p>O registro também ficará disponível na área Cortes para acompanhar as etapas.</p></div><button className="icon-button" onClick={()=>setModal(false)}><X/></button></div>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">CADASTRO DE OC</span><h2>{editing?'Editar registro':'Nova OC'}</h2><p>A mesma OC será exibida em Amostras e em Cortes, sem duplicação.</p></div><button className="icon-button" onClick={()=>setModal(false)}><X/></button></div>
     <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}><label className="production-image-field"><span>Foto da peça (opcional)</span><div className="production-image-preview">{imageData?<img alt="Prévia da peça" src={imageData}/>:<><ImagePlus size={28}/><span>Selecionar foto</span></>}<input type="file" accept="image/*" onChange={e=>void processFile(e.target.files?.[0])}/></div><small>Se não enviar uma foto, o sistema usará a imagem cadastrada para esse modelo. Você poderá adicionar a foto depois.</small></label>
-      <div className="production-form-grid"><label>OC *<input required maxLength={80} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/></label><label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label></div>
+      <div className="production-form-grid"><label>OC *<input required maxLength={80} readOnly={!!editing} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/></label><label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label></div>
       <label>Nome da peça *<input required maxLength={250} list="production-models" value={name} onChange={e=>fillModel(e.target.value)} placeholder="Pesquise ou digite o modelo"/><datalist id="production-models">{models.map(m=><option value={m.name} key={m.id}/>)}</datalist><small>Se escolher um modelo existente, a REF será preenchida automaticamente.</small></label>
       <label>Código Extra (REF)<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="REF.10359"/></label>
       <div className="modal-actions"><button type="button" className="outline-button" onClick={()=>setModal(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy?'Salvando...':editing?'Salvar alterações':'Cadastrar OC'}</button></div></form></section></div>}
