@@ -3,7 +3,7 @@ import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
-import { Camera, ImagePlus, Search, Trash2, Upload, X, FileSpreadsheet, Pencil, Plus, Download } from 'lucide-react';
+import { Camera, ImagePlus, Search, Filter, Trash2, Upload, X, FileSpreadsheet, Pencil, Plus, Download } from 'lucide-react';
 import { normalizeReference, normalizeText, sortModels, type Model } from './lib/catalog';
 import { optimizePhoto } from './lib/photos';
 
