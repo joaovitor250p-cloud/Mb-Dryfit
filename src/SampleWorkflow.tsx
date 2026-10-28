@@ -170,7 +170,6 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
   };
   const mark = async (p: Production, status: Stage) => {
     if (!canEdit || busy || p.status === status) return;
-    if (status === 'store' && !window.confirm(`Confirmar que a OC ${p.oc} CHEGOU NA LOJA?`)) return;
     setBusy(true);
     try {
       // "Pronto" e "Chegou na loja" utilizam EXATAMENTE os mesmos campos
