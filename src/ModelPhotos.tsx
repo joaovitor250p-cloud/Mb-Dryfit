@@ -30,7 +30,7 @@ function imageLoads(url:string):Promise<boolean> {
 function readableFirestoreError(error:unknown):string {
   const err=error as {code?:string;message?:string};
   const code=String(err?.code||'');
-  if(code.includes('permission-denied')) return 'Acesso negado (permission-denied). As regras PUBLICADAS no Firestore precisam permitir imageData com URL HTTPS em models. Veja FIRESTORE-ATUALIZACAO-SEGURA.txt.';
+  if(code.includes('permission-denied')) return 'O Firestore recusou a gravação (permission-denied). A gravação de imagem compactada foi negada. Confirme as regras PUBLICADAS de models e o perfil admin/editor. Nenhuma alteração foi feita.';
   if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Firebase indisponível ou conexão interrompida. Confira a internet e tente novamente.';
   if(code.includes('unauthenticated'))return 'Seu login expirou. Entre novamente no sistema.';
   return `Erro ${code||'inesperado'}: ${err?.message||String(error)}`;
@@ -48,24 +48,41 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
   const [report,setReport]=useState('');
   const [progress,setProgress]=useState('');
   const mappingInput=useRef<HTMLInputElement>(null);
-  const list=useMemo(()=>sortModels(models,'reference').filter(m=>(!onlyMissing||!m.imageData)&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,onlyMissing]);
-  const open=(m:Model)=>{setSelected(m);setPreview(m.imageData||'');setMessage('');setError('')};
+  const list=useMemo(()=>sortModels(models,'reference').filter(m=>(!onlyMissing||!(m.imageData||m.fallbackImageData))&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,onlyMissing]);
+  const open=(m:Model)=>{setSelected(m);setPreview(m.imageData||m.fallbackImageData||'');setMessage('');setError('')};
   const upload=async(file?:File)=>{if(!file)return;setBusy(true);setError('');try{setPreview(await optimizePhoto(file))}catch(e){setError(e instanceof Error?e.message:'Erro ao abrir a foto')}finally{setBusy(false)}};
   const save=async()=>{
     if(!selected||!canEdit)return;
     setBusy(true);setError('');
     try{
+      if(preview && preview===selected.fallbackImageData && !selected.imageData)throw Error('Essa foto já aparece no catálogo por meio do CSV inicial. Para substituir, selecione uma foto do aparelho.');
       if(preview && !preview.startsWith('data:image/') && !isImageUrl(preview))throw Error('Use uma foto do aparelho ou uma URL HTTPS válida.');
       if(isImageUrl(preview) && !(await imageLoads(preview)))throw Error('A URL da imagem não carregou no navegador.');
+      const savedPhoto = isImageUrl(preview) ? await compactPublicImage(preview) : preview;
       await runTransaction(db,async tx=>{
         const ref=doc(db,'models',selected.id),latest=await tx.get(ref);
         if(!latest.exists())throw Error('Este modelo não existe mais.');
         const current=String(latest.data().imageData||'');
         if(current!==String(selected.imageData||''))throw Error('A foto foi alterada por outra pessoa. Atualize a página.');
-        tx.update(ref,{imageData:preview,updatedAt:serverTimestamp(),updatedBy:user.uid});
+        tx.update(ref,{imageData:savedPhoto,updatedAt:serverTimestamp(),updatedBy:user.uid});
       });
-      setSelected(null);setMessage(preview?'Foto principal salva no modelo.':'Foto removida do modelo.');
+      setSelected(null);setMessage(preview?'Foto compactada salva no Firebase.':'Foto removida do Firebase. Se houver foto do catálogo público, ela volta a aparecer.');
     }catch(e){setError(readableFirestoreError(e))}finally{setBusy(false)}
+  };
+  // Converte URLs públicas em imagem compactada, da mesma forma que o upload manual.
+  // O navegador somente permite isso quando o servidor fornece CORS para a origem.
+  const compactPublicImage = async (url: string): Promise<string> => {
+    let response: Response;
+    try {
+      response = await fetch(url, {mode:'cors', credentials:'omit'});
+    } catch {
+      throw Error('A imagem abre na página, mas o servidor não autoriza sua conversão (CORS). A foto inicial já aparece pelo catálogo; para gravar uma cópia no Firebase, envie o arquivo pelo botão Escolher foto.');
+    }
+    if(!response.ok) throw Error(`Não foi possível baixar a imagem: HTTP ${response.status}.`);
+    const blob = await response.blob();
+    if(!blob.type.startsWith('image/')) throw Error('O endereço não retornou um arquivo de imagem.');
+    if(blob.size > 12 * 1024 * 1024) throw Error('Imagem muito grande para compactar (limite de 12 MB).');
+    return await optimizePhoto(new File([blob],'modelo.jpg',{type:blob.type}));
   };
   const readMapping=async(file?:File)=>{
     if(!file)return;
@@ -93,7 +110,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
         else if(candidates.length>1)status='Correspondência ambígua';
         else if(reference && normalizeReference(reference)!==normalizeReference(model?.reference||''))status='REF divergente — conferir manualmente';
         else if(seen.has(key))status='Modelo repetido no CSV';
-        else if(model?.imageData)status='Já possui foto';
+        else if(model?.imageData||model?.fallbackImageData)status='Foto já disponível no catálogo';
         seen.add(key);
         return {name,reference,url,model,status,selected:status==='Pronto para conferir',eligible:status==='Pronto para conferir'};
       }).filter(r=>r.name||r.url);
@@ -113,27 +130,28 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
     try {
       // Lotes pequenos: não sobrecarregam o Firebase nem deixam o usuário aguardando
       // centenas de requisições quando o banco estiver negando acesso.
-      for(let start=0;start<ready.length;start+=4){
+      for(let start=0;start<ready.length;start++){
         if(stopForPermissions)break;
-        await Promise.all(ready.slice(start,start+4).map(async row=>{
+        await Promise.all(ready.slice(start,start+1).map(async row=>{
         const index=rows.indexOf(row);
         try {
           if(!row.model){skipped++;return}
           if(!(await imageLoads(row.url))){
             invalid++;outcomes.set(index,{status:'Imagem não carregou: verifique o endereço',selected:false,eligible:false});return;
           }
+          const savedPhoto = await compactPublicImage(row.url);
           const ref=doc(db,'models',row.model.id);
           const updated=await runTransaction(db,async tx=>{
             const current=await tx.get(ref);
             if(!current.exists()||current.data().imageData)return false;
             if(normalizeReference(String(current.data().reference||''))!==normalizeReference(row.reference))return false;
-            tx.update(ref,{imageData:row.url,updatedAt:serverTimestamp(),updatedBy:user.uid});
+            tx.update(ref,{imageData:savedPhoto,updatedAt:serverTimestamp(),updatedBy:user.uid});
             return true;
           });
           if(!updated){skipped++;outcomes.set(index,{status:'Já possui foto ou o cadastro mudou',selected:false,eligible:false});return}
           // Não informe sucesso enquanto o valor não puder ser lido de volta do servidor.
           const savedDoc=await getDocFromServer(ref);
-          if(savedDoc.data()?.imageData!==row.url)throw Error('Gravação não confirmada no servidor. Confira o modelo antes de repetir.');
+          if(savedDoc.data()?.imageData!==savedPhoto)throw Error('Gravação não confirmada no servidor. Confira o modelo antes de repetir.');
           saved++;outcomes.set(index,{status:'Foto salva no modelo ✓',selected:false,eligible:false});
         }catch(e){
           failed++;
@@ -143,7 +161,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
           outcomes.set(index,{status:`Não foi salva: ${detail}`,selected:true,eligible:true});
         }
         }));
-        setProgress(`Processadas ${Math.min(start+4,ready.length)} de ${ready.length} · ${saved} salvas · ${failed} com erro`);
+        setProgress(`Processadas ${Math.min(start+1,ready.length)} de ${ready.length} · ${saved} salvas · ${failed} com erro`);
         setRows(previous=>previous?.map((r,j)=>outcomes.has(j)?{...r,...outcomes.get(j)!}:r)||null);
       }
       setReport(`Resultado: ${saved} fotos SALVAS e confirmadas no Firestore; ${invalid} imagens inacessíveis; ${skipped} ignoradas; ${failed} falhas. ${stopForPermissions?'Importação interrompida porque o Firebase negou a gravação. ':''}${failed?'Os itens com erro continuam selecionados para uma nova tentativa.':''}`);
@@ -163,11 +181,12 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
       <input ref={mappingInput} type="file" accept=".csv,.xls,.xlsx" hidden onChange={e=>void readMapping(e.target.files?.[0])}/>
     </div>
     </div>
-    <section className="stats-grid"><div className="stat-card"><div className="stat-icon blue"><Camera/></div><div><span>Modelos</span><strong>{models.length}</strong></div></div><div className="stat-card"><div className="stat-icon green"><ImagePlus/></div><div><span>Com foto</span><strong>{models.filter(m=>!!m.imageData).length}</strong></div></div><div className="stat-card"><div className="stat-icon amber"><Camera/></div><div><span>Sem foto</span><strong>{models.filter(m=>!m.imageData).length}</strong></div></div></section>
+    <div className="production-ok">As 175 fotos já conferidas do CSV estão disponíveis como imagens iniciais do catálogo. As fotos adicionadas manualmente e salvas no Firebase prevalecem. Não é necessário importar novamente as mesmas 175 URLs.</div>
+    <section className="stats-grid"><div className="stat-card"><div className="stat-icon blue"><Camera/></div><div><span>Modelos</span><strong>{models.length}</strong></div></div><div className="stat-card"><div className="stat-icon green"><ImagePlus/></div><div><span>Com foto</span><strong>{models.filter(m=>!!(m.imageData||m.fallbackImageData)).length}</strong></div></div><div className="stat-card"><div className="stat-icon amber"><Camera/></div><div><span>Sem foto</span><strong>{models.filter(m=>!(m.imageData||m.fallbackImageData)).length}</strong></div></div></section>
     <section className="catalog-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo ou REF..."/></label><label className="filter-select"><Filter size={15}/><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/> Somente sem foto</label></div>
       {message&&<div className="production-ok">{message}</div>}{error&&<div className="production-alert">{error}</div>}{report&&<div className="production-ok">{report}</div>}{progress&&<div className="production-ok" role="status">{progress}</div>}
       {rows&&<div className="catalog-panel mapping-panel"><h2>Conferência antes de importar</h2><p>Marque as fotos que deseja associar. O nome deve corresponder ao modelo e a REF informada também precisa coincidir. Cores e tamanhos não criam novos modelos. Fotos existentes não serão substituídas.</p><div className="table-scroll"><table><thead><tr><th>Usar</th><th>Imagem</th><th>Modelo do CSV</th><th>REF</th><th>Conferência</th></tr></thead><tbody>{rows.map((r,i)=><tr key={`${r.name}-${i}`}><td><input type="checkbox" checked={r.selected} disabled={!r.eligible||busy} onChange={e=>setRows(previous=>previous?.map((p,j)=>i===j?{...p,selected:e.target.checked}:p)||null)}/></td><td>{isImageUrl(r.url)?<a href={r.url} target="_blank" rel="noreferrer"><img style={{width:72,height:80,objectFit:'cover',borderRadius:8}} src={r.url} alt={r.name} loading="lazy"/></a>:'—'}</td><td>{r.name}</td><td>{r.reference||'—'}</td><td>{r.status}{r.model&&<small> → {r.model.name}</small>}</td></tr>)}</tbody></table></div><div className="modal-actions"><button className="outline-button" onClick={()=>setRows(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void importMappings()}><Upload size={16}/>{busy?'Conferindo e importando...':'Confirmar fotos selecionadas'}</button></div></div>}
-      <div className="production-grid photos-grid">{list.map(m=><article className="production-card" key={m.id}><div className="production-photo model-image">{m.imageData?<img src={m.imageData} alt={'Foto de '+m.name} loading="lazy"/>:<div className="model-photo-placeholder"><ImagePlus size={32}/><span>Sem foto</span></div>}</div><div className="production-details"><h3>{m.name}</h3><div className="model-photo-ref">{m.reference||'SEM CÓDIGO'}</div>{m.pendingReview&&<span className="status-badge pending">REF em conferência</span>}<div className="model-card-actions">{canEdit&&<><button className="outline-button" onClick={()=>open(m)}><ImagePlus size={16}/>{m.imageData?'Trocar foto':'Adicionar foto'}</button><button className="outline-button" onClick={()=>onEditModel(m)}><Pencil size={16}/> Editar</button><button className="icon-button" onClick={()=>onDeleteModel(m)} title="Excluir modelo"><Trash2 size={16}/></button></>}</div></div></article>)}</div>
+      <div className="production-grid photos-grid">{list.map(m=><article className="production-card" key={m.id}><div className="production-photo model-image">{(m.imageData||m.fallbackImageData)?<img src={m.imageData||m.fallbackImageData} alt={'Foto de '+m.name} loading="lazy"/>:<div className="model-photo-placeholder"><ImagePlus size={32}/><span>Sem foto</span></div>}</div><div className="production-details"><h3>{m.name}</h3><div className="model-photo-ref">{m.reference||'SEM CÓDIGO'}</div>{m.pendingReview&&<span className="status-badge pending">REF em conferência</span>}<div className="model-card-actions">{canEdit&&<><button className="outline-button" onClick={()=>open(m)}><ImagePlus size={16}/>{(m.imageData||m.fallbackImageData)?'Trocar foto':'Adicionar foto'}</button><button className="outline-button" onClick={()=>onEditModel(m)}><Pencil size={16}/> Editar</button><button className="icon-button" onClick={()=>onDeleteModel(m)} title="Excluir modelo"><Trash2 size={16}/></button></>}</div></div></article>)}</div>
       {!list.length&&<div className="empty-state"><Search size={22}/> Nenhum modelo encontrado.</div>}
     </section>
     {selected&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><h2>Foto principal do modelo</h2><p>{selected.name} · {selected.reference||'SEM CÓDIGO'}</p></div><button className="icon-button" onClick={()=>setSelected(null)}><X/></button></div><div className="modal-form"><div className="production-image-preview">{preview?<img src={preview} alt="Prévia"/>:<span>Sem foto</span>}</div><label>Escolher foto do aparelho<input type="file" accept="image/*" onChange={e=>void upload(e.target.files?.[0])}/></label><label>Ou usar URL pública HTTPS<input value={preview.startsWith('data:')?'':preview} onChange={e=>setPreview(e.target.value.trim())} placeholder="https://storage.googleapis.com/..."/></label>{error&&<div className="production-alert">{error}</div>}<div className="modal-actions"><button className="outline-button" onClick={()=>setPreview('')}><Trash2 size={16}/> Remover</button><button className="outline-button" onClick={()=>setSelected(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar foto'}</button></div></div></section></div>}

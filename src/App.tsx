@@ -7,6 +7,7 @@ import { collection, doc, getDoc, getDocs, onSnapshot, query as fsQuery, orderBy
 import * as XLSX from 'xlsx';
 import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
+import { publicCatalogPhoto } from './lib/photoCatalog';
 import { auth, db, firebaseConfigured } from './lib/firebase';
 
 type Role='admin'|'editor'|'viewer';
@@ -17,7 +18,7 @@ type Audit={id:string;actorEmail:string;action:string;modelName:string;before:an
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
 const modelKey=(name:string)=>encodeURIComponent(normalizeText(name).replace(/[.,;:()\-_\/]+/g,' ').replace(/\s+/g,' ').trim()).slice(0,900);
 const shortDate=()=>new Date().toISOString().slice(0,10);
-const mapModel=(id:string,r:DocumentData):Model=>({id,name:String(r.name||''),reference:String(r.reference||''),pendingReview:!!r.pendingReview,imageData:typeof r.imageData==='string'?r.imageData:'',updatedAt:r.updatedAt?.toDate?.()?.toISOString?.()||'',updatedBy:r.updatedBy||''});
+const mapModel=(id:string,r:DocumentData):Model=>({id,name:String(r.name||''),reference:String(r.reference||''),pendingReview:!!r.pendingReview,imageData:typeof r.imageData==='string'?r.imageData:'',fallbackImageData:publicCatalogPhoto(String(r.name||''),String(r.reference||'')),updatedAt:r.updatedAt?.toDate?.()?.toISOString?.()||'',updatedBy:r.updatedBy||''});
 const parseRole=(role:unknown):Role=>role==='admin'||role==='editor'?role:'viewer';
 const safeError=(e:unknown)=> e instanceof Error?e.message:'Não foi possível concluir a operação.';
 const makeAudit=(actor:User,action:string,modelName:string,before:any,after:any)=>({actorUid:actor.uid,actorEmail:actor.email||'',action,modelName,before:before||null,after:after||null,at:serverTimestamp()});

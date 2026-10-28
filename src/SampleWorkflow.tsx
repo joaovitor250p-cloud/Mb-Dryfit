@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Camera, Check, CheckCircle2, Clock3, FileSpreadsheet, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
@@ -140,19 +140,33 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     finally { setBusy(false); }
   };
   const mark = async (p: Production, status: Stage) => {
-    if (!canEdit || busy || p.status===status) return;
-    if(status==='store'&&!window.confirm(`Confirmar que a OC ${p.oc} foi para a loja?`))return;
+    if (!canEdit || busy || p.status === status) return;
+    if (status === 'store' && !window.confirm(`Confirmar que a OC ${p.oc} foi para a loja?`)) return;
     setBusy(true);
     try {
-      const patch={status,completedAt:status==='in_progress'?null:(status==='done'?serverTimestamp():(p.completedAt??serverTimestamp())),
-        completedBy:status==='in_progress'?null:(status==='done'?user.uid:(p.completedBy??user.uid)),updatedAt:serverTimestamp(),updatedBy:user.uid};
-      const batch=writeBatch(db);
-      batch.update(doc(db,'production_samples',p.id),patch);
-      batch.set(doc(collection(db,'audit_log')),auditEntry(user,status==='done'?'corte_pronto':status==='store'?'enviou_loja':'reabriu_corte',p,{status:p.status},{status}));
-      await batch.commit();
-      showMessage(status === 'done' ? 'Corte marcado como pronto.' : status === 'store' ? 'Corte marcado como enviado para a loja.' : 'Corte reaberto e devolvido para andamento.');
-    } catch (e) { showMessage('Não foi possível atualizar o corte: ' + productionError(e), true); }
-    finally { setBusy(false); }
+      const patch = {
+        status,
+        // O envio para a loja preserva a data de finalização já existente.
+        ...(status === 'store' ? {} : {
+          completedAt: status === 'done' ? serverTimestamp() : null,
+          completedBy: status === 'done' ? user.uid : null
+        }),
+        updatedAt: serverTimestamp(), updatedBy: user.uid
+      };
+      // Persistir o status primeiro. Falha na auditoria não desfaz um envio real.
+      await updateDoc(doc(db, 'production_samples', p.id), patch);
+      try {
+        await setDoc(doc(collection(db, 'audit_log')), auditEntry(
+          user, status === 'done' ? 'corte_pronto' : status === 'store' ? 'enviou_loja' : 'reabriu_corte',
+          p, {status:p.status}, {status}
+        ));
+        showMessage(status === 'store' ? 'OC marcada como Foi pra loja.' : status === 'done' ? 'Corte marcado como pronto.' : 'Corte reaberto.');
+      } catch (auditError) {
+        showMessage('Status SALVO no Firestore, mas o histórico não foi gravado: '+productionError(auditError), true);
+      }
+    } catch (statusError) {
+      showMessage('Não foi possível salvar o status em production_samples: '+productionError(statusError), true);
+    } finally { setBusy(false); }
   };
   const remove = async (p: Production) => {
     if (!canEdit || busy || !window.confirm(`Excluir a OC ${p.oc} (${p.name})? Essa exclusão será definitiva em todos os aparelhos.`)) return;
@@ -190,7 +204,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'As novas OCs são cadastradas na página Cortes.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=><article className="production-card" key={p.id}>
-      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData)?<img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData} alt={`Foto de ${p.name}`}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status}`}>{p.status==='store'?'FOI PRA LOJA':p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span>}</div>
+      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData)?<img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData} alt={`Foto de ${p.name}`}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status}`}>{p.status==='store'?'FOI PRA LOJA':p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span>}</div>
       <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
       {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>}{p.status==='done' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'store')}><CheckCircle2 size={16}/> Foi pra loja</button>}{p.status!=='in_progress' && <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
     </article>)}</div>}</section>

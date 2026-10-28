@@ -1,40 +1,35 @@
-# MB REFERENCIAS — Correção de Fotos, Catálogo e Cortes
+# MB REFERENCIAS — Correção de fotos e cortes (revisão 28/10/2026)
 
-Este pacote é baseado na versão real disponibilizada no chat e **não altera automaticamente** sua conta Firebase ou o GitHub.
+## O que mudou nesta edição
 
-## O que foi corrigido
+**Fotos iniciais sem gravação de URL no Firestore:** As 175 correspondências de fotos enviadas pelo usuário foram incorporadas ao frontend como um catálogo público inicial (`src/lib/photoCatalogSeed.json`). Somente modelos que já existem no banco e correspondem EXATAMENTE por nome normalizado + REF recebem essas fotos na tela. Os 19 modelos restantes continuam sem foto. Essa solução elimina a falha `permission-denied` para a apresentação das 175 fotos porque não precisa gravar uma URL externa em `models.imageData`.
 
-1. **Catálogo unificado:** um cartão para cada modelo com FOTO + NOME + REF. Não existe aba separada de fotos; importação CSV de modelos e CSV de fotos no próprio catálogo. O mesmo campo `models/{id}.imageData` é usado em Cortes e Amostras como foto de fallback. Os IDs, nomes, referências e registros no Firebase são mantidos.
-2. **Importação de CSV de fotos:** valida nomes e REF antes de permitir selecionar; impede substituição silenciosa. Confere se a imagem externa carrega. Salva link HTTPS via transação e tenta confirmar a leitura no servidor. Mostra contador de progresso e o motivo real quando o Firestore rejeita a alteração. **Itens com erro permanecem selecionados para nova tentativa**, em vez de desaparecerem. Modelos já salvos aparecem no mesmo cartão.
-3. **Foi pra loja:** ação mantém a OC e altera somente status, datas e autoria em `production_samples`. A auditoria continua sendo criada na mesma operação atômica. Erros de regras (permission-denied), sessão ou conexão são explicados.
-4. **Regras compatíveis:** arquivo `firestore.rules` aceita foto por URL HTTPS e transições de status `in_progress`, `done` e `store`; inclui uma exceção de atualização limitada para registros antigos sem campos opcionais. Acesso continua limitado a usuários autorizados, e edição somente para admin/editor.
+**Importante:** essas 175 fotos **não foram inseridas no Firestore**. São imagens carregadas diretamente do endereço público Nex/Google Cloud Storage, a partir da versão publicada no GitHub; se as URLs do fornecedor forem removidas, precisarão ser atualizadas. O código público do site contém as associações de foto com modelos. Fotos carregadas manualmente para `models.imageData` continuam tendo preferência e permanecem guardadas no Firebase. Nenhuma foto existente foi substituída.
 
-## IMPORTANTE — Por que as fotos não fixavam?
+**Novas fotos por URL:** o programa tenta baixar e compactar o arquivo no navegador usando CORS, do mesmo modo que um upload manual (data URI), e salva o resultado após validar. Caso o servidor bloqueie CORS, ele informa a limitação e pede upload do arquivo local, sem registrar sucesso falso.
 
-A versão anterior escondia qualquer erro da gravação como `Erro ao salvar no Firestore` e desmarcava as fotos mesmo quando todas falhavam. As regras *publicadas* no Firebase (que não podemos ler por este ZIP) podem ainda não permitir URLs HTTPS em `imageData`. O mesmo acontece com o status `store` se a regra publicada aceitar apenas `done` e `in_progress`, ou se o documento legado tiver um esquema incompleto. **Alterar apenas o ZIP no GitHub não altera as regras publicadas no Firebase.**
+**Cortes:** `Foi pra loja` altera só o status e os metadados. O status é gravado diretamente em `production_samples`; depois o sistema tenta registrar a ação em `audit_log`. Se apenas o histórico for negado, a tela informa que o status foi salvo, mas o histórico ficou pendente. Não recria a OC nem altera a foto.
 
-## Como instalar SEM Node ou VS Code no computador
+## Publicar pelo navegador (GitHub Pages)
 
-1. Entre no MB REFERENCIAS e exporte um **Backup JSON** do catálogo antes de começar.
-2. Abra Firebase Console > projeto `mb-referencias` > Firestore Database > Regras. **Copie as regras atuais para um arquivo de backup.** Compare com `firestore.rules` deste pacote: preserve quaisquer regras personalizadas que você tenha feito. Publique as regras corrigidas, mantendo `request.auth`, `user_roles`, roles e a negação final. Consulte também `FIRESTORE-ATUALIZACAO-SEGURA.txt`.
-3. Extraia este ZIP, envie os arquivos internos para a raiz do repositório `joaovitor250p-cloud/Mb-Dryfit`, inclusive `.github/workflows/deploy.yml`.
-4. Verifique GitHub > Actions > **Publicar MB REFERENCIAS**. Se o build estiver verde, atualize `https://joaovitor250p-cloud.github.io/Mb-Dryfit/` com Ctrl+Shift+R.
-5. Abra **Catálogo de modelos**: agora a imagem, o nome e REF ficam juntos. Use **Importar CSV de fotos** e selecione o seu `fotos-modelos-MB-REFERENCIAS.csv` original.
-6. **Teste primeiro só 1 ou 2 fotos**, desmarcando as demais, e confirme. Veja o resultado e o cartão correspondente. Só então importe as restantes.
-7. Em Cortes, marque uma OC como Pronto e depois como **Foi pra loja**. O status deve mudar automaticamente e continuar após atualizar. Se não mudar, leia a mensagem de erro e confira as regras *publicadas*.
+1. Faça Backup JSON no site antes de substituir arquivos.
+2. Extraia o ZIP e envie os arquivos internos para a raiz do repositório `joaovitor250p-cloud/Mb-Dryfit` (preserve subpastas `src/` e `.github/`). Não inclua uma pasta extra ao redor dos arquivos.
+3. Verifique `GitHub > Actions > Publicar MB REFERENCIAS` e só use o site quando **build** e **deploy** ficarem verdes.
+4. Abra `https://joaovitor250p-cloud.github.io/Mb-Dryfit/` e pressione Ctrl+Shift+R.
+5. Os cartões devem mostrar as fotos do CSV inicial automaticamente (sem clicar Importar CSV). Pesquise a REF.10359 e confirme o modelo.
+6. Uma foto já salva manualmente no Firebase tem prioridade sobre a foto do CSV. Se ela estiver errada, selecione **Trocar foto**, escolha o arquivo local e salve.
+7. Em Cortes > Prontos, teste uma OC de teste com **Foi pra loja**. Confirme que passou para a terceira aba após F5.
 
-## Segurança e limitações
+## Firestore
 
-- Fotos por URL continuam hospedadas no servidor de origem, e só são visíveis enquanto o link permanecer público. Este sistema não faz download ou upload dessas imagens para Cloud Storage.
-- `storage.googleapis.com/nexapp-flutter.appspot.com/...` é uma URL HTTPS pública. Imagens que abrem no navegador podem ser exibidas como miniaturas sem precisar de acesso CORS para leitura de pixels.
-- A correspondência CSV é estrita por nome e REF. Modelos diferentes podem compartilhar REF; isso não causa fusão.
-- O arquivo `firestore.rules` tem regras para perfis autorizados. **Não configure `allow read, write: if true`.**
-- A confirmação de status usa uma escrita atômica do corte + histórico; se o Firestore negar alguma delas, o status não é alterado, e uma mensagem é exibida.
-- O pacote não inclui dados privados do seu Firebase; seus cadastros existentes permanecem no banco. As fotos importadas anteriormente com sucesso não são sobrescritas.
+A mudança das 175 fotos NÃO exige atualização de regras do Firestore porque não grava as URLs no banco. O arquivo `firestore.rules` foi preservado do pacote anterior para referência; **não publique regras novas apenas por causa das fotos**. Se o envio à loja falhar por `permission-denied`, examine a regra **publicada** de `production_samples` e a mensagem específica gerada pelo código. O GitHub Pages não publica as regras do Firebase.
 
-## Verificação executada
+As regras legadas de `/usuarios` incluem uma leitura pública por número de WhatsApp (`allow get: if true`), que representa um risco de privacidade já existente. Não amplie essa permissão.
 
-- Análise estática/parse TypeScript TSX: sem erros de sintaxe nos componentes do projeto.
-- Presença de `package.json`, `vite.config.ts`, `tsconfig.app.json` e `.github/workflows/deploy.yml` confirmada.
-- Verificação estrutural do ZIP: aprovada.
-- **Não** foi possível executar `npm install` nem `npm run build` neste ambiente porque `registry.npmjs.org` não resolve (sem acesso ao registro). O GitHub Actions fará o build real. Não considere o projeto testado em produção até os testes acima.
+## Testes e limites
+
+- Comparação dos CSVs: 175 fotos associadas por nome + REF entre 194 modelos, 19 modelos sem correspondência; nenhuma colisão encontrada.
+- TypeScript/TSX: análise de sintaxe feita com compilador TypeScript local (0 erros de parsing).
+- Integridade do ZIP: verificação efetuada.
+- `npm install` / `npm run build`: **não concluídos** neste ambiente por falha DNS `EAI_AGAIN` em registry.npmjs.org. Portanto, build completo e autenticação Firebase em execução **não estão validados**. A etapa GitHub Actions é obrigatória.
+- Não foi possível executar gravações no Firebase ativo nem alterar o repositório: a conexão GitHub deste ambiente tem leitura, mas não tem `push`.

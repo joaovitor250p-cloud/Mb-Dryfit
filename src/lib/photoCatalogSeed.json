@@ -1,0 +1,877 @@
+[
+  {
+    "name": "CAM POLIAMIDA ON TRAN MAN R.L",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/51120c9437677f53e5967fbd82415ad2"
+  },
+  {
+    "name": "CAM UV ADIDAS VAZ S/ TRAN R.L",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0a8c0acd5de7ff92dfa6d3dd2cd06409"
+  },
+  {
+    "name": "CAM UV M.LON NIKE FACÃO VAZ S/ TRAN",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/5870ffed0b699226bb8807eb5cbe9710"
+  },
+  {
+    "name": "CAM UV M.LON NIKE S.BÁS S/ TRAN R.L",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7e44e8b8ea9b9966a2403956195a8655"
+  },
+  {
+    "name": "CAM UV NIKE COMBAT SÍMB CEN",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/a21a1d7fb650f14aeaf6043210a700c7"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ C/ PRO BARRA",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3b334b0fe41eee7e91cea2de5f05db84"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ T.UNI.M",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/42284aa81b0a339c2be0dadf807db5b3"
+  },
+  {
+    "name": "CAM UV NIKE OFICIAL C/ TRAN MAN LAT",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9b2d2fcda167d8a9dcad928e13ff6567"
+  },
+  {
+    "name": "CAM UV NIKE SÍMB BÁS T.UNI.M.L C/ R.L",
+    "reference": "REF.10001",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/219ec87a1bc580abe49a732bc0e22b24"
+  },
+  {
+    "name": "Calça Dryfit Nike Basiquinha",
+    "reference": "REF.10011",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3eefa9ba2523d3eed6244659987747a3"
+  },
+  {
+    "name": "CAM UV ADIDAS COST FR/COST S/ TRAN",
+    "reference": "REF.10028",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ebd5a51c36969d6a12f5f39c1913bfa5"
+  },
+  {
+    "name": "BERM DRY ADIDAS SÍMB BÁS C/ ABERT LAT",
+    "reference": "REF.10036",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/04b430b508e06b5e74ede5be460e12aa"
+  },
+  {
+    "name": "BERM TACTEL NIKE FACÃO VAZ C/ ABERT LAT",
+    "reference": "REF.10036",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f1e73a065e2f11577514954265aec121"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB BÁS C/ DRY LAT BX",
+    "reference": "REF.10037",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/cd517efebfe572172139924276b15589"
+  },
+  {
+    "name": "CAM DRY ADIDAS SÍMB CEN C/ TRAN UNI MAN",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/74a4866b060dac78a79c08a2de464096"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS C/ TRAN MAN R.L",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/1a3ea71f1d8f1a18ccc9824e85524004"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS SÍMB BÁS",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b40fd692b88287eebe98f5e61566cc79"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS SÍMB CEN C/ TRAN",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ba8be577cdd7d76cc7894eb131a19086"
+  },
+  {
+    "name": "CAM DRY G.A NIKE C/ TRAN MAN LAT R.L",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2941725050f33ee00809a9769b552e2f"
+  },
+  {
+    "name": "CAM DRY G.A NIKE S.BÁS TRAN/ MAN LAT R.L",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/badc28dafed2648b18e3a9429d272ab1"
+  },
+  {
+    "name": "CAM DRY JORDAN PEITO BÁSICA",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/29e6e1ed34143372207f2fad8cd74000"
+  },
+  {
+    "name": "CAM DRY NIKE FACÃO CENTRAL",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9b55d6129bd01db90134693b737a4ea7"
+  },
+  {
+    "name": "CAM DRY NIKE FACÃO VAZ TEC LIS",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2159e8e7793f9c88fd464bb7c7c0dbad"
+  },
+  {
+    "name": "CAM DRY NIKE JUST DO IT C/ SÍMB CEN",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/086bafaaf75d7f8b7f7aac00e5028f55"
+  },
+  {
+    "name": "CAM DRY NIKE SWOOSH",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e39f7f1f3e958e18d9d135fbc1544136"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB BÁS C/ R.L",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/cd44d7120fe862b93eaeb994506a0c03"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB BÁS S/TRAN",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f9ae6735fe1f50d43541c28014077fe4"
+  },
+  {
+    "name": "CAM POLIA/ELAS M.LON NIKE SÍMB BÁS",
+    "reference": "REF.10088",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9b1bed4b3b1122f2a67b8dbcf664a64c"
+  },
+  {
+    "name": "CAM DRY ADIDAS SÍMB BÁS C/ DOB AXIL",
+    "reference": "REF.10089",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/94fcc13987ff376328210091d08e7e5d"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB BÁS C/ DOB AXIL",
+    "reference": "REF.10089",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/751ca14223af6f22ab292f33eb0e327e"
+  },
+  {
+    "name": "BERM ALFAIATARIA NIKE SÍMB BÁS B.D R.L",
+    "reference": "REF.10118",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/287e5333db9d19c1bd100e81f2e62b41"
+  },
+  {
+    "name": "BERM DRY NIKE B.D R.L SÍMB. BÁS",
+    "reference": "REF.10118",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/bde11068406fe4bbc93d6997fbd6694a"
+  },
+  {
+    "name": "BERM TACTEL JORDAN SÍMB BÁS B.D R.L",
+    "reference": "REF.10118",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0d9773f5bb20647419939deae65441ff"
+  },
+  {
+    "name": "BERM TACTEL NIKE B.D R.L SÍMB. BÁS",
+    "reference": "REF.10118",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e616aa4a97c2f5cc5c79befb46232007"
+  },
+  {
+    "name": "BERM TACTEL NIKE PRO C/ C.A REC LAT",
+    "reference": "REF.10118",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/29670b143a4b7e6594b8e4baa9b7c1be"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB. BÁS C/ C.A R.L",
+    "reference": "REF.10119",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e50c082ba79c47913a5e62c3d03a180d"
+  },
+  {
+    "name": "BERM TACTEL NIKE TRANSP/FR-",
+    "reference": "REF.10121",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3d8794b40757b61798b793c84de412b8"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS CEN BIC C/ TRAN",
+    "reference": "REF.10127",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3bb4a29fb863aaf943cf7b6fb90bd1c8"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS CEN C/ 2 TRAN",
+    "reference": "REF.10127",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c9f35490b24b1a5e50f22cd48bf87b46"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB CEN VAZ C/ TRAN",
+    "reference": "REF.10139",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/448107f7e6b16c5d2eba250fd9c104d8"
+  },
+  {
+    "name": "CAM DRY G.A JORDAN SÍMB CEN ABERT/F",
+    "reference": "REF.10158",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/6fabe6accfc5ac16495c2b3312dca17a"
+  },
+  {
+    "name": "CAM DRY NIKE ESC CEN C/ TRAN MAN FR",
+    "reference": "REF.10159",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/a87d5634340fb05dd846c7421d9a6bb3"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB BÁS C/ TRAN MAN FR",
+    "reference": "REF.10159",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3856265e2f761a53801265bc136417dc"
+  },
+  {
+    "name": "CAM POLIA/POLIE NIKE ESC C/ TRAN T.C R.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/5daea0fa57c87b552a298231df675e17"
+  },
+  {
+    "name": "CAM POLIA/POLIE NIKE FACÃO VAZ C/ TRAN T.C R.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0c9c41156e0f522818d5c0d705c46058"
+  },
+  {
+    "name": "CAM UV ADIDAS CEN T.UNI.M.F.L C/ R.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e034d540edd082989116a53388663a64"
+  },
+  {
+    "name": "CAM UV NIKE ESC GR C/ TRAN A.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9c1c9d3168d80645ab821d7f021ef62a"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ. T.UNI.M.F C/ R.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/614a040c42b9a06647678af1cc1e2f14"
+  },
+  {
+    "name": "CAM UV NIKE SÍMB BÁS C/ TRAN R.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/81d1855f1956e571bb970a2a6a334535"
+  },
+  {
+    "name": "CAM UV NIKE SÍMB CEN C/ TRAN A.D.F",
+    "reference": "REF.10161",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/8fefd8f4193a2bcc602770382b5ec612"
+  },
+  {
+    "name": "CAM UV M.LON ADIDAS SÍMB CEN C/ TRAN S/R",
+    "reference": "REF.10162",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7c421be5ee592396f231380be2e1b272"
+  },
+  {
+    "name": "CAM UV M.LON NIKE FACÃO VAZ T.UNI.F.L R.D",
+    "reference": "REF.10162",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/984a6f3177529d4162258489b98560e5"
+  },
+  {
+    "name": "CAM UV M.LON NIKE SIMB BAS C/ T.F.L",
+    "reference": "REF.10162",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/1f93a8279c53378bfec068dcdf04b945"
+  },
+  {
+    "name": "BERM TACTEL JORDAN BIC SÍMB BÁS",
+    "reference": "REF.10169",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/79cb707aa3ac8c1bac18e36f1948b1ce"
+  },
+  {
+    "name": "BERM TACTEL NIKE BIC C/ DET COS R.L",
+    "reference": "REF.10169",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e17b2ee20be341be25c6b99006085954"
+  },
+  {
+    "name": "BERM TACTEL NIKE BIC DET LAT C.T",
+    "reference": "REF.10170",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c79be31768e0d483c044233329531787"
+  },
+  {
+    "name": "BERM ALFAIATARIA ADIDAS SÍMB BÁS C/ BOL TRAZ",
+    "reference": "REF.10171",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ec55fcd12e7eae4890c1ac2819f2bbcf"
+  },
+  {
+    "name": "BERM TACTEL FLY C/ BOL TRAZ",
+    "reference": "REF.10171",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b62a42317a1b6ab6dce94b4cf5cd37c3"
+  },
+  {
+    "name": "BERM TÉRMICA DRY NIKE SÍMB BÁS-",
+    "reference": "REF.10171",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3a29b5efa997c5bd0dcfc28db29ea0cf"
+  },
+  {
+    "name": "BERM TÉRMICA TACTEL NIKE SÍMB BÁS C/ B.T",
+    "reference": "REF.10171",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/8bd1a32a21b24f589bf6dafc6df089a6"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS R.D.L C/ CADARÇO",
+    "reference": "REF.10178",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/692cfc4c1aabc0e1489537d307daf71e"
+  },
+  {
+    "name": "CAM DRY ADIDAS SÍMB. BÁS C/ T.P.F.C",
+    "reference": "REF.10204",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b1ab29d920a16dfca837dcc5978fb9ad"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB. BÁS C/ T.P.F.C",
+    "reference": "REF.10204",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d616b024f78c8abad6f87f01523fcf51"
+  },
+  {
+    "name": "CAM UV NIKE BIC SÍMB CEN  DET DOB AXIL",
+    "reference": "REF.10206",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/4b3e851c130af85601a09048ab42dc46"
+  },
+  {
+    "name": "CAM UV NIKE BICOLOR DET DOB AXIL",
+    "reference": "REF.10206",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/59268de5b6b9bd2f43adac09a7e7b2d5"
+  },
+  {
+    "name": "CAM DRY NIKE FACÃO VAZ COST RETA R.L",
+    "reference": "REF.10216",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ae2ab38fc5655e5ba6ed584b2a729a1e"
+  },
+  {
+    "name": "CAM DRY NIKE SÍMB BÁS T.UNI.M C.R R.L",
+    "reference": "REF.10216",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/db5af3eb5dc148cca2bb75fffd1c141d"
+  },
+  {
+    "name": "CAM DRY NIKE TRAINING COST RETA R.L",
+    "reference": "REF.10216",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/02d7b4714fab0c67823bb4a5772d10dd"
+  },
+  {
+    "name": "BERM TACTEL NIKE BÁS C/ R.L",
+    "reference": "REF.10226",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f75bd6de78a8b5e6ae34ecbe10cb35e9"
+  },
+  {
+    "name": "CAM UV NIKE BIC S.BÁS DET LAT/OM",
+    "reference": "REF.10230",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b5e80ad17d161d66ce07407d9c7dce86"
+  },
+  {
+    "name": "CAM UV NIKE VAZ DET LAT OM",
+    "reference": "REF.10230",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e39ce0e0182aadf0f25735b87b8a1389"
+  },
+  {
+    "name": "BERM TACTEL JUST DO IT C/ DRY LAT",
+    "reference": "REF.10240",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/746bd13883d2d00496a745fc0b159d0d"
+  },
+  {
+    "name": "BERM TACTEL NIKE BIC C/ DRY LAT R.L",
+    "reference": "REF.10240",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ec31b5b82992734110d82426993d0a72"
+  },
+  {
+    "name": "BERM TACTEL ADIDAS SÍMB BÁS C/ LIS LAT",
+    "reference": "REF.10246",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f9f429f296e83831e3de80d02c315036"
+  },
+  {
+    "name": "BERM TACTEL NIKE ESC SÍMB ZÍP LAT BOL TRAZ",
+    "reference": "REF.10251",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2e15b68b82799fb2721f0054368b96b6"
+  },
+  {
+    "name": "CAM UV ADIDAS TECHFIT C/ DRY COST LAT",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/525bd44772dbad2a62624d6170e913d1"
+  },
+  {
+    "name": "CAM UV ADIDAS VAZ CEN C/ TRAN M.LUA COST",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/db766c96c6f3c064dfc5e169d4cfe9b7"
+  },
+  {
+    "name": "CAM UV JORDAN 2.A C/ DRY LAT COST M.LUA",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/8fc790fde31431638b8fcde3d194c687"
+  },
+  {
+    "name": "CAM UV JORDAN C/ TRAN M.LUA COST",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ca824fa6d1b6c141fa7f754c21bb28f8"
+  },
+  {
+    "name": "CAM UV NIKE C/ DRY LAT COST M.LUA",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/afb204f797b9e221ffc17dbc377334c8"
+  },
+  {
+    "name": "CAM UV NIKE COMB 2.A C/ DRY LAT COST M.LUA",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/3dd691b32ce6cfa7454dbf81a1bc3413"
+  },
+  {
+    "name": "CAM UV NIKE ESC GR C/ DRY LAT COST M.LUA",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/44f0bf4adf877dcfd995fc12e36b80cb"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ C/ DRY LAT COST M.LUA",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2a464f48b15fe8b532ef93232f90df76"
+  },
+  {
+    "name": "CAM UV NIKE PRO COMBAT C/ TRAN M.LUA COST",
+    "reference": "REF.10253",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/24c017546598236d0ef1b6a0ea5c2da9"
+  },
+  {
+    "name": "BERM TACTEL ADIDAS MAU BIC",
+    "reference": "REF.10254",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/cfed26a9aeb16757cf812150f10f0130"
+  },
+  {
+    "name": "BERM DRY ADIDAS C/ FAIXAS LAT/BARRA",
+    "reference": "REF.10255",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f821bb62e1e570b535992ec05defbf86"
+  },
+  {
+    "name": "BERM TACTEL NIKE BIC C/ ABERT LAT",
+    "reference": "REF.10266",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9d45d38d4b464fa5c02112a017bdba77"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB BÁS C/ VIVO",
+    "reference": "REF.10272",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b23638ac696689c1290c7a6e5995859b"
+  },
+  {
+    "name": "BERM ALFAIATARIA ADIDAS C/ FAIXAS TRAZ",
+    "reference": "REF.10275",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0b273d30d79ac40587b6c5ac656121d9"
+  },
+  {
+    "name": "BERM TACTEL ADIDAS C/ FAIXAS TRAZ",
+    "reference": "REF.10275",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7058e5f935f888002b9cc04046bf9b48"
+  },
+  {
+    "name": "CONJUNTO DRY G.A ADIDAS C/ FAIXAS LAT",
+    "reference": "REF.10277 / REF.10278",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/89330498cc53bd6b9c63061dfea9124f"
+  },
+  {
+    "name": "REGATA UV ADIDAS S.C D.C C/ TRAN/DRY",
+    "reference": "REF.10281",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ff34c5b28e6c62dd108de6464eb7c2db"
+  },
+  {
+    "name": "REGATA UV NIKE FACÃO VAZ C/ DRY COST/LAT",
+    "reference": "REF.10281",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c75d2afcf6ba13b92545e9b3978bab9c"
+  },
+  {
+    "name": "REGATA UV NIKE PRO SÍMB CEN",
+    "reference": "REF.10281",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2d3ee2fb9282a00368f73186534345d2"
+  },
+  {
+    "name": "CAM UV NIKE SÍMB CEN C/ DET GOLA",
+    "reference": "REF.10282",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/223198c680a3d830811cb7e645aaeeb5"
+  },
+  {
+    "name": "CAM UV NIKE NOCTA C/ DRY COSTAS",
+    "reference": "REF.10283",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/89bec7b32f7b026e1f833539052dd873"
+  },
+  {
+    "name": "REGATA UV NIKE SÍMB BÁS C/ TRAN LAT",
+    "reference": "REF.10294",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/560e43a6fea8bdc29d0ebaf064fc546f"
+  },
+  {
+    "name": "REGATA DRY G.A NIKE SÍMB CEN C/ TRAN UNI LAT",
+    "reference": "REF.10300",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c64a5754d58b02516f46fa37fd8e47ea"
+  },
+  {
+    "name": "REGATA DRY NIKE C/ T.LAT SÍMB MED CEN",
+    "reference": "REF.10306",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/bc3ba13020ce4433de1d18ba181b5044"
+  },
+  {
+    "name": "REGATA DRY NIKE FACÃO C/ T.LAT",
+    "reference": "REF.10306",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/702d94442a34f7f7a9527614375dd903"
+  },
+  {
+    "name": "REGATA UV NIKE C/ TRAN FR/LAT",
+    "reference": "REF.10308",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f9b5c0ccca5999597a7e9b4fda4794f9"
+  },
+  {
+    "name": "REGATA UV NIKE PRO C/ TRAN FR/LAT",
+    "reference": "REF.10308",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d22fc32c23fc46c1f2279844dd120c17"
+  },
+  {
+    "name": "BERM TACTEL NIKE ESC BORD C/ BOL ESQ",
+    "reference": "REF.10310",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/dfe8e20f8ba4871403a0352fd6fb9182"
+  },
+  {
+    "name": "BERM TACTEL NIKE ESC BORD UNI C/ BOL ESQ",
+    "reference": "REF.10310",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c5291f9171431a585c21be83dbe1e006"
+  },
+  {
+    "name": "REGATA DRY G.A ADIDAS C/ FAIXAS LAT",
+    "reference": "REF.10313",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/fc99cedde4a90070d24093b2709de586"
+  },
+  {
+    "name": "BERM TACTEL NIKE AIR C/ DRY TRAZ ENT PER",
+    "reference": "REF.10318",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7a656c77cdef6ff706015db27fdf8c01"
+  },
+  {
+    "name": "CAM DRY M.LON ADIDAS C/ FAIXAS MAN",
+    "reference": "REF.10322",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/db2be6cdf368e1716ec3ea208738fb84"
+  },
+  {
+    "name": "JAQUETA POLIA/ELAS NIKE BORDADO",
+    "reference": "REF.10328",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c6e88c2884830c5cb6dbeae3bca5057a"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS C/ COST FR/VERS",
+    "reference": "REF.10335",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/99022eff5d0ea24c760cc540c45c8d95"
+  },
+  {
+    "name": "BERM TACTEL JORDAN VAZ MAU C/ COST TRAZ",
+    "reference": "REF.10336",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/02463f261d42d7708de19a394bd0b930"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB BÁS C/ DRY TRAZ",
+    "reference": "REF.10336",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/718f315c46f568d82e36a502c1457143"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB BÁS BOL LAT",
+    "reference": "REF.10340",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/028cf1d6f0302be093818b02960df699"
+  },
+  {
+    "name": "BERM TACTEL NIKE SÍMB BÁS VAZ BOL LAT",
+    "reference": "REF.10340",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d7ca22fd3d0ec46b5337285a0d0f8f83"
+  },
+  {
+    "name": "BERM TACTEL ADIDAS BIC SÍMB BÁS",
+    "reference": "REF.10341",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9b2979637d46434421be8f402fbfd402"
+  },
+  {
+    "name": "BERM TACTEL NIKE BIC ESC ABX/BOL",
+    "reference": "REF.10341",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/5aaa020441d40e4989441a058d025edf"
+  },
+  {
+    "name": "REGATA UV ADIDAS SÍMB BÁS C/ CADARÇO LAT",
+    "reference": "REF.10356",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b7c8362a3de3ca429f2489e073d6856c"
+  },
+  {
+    "name": "BERM DRY NIKE SIMB BAS R.L",
+    "reference": "REF.10359",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/51b5a4e9f6cb642630738f65ad8e3b9f"
+  },
+  {
+    "name": "CAM DRY G.A ADIDAS BIC C/ DET OM",
+    "reference": "REF.10366",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/a0bd47ce0565d19b569fa28f2ede0107"
+  },
+  {
+    "name": "BERM POLIA/ELAS ON",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0b7ee14e0b8568b88a9a1a755a7c368e"
+  },
+  {
+    "name": "BERM POLIA/ELAS ON C/ BOL TRAZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/4cb0163e9a38282158c4304f11702f97"
+  },
+  {
+    "name": "BERM POLIA/ELAS ON VAZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/24ac8b7e71dc2ad4e6d18a61407c25ec"
+  },
+  {
+    "name": "BERM POLIAMIDA BIC ON C/ BOL TRAZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c7318c4052654456f5bd868744221970"
+  },
+  {
+    "name": "BERM POLIAMIDA NIKE CARGO",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d57c24fb6649514da500c80b655b455d"
+  },
+  {
+    "name": "BERM POLIAMIDA ON 2 SÍMB",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/58dc75da2a5d8ca4b2d95d9ffba57346"
+  },
+  {
+    "name": "BERM POLIAMIDA ON C/ ABERT LAT",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/4957ca8fe6b8f961e1ce13cf0ffbca04"
+  },
+  {
+    "name": "BERM POLIAMIDA ON C/ DET TRAZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/207cb1c6edcaa19ab8e232ca9c5305db"
+  },
+  {
+    "name": "BERM POLIAMIDA ON C/ ZIPER",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ab145363b8fcf2ced33e7967b5446824"
+  },
+  {
+    "name": "BERM POLIE/ELAS NIKE SÍMB BÁS",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/6d95030e94135f561c746374f64398de"
+  },
+  {
+    "name": "BERM POLIÉSTER/SPANDEX ADIDAS",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ac0a8c7ffa2d0d1c57e7e3135e8f7d34"
+  },
+  {
+    "name": "BERM POLIÉSTER/SPANDEX ON",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f40413d8f72290ca113d2c6655f5ee5f"
+  },
+  {
+    "name": "BERM TACTEL NIKE C/ REC LAT REDONDO",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/6720c03c0578b586261f003ae692d741"
+  },
+  {
+    "name": "BERM TACTEL NIKE ESC/C FUNDO",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e290ac5e32a0a196c6059f1fd5cc581f"
+  },
+  {
+    "name": "BERM TÉRMICA POLIAMIDA ON",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/032ee9d4c27c0539104e4d6be3125c04"
+  },
+  {
+    "name": "BERMUDA TACTEL JORDAN 23",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ee8460baeee87b9fb87b69ed251a02e8"
+  },
+  {
+    "name": "CAM DRY NIKE SB C.R.M",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/a9e50d662f806323b432566e9a64333a"
+  },
+  {
+    "name": "CAM NAIL/ELAS ON SÍMB CEN LAT",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7a789a64a4a3a9259fb9a3c212b0c7c6"
+  },
+  {
+    "name": "CAM POLIA/ELAS ON VAZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/e4ce2e7bca3747b8ff89c94d32918c59"
+  },
+  {
+    "name": "CAM POLIAMIDA ON DET MAN",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0dc9d25870227a6b50b8ff564f75f508"
+  },
+  {
+    "name": "CAM POLIAMIDA ON DET OM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/6df0252a2feb124ac2a95cf2566c88e4"
+  },
+  {
+    "name": "CAM POLIAMIDA ON SIMB BAS",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/04adc35b367b899833e06955ad8fb769"
+  },
+  {
+    "name": "CAM POLIÉSTER ON",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/74de3876f7bc75d3d8056e409cc61e32"
+  },
+  {
+    "name": "CAM POLO ZARA",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/8e56c8173c75fa061199da0ef1e663a0"
+  },
+  {
+    "name": "CAM UV NIKE C/ DET GOLA",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0fb0f06f3de764c37b1b997d288eaaa6"
+  },
+  {
+    "name": "CAM UV NIKE C/ TRAN MAN R.L",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/52783316a428367e0fdeab8ca1dd5ce6"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ BIC C/ DET M.O",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0f7b5e5c7365857818af302437faf714"
+  },
+  {
+    "name": "CAM UV NIKE FACÃO VAZ T.M M.L",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/2519d2a59610fe5e74af1273a65e9464"
+  },
+  {
+    "name": "CAM UV NIKE PRO FACÃO VAZ. M.L C.L.F",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/c97dadace69f32341a63d7bd292bfea6"
+  },
+  {
+    "name": "CAM UV NIKE PRO FACÃO VAZ. M.L T.M.L.F",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/92b322e87f65da89f1ecd61c2376630d"
+  },
+  {
+    "name": "CAM UV NIKE SÍMB BÁS T.UNI.M",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ec212ee09f374c75d0c81e5748d78298"
+  },
+  {
+    "name": "CAM UV NIKE VAZ C/ TRAN DRY OM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/1a0b9bee6201a5436fcd3ce6e81eb0d1"
+  },
+  {
+    "name": "CAMISETA DRYFIT JORDAN BASIQUINHA C.R",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/81c709502c785cf4a2565cc283aaa7d3"
+  },
+  {
+    "name": "CAMISETA DRYFIT NIKE BASIQUINHA CR C/ RECORTE LATERAL",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/38d38c0fc2f411f8bb88a0645b330697"
+  },
+  {
+    "name": "CAMISETA DRYFIT NIKE ESCR. LAT R.L",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/fe22dbf3f479b5a6b8c89019a8f4e58e"
+  },
+  {
+    "name": "CAMISETA UV COMP NIKE ML C/ TRANÇ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/68acb2679f1d075683618406f323d845"
+  },
+  {
+    "name": "CONJUNTO DRY G.A ADIDAS MOD.BÁS C+B",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/ff31c8954e10965fb0e6aa953a4d155a"
+  },
+  {
+    "name": "CONJUNTO DRY G.A NIKE MOD.BÁS C+B",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/dcd7e91687a219a444db32c1d5d83ef1"
+  },
+  {
+    "name": "CONJUNTO DRY NIKE SÍMB BÁS C/ CAPUZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/4094be434992dd67aca68d9075bdd80c"
+  },
+  {
+    "name": "CONJUNTO DRY NIKE SÍMB BÁS C/ ZÍPER PEQ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d85d794ff1be1545be8e8298031c4bf5"
+  },
+  {
+    "name": "CONJUNTO NAIL/SPAN ADIDAS REG+BERM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/675cad81981ad29217d34d716df14c15"
+  },
+  {
+    "name": "CONJUNTO NAIL/SPAN NIKE REG+BERM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/0a61398d85680d25bfe9806b4c4fcaeb"
+  },
+  {
+    "name": "CONJUNTO NAILON/ELAS BIC NIKE",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/b48131d2802ea48fc355e2a9402dcd52"
+  },
+  {
+    "name": "CONJUNTO NAILON/ELAS SÍMB BÁS",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/27aa25f5654862b9d7d4db48e32741f8"
+  },
+  {
+    "name": "CONJUNTO NEOPREME ADIDAS BORD B+C",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/553d786aed088b5d156b409399ea7c6e"
+  },
+  {
+    "name": "CONJUNTO NEOPREME NIKE ESCR BORD B+C",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/f53222034ad88d2449e4c7d6891152a6"
+  },
+  {
+    "name": "CONJUNTO NEOPREME NIKE SÍMB BORD B+C",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/565ee77aa2585e7d885625abbf2f949b"
+  },
+  {
+    "name": "CONJUNTO POLIA/ELAS NIKE BIC",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/49025e5b28af155f9f9c3d37615e5478"
+  },
+  {
+    "name": "CONJUNTO POLIA/ELAS NIKE CALÇA 4 ZIP",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/a1b5457e45cf766dd9e7a3f08ae371e6"
+  },
+  {
+    "name": "CONJUNTO POLIAMIDA ON BERM+CAM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/d740db95d827a3cc3db925991324306b"
+  },
+  {
+    "name": "CONJUNTO POLIE/ELAS NIKE BORD C/ CAPUZ",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/9f8f0e51dc8e2c42ff38d155a8ee6d92"
+  },
+  {
+    "name": "CONJUNTO POLIÉSTER ADIDAS LIS OM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7f8cf7d402181105db1fa242e1bac29c"
+  },
+  {
+    "name": "CONJUNTO POLIÉSTER NIKE BERM+CAM",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/cbf239a5083649ddfff3a03e0f509a23"
+  },
+  {
+    "name": "CONJUNTO POLIÉSTER NIKE DET MAN",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/32403488d2929a2b02b7cb63762f05fd"
+  },
+  {
+    "name": "CONJUNTO POLIÉSTER NIKE ESCRITO",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/661c075c65e7d12060693cdd9b5adf36"
+  },
+  {
+    "name": "CONJUNTO SARJA ADIDAS BORDADO",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/6323ad7e05f0712e923245f9a32ed227"
+  },
+  {
+    "name": "JAQUETA POLIÉSTER JORDAN BICOLOR",
+    "reference": "SEM CÓDIGO",
+    "imageUrl": "https://storage.googleapis.com/nexapp-flutter.appspot.com/production/products/7fd24c6b40664906d3e2ce9798580f25"
+  }
+]
