@@ -25,6 +25,20 @@ service cloud.firestore {
                     || request.resource.data.imageData.matches('https://.*'))));
     }
 
+    function validPhotoOnlyUpdate() {
+      // Compatível também com modelos legados que não tenham pendingReview.
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['imageData','updatedAt','updatedBy'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAll(['imageData','updatedAt','updatedBy'])
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.imageData is string
+        && request.resource.data.imageData.size() <= 90000
+        && (request.resource.data.imageData == ''
+          || request.resource.data.imageData.matches('data:image/webp;base64,.*')
+          || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+          || request.resource.data.imageData.matches('https://.*'));
+    }
     match /user_roles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
@@ -33,7 +47,8 @@ service cloud.firestore {
     }
     match /models/{modelId} {
       allow get, list: if authorized();
-      allow create, update: if canEdit() && validModel();
+      allow create: if canEdit() && validModel();
+      allow update: if canEdit() && (validModel() || validPhotoOnlyUpdate());
       allow delete: if canEdit();
     }
     // Um registro de OC pode ser consultado em Amostras e acompanhado em Cortes.
@@ -68,14 +83,31 @@ service cloud.firestore {
         && request.resource.data.status in ['in_progress', 'done', 'store']
         && request.resource.data.updatedBy == request.auth.uid;
     }
+    function validStatusOnlyUpdate() {
+      // Aceita atualizar cortes antigos sem apagar campos ainda inexistentes.
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['status','completedAt','completedBy','updatedAt','updatedBy'])
+        && request.resource.data.diff(resource.data).affectedKeys()
+        .hasAll(['status','updatedAt','updatedBy'])
+        && request.resource.data.status in ['in_progress','done','store']
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.get('completedBy', null) == null
+          || request.resource.data.get('completedBy', null) is string)
+        && (request.resource.data.get('completedAt', null) == null
+          || request.resource.data.get('completedAt', null) is timestamp);
+    }
     match /production_samples/{sampleId} {
       allow get, list: if authorized();
       allow create: if canEdit() && validProduction()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status == 'in_progress';
-      allow update: if canEdit() && validProduction()
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt;
+      allow update: if canEdit() && (
+          (validProduction()
+            && request.resource.data.createdBy == resource.data.createdBy
+            && request.resource.data.createdAt == resource.data.createdAt)
+          || validStatusOnlyUpdate()
+        );
       allow delete: if canEdit();
     }
     match /audit_log/{entryId} {

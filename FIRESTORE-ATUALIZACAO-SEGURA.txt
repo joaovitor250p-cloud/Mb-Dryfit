@@ -1,0 +1,13 @@
+ATENÇÃO — EXIGE AÇÃO MANUAL NO FIREBASE
+
+Não basta enviar o ZIP ao GitHub. O Firestore usa as regras que estão PUBLICADAS no Console do Firebase.
+
+1. Faça backup das regras atuais em Firestore > Regras.
+2. Compare as regras ativas com firestore.rules deste pacote. Preserve permissões e regras personalizadas.
+3. Verifique especialmente as linhas de models: aceitar imageData HTTPS (sem liberar escrita pública), e de production_samples: permitir status store, inclusive atualizações parciais de OCs antigas.
+4. Publique o conteúdo revisado em Firebase Console > Firestore Database > Regras > Publicar.
+5. Teste uma foto e uma transição Pronto -> Foi pra loja.
+
+As regras fornecidas exigem Authentication + user_roles e só permitem alterações a admin/editor.
+Não substitua regras de produção cegamente sem preservar regras personalizadas adicionais.
+O site agora apresenta códigos reais de erro para ajudar a verificar o motivo de qualquer recusa.

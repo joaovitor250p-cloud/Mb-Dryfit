@@ -77,3 +77,16 @@
 
 /* Fotos ficam dentro de Catálogo de Modelos, não em uma aba operacional separada. */
 .catalog-internal-tabs{display:flex;gap:8px;margin:0 0 22px;flex-wrap:wrap}.catalog-internal-tabs button{border:1px solid #dbe5e9;border-radius:12px;padding:10px 17px;background:#fff;color:#15576a;display:inline-flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}.catalog-internal-tabs button.selected{background:#0c5362;color:#fff;border-color:#0c5362}.catalog-internal-tabs button:hover{filter:brightness(.96)}
+
+/* Catálogo unificado: imagem, nome e referência no mesmo cartão. */
+.unified-catalog .production-grid,.photos-page .photos-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:18px;}
+.photos-page .production-card {display:flex;flex-direction:column;}
+.photos-page .production-photo {height:210px;min-height:210px;}
+.photos-page .production-photo img{display:block;width:100%;height:100%;object-fit:contain;background:#f4f8fa;}
+.photos-page .production-details {display:flex;flex-direction:column;gap:9px;flex:1;padding:16px;}
+.photos-page .production-details h3{line-height:1.35;overflow-wrap:anywhere;min-height:0;margin:0;}
+.model-card-actions{margin-top:auto;display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.model-card-actions .outline-button{font-size:12px;padding:9px 11px;}
+.photos-page .mapping-panel {margin:12px 14px 18px;overflow:hidden;}
+.photos-page .mapping-panel .table-scroll {max-height:500px;overflow:auto;}
+.photos-page .production-alert{white-space:pre-wrap;overflow-wrap:anywhere;}

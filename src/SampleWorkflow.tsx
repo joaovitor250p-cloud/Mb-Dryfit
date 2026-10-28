@@ -46,6 +46,14 @@ async function makePhoto(file: File): Promise<string> {
     throw Error('A foto ficou grande demais mesmo após otimização. Escolha outra imagem.');
   } finally { source.close(); }
 }
+function productionError(error:unknown):string {
+  const e=error as {code?:string;message?:string};
+  const code=String(e?.code||'');
+  if(code.includes('permission-denied'))return 'Permissão negada pelo Firestore. Verifique se as regras PUBLICADAS aceitam o status "store" (Foi pra loja) e as alterações em production_samples; veja FIRESTORE-ATUALIZACAO-SEGURA.txt.';
+  if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Conexão indisponível. O corte não foi confirmado; tente novamente.';
+  if(code.includes('unauthenticated'))return 'Sua sessão expirou. Saia e entre novamente.';
+  return `${code?code+': ':''}${e?.message||String(error)}`;
+}
 const humanDate = (raw: unknown) => {
   const d = (raw as { toDate?: () => Date } | undefined)?.toDate?.();
   return d ? d.toLocaleDateString('pt-BR') : '—';
@@ -133,6 +141,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
   };
   const mark = async (p: Production, status: Stage) => {
     if (!canEdit || busy || p.status===status) return;
+    if(status==='store'&&!window.confirm(`Confirmar que a OC ${p.oc} foi para a loja?`))return;
     setBusy(true);
     try {
       const patch={status,completedAt:status==='in_progress'?null:(status==='done'?serverTimestamp():(p.completedAt??serverTimestamp())),
@@ -142,7 +151,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
       batch.set(doc(collection(db,'audit_log')),auditEntry(user,status==='done'?'corte_pronto':status==='store'?'enviou_loja':'reabriu_corte',p,{status:p.status},{status}));
       await batch.commit();
       showMessage(status === 'done' ? 'Corte marcado como pronto.' : status === 'store' ? 'Corte marcado como enviado para a loja.' : 'Corte reaberto e devolvido para andamento.');
-    } catch (e) { showMessage('Não foi possível atualizar o corte: ' + (e instanceof Error ? e.message : String(e)), true); }
+    } catch (e) { showMessage('Não foi possível atualizar o corte: ' + productionError(e), true); }
     finally { setBusy(false); }
   };
   const remove = async (p: Production) => {
@@ -177,7 +186,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
       {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button><button className={filter==='store'?'chosen':''} onClick={()=>setFilter('store')}><CheckCircle2 size={15}/> Foi pra loja ({wentToStore})</button></div>}
     </div>
-    {error&&<div className="production-alert">{error}</div>}{message&&<div className="production-ok">{message}</div>}
+    {error&&<div className="production-alert" role="alert">{error}</div>}{message&&<div className="production-ok">{message}</div>}
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'As novas OCs são cadastradas na página Cortes.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=><article className="production-card" key={p.id}>
