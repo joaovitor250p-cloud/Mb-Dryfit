@@ -11,6 +11,7 @@ type Props = {
   db: Firestore; user: User; canEdit: boolean; models: Model[];
   onAddModel:()=>void; onEditModel:(model:Model)=>void; onDeleteModel:(model:Model)=>void;
   onImportModels:()=>void; onExportModels:()=>void; onBackup:()=>void;
+  onBulkDeleteModels:(models:Model[])=>Promise<number>;
 };
 type PhotoRow = {name:string; reference:string; url:string; model:Model|null; status:string; selected:boolean; eligible:boolean};
 const keyFor=(v:string)=>normalizeText(v).replace(/[.,;:()\-_/]/g,' ').replace(/\s+/g,' ').trim();
@@ -36,9 +37,11 @@ function readableFirestoreError(error:unknown):string {
   return `Erro ${code||'inesperado'}: ${err?.message||String(error)}`;
 }
 
-export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditModel,onDeleteModel,onImportModels,onExportModels,onBackup}:Props) {
+export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditModel,onDeleteModel,onImportModels,onExportModels,onBackup,onBulkDeleteModels}:Props) {
   const [search,setSearch]=useState('');
   const [onlyMissing,setOnlyMissing]=useState(false);
+  const [selectionMode,setSelectionMode]=useState(false);
+  const [selectedCardIds,setSelectedCardIds]=useState<string[]>([]);
   const [selected,setSelected]=useState<Model|null>(null);
   const [preview,setPreview]=useState('');
   const [busy,setBusy]=useState(false);
@@ -49,6 +52,26 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
   const [progress,setProgress]=useState('');
   const mappingInput=useRef<HTMLInputElement>(null);
   const list=useMemo(()=>sortModels(models,'reference').filter(m=>(!onlyMissing||!(m.imageData||m.fallbackImageData))&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,onlyMissing]);
+  const selectedCards=models.filter(m=>selectedCardIds.includes(m.id));
+  const visibleIds=list.map(m=>m.id);
+  const allVisibleSelected=visibleIds.length>0&&visibleIds.every(id=>selectedCardIds.includes(id));
+  const toggleCard=(id:string,checked:boolean)=>setSelectedCardIds(ids=>checked?[...new Set([...ids,id])]:ids.filter(x=>x!==id));
+  const cancelSelection=()=>{setSelectionMode(false);setSelectedCardIds([]);};
+  const removeSelected=async()=>{
+    if(!canEdit||busy||!selectedCards.length)return;
+    const count=selectedCards.length;
+    if(!window.confirm(`Excluir ${count} modelo(s) selecionado(s)? Esta ação é definitiva, inclusive para fotos salvas no Firebase. As OCs já existentes não serão apagadas.`))return;
+    if(window.prompt(`Para confirmar a exclusão de ${count} modelo(s), digite EXCLUIR:`)!=='EXCLUIR'){
+      setMessage('Exclusão cancelada. Nenhum modelo foi apagado.');return;
+    }
+    setBusy(true);setError('');setMessage('');
+    try{
+      const deleted=await onBulkDeleteModels(selectedCards);
+      setSelectedCardIds([]);setSelectionMode(false);
+      setMessage(`${deleted} modelo(s) excluído(s) do Firebase. As OCs não foram alteradas.`);
+    }catch(e){setError(e instanceof Error?e.message:'Falha na exclusão. Atualize a página para conferir o que permanece.');}
+    finally{setBusy(false)}
+  };
   const open=(m:Model)=>{setSelected(m);setPreview(m.imageData||m.fallbackImageData||'');setMessage('');setError('')};
   const upload=async(file?:File)=>{if(!file)return;setBusy(true);setError('');try{setPreview(await optimizePhoto(file))}catch(e){setError(e instanceof Error?e.message:'Erro ao abrir a foto')}finally{setBusy(false)}};
   const save=async()=>{
@@ -177,6 +200,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
       {canEdit&&<button className="outline-button" onClick={()=>mappingInput.current?.click()}><Camera size={16}/> Importar CSV de fotos</button>}
       <button className="outline-button" onClick={onExportModels}><FileSpreadsheet size={16}/> Exportar Excel</button>
       <button className="outline-button" onClick={onBackup}><Download size={16}/> Backup</button>
+      {canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?"Cancelar seleção":"Selecionar cartões"}</button>}
       {canEdit&&<button className="primary-button" onClick={onAddModel}><Plus size={16}/> Novo modelo</button>}
       <input ref={mappingInput} type="file" accept=".csv,.xls,.xlsx" hidden onChange={e=>void readMapping(e.target.files?.[0])}/>
     </div>
@@ -184,9 +208,15 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
     <div className="production-ok">As 175 fotos já conferidas do CSV estão disponíveis como imagens iniciais do catálogo. As fotos adicionadas manualmente e salvas no Firebase prevalecem. Não é necessário importar novamente as mesmas 175 URLs.</div>
     <section className="stats-grid"><div className="stat-card"><div className="stat-icon blue"><Camera/></div><div><span>Modelos</span><strong>{models.length}</strong></div></div><div className="stat-card"><div className="stat-icon green"><ImagePlus/></div><div><span>Com foto</span><strong>{models.filter(m=>!!(m.imageData||m.fallbackImageData)).length}</strong></div></div><div className="stat-card"><div className="stat-icon amber"><Camera/></div><div><span>Sem foto</span><strong>{models.filter(m=>!(m.imageData||m.fallbackImageData)).length}</strong></div></div></section>
     <section className="catalog-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo ou REF..."/></label><label className="filter-select"><Filter size={15}/><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/> Somente sem foto</label></div>
+      {selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de modelos selecionados">
+        <strong>{selectedCards.length} modelo(s) selecionado(s)</strong>
+        <button className="outline-button" disabled={busy||!visibleIds.length} onClick={()=>setSelectedCardIds(ids=>allVisibleSelected?ids.filter(id=>!visibleIds.includes(id)):[...new Set([...ids,...visibleIds])])}>{allVisibleSelected?'Desmarcar visíveis':'Selecionar todos visíveis'} ({visibleIds.length})</button>
+        <button className="outline-button" disabled={busy||!selectedCardIds.length} onClick={()=>setSelectedCardIds([])}>Limpar</button>
+        <button className="danger-button" disabled={busy||!selectedCards.length} onClick={()=>void removeSelected()}><Trash2 size={16}/> {busy?'Excluindo...':`Excluir ${selectedCards.length} selecionado(s)`}</button>
+      </div>}
       {message&&<div className="production-ok">{message}</div>}{error&&<div className="production-alert">{error}</div>}{report&&<div className="production-ok">{report}</div>}{progress&&<div className="production-ok" role="status">{progress}</div>}
       {rows&&<div className="catalog-panel mapping-panel"><h2>Conferência antes de importar</h2><p>Marque as fotos que deseja associar. O nome deve corresponder ao modelo e a REF informada também precisa coincidir. Cores e tamanhos não criam novos modelos. Fotos existentes não serão substituídas.</p><div className="table-scroll"><table><thead><tr><th>Usar</th><th>Imagem</th><th>Modelo do CSV</th><th>REF</th><th>Conferência</th></tr></thead><tbody>{rows.map((r,i)=><tr key={`${r.name}-${i}`}><td><input type="checkbox" checked={r.selected} disabled={!r.eligible||busy} onChange={e=>setRows(previous=>previous?.map((p,j)=>i===j?{...p,selected:e.target.checked}:p)||null)}/></td><td>{isImageUrl(r.url)?<a href={r.url} target="_blank" rel="noreferrer"><img style={{width:72,height:80,objectFit:'cover',borderRadius:8}} src={r.url} alt={r.name} loading="lazy"/></a>:'—'}</td><td>{r.name}</td><td>{r.reference||'—'}</td><td>{r.status}{r.model&&<small> → {r.model.name}</small>}</td></tr>)}</tbody></table></div><div className="modal-actions"><button className="outline-button" onClick={()=>setRows(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void importMappings()}><Upload size={16}/>{busy?'Conferindo e importando...':'Confirmar fotos selecionadas'}</button></div></div>}
-      <div className="production-grid photos-grid">{list.map(m=><article className="production-card" key={m.id}><div className="production-photo model-image">{(m.imageData||m.fallbackImageData)?<img src={m.imageData||m.fallbackImageData} alt={'Foto de '+m.name} loading="lazy"/>:<div className="model-photo-placeholder"><ImagePlus size={32}/><span>Sem foto</span></div>}</div><div className="production-details"><h3>{m.name}</h3><div className="model-photo-ref">{m.reference||'SEM CÓDIGO'}</div>{m.pendingReview&&<span className="status-badge pending">REF em conferência</span>}<div className="model-card-actions">{canEdit&&<><button className="outline-button" onClick={()=>open(m)}><ImagePlus size={16}/>{(m.imageData||m.fallbackImageData)?'Trocar foto':'Adicionar foto'}</button><button className="outline-button" onClick={()=>onEditModel(m)}><Pencil size={16}/> Editar</button><button className="icon-button" onClick={()=>onDeleteModel(m)} title="Excluir modelo"><Trash2 size={16}/></button></>}</div></div></article>)}</div>
+      <div className="production-grid photos-grid">{list.map(m=><article className={`production-card ${selectedCardIds.includes(m.id)?"bulk-card-selected":""}`} key={m.id}>{selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" aria-label={`Selecionar ${m.name}`} disabled={busy} checked={selectedCardIds.includes(m.id)} onChange={e=>toggleCard(m.id,e.target.checked)}/><span>Selecionar</span></label>}<div className="production-photo model-image">{(m.imageData||m.fallbackImageData)?<img src={m.imageData||m.fallbackImageData} alt={'Foto de '+m.name} loading="lazy"/>:<div className="model-photo-placeholder"><ImagePlus size={32}/><span>Sem foto</span></div>}</div><div className="production-details"><h3>{m.name}</h3><div className="model-photo-ref">{m.reference||'SEM CÓDIGO'}</div>{m.pendingReview&&<span className="status-badge pending">REF em conferência</span>}<div className="model-card-actions">{canEdit&&<><button className="outline-button" onClick={()=>open(m)}><ImagePlus size={16}/>{(m.imageData||m.fallbackImageData)?'Trocar foto':'Adicionar foto'}</button><button className="outline-button" onClick={()=>onEditModel(m)}><Pencil size={16}/> Editar</button><button className="icon-button" onClick={()=>onDeleteModel(m)} title="Excluir modelo"><Trash2 size={16}/></button></>}</div></div></article>)}</div>
       {!list.length&&<div className="empty-state"><Search size={22}/> Nenhum modelo encontrado.</div>}
     </section>
     {selected&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><h2>Foto principal do modelo</h2><p>{selected.name} · {selected.reference||'SEM CÓDIGO'}</p></div><button className="icon-button" onClick={()=>setSelected(null)}><X/></button></div><div className="modal-form"><div className="production-image-preview">{preview?<img src={preview} alt="Prévia"/>:<span>Sem foto</span>}</div><label>Escolher foto do aparelho<input type="file" accept="image/*" onChange={e=>void upload(e.target.files?.[0])}/></label><label>Ou usar URL pública HTTPS<input value={preview.startsWith('data:')?'':preview} onChange={e=>setPreview(e.target.value.trim())} placeholder="https://storage.googleapis.com/..."/></label>{error&&<div className="production-alert">{error}</div>}<div className="modal-actions"><button className="outline-button" onClick={()=>setPreview('')}><Trash2 size={16}/> Remover</button><button className="outline-button" onClick={()=>setSelected(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar foto'}</button></div></div></section></div>}

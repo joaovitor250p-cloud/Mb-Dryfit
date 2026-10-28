@@ -90,3 +90,18 @@
 .photos-page .mapping-panel {margin:12px 14px 18px;overflow:hidden;}
 .photos-page .mapping-panel .table-scroll {max-height:500px;overflow:auto;}
 .photos-page .production-alert{white-space:pre-wrap;overflow-wrap:anywhere;}
+
+/* Seleção múltipla, separada das ações de edição individual. */
+.bulk-select-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;margin:12px 0;border-radius:14px;background:#e6f4f6;border:1px solid #9fcbd2;color:#104b5a}
+.bulk-select-toolbar strong{margin-right:auto}
+.bulk-select-toolbar button{white-space:normal}
+.bulk-card-selected{outline:3px solid #16819a;outline-offset:0}
+.bulk-card-checkbox{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#e7f6f8;border-bottom:1px solid #bee1e5;cursor:pointer;color:#104b5a;font-weight:700}
+.bulk-card-checkbox input{width:19px;height:19px;accent-color:#09657a;cursor:pointer}
+.bulk-select-toolbar .danger-button{background:#ab2929;color:white;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+.bulk-select-toolbar .danger-button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:700px){.bulk-select-toolbar{align-items:stretch;flex-direction:column}.bulk-select-toolbar strong{margin-right:0}}
+
+.dark .bulk-select-toolbar{background:#203b45;border-color:#345e69;color:#d8f6fa}
+.dark .bulk-card-checkbox{background:#203c48;border-color:#365c6b;color:#e6fafc}
+@media(max-width:900px){.photos-page .heading-actions{display:flex;flex-wrap:wrap;gap:8px}}

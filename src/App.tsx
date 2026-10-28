@@ -3,7 +3,7 @@ import SampleWorkflow from './SampleWorkflow';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
@@ -49,11 +49,35 @@ export default function App(){
  const add=()=>{setEditing(null);setName('');setReference('');setPending(false);setModal('add')};
  const edit=(m:Model)=>{setEditing(m);setName(m.name);setReference(m.reference);setPending(!!m.pendingReview);setModal('edit')};
  const save=async()=>{if(!db||!user||!editor)return;const clean=name.trim();if(!clean)return notify('Informe o nome do modelo.',true);if(models.some(m=>m.id!==editing?.id&&sameModel(m.name,clean)))return notify('Já existe um modelo com esse nome.',true);const newKey=modelKey(clean);if(!newKey)return notify('Nome inválido.',true);const newRef=normalizeReference(reference);const fields={name:clean,reference:newRef,pendingReview:pending,updatedBy:user.uid,updatedAt:serverTimestamp()};setBusy(true);try{if(editing){const oldSnap=await getDoc(doc(db,'models',editing.id));if(!oldSnap.exists())throw Error('Este modelo foi removido. Atualize a página.');const oldUpdated=oldSnap.data().updatedAt?.toDate?.()?.toISOString?.();if(oldUpdated!==editing.updatedAt)throw Error('Alguém modificou esse modelo. Atualize a listagem e tente novamente.');const batch=writeBatch(db);if(editing.id!==newKey){const duplicate=await getDoc(doc(db,'models',newKey));if(duplicate.exists())throw Error('Já existe um cadastro com esse nome.');batch.set(doc(db,'models',newKey),{...fields,imageData:oldSnap.data().imageData||'',createdAt:oldSnap.data().createdAt||serverTimestamp(),createdBy:oldSnap.data().createdBy||user.uid});batch.delete(doc(db,'models',editing.id))}else batch.update(doc(db,'models',editing.id),fields);batch.set(doc(collection(db,'audit_log')),makeAudit(user,'editou',clean,asPlain(editing),{name:clean,reference:newRef,pendingReview:pending}));await batch.commit();notify('Modelo atualizado.')}else{const found=await getDoc(doc(db,'models',newKey));if(found.exists())throw Error('Esse modelo já existe.');const batch=writeBatch(db);batch.set(doc(db,'models',newKey),{...fields,createdAt:serverTimestamp(),createdBy:user.uid});batch.set(doc(collection(db,'audit_log')),makeAudit(user,'adicionou',clean,null,{name:clean,reference:newRef,pendingReview:pending}));await batch.commit();notify('Modelo adicionado.')}resetModal()}catch(e){notify(safeError(e),true)}finally{setBusy(false)}};
+ const bulkDeleteModels=async(chosen:Model[]):Promise<number>=>{
+  if(!db||!user||!editor)throw Error('Sem permissão para excluir modelos.');
+  if(!chosen.length)return 0;
+  let deleted=0;
+  for(let start=0;start<chosen.length;start+=4){
+    const chunk=chosen.slice(start,start+4);
+    // Não excluir modelos alterados por outro usuário desde a seleção.
+    for(const m of chunk){
+      const latest=await getDocFromServer(doc(db,'models',m.id));
+      if(!latest.exists())throw Error(`${deleted} excluído(s). O modelo ${m.name} não existe mais; atualize a página.`);
+      const last=latest.data().updatedAt?.toDate?.()?.toISOString?.()||'';
+      if(last!==m.updatedAt)throw Error(`${deleted} excluído(s). ${m.name} foi alterado por outra pessoa. Atualize o catálogo antes de continuar.`);
+    }
+    const batch=writeBatch(db);
+    for(const m of chunk){
+      batch.delete(doc(db,'models',m.id));
+      batch.set(doc(collection(db,'audit_log')),makeAudit(user,'excluiu_em_lote',m.name,asPlain(m),null));
+    }
+    try{await batch.commit();deleted+=chunk.length;}
+    catch(e){throw Error(`${deleted} excluído(s) antes da falha. ${safeError(e)}. Atualize a página para conferir.`);}
+  }
+  notify(`${deleted} modelo(s) excluído(s). As OCs permanecem intactas.`);
+  return deleted;
+ };
  const remove=async()=>{if(!db||!user||!editor||!editing)return;setBusy(true);try{const snap=await getDoc(doc(db,'models',editing.id));if(!snap.exists())throw Error('Modelo não encontrado.');if(snap.data().updatedAt?.toDate?.()?.toISOString?.()!==editing.updatedAt)throw Error('Modelo atualizado por outra pessoa. Atualize a lista.');const batch=writeBatch(db);batch.delete(doc(db,'models',editing.id));batch.set(doc(collection(db,'audit_log')),makeAudit(user,'excluiu',editing.name,asPlain(editing),null));await batch.commit();notify('Modelo excluído.');resetModal()}catch(e){notify(safeError(e),true)}finally{setBusy(false)}};
  const exportXlsx=(list:Model[],all:boolean)=>{const wb=XLSX.utils.book_new();const append=(label:string,rows:any[])=>{const sheet=XLSX.utils.json_to_sheet(rows.length?rows:[{'MODELO':'','CÓDIGO EXTRA (REF)':'','PENDÊNCIA':''}]);sheet['!cols']=[{wch:52},{wch:30},{wch:27}];sheet['!autofilter']={ref:sheet['!ref']||'A1:C1'};XLSX.utils.book_append_sheet(wb,sheet,label)};const allRows=workbookRows(list);if(all){append('TODOS OS MODELOS',allRows);append('MODELOS COM REF',allRows.filter(r=>r['CÓDIGO EXTRA (REF)']!=='SEM CÓDIGO'));append('SEM CÓDIGO',allRows.filter(r=>r['CÓDIGO EXTRA (REF)']==='SEM CÓDIGO'));append('PENDÊNCIAS',allRows.filter(r=>r.PENDÊNCIA))}else append('RESULTADOS',allRows);XLSX.writeFile(wb,`MB_REFERENCIAS_${shortDate()}.xlsx`);notify('Excel exportado.')};
  const download=(blob:Blob,filename:string)=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)};
  const exportCsv=()=>{const ws=XLSX.utils.json_to_sheet(workbookRows(models));const txt='\ufeff'+XLSX.utils.sheet_to_csv(ws,{FS:';'});download(new Blob([txt],{type:'text/csv;charset=utf-8'}),`MB_REFERENCIAS_${shortDate()}.csv`)};
- const exportJson=()=>download(new Blob([JSON.stringify(models.map(asPlain),null,2)],{type:'application/json'}),`MB_REFERENCIAS_BACKUP_${shortDate()}.json`);
+ const exportJson=()=>download(new Blob([JSON.stringify(models.map(m=>({...asPlain(m),imageData:m.imageData||''})),null,2)],{type:'application/json'}),`MB_REFERENCIAS_BACKUP_COM_FOTOS_${shortDate()}.json`);
  const readImport=async(file:File)=>{try{let raw:any[]=[];if(file.name.toLowerCase().endsWith('.json')){const arr=JSON.parse(await file.text());if(!Array.isArray(arr))throw Error('O JSON deve conter uma lista.');raw=arr}else{const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});const s=wb.SheetNames.find(x=>/TODOS OS MODELOS|POR REF|MODELOS UNICOS/i.test(x))||wb.SheetNames[0];raw=XLSX.utils.sheet_to_json(wb.Sheets[s],{defval:''})}const seen=new Set<string>();const items:ImportRow[]=[];for(const item of raw){const keys=Object.keys(item);const nk=keys.find(k=>/^(MODELO|NOME|NAME|nome do modelo)/i.test(k.trim()))||keys.find(k=>/modelo/i.test(k));const rk=keys.find(k=>/REFER[EÊ]NCIA|C[OÓ]DIGO EXTRA|^ref$/i.test(k));const name=String(item[nk||'name']||item.name||'').trim();if(!name||/^modelo\s*\(/i.test(name)||seen.has(modelKey(name)))continue;seen.add(modelKey(name));const reference=normalizeReference(String(item[rk||'reference']||item.reference||''));const existing=models.find(m=>sameModel(m.name,name));const pendingReview=Boolean(item.pendingReview||item['PENDÊNCIA']||item.pendente);items.push({name,reference,pendingReview,exists:!!existing,action:existing?'skip':'add'})}setPreview(items);setImportMode('add');notify(`${items.length} modelos encontrados; ${items.filter(x=>x.exists).length} já cadastrados.`)}catch(e){notify(`Erro ao ler arquivo: ${safeError(e)}`,true)}};
  const applyImport=async()=>{if(!db||!user||!editor)return;const chosen=preview.filter(x=>x.action!=='skip');if(!chosen.length)return notify('Nenhum registro selecionado.',true);setBusy(true);try{let count=0;for(let i=0;i<chosen.length;i+=180){const batch=writeBatch(db);for(const row of chosen.slice(i,i+180)){const old=models.find(m=>sameModel(m.name,row.name));const key=old?.id||modelKey(row.name);const content={name:old?.name||row.name,reference:row.reference,pendingReview:row.pendingReview,updatedBy:user.uid,updatedAt:serverTimestamp()};if(old&&row.action==='update'){batch.update(doc(db,'models',old.id),content);batch.set(doc(collection(db,'audit_log')),makeAudit(user,'importou_atualizacao',old.name,asPlain(old),{name:content.name,reference:content.reference,pendingReview:content.pendingReview}))}else if(!old){batch.set(doc(db,'models',key),{...content,createdAt:serverTimestamp(),createdBy:user.uid});batch.set(doc(collection(db,'audit_log')),makeAudit(user,'importou',row.name,null,{name:content.name,reference:content.reference,pendingReview:content.pendingReview}))}count++}await batch.commit()}notify(`${count} registros processados.`);resetModal()}catch(e){notify(`Falha na importação: ${safeError(e)}`,true)}finally{setBusy(false)}};
  const loadAudit=async()=>{if(!db||!admin)return;setModal('history');try{const s=await getDocs(fsQuery(collection(db,'audit_log'),orderBy('at','desc')));setAudit(s.docs.slice(0,150).map(d=>({id:d.id,...d.data()} as Audit)))}catch(e){notify(safeError(e),true)}};
@@ -77,7 +101,7 @@ export default function App(){
    onDeleteModel={m=>{setEditing(m);setModal('delete')}}
    onImportModels={()=>setModal('import')}
    onExportModels={()=>exportXlsx(models,true)}
-   onBackup={exportJson}/>
+   onBackup={exportJson} onBulkDeleteModels={bulkDeleteModels}/>
  : <SampleWorkflow view={view} db={db!} user={user} canEdit={editor} models={models}/>}</main>
  {(error||info)&&<div className={`toast ${error?'error':'success'}`}><span>{error?<AlertCircle size={18}/>:<CheckCircle2 size={18}/>}</span>{error||info}<button onClick={()=>notify('')}><X size={16}/></button></div>}
  {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">

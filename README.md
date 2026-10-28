@@ -1,3 +1,7 @@
+# Atualização 3.3
+
+Leia primeiro `LEIA-PRIMEIRO-3.3.md` para instalar a nova versão.
+
 # MB REFERENCIAS — Correção de fotos e cortes (revisão 28/10/2026)
 
 ## O que mudou nesta edição
