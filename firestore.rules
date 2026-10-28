@@ -291,8 +291,14 @@ service cloud.firestore {
         )
         && next.updatedBy == request.auth.uid
         && next.updatedAt == request.time
-        && (next.get('completedAt', null) == null || next.get('completedAt', null) is timestamp)
-        && (next.get('completedBy', null) == null || next.get('completedBy', null) is string);
+        // Campos antigos podem estar ausentes ou em formatos legados.
+        // Validar o tipo apenas quando a transicao alterar esses campos.
+        && (!changed.hasAny(['completedAt'])
+          || next.get('completedAt', null) == null
+          || next.get('completedAt', null) is timestamp)
+        && (!changed.hasAny(['completedBy'])
+          || next.get('completedBy', null) == null
+          || next.get('completedBy', null) is string);
     }
 
     match /production_samples/{sampleId} {

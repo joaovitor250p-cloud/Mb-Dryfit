@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { collection, doc, getDocFromServer, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Camera, Check, CheckCircle2, Clock3, FileSpreadsheet, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
@@ -49,7 +49,7 @@ async function makePhoto(file: File): Promise<string> {
 function productionError(error:unknown):string {
   const e=error as {code?:string;message?:string};
   const code=String(e?.code||'');
-  if(code.includes('permission-denied'))return 'Permissão negada pelo Firestore. Verifique se as regras PUBLICADAS aceitam o status "store" (Chegou na loja) em production_samples. Publique as regras compatíveis do arquivo firestore.rules no Firebase Console.';
+  if(code.includes('permission-denied'))return 'Acesso negado pelo Firestore para alterar production_samples. O codigo do GitHub nao publica as regras: confira se as regras ATIVAS permitem a transicao done → store (Chegou na loja) para admin/editor.';
   if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Conexão indisponível. O corte não foi confirmado; tente novamente.';
   if(code.includes('unauthenticated'))return 'Sua sessão expirou. Saia e entre novamente.';
   return `${code?code+': ':''}${e?.message||String(error)}`;
@@ -173,32 +173,47 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     if (status === 'store' && !window.confirm(`Confirmar que a OC ${p.oc} CHEGOU NA LOJA?`)) return;
     setBusy(true);
     try {
+      // "Pronto" e "Chegou na loja" utilizam EXATAMENTE os mesmos campos
+      // e a mesma operacao de gravacao. A unica diferenca e o status.
+      // Em OCs antigas, normaliza a data/autor da conclusao antes da troca.
+      const originalCompletion = p.completedAt as { toDate?: () => Date } | null | undefined;
+      const hasValidCompletion = typeof originalCompletion?.toDate === 'function';
       const patch = {
         status,
-        // O envio para a loja preserva a data de finalização já existente.
-        ...(status === 'store' ? {} : {
-          completedAt: status === 'done' ? serverTimestamp() : null,
-          completedBy: status === 'done' ? user.uid : null
-        }),
-        updatedAt: serverTimestamp(), updatedBy: user.uid
+        completedAt: status === 'in_progress'
+          ? null
+          : status === 'store' && hasValidCompletion
+            ? p.completedAt
+            : serverTimestamp(),
+        completedBy: status === 'in_progress'
+          ? null
+          : status === 'store' && typeof p.completedBy === 'string' && p.completedBy
+            ? p.completedBy
+            : user.uid,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid
       };
-      // Persistir o status primeiro. Falha na auditoria não desfaz um envio real.
+      // updateDoc so confirma a operacao quando o Firestore aceita a escrita.
+      // onSnapshot atualiza a categoria automaticamente em todos os aparelhos.
       await updateDoc(doc(db, 'production_samples', p.id), patch);
-      // Confirmar que a mudança persistiu no servidor, não apenas localmente.
-      // O listener onSnapshot atualizará a aba da OC para todos os usuários.
-      const savedStatus = await getDocFromServer(doc(db,'production_samples',p.id));
-      if(savedStatus.data()?.status!==status)throw Error('A atualização não foi confirmada no servidor. Atualize a listagem e confira a OC.');
+      if (view === 'cuts') setFilter(status);
+      showMessage(status === 'store'
+        ? `OC ${p.oc} chegou na loja e foi salva no Firebase.`
+        : status === 'done'
+          ? `OC ${p.oc} marcada como pronta.`
+          : `OC ${p.oc} reaberta e devolvida ao andamento.`);
+
+      // O historico nao deve desfazer um status ja confirmado.
       try {
         await setDoc(doc(collection(db, 'audit_log')), auditEntry(
           user, status === 'done' ? 'corte_pronto' : status === 'store' ? 'chegou_loja' : 'reabriu_corte',
-          p, {status:p.status}, {status}
+          p, { status: p.status }, { status }
         ));
-        showMessage(status === 'store' ? 'OC marcada como Chegou na loja.' : status === 'done' ? 'Corte marcado como pronto.' : 'Corte reaberto.');
       } catch (auditError) {
-        showMessage('Status SALVO no Firestore, mas o histórico não foi gravado: '+productionError(auditError), true);
+        showMessage(`OC ${p.oc}: status SALVO, mas o historico nao foi registrado. ` + productionError(auditError), true);
       }
     } catch (statusError) {
-      showMessage('Não foi possível confirmar a alteração da OC em production_samples: '+productionError(statusError), true);
+      showMessage(`OC ${p.oc}: nao foi possivel salvar o status ${status === 'store' ? 'Chegou na loja' : status === 'done' ? 'Pronto' : 'Em andamento'}. ` + productionError(statusError), true);
     } finally { setBusy(false); }
   };
   const remove = async (p: Production) => {
