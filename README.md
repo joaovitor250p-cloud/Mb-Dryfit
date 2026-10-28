@@ -1,3 +1,13 @@
+## NOVO: AMOSTRAS E CORTES
+
+O menu contém agora **Amostras** e **Cortes**. Ao cadastrar uma amostra, inclua foto da peça, OC, nome do modelo, referência e costureiro. Ela aparece em **Amostras** e em **Cortes → Em andamento**. Ao tocar em **Pronto**, desaparece das pendências e aparece em **Cortes → Prontos**. É possível reabrir uma peça, corrigir os dados e exportar a planilha de cortes. Todos os aparelhos recebem as mudanças por Firestore Realtime.
+
+**MUITO IMPORTANTE:** substitua as regras do Firestore pelas do arquivo `firestore.rules` atualizado antes de usar a nova área. As regras antigas não permitem acessar a coleção `production_samples`.
+
+**Fotos no plano gratuito:** para não exigir o plano pago Blaze, este primeiro módulo otimiza a fotografia no navegador e grava uma versão reduzida diretamente no Firestore. A imagem é apenas de consulta, não é a foto original em alta resolução. Não use para milhares de fotos grandes: isso aumenta o tráfego do Firestore. Se quiser fotos originais/volumes grandes, a migração indicada é Cloud Storage for Firebase, que requer o plano Blaze (faturamento por uso).
+
+**Permissões:** administradores e editores podem criar/alterar/marcar Pronto; usuários Consulta apenas visualizam. A produção não modifica o cadastro principal de modelos, e registros com a mesma REF em OCs diferentes são permitidos.
+
 # MB REFERENCIAS — Firebase + GitHub Pages
 
 Sistema web com login, catálogo compartilhado, pesquisa por nome e REF, cadastro, edição, exclusão, importação e exportação para Excel/CSV/JSON, histórico e perfis. **Nenhum Node.js nem VS Code é necessário no computador do proprietário**: o GitHub Actions compila o site na nuvem.

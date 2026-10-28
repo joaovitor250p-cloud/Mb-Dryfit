@@ -29,6 +29,47 @@ service cloud.firestore {
       allow create, update: if canEdit() && validModel();
       allow delete: if canEdit();
     }
+    // Uma unica amostra aparece no painel Amostras e no de Cortes.
+    // As fotos ficam compactadas no documento, para projetos no plano gratuito Spark.
+    // Atenção: use somente fotos de consulta, não fotografias em alta resolução.
+    function validProduction() {
+      return request.resource.data.keys().hasOnly([
+          'oc','name','reference','tailor','imageData','status',
+          'createdAt','createdBy','updatedAt','updatedBy','completedAt','completedBy'
+        ])
+        && request.resource.data.keys().hasAll([
+          'oc','name','reference','tailor','imageData','status',
+          'createdAt','createdBy','updatedAt','updatedBy','completedAt','completedBy'
+        ])
+        && request.resource.data.oc is string
+        && request.resource.data.oc.size() > 0
+        && request.resource.data.oc.size() <= 80
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 250
+        && request.resource.data.reference is string
+        && request.resource.data.reference.size() <= 200
+        && request.resource.data.tailor is string
+        && request.resource.data.tailor.size() > 0
+        && request.resource.data.tailor.size() <= 120
+        && request.resource.data.imageData is string
+        && request.resource.data.imageData.size() > 0
+        && request.resource.data.imageData.size() <= 200000
+        && (request.resource.data.imageData.matches('data:image/webp;base64,.*')
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*'))
+        && request.resource.data.status in ['in_progress', 'done']
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+    match /production_samples/{sampleId} {
+      allow get, list: if authorized();
+      allow create: if canEdit() && validProduction()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'in_progress';
+      allow update: if canEdit() && validProduction()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if canEdit();
+    }
     match /audit_log/{entryId} {
       allow get, list: if isAdmin();
       allow create: if canEdit()
