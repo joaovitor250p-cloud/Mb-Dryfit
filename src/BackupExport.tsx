@@ -6,6 +6,9 @@ import type { Model } from './lib/catalog';
 
 type Fields = {name:boolean;reference:boolean;image:boolean;oc:boolean;tailor:boolean;status:boolean;date:boolean};
 type Groups = {models:boolean;cuts:boolean;users:boolean;history:boolean};
+// Documentos do Firestore incluem campos de dados dinâmicos além do ID.
+// A tipagem anterior inferia apenas { id: string }, causando TS2339 no build.
+type ExportDocument = {id:string} & Record<string,unknown>;
 type Props={db:Firestore;models:Model[];admin:boolean;onClose:()=>void};
 const defaults:Fields={name:true,reference:true,image:false,oc:true,tailor:true,status:true,date:true};
 const dateText=(v:unknown)=>{
@@ -23,7 +26,8 @@ const sanitize=(v:unknown):unknown=>{
   }
   return v;
 };
-const statusText=(s:unknown)=>s==='done'?'PRONTO':s==='store'?'CHEGOU NA LOJA':'EM ANDAMENTO';
+// Registros antigos em 'store' permanecem armazenados, mas são exibidos como Pronto.
+const statusText=(s:unknown)=>s==='done'||s==='store'?'PRONTO':'EM ANDAMENTO';
 const imageCell=(image:unknown, fallback:unknown)=>{
   const value=String(image||'');
   if(value.startsWith('https://'))return value;
@@ -52,7 +56,8 @@ export default function BackupExport({db,models,admin,onClose}:Props){
    if(format==='xlsx'&&!Object.values(fields).some(Boolean)){setError('Selecione pelo menos um campo.');return}
    setBusy(true);setError('');
    try {
-     const get=async(name:string)=>(await getDocs(collection(db,name))).docs.map(d=>({id:d.id,...d.data()}));
+     const get=async(name:string):Promise<ExportDocument[]> =>
+       (await getDocs(collection(db,name))).docs.map(d=>({ ...d.data(), id:d.id } as ExportDocument));
      // Use dados atualizados do servidor; o catálogo visto na tela não é usado como substituto.
      const sourceModels=(groups.models||(groups.cuts&&fields.image))?await get('models'):[];
      const modelRows=groups.models?sourceModels:[];

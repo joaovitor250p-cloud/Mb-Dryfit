@@ -7,7 +7,10 @@ import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 
+// 'store' é conservado apenas para leitura de registros legados no Firebase.
+// Novas alterações e a interface usam somente Em andamento e Pronto.
 type Stage = 'in_progress' | 'done' | 'store';
+type VisibleStage = 'in_progress' | 'done';
 type Production = {
   id: string; oc: string; name: string; reference: string; tailor: string;
   imageData: string; status: Stage; createdAt?: unknown; completedAt?: unknown; completedBy?: string|null;
@@ -50,7 +53,7 @@ async function makePhoto(file: File): Promise<string> {
 function productionError(error:unknown):string {
   const e=error as {code?:string;message?:string};
   const code=String(e?.code||'');
-  if(code.includes('permission-denied'))return 'Acesso negado pelo Firestore para alterar production_samples. O codigo do GitHub nao publica as regras: confira se as regras ATIVAS permitem a transicao done → store (Chegou na loja) para admin/editor.';
+  if(code.includes('permission-denied'))return 'Acesso negado pelo Firestore para alterar a OC. Confira as regras ativas de production_samples para administrador/editor.';
   if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Conexão indisponível. O corte não foi confirmado; tente novamente.';
   if(code.includes('unauthenticated'))return 'Sua sessão expirou. Saia e entre novamente.';
   return `${code?code+': ':''}${e?.message||String(error)}`;
@@ -66,7 +69,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Stage>('in_progress');
+  const [filter, setFilter] = useState<VisibleStage>('in_progress');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Production | null>(null);
   const [oc, setOc] = useState('');
@@ -89,9 +92,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     }, e => { setError('Não foi possível consultar as amostras: ' + e.message); setLoading(false); });
   }, [db]);
   const progress = items.filter(x => x.status === 'in_progress').length;
-  const finished = items.filter(x => x.status === 'done').length;
-  const wentToStore = items.filter(x => x.status === 'store').length;
-  const filtered = useMemo(() => items.filter(x => view === 'samples' ? x.status === 'in_progress' : x.status === filter)
+  // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
+  const finished = items.filter(x => x.status === 'done' || x.status === 'store').length;
+  const filtered = useMemo(() => items.filter(x => view === 'samples'
+    ? x.status === 'in_progress'
+    : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
     .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search))), [items, view, filter, search]);
   const selectedCuts=items.filter(x=>selectedCutIds.includes(x.id));
   const visibleCutIds=filtered.map(x=>x.id);
@@ -170,51 +175,34 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     } catch (e) { showMessage('Erro ao salvar: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
-  const mark = async (p: Production, status: Stage) => {
+  const mark = async (p: Production, status: VisibleStage) => {
     if (!canEdit || busy || p.status === status) return;
     setBusy(true);
     try {
-      // "Pronto" e "Chegou na loja" utilizam EXATAMENTE os mesmos campos
-      // e a mesma operacao de gravacao. A unica diferenca e o status.
-      // Em OCs antigas, normaliza a data/autor da conclusao antes da troca.
-      const originalCompletion = p.completedAt as { toDate?: () => Date } | null | undefined;
-      const hasValidCompletion = typeof originalCompletion?.toDate === 'function';
-      const patch = {
+      // Apenas duas etapas: Em andamento e Pronto.
+      // Nenhum documento antigo é migrado ou excluído automaticamente.
+      await updateDoc(doc(db, 'production_samples', p.id), {
         status,
-        completedAt: status === 'in_progress'
-          ? null
-          : status === 'store' && hasValidCompletion
-            ? p.completedAt
-            : serverTimestamp(),
-        completedBy: status === 'in_progress'
-          ? null
-          : status === 'store' && typeof p.completedBy === 'string' && p.completedBy
-            ? p.completedBy
-            : user.uid,
+        completedAt: status === 'done' ? serverTimestamp() : null,
+        completedBy: status === 'done' ? user.uid : null,
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
-      };
-      // updateDoc so confirma a operacao quando o Firestore aceita a escrita.
-      // onSnapshot atualiza a categoria automaticamente em todos os aparelhos.
-      await updateDoc(doc(db, 'production_samples', p.id), patch);
+      });
       if (view === 'cuts') setFilter(status);
-      showMessage(status === 'store'
-        ? `OC ${p.oc} chegou na loja e foi salva no Firebase.`
-        : status === 'done'
-          ? `OC ${p.oc} marcada como pronta.`
-          : `OC ${p.oc} reaberta e devolvida ao andamento.`);
-
-      // O historico nao deve desfazer um status ja confirmado.
+      showMessage(status === 'done'
+        ? `OC ${p.oc} marcada como pronta.`
+        : `OC ${p.oc} reaberta e devolvida ao andamento.`);
+      // Uma falha de auditoria não desfaz o status que o Firebase já confirmou.
       try {
         await setDoc(doc(collection(db, 'audit_log')), auditEntry(
-          user, status === 'done' ? 'corte_pronto' : status === 'store' ? 'chegou_loja' : 'reabriu_corte',
-          p, { status: p.status }, { status }
+          user, status === 'done' ? 'corte_pronto' : 'reabriu_corte',
+          p, { status:p.status }, { status }
         ));
       } catch (auditError) {
-        showMessage(`OC ${p.oc}: status SALVO, mas o historico nao foi registrado. ` + productionError(auditError), true);
+        showMessage(`OC ${p.oc}: status salvo, mas o histórico falhou: ` + productionError(auditError), true);
       }
     } catch (statusError) {
-      showMessage(`OC ${p.oc}: nao foi possivel salvar o status ${status === 'store' ? 'Chegou na loja' : status === 'done' ? 'Pronto' : 'Em andamento'}. ` + productionError(statusError), true);
+      showMessage(`OC ${p.oc}: falha ao salvar ${status === 'done' ? 'Pronto' : 'Em andamento'}. ` + productionError(statusError), true);
     } finally { setBusy(false); }
   };
   const remove = async (p: Production) => {
@@ -230,11 +218,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     finally { setBusy(false); }
   };
   return <div className="page-wrap production-page">
-    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte fotos, OCs, modelos e costureiros das amostras pendentes.' : 'Pesquise por OC e acompanhe o andamento, os cortes prontos e os que chegaram à loja.'}</p></div>
+    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte fotos, OCs, modelos e costureiros das amostras pendentes.' : 'Pesquise por OC e acompanhe os cortes em andamento e prontos.'}</p></div>
       <div className="heading-actions">{view==='cuts'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<><button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button><button className="primary-button" onClick={openNew}><Plus size={17}/> Nova OC / amostra</button></>}</>}</div></div>
-    {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div><div className="stat-card"><div className="stat-icon blue"><CheckCircle2/></div><div><span>Chegaram à loja</span><strong>{wentToStore}</strong><small>Etapa concluída</small></div></div></section>}
+    {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
     <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
-      {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button><button className={filter==='store'?'chosen':''} onClick={()=>setFilter('store')}><CheckCircle2 size={15}/> Chegou na loja ({wentToStore})</button></div>}
+      {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
     </div>
     {view==='cuts'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
       <strong>{selectedCuts.length} OC(s) selecionada(s)</strong>
@@ -246,9 +234,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Não há amostras em andamento. Quando o corte ficar pronto, ele sai daqui automaticamente.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=><article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>{view==='cuts'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
-      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData)?<button type="button" className="image-zoom-trigger" aria-label={`Ampliar foto da OC ${p.oc}`} onClick={()=>setLightbox({src:p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData || '',name:p.name,reference:p.reference,oc:p.oc})}><img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData} alt={`Foto de ${p.name}`}/><span className="image-zoom-hint">Ampliar foto</span></button>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status}`}>{p.status==='store'?'CHEGOU NA LOJA':p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span>}</div>
+      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData)?<button type="button" className="image-zoom-trigger" aria-label={`Ampliar foto da OC ${p.oc}`} onClick={()=>setLightbox({src:p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData || '',name:p.name,reference:p.reference,oc:p.oc})}><img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.fallbackImageData} alt={`Foto de ${p.name}`}/><span className="image-zoom-hint">Ampliar foto</span></button>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
       <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
-      {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>}{p.status==='done' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'store')}><CheckCircle2 size={16}/> Chegou na loja</button>}{p.status!=='in_progress' && <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
+      {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>}{p.status!=='in_progress' && <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
     </article>)}</div>}</section>
     {lightbox&&<PhotoLightbox src={lightbox.src} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`}  onClose={()=>setLightbox(null)}/>}
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">CADASTRO DE OC</span><h2>{editing?'Editar registro':'Nova OC'}</h2><p>A mesma OC será exibida em Amostras e em Cortes, sem duplicação.</p></div><button className="icon-button" onClick={()=>setModal(false)}><X/></button></div>
