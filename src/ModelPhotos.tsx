@@ -57,7 +57,7 @@ export default function ModelPhotos({db,user,canEdit,models}: Props) {
         const name=String(r[nameKey]||'').trim(), reference=refKey?String(r[refKey]||'').trim():'', url=String(r[urlKey]||'').trim();
         const candidates=models.filter(m=>keyFor(m.name)===keyFor(name));
         const model=candidates.length===1?candidates[0]:null;
-        return {name,reference,url,model,status:!name||!url?'Linha incompleta':!/^https?:\\/\\//i.test(url)?'URL inválida':candidates.length===0?'Modelo não encontrado':candidates.length>1?'Correspondência ambígua':model?.imageData?'Já possui foto':'Pronto para conferir'};
+        return {name,reference,url,model,status:!name||!url?'Linha incompleta':!/^https?:\/\//i.test(url)?'URL inválida':candidates.length===0?'Modelo não encontrado':candidates.length>1?'Correspondência ambígua':model?.imageData?'Já possui foto':'Pronto para conferir'};
       }).filter(r=>r.name||r.url);
       setRows(parsed);
       setReport(`Prévia: ${parsed.filter(r=>r.status==='Pronto para conferir').length} correspondências seguras pelo nome exato, ${parsed.filter(r=>r.status==='Modelo não encontrado').length} sem modelo correspondente e ${parsed.filter(r=>r.status==='Correspondência ambígua').length} ambíguas. Nenhuma foto foi salva ainda.`);
