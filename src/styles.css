@@ -105,3 +105,45 @@
 .dark .bulk-select-toolbar{background:#203b45;border-color:#345e69;color:#d8f6fa}
 .dark .bulk-card-checkbox{background:#203c48;border-color:#365c6b;color:#e6fafc}
 @media(max-width:900px){.photos-page .heading-actions{display:flex;flex-wrap:wrap;gap:8px}}
+
+/* MB REFERENCIAS 3.6 — interface simplificada e fotos ampliáveis */
+.photos-page .page-heading {align-items:center;gap:20px}
+.photos-page .heading-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;justify-content:flex-end}
+.photos-page .heading-actions .outline-button,.photos-page .heading-actions .primary-button{white-space:nowrap}
+.image-zoom-trigger{position:relative;display:block;width:100%;height:100%;padding:0;margin:0;background:transparent;border:0;cursor:zoom-in;color:inherit;overflow:hidden}
+.image-zoom-trigger img{width:100%;height:100%;object-fit:contain;display:block}
+.image-zoom-hint{position:absolute;right:10px;bottom:10px;z-index:1;background:#132a31d9;color:#fff;border-radius:8px;padding:6px 9px;font-size:11px;opacity:0;transition:opacity .2s}
+.image-zoom-trigger:hover .image-zoom-hint,.image-zoom-trigger:focus-visible .image-zoom-hint{opacity:1}
+.image-zoom-trigger:focus-visible{outline:3px solid #1f839d;outline-offset:-3px}
+.photo-lightbox{position:fixed;inset:0;z-index:150;background:#0b131cf5;color:#fff;display:flex;flex-direction:column;gap:12px;padding:18px;backdrop-filter:blur(9px)}
+.photo-lightbox-top{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:3px 5px 1px}
+.photo-lightbox-top>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.photo-lightbox-top strong{font-size:clamp(13px,2vw,20px);font-weight:800;overflow-wrap:anywhere}
+.photo-lightbox-top span{font-size:12px;color:#becfd7}
+.photo-lightbox-close{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;color:#fff;background:#ffffff1f;border:1px solid #ffffff38;border-radius:12px;cursor:pointer}
+.photo-lightbox-stage{display:flex;align-items:center;justify-content:center;flex:1;min-height:0;overflow:hidden;touch-action:none;position:relative}
+.photo-lightbox-stage img{max-height:100%;max-width:100%;width:auto;height:auto;object-fit:contain;user-select:none;-webkit-user-drag:none;touch-action:none;transition:transform .12s ease}
+.photo-lightbox-controls{display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 8px;border-radius:15px;background:#ffffff16;max-width:min(100%,500px);margin:0 auto}
+.photo-lightbox-controls button{color:#fff;border:1px solid #ffffff44;background:#ffffff18;border-radius:9px;padding:8px 10px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.photo-lightbox-controls button:disabled{opacity:.3;cursor:not-allowed}
+.photo-lightbox-controls input{width:min(25vw,140px);accent-color:#5bd1e2}
+.photo-lightbox-controls b{font-size:12px;min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
+.backup-export-modal .export-section{padding:15px 0;border-bottom:1px solid var(--line);display:grid;gap:11px}
+.backup-export-modal .export-section>strong{font-size:13px}
+.export-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.export-check-grid label,.export-formats label{display:flex;align-items:center;gap:9px;cursor:pointer;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:12px;font-weight:600}
+.export-check-grid input,.export-formats input{width:16px;height:16px;accent-color:#087b8d;flex-shrink:0}
+.export-formats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.csv-import-summary{display:flex;align-items:center;gap:8px;color:#227e67;font-weight:700;font-size:12px}
+.initial-csv-message{color:var(--muted);font-size:11px;padding:5px 0;max-width:500px}
+@media(max-width:720px){
+ .photos-page .page-heading{align-items:flex-start}
+ .photos-page .heading-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .photos-page .heading-actions button{min-height:43px;white-space:normal}
+ .photos-page .heading-actions .primary-button{grid-column:1/-1}
+ .export-check-grid,.export-formats{grid-template-columns:1fr}
+ .photo-lightbox{padding:11px 9px 16px}
+ .photo-lightbox-controls{gap:5px;padding:8px 4px}
+ .photo-lightbox-controls span{display:none}
+ .photo-lightbox-controls button{padding:7px}
+}

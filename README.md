@@ -1,3 +1,7 @@
+# MB REFERENCIAS 3.6 — interface simplificada
+
+**Comece por `LEIA-PRIMEIRO-3.6.md`.**
+
 # Atualização 3.3
 
 Leia primeiro `LEIA-PRIMEIRO-3.3.md` para instalar a nova versão.
