@@ -21,7 +21,8 @@ service cloud.firestore {
                 && request.resource.data.imageData.size() <= 90000
                 && (request.resource.data.imageData == ''
                     || request.resource.data.imageData.matches('data:image/webp;base64,.*')
-                    || request.resource.data.imageData.matches('data:image/jpeg;base64,.*'))));
+                    || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+                    || request.resource.data.imageData.matches('https://.*'))));
     }
 
     match /user_roles/{uid} {
@@ -35,9 +36,8 @@ service cloud.firestore {
       allow create, update: if canEdit() && validModel();
       allow delete: if canEdit();
     }
-    // Uma unica amostra aparece no painel Amostras e no de Cortes.
-    // As fotos ficam compactadas no documento, para projetos no plano gratuito Spark.
-    // Atenção: use somente fotos de consulta, não fotografias em alta resolução.
+    // Um registro de OC pode ser consultado em Amostras e acompanhado em Cortes.
+    // As fotos podem ser armazenadas como imagem compactada ou URL pública do catálogo.
     function validProduction() {
       return request.resource.data.keys().hasOnly([
           'oc','name','reference','tailor','imageData','status',
@@ -63,8 +63,9 @@ service cloud.firestore {
         && request.resource.data.imageData.size() <= 200000
         && (request.resource.data.imageData == ''
             || request.resource.data.imageData.matches('data:image/webp;base64,.*')
-            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*'))
-        && request.resource.data.status in ['in_progress', 'done']
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+            || request.resource.data.imageData.matches('https://.*'))
+        && request.resource.data.status in ['in_progress', 'done', 'store']
         && request.resource.data.updatedBy == request.auth.uid;
     }
     match /production_samples/{sampleId} {

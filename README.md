@@ -3,8 +3,8 @@
 **Atualização da versão anterior. Não apague seu banco nem seus 194 modelos.**
 
 - **Importar CSV**: use o menu Catálogo → Importar CSV ou Importar planilha. Aceita CSV, XLS/XLSX e JSON; mostra prévia, não duplica nomes e permite atualizar somente quando você escolher. Se já cadastrou modelos, não precisa importar de novo.
-- **Fotos dos modelos**: nova aba. Procure por nome ou REF, clique em **Adicionar foto** e envie uma foto. Só existe **uma foto principal por modelo**, mesmo que tenha P/M/G/GG e várias cores. Modelos diferentes com a mesma REF continuam com fotos diferentes.
-- **Amostras**: lista pendências com foto (da OC ou do modelo), OC, nome, REF e costureiro. Não há Editar, Excluir ou Pronto nos cartões. **Nova amostra** permanece nessa página para iniciar a produção.
+- **Fotos dos modelos**: procure por nome ou REF, adicione, substitua ou remova uma foto principal. Também aceita CSV/XLS/XLSX com as colunas `Nome do modelo`, `REF` (opcional) e `URL da imagem`. A prévia usa correspondência exata de nome e não substitui fotos existentes. A importação das URLs depende de o servidor permitir acesso entre domínios (CORS).
+- **Amostras**: somente consulta das OCs em andamento, com foto, OC, nome, REF e costureiro. Não há controles de produção nessa página. Novas OCs são criadas em **Cortes**.
 - **Cortes**: toda nova amostra entra como **Em andamento**. Aqui ficam os botões **Pronto**, **Reabrir**, **Editar** e **Excluir**, além das duas listas Em andamento e Prontos.
 - **Foto opcional nas amostras**: você pode cadastrar OC e costureiro e completar a foto do modelo depois; a miniatura será mostrada automaticamente em ambas as telas.
 - **Fonte MeuComercio**: no momento `https://meucomercio.com.br/mbdryfit` informa que não há produtos publicados. **Não foi possível importar fotos automaticamente**. Use fotos próprias agora; quando o catálogo estiver público, será possível rever a correspondência por nomes. Não associe imagens apenas por REF porque modelos diferentes podem compartilhar uma referência.
@@ -142,3 +142,14 @@ O modelo `BERM DRY NIKE SIMB BAS R.L` traz a `REF.10359`. A dupla `REF.10277 / R
 O endereço permanece `https://joaovitor250p-cloud.github.io/Mb-Dryfit/`. Os seis Repository secrets do Firebase permanecem os mesmos, e os dados já guardados no banco não são apagados ao publicar o novo front-end.
 
 **Verificação local desta entrega:** integridade do ZIP e análise sintática TS/TSX; compilação de produção não executada porque o ambiente não conseguiu baixar dependências do registro npm. Não se afirma que as ações com o Firestore real tenham sido testadas.
+
+
+## Importação de fotos do catálogo externo
+
+Na aba **Fotos dos modelos**, o botão **Buscar fotos do catálogo** abre o catálogo MB DRYFIT e o seletor para importar um arquivo de correspondências. Prepare uma planilha CSV/XLS/XLSX com estas colunas: `Nome do modelo`, `REF` (opcional) e `URL da imagem`. A correspondência automática é feita somente pelo nome exato normalizado; a REF é auxiliar e não é usada sozinha para associar modelos. Isso evita misturar modelos diferentes que compartilham uma referência.
+
+O navegador tenta baixar cada imagem indicada e pode falhar se o site bloquear requisições externas por CORS, exigir autenticação ou usar URLs temporárias. Nesses casos, baixe as imagens autorizadas e adicione-as manualmente. Não existe raspagem automática garantida do MeuComercio nesta versão e não se deve considerar fotos importadas sem conferir o relatório. A importação não substitui fotos já cadastradas.
+
+## Limitações de validação desta entrega
+
+O ZIP foi atualizado a partir do código recebido. Não foi possível concluir `npm install` dentro do ambiente de preparação, então a compilação TypeScript/Vite não foi confirmada aqui. Login, regras e sincronização do Firestore precisam ser testados no projeto Firebase real após a publicação. Nenhum dado foi gravado ou removido no Firebase durante a preparação.

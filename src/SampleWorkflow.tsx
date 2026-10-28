@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 import { Camera, Check, CheckCircle2, Clock3, FileSpreadsheet, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 
-type Stage = 'in_progress' | 'done';
+type Stage = 'in_progress' | 'done' | 'store';
 type Production = {
   id: string; oc: string; name: string; reference: string; tailor: string;
   imageData: string; status: Stage; createdAt?: unknown; completedAt?: unknown;
@@ -50,7 +50,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'in_progress' | 'done'>(view === 'samples' ? 'in_progress' : 'in_progress');
+  const [filter, setFilter] = useState<Stage>('in_progress');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Production | null>(null);
   const [oc, setOc] = useState('');
@@ -69,10 +69,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
       setError('');
     }, e => { setError('Não foi possível consultar as amostras: ' + e.message); setLoading(false); });
   }, [db]);
-  useEffect(() => { if (view === 'samples') setFilter('in_progress'); }, [view]);
   const progress = items.filter(x => x.status === 'in_progress').length;
   const finished = items.filter(x => x.status === 'done').length;
-  const filtered = useMemo(() => items.filter(x => x.status === (view === 'samples' ? 'in_progress' : filter))
+  const wentToStore = items.filter(x => x.status === 'store').length;
+  const filtered = useMemo(() => items.filter(x => view === 'samples' || x.status === filter)
     .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search))), [items, view, filter, search]);
   const showMessage = (s: string, bad = false) => { setError(bad ? s : ''); setMessage(bad ? '' : s); };
   const openNew = () => { setEditing(null); setOc(''); setName(''); setReference(''); setTailor(''); setImageData(''); setModal(true); };
@@ -100,7 +100,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
       if (editing) await updateDoc(doc(db, 'production_samples', editing.id), data);
       else await addDoc(collection(db, 'production_samples'), { ...data, status: 'in_progress', createdAt: serverTimestamp(), createdBy: user.uid, completedAt: null, completedBy: null });
       setModal(false);
-      showMessage(editing ? 'Amostra atualizada em todos os aparelhos.' : 'Amostra cadastrada e enviada para Cortes em andamento.');
+      showMessage(editing ? 'Registro atualizado em todos os aparelhos.' : 'OC cadastrada e disponível na área Cortes.');
     } catch (e) { showMessage('Erro ao salvar: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
@@ -108,8 +108,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
     if (!canEdit) return;
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'production_samples', p.id), {status, completedAt: status === 'done' ? serverTimestamp() : null, completedBy: status === 'done' ? user.uid : null, updatedAt: serverTimestamp(), updatedBy: user.uid});
-      showMessage(status === 'done' ? 'Corte finalizado! Removido de Amostras e adicionado a Cortes prontos.' : 'Corte reaberto e devolvido a Amostras.');
+      await updateDoc(doc(db, 'production_samples', p.id), {status, completedAt: status === 'in_progress' ? null : (status === 'done' ? serverTimestamp() : (p.completedAt ?? serverTimestamp())), completedBy: status === 'in_progress' ? null : (status === 'done' ? user.uid : (p.completedBy ?? user.uid)), updatedAt: serverTimestamp(), updatedBy: user.uid});
+      showMessage(status === 'done' ? 'Corte marcado como pronto.' : status === 'store' ? 'Corte marcado como enviado para a loja.' : 'Corte reaberto e devolvido para andamento.');
     } catch (e) { showMessage('Não foi possível atualizar o corte: ' + (e instanceof Error ? e.message : String(e)), true); }
     finally { setBusy(false); }
   };
@@ -123,35 +123,36 @@ export default function SampleWorkflow({ view, db, user, canEdit, models }: Prop
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     const addSheet = (tab: string, list: Production[]) => {
-      const rows = list.map(x => ({OC: x.oc, 'NOME DA PEÇA': x.name, 'REFERÊNCIA': x.reference || 'SEM CÓDIGO', COSTUREIRO: x.tailor, STATUS: x.status === 'done' ? 'PRONTO' : 'EM ANDAMENTO', 'CADASTRADO EM': humanDate(x.createdAt), 'FINALIZADO EM': humanDate(x.completedAt)}));
+      const rows = list.map(x => ({OC: x.oc, 'NOME DA PEÇA': x.name, 'REFERÊNCIA': x.reference || 'SEM CÓDIGO', COSTUREIRO: x.tailor, STATUS: x.status === 'store' ? 'FOI PRA LOJA' : x.status === 'done' ? 'PRONTO' : 'EM ANDAMENTO', 'CADASTRADO EM': humanDate(x.createdAt), 'FINALIZADO EM': humanDate(x.completedAt)}));
       const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ OC: '', 'NOME DA PEÇA': '', REFERÊNCIA: '', COSTUREIRO: '', STATUS: '' }]);
       ws['!cols'] = [{wch:18},{wch:52},{wch:24},{wch:30},{wch:18},{wch:20},{wch:20}];
       XLSX.utils.book_append_sheet(wb,ws,tab);
     };
-    addSheet('CORTES EM ANDAMENTO', items.filter(x => x.status === 'in_progress'));
-    addSheet('CORTES PRONTOS', items.filter(x => x.status === 'done'));
+    addSheet('EM ANDAMENTO', items.filter(x => x.status === 'in_progress'));
+    addSheet('PRONTOS', items.filter(x => x.status === 'done'));
+    addSheet('FOI PRA LOJA', items.filter(x => x.status === 'store'));
     XLSX.writeFile(wb, `MB_REFERENCIAS_CORTES_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
   return <div className="page-wrap production-page">
-    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Amostras pendentes: veja fotos, OC, modelo, REF e costureiro. Finalização e ajustes ficam em Cortes.' : 'Acompanhe os cortes em andamento e os que já estão prontos.'}</p></div>
-      <div className="heading-actions">{view==='cuts'&&<button className="outline-button" onClick={exportExcel}><FileSpreadsheet size={17}/> Exportar cortes</button>}{view==='samples'&&canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Nova amostra</button>}</div></div>
-    <section className="stats-grid"><div className="stat-card"><div className="stat-icon blue"><Camera/></div><div><span>Total de registros</span><strong>{items.length}</strong><small>Amostras cadastradas</small></div></div><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Cortes prontos</span><strong>{finished}</strong><small>Produção concluída</small></div></div></section>
-    <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por OC, peça, REF ou costureiro..."/></label>
-      {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
+    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte a imagem, OC, modelo, REF e costureiro de cada amostra.' : 'Pesquise por OC e acompanhe o andamento, os cortes prontos e os que foram para a loja.'}</p></div>
+      <div className="heading-actions">{view==='cuts'&&<><button className="outline-button" onClick={exportExcel}><FileSpreadsheet size={17}/> Exportar cortes</button>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Nova OC / amostra</button></>}</div></div>
+    {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div><div className="stat-card"><div className="stat-icon blue"><CheckCircle2/></div><div><span>Foram pra loja</span><strong>{wentToStore}</strong><small>Etapa concluída</small></div></div></section>}
+    <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
+      {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button><button className={filter==='store'?'chosen':''} onClick={()=>setFilter('store')}><CheckCircle2 size={15}/> Foi pra loja ({wentToStore})</button></div>}
     </div>
     {error&&<div className="production-alert">{error}</div>}{message&&<div className="production-ok">{message}</div>}
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
-    !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Cadastre uma nova amostra para começar.' : 'Não há cortes nesta situação.'}</span></div>:
+    !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'As novas OCs são cadastradas na página Cortes.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=><article className="production-card" key={p.id}>
-      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData)?<img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData} alt={`Foto de ${p.name}`}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}<span className={`production-status ${p.status}`}>{p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span></div>
-      <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{p.status==='done'&&<div><dt>Finalizado</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
-      {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress'?<button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>:<button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
+      <div className="production-photo">{(p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData)?<img src={p.imageData || models.find(m=>normalizeText(m.name)===normalizeText(p.name))?.imageData} alt={`Foto de ${p.name}`}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status}`}>{p.status==='store'?'FOI PRA LOJA':p.status==='done'?'PRONTO':'EM ANDAMENTO'}</span>}</div>
+      <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{p.status === 'store' ? 'Enviado para loja' : 'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
+      {view==='cuts'&&<div className="production-actions">{canEdit&&<><button className="outline-button" onClick={()=>openEdit(p)} title="Editar"><Pencil size={15}/> Editar</button>{p.status==='in_progress' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>}{p.status==='done' && <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'store')}><CheckCircle2 size={16}/> Foi pra loja</button>}{p.status!=='in_progress' && <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')}><RotateCcw size={15}/> Reabrir</button>}<button className="icon-button" onClick={()=>void remove(p)} title="Excluir registro"><Trash2 size={17}/></button></>}</div>}</div>
     </article>)}</div>}</section>
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">PRODUÇÃO · AMOSTRAS</span><h2>{editing?'Editar amostra':'Nova amostra'}</h2><p>Ela também aparecerá automaticamente em Cortes em andamento.</p></div><button className="icon-button" onClick={()=>setModal(false)}><X/></button></div>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">CADASTRO DE OC</span><h2>{editing?'Editar registro':'Nova OC'}</h2><p>O registro também ficará disponível na área Cortes para acompanhar as etapas.</p></div><button className="icon-button" onClick={()=>setModal(false)}><X/></button></div>
     <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}><label className="production-image-field"><span>Foto da peça (opcional)</span><div className="production-image-preview">{imageData?<img alt="Prévia da peça" src={imageData}/>:<><ImagePlus size={28}/><span>Selecionar foto</span></>}<input type="file" accept="image/*" onChange={e=>void processFile(e.target.files?.[0])}/></div><small>Se não enviar uma foto, o sistema usará a imagem cadastrada para esse modelo. Você poderá adicionar a foto depois.</small></label>
       <div className="production-form-grid"><label>OC *<input required maxLength={80} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/></label><label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label></div>
       <label>Nome da peça *<input required maxLength={250} list="production-models" value={name} onChange={e=>fillModel(e.target.value)} placeholder="Pesquise ou digite o modelo"/><datalist id="production-models">{models.map(m=><option value={m.name} key={m.id}/>)}</datalist><small>Se escolher um modelo existente, a REF será preenchida automaticamente.</small></label>
       <label>Código Extra (REF)<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="REF.10359"/></label>
-      <div className="modal-actions"><button type="button" className="outline-button" onClick={()=>setModal(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy?'Salvando...':editing?'Salvar alterações':'Cadastrar amostra'}</button></div></form></section></div>}
+      <div className="modal-actions"><button type="button" className="outline-button" onClick={()=>setModal(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy?'Salvando...':editing?'Salvar alterações':'Cadastrar OC'}</button></div></form></section></div>}
   </div>;
 }
