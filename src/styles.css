@@ -326,3 +326,113 @@
   .simple-card-head b{text-align:left}
   .info-grid{grid-template-columns:1fr}
 }
+
+/* 4.7 — identidade branca e laranja, zoom nativo e telas financeiras reorganizadas */
+:root{--bg:#ffffff;--panel:#ffffff;--panel2:#fff8f1;--text:#26343c;--muted:#74818a;--line:#f0e1d4;--teal:#e87518;--teal2:#f58c2e;--shadow:0 10px 30px rgba(146,78,25,.07)}
+.dark{--bg:#11191f;--panel:#19242b;--panel2:#202d35;--text:#edf2f4;--muted:#a7b3ba;--line:#37454d;--teal:#ffac63;--teal2:#ffc080;--shadow:0 12px 35px rgba(0,0,0,.22)}
+body{touch-action:auto}
+.brand-mark{background:linear-gradient(145deg,#e87518,#ffad57);box-shadow:0 8px 20px #e8751826}
+.nav-item.active,.nav-item:hover{background:#fff0e2;color:#a84e06}
+.dark .nav-item.active,.dark .nav-item:hover{background:#49311f;color:#ffc18a}
+.mobile-production-nav button.selected{background:#fff0e2;color:#a84e06}
+.dark .mobile-production-nav button.selected{background:#49311f;color:#ffc18a}
+.primary-button{background:#e87518;border-color:#e87518;box-shadow:0 5px 13px #e8751826}
+.primary-button:hover{background:#f58c2e;border-color:#f58c2e}
+.check-row input{accent-color:#e87518}
+.catalog-internal-tabs button{color:#a84e06;border-color:#f0ddca}
+.catalog-internal-tabs button.selected{background:#e87518;border-color:#e87518;color:#fff}
+.dark .catalog-internal-tabs button{background:var(--panel);color:#ffc18a;border-color:var(--line)}
+.dark .catalog-internal-tabs button.selected{background:#7b431b;color:#fff0e2;border-color:#a95a20}
+.ref-copy{background:#fff0e2;color:#a84e06}
+.dark .ref-copy{background:#49311f;color:#ffc18a}
+.stat-icon.blue,.stat-icon.teal{color:#b85a0a;background:#fff0e2}
+.dark .stat-icon.blue,.dark .stat-icon.teal{color:#ffc18a;background:#49311f}
+.auth-shell{background:radial-gradient(ellipse at 18% 15%,#ffead7 0,transparent 35%),linear-gradient(135deg,#fffaf5,#fff)}
+.dark .auth-shell{background:radial-gradient(ellipse at 18% 15%,#4b2c19 0,transparent 35%),linear-gradient(135deg,#10171c,#1c252b)}
+.auth-card input:focus,.modal-form input:focus,.search-box:focus-within{border-color:#f2a15b;box-shadow:0 0 0 3px #e875181b}
+.page-heading-copy{min-width:0}
+.page-brand-row{display:flex;align-items:center;gap:12px}
+.page-brand-logo{width:46px;height:46px;object-fit:contain;flex-shrink:0;border-radius:13px;box-shadow:0 8px 22px #e8751818}
+.page-brand-row h1{margin:3px 0 5px}
+.page-heading-copy>p{line-height:1.6;max-width:780px}
+.money-stat{color:var(--teal)}
+.simple-card{min-width:0}
+.expense-card-head,.info-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px;min-width:0}
+.expense-card-identity,.info-card-identity{min-width:0}
+.expense-card-identity strong,.info-card-identity strong{display:block;color:var(--text);font-size:16px;line-height:1.4;overflow-wrap:anywhere}
+.expense-card-identity span{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;margin-top:6px}
+.expense-amount-wrap{text-align:right;min-width:150px}
+.expense-amount-wrap small,.info-card-identity span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+.expense-amount,.info-amount{display:block;color:var(--teal);font:800 24px Manrope,sans-serif;letter-spacing:-.035em;line-height:1.25;overflow-wrap:anywhere}
+.info-card-identity strong{font-size:17px}
+.info-amount{text-align:right;max-width:100%;}
+.info-grid.single-info-field{grid-template-columns:minmax(0,1fr)}
+.info-grid span{font-size:14px;line-height:1.5;overflow-wrap:anywhere;word-break:normal}
+.info-grid small{font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.expense-notes,.workshop-notes{padding-top:9px;border-top:1px solid var(--line)}
+.workshop-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;padding:16px}
+.workshop-card{min-width:0;padding:17px;border:1px solid var(--line);border-radius:15px;background:var(--panel2);display:flex;flex-direction:column;gap:15px;box-shadow:0 5px 18px rgba(146,78,25,.045)}
+.workshop-card-head{display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0}
+.workshop-identity{display:flex;align-items:center;gap:11px;min-width:0}
+.workshop-icon{width:42px;height:42px;display:grid;place-items:center;flex-shrink:0;border-radius:12px;background:#fff0e2;color:#b85a0a}
+.dark .workshop-icon{background:#49311f;color:#ffc18a}
+.workshop-identity h2{font:800 17px Manrope,sans-serif;margin:0;color:var(--text);overflow-wrap:anywhere}
+.workshop-identity span{display:block;font-size:10px;color:var(--muted);margin-top:4px}
+.workshop-phone{display:flex;align-items:center;gap:7px;color:var(--teal);font-size:12px;font-weight:750;min-width:0;overflow-wrap:anywhere}
+.workshop-phone a{color:inherit;text-decoration:none;overflow-wrap:anywhere}
+.workshop-service-heading{display:flex;align-items:center;gap:8px;color:var(--teal);font-size:12px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.workshop-services{display:grid;gap:0}
+.workshop-service-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.workshop-service-row>div{min-width:0}
+.workshop-service-row strong{display:block;font-size:14px;color:var(--text);overflow-wrap:anywhere}
+.workshop-service-row small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.workshop-service-row b{flex-shrink:0;color:var(--teal);font:800 18px Manrope,sans-serif;text-align:right}
+.workshop-no-services{margin:0;color:var(--muted);font-size:12px}
+.workshop-services-form-head{display:flex;flex-direction:column;gap:4px}
+.workshop-services-form-head strong{font-size:13px;color:var(--text)}
+.workshop-services-form-head span{font-size:11px;color:var(--muted)}
+.workshop-services-form{display:grid;gap:10px}
+.workshop-service-input-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,.65fr) 36px;align-items:end;gap:9px;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}
+.workshop-service-input-row label{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:700;color:var(--text);min-width:0}
+.workshop-service-input-row input{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:11px 10px;outline:0;font-size:12px;color:var(--text)}
+.workshop-remove-service{height:39px;width:36px;border:1px solid #f0caca;border-radius:9px;background:#fff0f0;color:#c23d3d;display:grid;place-items:center}
+.dark .workshop-remove-service{background:#40272a;border-color:#654045;color:#ff9a9a}
+.workshop-add-service{align-self:flex-start}
+@media(max-width:900px){
+  .production-grid{grid-template-columns:minmax(0,1fr)!important;padding:12px!important}
+  .production-card{width:100%;max-width:620px;margin-inline:auto}
+  .production-details dl>div{grid-template-columns:minmax(90px,34%) minmax(0,1fr);gap:10px}
+  .production-details dt,.production-details dd{min-width:0;overflow-wrap:anywhere;word-break:normal}
+}
+@media(max-width:800px){
+  .page-wrap{padding:20px 14px 28px}
+  .page-heading{align-items:stretch;gap:14px}
+  .page-brand-logo{width:42px;height:42px}
+  .page-heading-copy>p{font-size:12px}
+  .heading-actions{display:flex;width:100%}
+  .heading-actions .primary-button{width:100%;min-height:44px;font-size:13px}
+  .extra-stats{grid-template-columns:1fr}
+  .simple-list,.workshop-list{padding:12px;gap:12px}
+  .simple-card{padding:14px}
+  .expense-card-head,.info-card-head{grid-template-columns:minmax(0,1fr);gap:12px}
+  .expense-amount-wrap{min-width:0;text-align:left}
+  .expense-amount,.info-amount{text-align:left;font-size:25px}
+  .info-grid{grid-template-columns:minmax(0,1fr)}
+  .workshop-list{grid-template-columns:minmax(0,1fr)}
+  .workshop-card{padding:14px;gap:13px}
+  .workshop-card-head{align-items:stretch;flex-direction:column;gap:13px}
+  .workshop-phone{align-self:flex-start;font-size:13px}
+  .workshop-service-row b{font-size:17px}
+  .workshop-service-input-row{grid-template-columns:minmax(0,1fr) minmax(100px,.7fr) 36px}
+  .workshop-modal{padding:16px}
+}
+@media(max-width:430px){
+  .page-wrap{padding-inline:11px}
+  .page-brand-row{gap:9px}
+  .page-brand-logo{width:38px;height:38px}
+  .page-heading h1{font-size:23px}
+  .expense-amount,.info-amount{font-size:23px}
+  .workshop-service-input-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .workshop-remove-service{grid-column:1/-1;justify-self:end}
+  .workshop-service-row{align-items:flex-start}
+}

@@ -1,7 +1,13 @@
-# MB REFERÊNCIAS 4.6
+# MB REFERÊNCIAS 4.7
 
-Projeto atualizado com a logo MB DryFit, correção de zoom móvel, melhorias nas telas de Amostras/Cortes, Ordem de Corte, Gastos e Informações MB.
+Aplicação de gestão da MB com catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
-**Novidade 4.6:** importação autenticada das planilhas CSV para as coleções `expenses` e `mb_info` do Firestore. Consulte `LEIA-PRIMEIRO-4.6.md` para importar os arquivos originais sem embutir dados pessoais no repositório público.
+## Principais alterações 4.7
 
-A publicação do site é feita pelo GitHub Actions. As regras do Firestore precisam ser publicadas separadamente no projeto Firebase correto.
+- Gastos e Informações MB com valores mais visíveis e menos repetição de nomes.
+- Removidos os botões de importação de planilhas dessas duas páginas.
+- Nova área **Oficinas**, com telefone/WhatsApp e tabela de preços por tipo de peça.
+- Melhorias de layout em celulares e zoom nativo do navegador habilitado.
+- Paleta branca e laranja e modo escuro.
+
+Leia `LEIA-PRIMEIRO-4.7.md` antes de publicar. Preserve as variáveis do Firebase e publique `firestore.rules` no projeto correto. Não inclua planilhas com dados pessoais no repositório.

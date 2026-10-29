@@ -57,13 +57,13 @@ service cloud.firestore {
     }
 
     // Areas autorizaveis: catalogo, amostras, cortes, ordem de corte,
-    // gastos e informacoes internas da MB.
+    // gastos, informacoes internas e oficinas.
     function validSections(sections) {
       return sections is list
         && sections.size() >= 1
-        && sections.size() <= 6
+        && sections.size() <= 7
         && sections.hasOnly([
-          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info'
+          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops'
         ]);
     }
 
@@ -569,6 +569,48 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if canWrite('info');
+    }
+
+    // OFICINAS — contato e tabela de preços por tipo de peça.
+    function validWorkshop() {
+      let d = request.resource.data;
+
+      return d.keys().hasOnly([
+          'name', 'phone', 'services', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.keys().hasAll([
+          'name', 'phone', 'services', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() <= 250
+        && d.phone is string
+        && d.phone.size() <= 60
+        && d.services is list
+        && d.services.size() <= 50
+        && d.notes is string
+        && d.notes.size() <= 1000
+        && d.createdBy is string
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    match /workshops/{workshopId} {
+      allow get, list: if canView('workshops');
+
+      allow create: if canWrite('workshops')
+        && validWorkshop()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if canWrite('workshops')
+        && validWorkshop()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if canWrite('workshops');
     }
 
     // HISTORICO DE ALTERACOES

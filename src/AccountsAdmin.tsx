@@ -5,10 +5,10 @@ import { auth, db } from './lib/firebase';
 import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lucide-react';
 
 type Role = 'admin' | 'editor' | 'viewer';
-type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info';
+type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops';
 type Account = { uid: string; email: string; role: Role; permissions: Section[]; disabled: boolean };
 type Request = { uid: string; email: string; status: 'pending' | 'approved' | 'denied' };
-const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info'];
+const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops'];
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'catalog', label: 'Catálogo de modelos' },
   { value: 'samples', label: 'Amostras' },
@@ -16,6 +16,7 @@ const SECTIONS: { value: Section; label: string }[] = [
   { value: 'orders', label: 'Ordem de Corte (oficinas e pagamentos)' },
   { value: 'expenses', label: 'Gastos' },
   { value: 'info', label: 'Informações MB' },
+  { value: 'workshops', label: 'Oficinas' },
 ];
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Não foi possível salvar.';
 const asSections = (value: unknown): Section[] => Array.isArray(value) ? value.filter((s): s is Section => ALL.includes(s as Section)) : ALL;
