@@ -238,8 +238,8 @@ service cloud.firestore {
     // acesso aos dados sem um user_roles aprovado pelo administrador.
     function validSections(sections) {
       return sections is list
-        && sections.size() >= 1 && sections.size() <= 4
-        && sections.hasOnly(['catalog', 'samples', 'cuts', 'orders']);
+        && sections.size() >= 1 && sections.size() <= 6
+        && sections.hasOnly(['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info']);
     }
     function validGrant() {
       let data = request.resource.data;
@@ -436,6 +436,49 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.source == resource.data.source;
       allow delete: if isAdmin();
+    }
+
+    function validExpense() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name','amount','date','notes','createdAt','createdBy','updatedAt','updatedBy'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 250
+        && d.amount is string && d.amount.size() > 0 && d.amount.size() <= 80
+        && d.date is string && d.date.size() <= 20
+        && d.notes is string && d.notes.size() <= 1000
+        && d.updatedBy == request.auth.uid;
+    }
+
+    match /expenses/{expenseId} {
+      allow get, list: if canView('expenses');
+      allow create: if canWrite('expenses') && validExpense()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if canWrite('expenses') && validExpense()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if canWrite('expenses');
+    }
+
+    function validMbInfo() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name','value','pix','pixName','notes','createdAt','createdBy','updatedAt','updatedBy'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 250
+        && d.value is string && d.value.size() <= 120
+        && d.pix is string && d.pix.size() <= 200
+        && d.pixName is string && d.pixName.size() <= 250
+        && d.notes is string && d.notes.size() <= 1000
+        && d.updatedBy == request.auth.uid;
+    }
+
+    match /mb_info/{infoId} {
+      allow get, list: if canView('info');
+      allow create: if canWrite('info') && validMbInfo()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if canWrite('info') && validMbInfo()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if canWrite('info');
     }
 
     match /audit_log/{entryId} {

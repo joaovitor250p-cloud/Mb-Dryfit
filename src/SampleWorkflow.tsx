@@ -4,7 +4,7 @@ import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
 import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
-import { MODEL_TYPE_OPTIONS, matchesModelType, type ModelType } from './lib/modelTypes';
+import { MODEL_TYPE_OPTIONS, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 
@@ -99,8 +99,16 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const filtered = useMemo(() => items.filter(x => view === 'samples'
     ? x.status === 'in_progress'
     : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
-    .filter(x => view !== 'samples' || matchesModelType(x.name,typeFilter))
-    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search))), [items, view, filter, search, typeFilter]);
+    .filter(x => matchesModelType(x.name,typeFilter))
+    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)))
+    .sort((a,b)=> {
+      const group = (name:string) => { const t = modelType(name); return t === 'camisas' || t === 'camisetas' ? 'camisas' : t; };
+      const typeCmp = group(a.name).localeCompare(group(b.name),'pt-BR');
+      if (typeCmp) return typeCmp;
+      const nameCmp = normalizeText(a.name).localeCompare(normalizeText(b.name),'pt-BR');
+      if (nameCmp) return nameCmp;
+      return normalizeText(a.oc).localeCompare(normalizeText(b.oc),'pt-BR');
+    }), [items, view, filter, search, typeFilter]);
   const selectedCuts=items.filter(x=>selectedCutIds.includes(x.id));
   const visibleCutIds=filtered.map(x=>x.id);
   const allVisibleCutsSelected=visibleCutIds.length>0&&visibleCutIds.every(id=>selectedCutIds.includes(id));
@@ -191,7 +199,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       });
-      if (view === 'cuts') setFilter(status);
+      // Mantém a aba e o filtro de tipo atuais; não pula automaticamente para 'Prontos'.
       showMessage(status === 'done'
         ? `OC ${p.oc} marcada como pronta.`
         : `OC ${p.oc} reaberta e devolvida ao andamento.`);
@@ -225,7 +233,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       <div className="heading-actions">{view==='samples'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<><button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button><button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button></>}</>}</div></div>
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
     <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
-      {view==='samples'&&<label className="filter-select model-type-filter"><Filter size={16}/><select aria-label="Filtrar amostras por tipo de peça" value={typeFilter} onChange={e=>setTypeFilter(e.target.value as ModelType)}>{MODEL_TYPE_OPTIONS.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>}
+      <label className="filter-select model-type-filter"><Filter size={16}/><select aria-label={view==='samples'?'Filtrar amostras por tipo de peça':'Filtrar cortes por tipo de peça'} value={typeFilter} onChange={e=>setTypeFilter(e.target.value as ModelType)}>{MODEL_TYPE_OPTIONS.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
     </div>
     {view==='samples'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
