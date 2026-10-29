@@ -5,6 +5,7 @@ import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase
 import * as XLSX from 'xlsx';
 import { Camera, ImagePlus, Search, Filter, Trash2, Upload, X, FileSpreadsheet, Pencil, Plus, Download } from 'lucide-react';
 import { normalizeReference, normalizeText, sortModels, type Model } from './lib/catalog';
+import { MODEL_TYPE_OPTIONS, matchesModelType, type ModelType } from './lib/modelTypes';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
 
@@ -40,7 +41,7 @@ function readableFirestoreError(error:unknown):string {
 
 export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditModel,onDeleteModel,onBackup,onBulkDeleteModels}:Props) {
   const [search,setSearch]=useState('');
-  const [onlyMissing,setOnlyMissing]=useState(false);
+  const [typeFilter,setTypeFilter]=useState<ModelType>('all');
   const [selectionMode,setSelectionMode]=useState(false);
   const [selectedCardIds,setSelectedCardIds]=useState<string[]>([]);
   const [selected,setSelected]=useState<Model|null>(null);
@@ -53,7 +54,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
   const [report,setReport]=useState('');
   const [progress,setProgress]=useState('');
   const mappingInput=useRef<HTMLInputElement>(null);
-  const list=useMemo(()=>sortModels(models,'reference').filter(m=>(!onlyMissing||!(m.imageData||m.fallbackImageData))&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,onlyMissing]);
+  const list=useMemo(()=>sortModels(models,'reference').filter(m=>matchesModelType(m.name,typeFilter)&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,typeFilter]);
   const selectedCards=models.filter(m=>selectedCardIds.includes(m.id));
   const visibleIds=list.map(m=>m.id);
   const allVisibleSelected=visibleIds.length>0&&visibleIds.every(id=>selectedCardIds.includes(id));
@@ -204,8 +205,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
       <input ref={mappingInput} type="file" accept=".csv,.xls,.xlsx" hidden onChange={e=>void readMapping(e.target.files?.[0])}/>
     </div>
     </div>
-    <section className="stats-grid"><div className="stat-card"><div className="stat-icon blue"><Camera/></div><div><span>Modelos</span><strong>{models.length}</strong></div></div><div className="stat-card"><div className="stat-icon green"><ImagePlus/></div><div><span>Com foto</span><strong>{models.filter(m=>!!(m.imageData||m.fallbackImageData)).length}</strong></div></div><div className="stat-card"><div className="stat-icon amber"><Camera/></div><div><span>Sem foto</span><strong>{models.filter(m=>!(m.imageData||m.fallbackImageData)).length}</strong></div></div></section>
-    <section className="catalog-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo ou REF..."/></label><label className="filter-select"><Filter size={15}/><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/> Somente sem foto</label></div>
+    <section className="catalog-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar modelo ou REF..."/></label><label className="filter-select model-type-filter"><Filter size={16}/><select aria-label="Filtrar modelos por tipo de peça" value={typeFilter} onChange={e=>setTypeFilter(e.target.value as ModelType)}>{MODEL_TYPE_OPTIONS.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label><span className="model-result-count">{list.length} de {models.length} modelos</span></div>
       {selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de modelos selecionados">
         <strong>{selectedCards.length} modelo(s) selecionado(s)</strong>
         <button className="outline-button" disabled={busy||!visibleIds.length} onClick={()=>setSelectedCardIds(ids=>allVisibleSelected?ids.filter(id=>!visibleIds.includes(id)):[...new Set([...ids,...visibleIds])])}>{allVisibleSelected?'Desmarcar visíveis':'Selecionar todos visíveis'} ({visibleIds.length})</button>

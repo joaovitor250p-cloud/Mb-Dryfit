@@ -147,3 +147,18 @@
  .photo-lightbox-controls span{display:none}
  .photo-lightbox-controls button{padding:7px}
 }
+
+/* MB REFERENCIAS 3.9 - formulário com foto e filtros por tipo de peça */
+.model-type-filter {height:43px;gap:9px;min-width:190px;background:var(--panel);flex-shrink:0;padding:0 12px;color:var(--teal2)}
+.model-type-filter select {max-width:none;width:100%;font-size:12px;font-weight:650;cursor:pointer;outline:none;background:var(--panel);color:var(--text)}
+.model-result-count {color:var(--muted);font-size:11px;white-space:nowrap}
+.new-model-photo-section {display:flex;flex-direction:column;gap:10px;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.new-model-photo-title {display:flex;align-items:center;gap:9px;font-weight:750;font-size:13px;color:var(--text)}
+.new-model-photo-preview {height:180px;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1px dashed #9fbfc6;border-radius:10px;overflow:hidden}
+.new-model-photo-preview img {height:100%;width:100%;object-fit:contain}
+.new-model-photo-empty {display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-size:12px;color:var(--muted)}
+.new-model-photo-chooser {display:block;font-size:12px;font-weight:650}
+.new-model-photo-chooser input {display:block;width:100%;margin-top:7px;font-size:12px;border:1px solid var(--line);border-radius:9px;padding:8px;background:var(--panel)}
+.new-model-photo-section small {font-size:11px;color:var(--muted);line-height:1.5}
+.new-model-photo-section .outline-button {align-self:flex-start}
+@media (max-width:760px) { .model-type-filter {flex:1;min-width:155px} .model-result-count{width:100%} .production-toolbar .search-box{max-width:none;min-width:100%} }

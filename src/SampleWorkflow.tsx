@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
-import { Camera, Check, CheckCircle2, Clock3, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
+import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
+import { MODEL_TYPE_OPTIONS, matchesModelType, type ModelType } from './lib/modelTypes';
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 
@@ -69,6 +70,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<ModelType>('all');
   const [filter, setFilter] = useState<VisibleStage>('in_progress');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Production | null>(null);
@@ -97,7 +99,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const filtered = useMemo(() => items.filter(x => view === 'samples'
     ? x.status === 'in_progress'
     : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
-    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search))), [items, view, filter, search]);
+    .filter(x => view !== 'samples' || matchesModelType(x.name,typeFilter))
+    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search))), [items, view, filter, search, typeFilter]);
   const selectedCuts=items.filter(x=>selectedCutIds.includes(x.id));
   const visibleCutIds=filtered.map(x=>x.id);
   const allVisibleCutsSelected=visibleCutIds.length>0&&visibleCutIds.every(id=>selectedCutIds.includes(id));
@@ -222,6 +225,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       <div className="heading-actions">{view==='samples'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<><button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button><button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button></>}</>}</div></div>
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
     <section className="catalog-panel production-panel"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
+      {view==='samples'&&<label className="filter-select model-type-filter"><Filter size={16}/><select aria-label="Filtrar amostras por tipo de peça" value={typeFilter} onChange={e=>setTypeFilter(e.target.value as ModelType)}>{MODEL_TYPE_OPTIONS.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>}
       {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
     </div>
     {view==='samples'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
