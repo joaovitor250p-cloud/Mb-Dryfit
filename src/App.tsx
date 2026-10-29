@@ -5,7 +5,7 @@ import AccountsAdmin from './AccountsAdmin';
 import CutOrders from './CutOrders';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut } from 'firebase/auth';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList } from 'lucide-react';
@@ -59,12 +59,14 @@ export default function App(){
    else if(signup){
      if(password.length<8)throw Error('A senha precisa ter pelo menos 8 caracteres.');
      if(password!==confirmPassword)throw Error('As senhas não coincidem.');
+     // Sessão local por aparelho: não revoga sessões de outros dispositivos.
+     await setPersistence(auth,browserLocalPersistence);
      const credential=await createUserWithEmailAndPassword(auth,email.trim(),password);
      setPassword('');setConfirmPassword('');
      try{await sendEmailVerification(credential.user);notify('Conta criada. Verifique o e-mail e depois clique em Já confirmei meu e-mail.')}
      catch(err){notify('Conta criada. Não foi possível enviar a confirmação: '+safeError(err)+'. Use Reenviar confirmação.',true)}
      setSignup(false);
-   }else{await signInWithEmailAndPassword(auth,email,password);setPassword('')}
+   }else{await setPersistence(auth,browserLocalPersistence);await signInWithEmailAndPassword(auth,email,password);setPassword('')}
   }catch(e){notify('Não foi possível concluir: '+safeError(e),true)}finally{setBusy(false)}};
  const requestApproval=async()=>{if(!db||!user||roleDisabled)return;setBusy(true);notify('');try{
    await user.reload();await user.getIdToken(true);setVerified(user.emailVerified);
