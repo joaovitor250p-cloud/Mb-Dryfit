@@ -53,17 +53,27 @@ export default function App(){
      if(zoomKeys.includes(event.key)||zoomKeys.includes(event.code))event.preventDefault();
    };
    const onGesture=(event:Event)=>{if(!inPhotoViewer(event.target))event.preventDefault()};
+   // Chrome/Android and several mobile browsers use Touch Events for pinch zoom,
+   // not the Safari-specific gesturestart/gesturechange events above. Stop only
+   // multi-touch moves outside the image viewer, while leaving the viewer's
+   // own two-finger pointer-based zoom intact.
+   const onTouchMove=(event:TouchEvent)=>{
+     if(event.touches.length>1&&!inPhotoViewer(event.target))event.preventDefault();
+   };
    window.addEventListener('wheel',onWheel,{passive:false});
    window.addEventListener('keydown',onKeyDown);
    window.addEventListener('gesturestart',onGesture as EventListener,{passive:false});
    window.addEventListener('gesturechange',onGesture as EventListener,{passive:false});
    window.addEventListener('gestureend',onGesture as EventListener,{passive:false});
+   // Capture + passive:false is required so mobile browsers honor preventDefault.
+   document.addEventListener('touchmove',onTouchMove,{passive:false,capture:true});
    return ()=>{
      window.removeEventListener('wheel',onWheel);
      window.removeEventListener('keydown',onKeyDown);
      window.removeEventListener('gesturestart',onGesture as EventListener);
      window.removeEventListener('gesturechange',onGesture as EventListener);
      window.removeEventListener('gestureend',onGesture as EventListener);
+     document.removeEventListener('touchmove',onTouchMove,true);
    };
  },[]);
  const admin=role==='admin',editor=admin||role==='editor';
