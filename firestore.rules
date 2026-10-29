@@ -193,10 +193,12 @@ service cloud.firestore {
     // ---------------------------------------------------------------------
     function signedIn() { return request.auth != null; }
     function rolePath() { return /databases/$(database)/documents/user_roles/$(request.auth.uid); }
-    function authorized() { return signedIn() && exists(rolePath()); }
+    function authorized() { return signedIn() && exists(rolePath()) && get(rolePath()).data.get('disabled', false) != true; }
     function myRole() { return get(rolePath()).data.role; }
     function isAdmin() { return authorized() && myRole() == 'admin'; }
     function canEdit() { return authorized() && (myRole() == 'admin' || myRole() == 'editor'); }
+    function canView(area) { return authorized() && (isAdmin() || !('permissions' in get(rolePath()).data) || area in get(rolePath()).data.permissions); }
+    function canWrite(area) { return canEdit() && canView(area); }
     function validRole() { return request.resource.data.role in ['admin', 'editor', 'viewer']; }
 
     // Aceita fotos locais reduzidas e enderecos HTTPS do catalogo.
@@ -235,17 +237,18 @@ service cloud.firestore {
     match /user_roles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow create, update: if isAdmin() && validRole();
-      allow delete: if false;
+      // Contas e permissoes somente pela Cloud Function (Admin SDK).
+      allow create, update, delete: if false;
     }
 
     match /models/{modelId} {
-      allow get, list: if authorized();
-      allow create: if canEdit() && validModel();
+      // Modelos sao compartilhados com as telas Amostras e Cortes.
+      allow get, list: if canView('catalog') || canView('samples') || canView('cuts');
+      allow create: if canWrite('catalog') && validModel();
       // Testa primeiro a alteracao pontual: documentos antigos nao
       // precisam ter todos os campos dos cadastros novos.
-      allow update: if canEdit() && (validPhotoOnlyUpdate() || validModel());
-      allow delete: if canEdit();
+      allow update: if canWrite('catalog') && (validPhotoOnlyUpdate() || validModel());
+      allow delete: if canWrite('catalog');
     }
 
     function validProduction() {
@@ -302,17 +305,17 @@ service cloud.firestore {
     }
 
     match /production_samples/{sampleId} {
-      allow get, list: if authorized();
-      allow create: if canEdit() && validProduction()
+      allow get, list: if canView('samples') || canView('cuts');
+      allow create: if canWrite('samples') && validProduction()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status == 'in_progress';
       allow update: if canEdit() && (
-          validStatusOnlyUpdate()
-          || (validProduction()
+          (canView('cuts') && validStatusOnlyUpdate())
+          || (canView('samples') && validProduction()
             && request.resource.data.createdBy == resource.data.createdBy
             && request.resource.data.createdAt == resource.data.createdAt)
         );
-      allow delete: if canEdit();
+      allow delete: if canWrite('samples');
     }
 
     match /audit_log/{entryId} {
