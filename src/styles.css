@@ -210,3 +210,10 @@
   .production-toolbar{gap:10px}
 }
 @media(max-width:360px){.production-grid,.photos-page .photos-grid{grid-template-columns:1fr}.production-card .production-photo{height:190px}}
+
+/* 4.1 Spark: aprovação de contas sem Cloud Functions */
+.auth-switch{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+.auth-switch button{font-size:12px}
+.account-role-label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700}
+.account-role-label select{padding:10px;border:1px solid var(--line);background:var(--panel);border-radius:9px;color:var(--text)}
+.account-note{font-size:12px;line-height:1.7;color:var(--muted);padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}

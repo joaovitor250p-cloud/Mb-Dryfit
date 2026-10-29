@@ -1,0 +1,80 @@
+MB REFERENCIAS 4.1 - TRECHOS DE REGRAS (SPARK)
+
+IMPORTANTE: NAO SUBSTITUA AS REGRAS DO SEU FIREBASE POR ESTE ARQUIVO ISOLADO!
+No Firestore > Regras, DENTRO de match /databases/{database}/documents:
+1. Preserve as regras do sistema antigo e as funcoes signedIn(), authorized(), isAdmin(), canView(), canWrite().
+2. Inclua as funcoes validSections(), validGrant(), validRoleUpdate().
+3. SUBSTITUA o match /user_roles/{uid} antigo pelo novo (nao deixe dois iguais).
+4. ADICIONE o novo match /access_requests/{uid}.
+5. Antes de publicar, confirme que seu perfil admin existente em user_roles esta correto.
+
+--- INICIO DOS TRECHOS ---
+    function validSections(sections) {
+      return sections is list
+        && sections.size() >= 1 && sections.size() <= 3
+        && sections.hasOnly(['catalog', 'samples', 'cuts']);
+    }
+    function validGrant() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['email','role','permissions','disabled','approvedAt','approvedBy'])
+        && data.keys().hasAll(['email','role','permissions','disabled','approvedAt','approvedBy'])
+        && data.email is string && data.email.size() <= 320
+        && data.role in ['viewer', 'editor']
+        && validSections(data.permissions)
+        && data.disabled == false
+        && data.approvedBy == request.auth.uid
+        && data.approvedAt == request.time;
+    }
+    function validRoleUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['role','permissions','disabled','updatedAt','updatedBy'])
+        && request.resource.data.role in ['viewer', 'editor']
+        && validSections(request.resource.data.permissions)
+        && request.resource.data.get('disabled', false) is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+    match /access_requests/{uid} {
+      allow get: if signedIn() && (uid == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn() && uid == request.auth.uid
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly(['email','status','requestedAt'])
+        && request.resource.data.keys().hasAll(['email','status','requestedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedAt == request.time;
+      // Uma solicitação recusada pode ser refeita. Não pode autoaprovar-se.
+      allow update: if (
+        signedIn() && uid == request.auth.uid
+        && request.auth.token.email_verified == true
+        && resource.data.status == 'denied'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','requestedAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedAt == request.time
+      ) || (
+        isAdmin() && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','reviewedBy'])
+        && request.resource.data.status in ['approved','denied']
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+      );
+      allow delete: if false;
+    }
+    match /user_roles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      // Aprovação concedida pelo admin, nunca pelo próprio solicitante.
+      allow create: if isAdmin() && uid != request.auth.uid
+        && exists(/databases/$(database)/documents/access_requests/$(uid))
+        && get(/databases/$(database)/documents/access_requests/$(uid)).data.status == 'pending'
+        && request.resource.data.email == get(/databases/$(database)/documents/access_requests/$(uid)).data.email
+        && validGrant();
+      allow update: if isAdmin() && uid != request.auth.uid
+        && resource.data.role != 'admin' && validRoleUpdate();
+      // Não excluir permissões acidentalmente: usar disabled=true.
+      allow delete: if false;
+    }
+
+--- FIM DOS TRECHOS ---
