@@ -4,7 +4,7 @@ import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, setDoc, where, writeBatch } from 'firebase/firestore';
 import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
-import { MODEL_TYPE_OPTIONS, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
+import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 
@@ -100,7 +100,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     ? x.status === 'in_progress'
     : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
     .filter(x => matchesModelType(x.name,typeFilter))
-    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)))
+    .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)) || matchesModelSearch(x.name, search))
     .sort((a,b)=> {
       const group = (name:string) => { const t = modelType(name); return t === 'camisas' || t === 'camisetas' ? 'camisas' : t; };
       const typeCmp = group(a.name).localeCompare(group(b.name),'pt-BR');

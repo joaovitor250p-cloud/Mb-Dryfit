@@ -5,7 +5,7 @@ import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase
 import * as XLSX from 'xlsx';
 import { Camera, ImagePlus, Search, Filter, Trash2, Upload, X, FileSpreadsheet, Pencil, Plus, Download } from 'lucide-react';
 import { normalizeReference, normalizeText, sortModels, type Model } from './lib/catalog';
-import { MODEL_TYPE_OPTIONS, matchesModelType, type ModelType } from './lib/modelTypes';
+import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
 
@@ -54,7 +54,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
   const [report,setReport]=useState('');
   const [progress,setProgress]=useState('');
   const mappingInput=useRef<HTMLInputElement>(null);
-  const list=useMemo(()=>sortModels(models,'reference').filter(m=>matchesModelType(m.name,typeFilter)&&[m.name,m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))),[models,search,typeFilter]);
+  const list=useMemo(()=>sortModels(models,'reference').filter(m=>matchesModelType(m.name,typeFilter)&&([m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))||matchesModelSearch(m.name,search))),[models,search,typeFilter]);
   const selectedCards=models.filter(m=>selectedCardIds.includes(m.id));
   const visibleIds=list.map(m=>m.id);
   const allVisibleSelected=visibleIds.length>0&&visibleIds.every(id=>selectedCardIds.includes(id));
