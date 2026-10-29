@@ -1,8 +1,7 @@
-# MB REFERENCIAS 4.4
+# MB REFERÊNCIAS 4.6
 
-Projeto atualizado com a logo MB DryFit, zoom de fotos por pinça de dois dedos, filtros/ordenação em Amostras e Cortes, permanência no filtro após marcar Pronto e as novas áreas editáveis Gastos e Informações MB.
+Projeto atualizado com a logo MB DryFit, correção de zoom móvel, melhorias nas telas de Amostras/Cortes, Ordem de Corte, Gastos e Informações MB.
 
-Consulte **LEIA-PRIMEIRO-4.4.md** antes de publicar.
+**Novidade 4.6:** importação autenticada das planilhas CSV para as coleções `expenses` e `mb_info` do Firestore. Consulte `LEIA-PRIMEIRO-4.6.md` para importar os arquivos originais sem embutir dados pessoais no repositório público.
 
-
-Correção de zoom móvel: consulte `LEIA-PRIMEIRO-4.5.md`.
+A publicação do site é feita pelo GitHub Actions. As regras do Firestore precisam ser publicadas separadamente no projeto Firebase correto.

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { CheckCircle2, FileText, Pencil, Plus, Search, Trash2, UserSquare2, X } from 'lucide-react';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { CheckCircle2, FileText, FileUp, Pencil, Plus, Search, Trash2, UserSquare2, X } from 'lucide-react';
+import { normalizeCsvHeader, readSemicolonCsv } from './csvImport';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type InfoRecord = { id: string; name: string; value: string; pix: string; pixName: string; notes: string };
@@ -23,6 +24,7 @@ export default function InfoPage({ db, user, canEdit }: Props) {
   const [pixName, setPixName] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const csvInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => onSnapshot(query(collection(db, 'mb_info'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
@@ -61,8 +63,55 @@ export default function InfoPage({ db, user, canEdit }: Props) {
     finally { setBusy(false); }
   };
 
+
+  const importCsv = async (file: File) => {
+    if (!canEdit || busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const rows = await readSemicolonCsv(file);
+      const headerIndex = rows.findIndex(row => normalizeCsvHeader(row[0] || '') === 'nome'
+        && normalizeCsvHeader(row[1] || '') === 'valor'
+        && normalizeCsvHeader(row[2] || '') === 'pix'
+        && normalizeCsvHeader(row[3] || '') === 'nome do pix');
+      if (headerIndex < 0) throw new Error('Não encontrei as colunas NOME;VALOR;PIX;NOME DO PIX. Selecione a planilha de informações dos funcionários.');
+
+      const records: Array<{ line: number; name: string; value: string; pix: string; pixName: string }> = [];
+      let invalidCount = 0;
+      rows.forEach((row, rowIndex) => {
+        if (rowIndex <= headerIndex) return;
+        const name = (row[0] || '').trim();
+        const value = (row[1] || '').trim();
+        const pix = (row[2] || '').trim();
+        const pixName = (row[3] || '').trim();
+        if (!name && !value && !pix && !pixName) return;
+        if (!name) { invalidCount += 1; return; }
+        records.push({ line: rowIndex + 1, name, value, pix, pixName });
+      });
+      if (!records.length) throw new Error('O arquivo não contém funcionários válidos para importar.');
+      if (!window.confirm(`Importar ${records.length} registros da planilha de Informações MB? Registros já importados serão ignorados; nada existente será substituído.`)) return;
+
+      const refs = records.map(record => ({ id: `info_funcionarios_planilha_${String(record.line).padStart(3, '0')}`, record }));
+      const existing = await Promise.all(refs.map(async item => (await getDoc(doc(db, 'mb_info', item.id))).exists()));
+      const fresh = refs.filter((_, index) => !existing[index]);
+      for (let offset = 0; offset < fresh.length; offset += 400) {
+        const batch = writeBatch(db);
+        fresh.slice(offset, offset + 400).forEach(({ id, record }) => {
+          batch.set(doc(db, 'mb_info', id), {
+            name: record.name, value: record.value, pix: record.pix, pixName: record.pixName, notes: '',
+            createdAt: serverTimestamp(), createdBy: user.uid,
+            updatedAt: serverTimestamp(), updatedBy: user.uid,
+          });
+        });
+        await batch.commit();
+      }
+      notify(`Importação concluída: ${fresh.length} registros adicionados, ${records.length - fresh.length} já existentes ignorados${invalidCount ? ` e ${invalidCount} linhas incompletas ignoradas` : ''}.`);
+    } catch (e) {
+      notify(e instanceof Error ? `Não foi possível importar a planilha: ${e.message}` : 'Não foi possível importar a planilha.', true);
+    } finally { setBusy(false); if (csvInput.current) csvInput.current.value = ''; }
+  };
+
   return <div className="page-wrap extra-page">
-    <div className="page-heading"><div><span className="eyebrow">CADASTRO INTERNO</span><h1>Informações MB</h1><p>Área para guardar valores, PIX e outras informações da MB. Tudo pode ser editado e você pode incluir novos registros.</p></div>{canEdit && <div className="heading-actions"><button className="primary-button" onClick={openNew}><Plus size={16}/> Novo registro</button></div>}</div>
+    <div className="page-heading"><div><span className="eyebrow">CADASTRO INTERNO</span><h1>Informações MB</h1><p>Área para guardar valores, PIX e outras informações da MB. Tudo pode ser editado e você pode incluir novos registros.</p></div>{canEdit && <div className="heading-actions"><button className="outline-button" onClick={()=>csvInput.current?.click()} disabled={busy}><FileUp size={16}/> {busy ? 'Importando...' : 'Importar CSV da planilha'}</button><input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={e=>{const file=e.target.files?.[0]; if(file) void importCsv(file);}} /><button className="primary-button" onClick={openNew} disabled={busy}><Plus size={16}/> Novo registro</button></div>}</div>
     {error && <div className="production-alert" role="alert">{error}</div>}
     {message && <div className="production-ok"><CheckCircle2 size={16}/>{message}</div>}
     <section className="stats-grid extra-stats"><div className="stat-card"><div className="stat-icon teal"><UserSquare2/></div><div><span>Registros</span><strong>{filtered.length}</strong><small>Informações filtradas</small></div></div><div className="stat-card"><div className="stat-icon amber"><FileText/></div><div><span>Busca rápida</span><strong>{queryText ? 'Ativa' : 'Livre'}</strong><small>Pesquise por nome, PIX ou valor</small></div></div></section>

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
-import { CalendarDays, CheckCircle2, Pencil, Plus, Receipt, Search, Trash2, Wallet, X } from 'lucide-react';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
+import { CalendarDays, CheckCircle2, FileUp, Pencil, Plus, Receipt, Search, Trash2, Wallet, X } from 'lucide-react';
+import { normalizeCsvHeader, parseBrazilianDate, readSemicolonCsv } from './csvImport';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type Expense = { id: string; name: string; amount: string; date: string; notes: string; createdBy?: string };
@@ -26,6 +27,7 @@ export default function ExpensesPage({ db, user, canEdit }: Props) {
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const csvInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
@@ -70,8 +72,53 @@ export default function ExpensesPage({ db, user, canEdit }: Props) {
     finally { setBusy(false); }
   };
 
+
+  const importCsv = async (file: File) => {
+    if (!canEdit || busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const rows = await readSemicolonCsv(file);
+      const headerIndex = rows.findIndex(row => normalizeCsvHeader(row[0] || '') === 'data'
+        && normalizeCsvHeader(row[1] || '') === 'gasto'
+        && normalizeCsvHeader(row[2] || '') === 'valor');
+      if (headerIndex < 0) throw new Error('Não encontrei as colunas DATA;GASTO;VALOR. Selecione a planilha de gastos original.');
+
+      const records: Array<{ line: number; date: string; name: string; amount: string }> = [];
+      let invalidCount = 0;
+      rows.forEach((row, rowIndex) => {
+        if (rowIndex <= headerIndex) return;
+        const date = parseBrazilianDate(row[0] || '');
+        const name = (row[1] || '').trim();
+        const amount = (row[2] || '').trim();
+        if (!name && !date && !amount) return;
+        if (!name || !date || !amount) { invalidCount += 1; return; }
+        records.push({ line: rowIndex + 1, date, name, amount });
+      });
+      if (!records.length) throw new Error('O arquivo não contém lançamentos válidos para importar.');
+      if (!window.confirm(`Importar ${records.length} gastos da planilha? Registros já importados serão ignorados; os lançamentos manuais não serão substituídos.`)) return;
+
+      const refs = records.map(record => ({ id: `gastos_outubro_2026_linha_${String(record.line).padStart(3, '0')}`, record }));
+      const existing = await Promise.all(refs.map(async item => (await getDoc(doc(db, 'expenses', item.id))).exists()));
+      const fresh = refs.filter((_, index) => !existing[index]);
+      for (let offset = 0; offset < fresh.length; offset += 400) {
+        const batch = writeBatch(db);
+        fresh.slice(offset, offset + 400).forEach(({ id, record }) => {
+          batch.set(doc(db, 'expenses', id), {
+            name: record.name, amount: record.amount, date: record.date, notes: '',
+            createdAt: serverTimestamp(), createdBy: user.uid,
+            updatedAt: serverTimestamp(), updatedBy: user.uid,
+          });
+        });
+        await batch.commit();
+      }
+      notify(`Importação concluída: ${fresh.length} gastos adicionados, ${records.length - fresh.length} já existentes ignorados${invalidCount ? ` e ${invalidCount} linhas incompletas ignoradas` : ''}.`);
+    } catch (e) {
+      notify(e instanceof Error ? `Não foi possível importar a planilha: ${e.message}` : 'Não foi possível importar a planilha.', true);
+    } finally { setBusy(false); if (csvInput.current) csvInput.current.value = ''; }
+  };
+
   return <div className="page-wrap extra-page">
-    <div className="page-heading"><div><span className="eyebrow">FINANCEIRO</span><h1>Gastos</h1><p>Cadastre o nome e o valor. A data já vem preenchida automaticamente, mas você pode alterar se quiser.</p></div>{canEdit && <div className="heading-actions"><button className="primary-button" onClick={openNew}><Plus size={16}/> Novo gasto</button></div>}</div>
+    <div className="page-heading"><div><span className="eyebrow">FINANCEIRO</span><h1>Gastos</h1><p>Cadastre o nome e o valor. A data já vem preenchida automaticamente, mas você pode alterar se quiser.</p></div>{canEdit && <div className="heading-actions"><button className="outline-button" onClick={()=>csvInput.current?.click()} disabled={busy}><FileUp size={16}/> {busy ? 'Importando...' : 'Importar CSV da planilha'}</button><input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={e=>{const file=e.target.files?.[0]; if(file) void importCsv(file);}} /><button className="primary-button" onClick={openNew} disabled={busy}><Plus size={16}/> Novo gasto</button></div>}</div>
     {error && <div className="production-alert" role="alert">{error}</div>}
     {message && <div className="production-ok"><CheckCircle2 size={16}/>{message}</div>}
     <section className="stats-grid extra-stats"><div className="stat-card"><div className="stat-icon amber"><Wallet/></div><div><span>Total filtrado</span><strong>{monthTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>{filtered.length} lançamento(s)</small></div></div><div className="stat-card"><div className="stat-icon green"><CalendarDays/></div><div><span>Última data</span><strong>{filtered[0]?.date ? toBR(filtered[0].date) : '—'}</strong><small>Cadastro mais recente da lista</small></div></div></section>
