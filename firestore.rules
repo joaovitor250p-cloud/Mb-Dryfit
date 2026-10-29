@@ -238,8 +238,8 @@ service cloud.firestore {
     // acesso aos dados sem um user_roles aprovado pelo administrador.
     function validSections(sections) {
       return sections is list
-        && sections.size() >= 1 && sections.size() <= 3
-        && sections.hasOnly(['catalog', 'samples', 'cuts']);
+        && sections.size() >= 1 && sections.size() <= 4
+        && sections.hasOnly(['catalog', 'samples', 'cuts', 'orders']);
     }
     function validGrant() {
       let data = request.resource.data;
@@ -379,6 +379,63 @@ service cloud.firestore {
             && request.resource.data.createdAt == resource.data.createdAt)
         );
       allow delete: if canWrite('samples');
+    }
+
+
+    // ==========================================
+    // ORDEM DE CORTE — oficinas, prazos e pagamentos
+    // Colecao separada de Amostras/Cortes: cut_orders
+    // Leitura e escrita somente para perfis com area 'orders' autorizada.
+    // ==========================================
+    function validCutOrder() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'oc','ref','model','office','qty','piecePrice','entry','sent','due',
+          'status','deliveredFlag','deliveredAt','defects','discountPiece',
+          'discountTotal','total','paidAt','paymentDone','manualTotal','source',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && d.keys().hasAll([
+          'oc','ref','model','office','qty','piecePrice','entry','sent','due',
+          'status','deliveredFlag','deliveredAt','defects','discountPiece',
+          'discountTotal','total','paidAt','paymentDone','manualTotal','source',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && d.oc is string && d.oc.size() > 0 && d.oc.size() <= 80
+        && d.model is string && d.model.size() > 0 && d.model.size() <= 250
+        && d.ref is string && d.ref.size() <= 100
+        && d.office is string && d.office.size() <= 120
+        && d.qty is string && d.qty.size() <= 30
+        && d.piecePrice is string && d.piecePrice.size() <= 80
+        && d.entry is string && d.entry.size() <= 30
+        && d.sent is string && d.sent.size() <= 30
+        && d.due is string && d.due.size() <= 30
+        && d.deliveredFlag is string && d.deliveredFlag.size() <= 30
+        && d.deliveredAt is string && d.deliveredAt.size() <= 30
+        && d.defects is string && d.defects.size() <= 30
+        && d.discountPiece is string && d.discountPiece.size() <= 80
+        && d.discountTotal is string && d.discountTotal.size() <= 80
+        && d.total is string && d.total.size() <= 80
+        && d.paidAt is string && d.paidAt.size() <= 30
+        && d.paymentDone in ['OK', '']
+        && d.status in ['ENTREGUE', 'EM ANDAMENTO']
+        && d.manualTotal is bool
+        && d.source in ['manual', 'planilha_original']
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time
+        && d.createdBy is string;
+    }
+
+    match /cut_orders/{orderId} {
+      allow get, list: if canView('orders');
+      allow create: if canWrite('orders') && validCutOrder()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if canWrite('orders') && validCutOrder()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.source == resource.data.source;
+      allow delete: if isAdmin();
     }
 
     match /audit_log/{entryId} {

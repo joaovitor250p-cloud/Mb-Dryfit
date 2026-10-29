@@ -2,12 +2,13 @@ import ModelPhotos from './ModelPhotos';
 import SampleWorkflow from './SampleWorkflow';
 import BackupExport from './BackupExport';
 import AccountsAdmin from './AccountsAdmin';
+import CutOrders from './CutOrders';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
-import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
 import { publicCatalogPhoto } from './lib/photoCatalog';
 import { optimizePhoto } from './lib/photos';
@@ -15,7 +16,7 @@ import { auth, db, firebaseConfigured } from './lib/firebase';
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
-type View = 'catalog' | 'samples' | 'cuts';
+type View = 'catalog' | 'samples' | 'cuts' | 'orders';
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
@@ -39,17 +40,17 @@ export default function App(){
  const [modal,setModal]=useState<Mode>(null),[editing,setEditing]=useState<Model|null>(null),[name,setName]=useState(''),[reference,setReference]=useState(''),[pending,setPending]=useState(false),[busy,setBusy]=useState(false);
  const [modelPhoto,setModelPhoto]=useState(''),[modelPhotoChanged,setModelPhotoChanged]=useState(false),[modelPhotoBusy,setModelPhotoBusy]=useState(false),[modelPhotoError,setModelPhotoError]=useState('');
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
- const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts')[]>(['catalog','samples','cuts']);
+ const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders')[]>(['catalog','samples','cuts']);
  const admin=role==='admin',editor=admin||role==='editor';
  const permitted=(section:View)=>admin||access.includes(section);
- useEffect(()=>{if(role&&!permitted(view)){const first:(View|undefined)=(['catalog','samples','cuts'] as View[]).find(x=>permitted(x));if(first)setView(first)}},[role,access,view]);
+ useEffect(()=>{if(role&&!permitted(view)){const first:(View|undefined)=(['catalog','samples','cuts','orders'] as View[]).find(x=>permitted(x));if(first)setView(first)}},[role,access,view]);
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
  useEffect(()=>{setDark(localStorage.getItem('mb-theme')==='dark')},[]);
  useEffect(()=>{document.documentElement.classList.toggle('dark',dark);localStorage.setItem('mb-theme',dark?'dark':'light')},[dark]);
  useEffect(()=>{if(!auth){setAuthReady(true);return}return onAuthStateChanged(auth,u=>{setUser(u);setRole(null);setRoleChecked(false);setRoleDisabled(false);setVerified(!!u?.emailVerified);setAccessRequest('loading');setAuthReady(true)})},[]);
- useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{notify(`Não foi possível verificar seu acesso: ${e.message}`,true);setRoleChecked(true)})},[user]);
+ useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'||x==='orders'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{notify(`Não foi possível verificar seu acesso: ${e.message}`,true);setRoleChecked(true)})},[user]);
  useEffect(()=>{if(!db||!user){setAccessRequest('none');return}return onSnapshot(doc(db,'access_requests',user.uid),s=>{setAccessRequest(s.exists()?(s.data().status==='approved'?'approved':s.data().status==='denied'?'denied':'pending'):'none')},e=>{setAccessRequest('none');notify('Falha ao consultar sua solicitação: '+e.message,true)})},[user]);
- useEffect(()=>{if(!db||!user||!role){setModels([]);setLoaded(false);return}const unsub=onSnapshot(collection(db,'models'),s=>{setModels(s.docs.map(d=>mapModel(d.id,d.data())));setLoaded(true);setSync('online')},e=>{notify(`Falha de sincronização: ${e.message}`,true);setSync('error');setLoaded(true)});return unsub},[user,role]);
+ useEffect(()=>{if(!db||!user||!role||(!admin&&!access.some(x=>x==='catalog'||x==='samples'||x==='cuts'))){setModels([]);setLoaded(true);return}const unsub=onSnapshot(collection(db,'models'),s=>{setModels(s.docs.map(d=>mapModel(d.id,d.data())));setLoaded(true);setSync('online')},e=>{notify(`Falha de sincronização: ${e.message}`,true);setSync('error');setLoaded(true)});return unsub},[user,role,admin,access]);
  useEffect(()=>{const listener=()=>{if(!navigator.onLine)setSync('offline');else if(db&&user&&role)setSync('online')};window.addEventListener('online',listener);window.addEventListener('offline',listener);return()=>{window.removeEventListener('online',listener);window.removeEventListener('offline',listener)}},[user,role]);
  const filtered=useMemo(()=>{const q=normalizeText(search).replace(/ref\./g,'').trim();let list=models.filter(m=>!q||normalizeText(m.name).includes(q)||normalizeText(m.reference).replace(/ref\./g,'').includes(q)||((q==='sem codigo'||q==='sem código')&&!m.reference));if(filter==='with')list=list.filter(m=>!!m.reference);if(filter==='without')list=list.filter(m=>!m.reference);if(filter==='pending')list=list.filter(m=>m.pendingReview);return sortModels(list,sort)},[models,search,filter,sort]);
  const withRef=models.filter(m=>m.reference).length;
@@ -134,21 +135,22 @@ export default function App(){
   </section></div>;
  if(!admin&&!access.length)return <div className="auth-shell"><section className="auth-card"><h1>Sem telas autorizadas</h1><p>Peça ao administrador para liberar seu acesso.</p><button onClick={()=>auth&&signOut(auth)} className="primary-button">Sair</button></section></div>;
  if(!permitted(view))return <div className="loading-screen"><RefreshCw className="spin"/> Abrindo área autorizada…</div>;
- return <div className="app-shell"><aside className="sidebar"><div className="sidebar-brand"><div className="brand-mark">MB</div><div><strong>MB REFERENCIAS</strong><span>CATÁLOGO ONLINE</span></div></div><span className="nav-label">PRINCIPAL</span>{permitted('catalog')&&<button className={`nav-item ${view==='catalog'?'active':''}`} onClick={()=>{setView('catalog')}}><Search size={17}/> Catálogo de modelos</button>}{permitted('samples')&&<button className={`nav-item ${view==='samples'?'active':''}`} onClick={()=>setView('samples')}><Camera size={17}/> Amostras</button>}{permitted('cuts')&&<button className={`nav-item ${view==='cuts'?'active':''}`} onClick={()=>setView('cuts')}><Scissors size={17}/> Cortes</button>}{admin&&<><span className="nav-label" style={{marginTop:24}}>ADMINISTRAÇÃO</span><button className="nav-item" onClick={()=>void loadUsers()}><Users size={17}/> Usuários</button><button className="nav-item" onClick={()=>void loadAudit()}><History size={17}/> Histórico</button></>}<div className="sidebar-bottom"><div className="sidebar-sync"><span className={`status-dot ${sync==='online'?'green':'red'}`}/>{sync==='online'?'Conectado ao Firebase':'Sem sincronização'}</div><div className="user-mini"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email}</strong><span>{roleLabel[role]}</span></div><button onClick={()=>auth&&signOut(auth)} title="Sair"><LogOut size={17}/></button></div></div></aside>
- <main className="main-content"><header className="topbar"><div className="mobile-brand"><div className="brand-mark tiny">MB</div><strong>MB REFERENCIAS</strong></div><div className="breadcrumb">Início <span>/</span> <strong>{view==='catalog'?'Catálogo de modelos':view==='samples'?'Amostras':'Cortes'}</strong></div><div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/>{sync==='online'?'Conectado':'Verificar conexão'}</span><button className="icon-button" onClick={()=>setDark(!dark)} title="Alterar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div></header>
+ return <div className="app-shell"><aside className="sidebar"><div className="sidebar-brand"><div className="brand-mark">MB</div><div><strong>MB REFERENCIAS</strong><span>CATÁLOGO ONLINE</span></div></div><span className="nav-label">PRINCIPAL</span>{permitted('catalog')&&<button className={`nav-item ${view==='catalog'?'active':''}`} onClick={()=>{setView('catalog')}}><Search size={17}/> Catálogo de modelos</button>}{permitted('samples')&&<button className={`nav-item ${view==='samples'?'active':''}`} onClick={()=>setView('samples')}><Camera size={17}/> Amostras</button>}{permitted('cuts')&&<button className={`nav-item ${view==='cuts'?'active':''}`} onClick={()=>setView('cuts')}><Scissors size={17}/> Cortes</button>}{permitted('orders')&&<button className={`nav-item ${view==='orders'?'active':''}`} onClick={()=>setView('orders')}><ClipboardList size={17}/> Ordem de Corte</button>}{admin&&<><span className="nav-label" style={{marginTop:24}}>ADMINISTRAÇÃO</span><button className="nav-item" onClick={()=>void loadUsers()}><Users size={17}/> Usuários</button><button className="nav-item" onClick={()=>void loadAudit()}><History size={17}/> Histórico</button></>}<div className="sidebar-bottom"><div className="sidebar-sync"><span className={`status-dot ${sync==='online'?'green':'red'}`}/>{sync==='online'?'Conectado ao Firebase':'Sem sincronização'}</div><div className="user-mini"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email}</strong><span>{roleLabel[role]}</span></div><button onClick={()=>auth&&signOut(auth)} title="Sair"><LogOut size={17}/></button></div></div></aside>
+ <main className="main-content"><header className="topbar"><div className="mobile-brand"><div className="brand-mark tiny">MB</div><strong>MB REFERENCIAS</strong></div><div className="breadcrumb">Início <span>/</span> <strong>{view==='catalog'?'Catálogo de modelos':view==='samples'?'Amostras':view==='orders'?'Ordem de Corte':'Cortes'}</strong></div><div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/>{sync==='online'?'Conectado':'Verificar conexão'}</span><button className="icon-button" onClick={()=>setDark(!dark)} title="Alterar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div></header>
  <nav className="mobile-production-nav" aria-label="Navegação principal">
    {permitted('catalog')&&<button className={view==='catalog'?'selected':''} onClick={()=>{setView('catalog')}}><Search size={16}/> Modelos</button>}
 
    {permitted('samples')&&<button className={view==='samples'?'selected':''} onClick={()=>setView('samples')}><Camera size={16}/> Amostras</button>}
    {permitted('cuts')&&<button className={view==='cuts'?'selected':''} onClick={()=>setView('cuts')}><Scissors size={16}/> Cortes</button>}
+   {permitted('orders')&&<button className={view==='orders'?'selected':''} onClick={()=>setView('orders')}><ClipboardList size={16}/> OCs</button>}
    {admin&&<button onClick={()=>loadUsers()}><Users size={16}/> Contas</button>}
  </nav>
- {view==='catalog' ?
+ {view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='catalog' ?
  <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models}
    onAddModel={add} onEditModel={edit}
    onDeleteModel={m=>{setEditing(m);setModal('delete')}}
    onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
- : <SampleWorkflow view={view} db={db!} user={user} canEdit={editor&&permitted(view)} isAdmin={admin} models={models}/>}</main>
+ : <SampleWorkflow view={view as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(view)} isAdmin={admin} models={models}/>}</main>
  {backupOpen&&<BackupExport db={db!} models={models} admin={admin} onClose={()=>setBackupOpen(false)}/>}
  {(error||info)&&<div className={`toast ${error?'error':'success'}`}><span>{error?<AlertCircle size={18}/>:<CheckCircle2 size={18}/>}</span>{error||info}<button onClick={()=>notify('')}><X size={16}/></button></div>}
  {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">

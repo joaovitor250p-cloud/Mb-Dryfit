@@ -217,3 +217,82 @@
 .account-role-label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700}
 .account-role-label select{padding:10px;border:1px solid var(--line);background:var(--panel);border-radius:9px;color:var(--text)}
 .account-note{font-size:12px;line-height:1.7;color:var(--muted);padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+
+/* 4.2 — Ordem de Corte integrada: tabela ampla desktop, cartões mobile, sem dependências extras */
+.order-page{padding:clamp(12px,2.4vw,28px);max-width:100%;min-width:0;color:var(--text)}
+.order-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.order-heading h1{display:flex;align-items:center;gap:10px;font-size:clamp(21px,2.3vw,29px);margin:7px 0 6px;font-weight:800;letter-spacing:-.03em}
+.order-heading p,.order-seed p,.order-friday p{font-size:12px;color:var(--muted);line-height:1.6;margin:0}
+.order-eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--teal2)}
+.order-buttons{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.order-buttons button,.order-foot button,.order-seed button,.order-friday button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:37px;padding:8px 12px;font-size:12px}
+.order-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.order-stats>div{min-width:0;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:5px}
+.order-stats small{font-size:11px;color:var(--muted);line-height:1.4}.order-stats strong{font-size:23px;line-height:1.25;font-weight:800;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.order-seed{border:1px solid #93c5d2;background:var(--panel2);border-radius:11px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:16px}
+.order-seed strong{display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:5px}.order-seed button{flex-shrink:0}
+.order-tabs{display:flex;gap:7px;border-bottom:1px solid var(--line);margin-bottom:15px;overflow:auto}
+.order-tabs button,.order-views button{border:0;background:transparent;white-space:nowrap;font-size:12px;font-weight:750;color:var(--muted);padding:12px 13px;cursor:pointer;border-bottom:2px solid transparent}
+.order-tabs button{display:flex;gap:7px;align-items:center}
+.order-tabs button.active,.order-views button.active{color:var(--teal2);border-bottom-color:var(--teal2)}
+.order-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 13px}
+.order-toolbar>label{display:flex;align-items:center;gap:7px}.order-toolbar select,.order-toolbar input,.order-friday input{height:41px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:0 10px;font-size:12px;min-width:0}
+.order-search{flex:1;min-width:240px;border:1px solid var(--line);border-radius:8px;padding:0 11px;background:var(--panel)}
+.order-search input{border:0;outline:0;flex:1;width:100%;min-width:0}
+.order-views{display:flex;gap:5px;overflow-x:auto;margin-bottom:10px}
+.order-helper{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:8px 0}
+.order-helper span{display:flex;align-items:center;gap:4px}
+.order-scroll{overflow:auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;max-height:65vh;scrollbar-width:thin}
+.order-table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%;font-size:12px;white-space:nowrap}
+.order-table th{position:sticky;top:0;z-index:4;background:var(--panel2);text-align:left;font-size:11px;letter-spacing:.01em;color:var(--muted);padding:12px;border-bottom:1px solid var(--line)}
+.order-table td{padding:11px 12px;border-bottom:1px solid var(--line);max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.order-table tbody tr:hover{background:var(--panel2)}
+.order-table th:first-child,.order-table td:first-child{position:sticky;left:0;z-index:2;background:var(--panel);font-weight:750}
+.order-table th:first-child{z-index:6;background:var(--panel2)}
+.order-table .order-model{min-width:190px;max-width:300px;font-weight:680}
+.order-paid,.order-pending,.order-done,.order-progress{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800}
+.order-paid,.order-done{background:#e5f5ed;color:#087447}.order-pending,.order-progress{background:#fff1d7;color:#8a5707}
+.order-editcell button{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;color:var(--text);font-size:11px;font-weight:750;cursor:pointer}
+.order-foot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin:11px 0}
+.order-foot>div{display:flex;gap:6px;flex-wrap:wrap}
+.order-friday{display:grid;gap:14px}.order-friday-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center}
+.order-friday h2{font-size:18px;margin:0 0 6px}.order-friday-head label{font-size:12px;font-weight:800;display:flex;align-items:center;gap:9px}
+.order-office{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.order-office summary{padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.order-office summary span{flex:1}.order-office summary strong{display:block;font-size:14px}.order-office summary small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.order-office summary b{font-size:15px;font-variant-numeric:tabular-nums}.order-office>div{padding:12px 15px;border-top:1px solid var(--line)}
+.order-office-line{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.order-office-line span{white-space:normal}.order-office button{margin-top:12px}
+.order-review{border:1px solid var(--line);border-radius:9px;padding:13px;background:var(--panel2)}
+.order-review summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:750}.order-review p{margin:8px 0;font-size:11px}
+.order-empty{padding:25px;text-align:center;background:var(--panel2);border-radius:10px;font-size:12px;color:var(--muted)}
+.order-overlay{position:fixed;inset:0;z-index:1500;background:#031a25b0;display:flex;justify-content:flex-end}
+.order-drawer{width:min(710px,100%);height:100%;overflow:auto;background:var(--panel);box-shadow:-12px 0 40px #0002;padding:clamp(16px,2.5vw,27px)}
+.order-drawer>header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:20px}
+.order-drawer h2{font-size:23px;margin:6px 0}.order-drawer>header p{font-size:12px;color:var(--muted)}
+.order-fieldset{margin:0 0 14px;padding:14px;border:1px solid var(--line);border-radius:11px}
+.order-fieldset legend{padding:0 7px;font-size:14px;font-weight:800}.order-fieldgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.order-fieldgrid label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:750;min-width:0}
+.order-fieldgrid input,.order-fieldgrid select{width:100%;height:42px;min-width:0;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:0 10px;font-size:13px}
+.order-fieldgrid input[readonly]{opacity:.78;border-style:dashed}
+.order-fieldgrid small{font-weight:450;color:#a65c12;line-height:1.5}
+.order-fieldgrid small button{font-size:11px;text-decoration:underline;border:0;background:none;color:inherit;cursor:pointer}
+.order-calculation{display:flex;flex-wrap:wrap;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel2)}
+.order-calculation span{font-size:12px}.order-calculation strong{color:var(--teal2);font-size:15px}.order-calculation small{color:var(--muted)}
+.order-drawer footer{position:sticky;bottom:-27px;padding:14px 0;background:var(--panel);display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--line);margin-top:14px}
+.order-page input:focus,.order-page select:focus,.order-drawer input:focus,.order-drawer select:focus{outline:2px solid #3ba2b6;outline-offset:1px}
+@media(max-width:860px){.order-page{padding:12px}.order-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.order-toolbar>label{flex:1}.order-toolbar select{max-width:100%}}
+@media(max-width:600px){
+ .order-heading{align-items:stretch}.order-heading h1{font-size:22px}.order-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.order-buttons button{padding:8px 5px;font-size:10px}
+ .order-stats>div{padding:10px}.order-stats strong{font-size:18px}.order-stats small{font-size:10px}
+ .order-seed{display:grid}.order-seed button{width:100%}.order-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.order-toolbar .order-search{grid-column:1/-1;min-width:0}
+ .order-toolbar>label,.order-toolbar select{min-width:0;width:100%}.order-helper{align-items:flex-start}.order-views button{padding:10px 12px}
+ .order-scroll{max-height:unset;overflow:visible;border:0;background:none}.order-table{display:block;min-width:0;width:100%}.order-table thead{display:none}.order-table tbody{display:grid;gap:10px}
+ .order-table tbody tr{display:grid;border:1px solid var(--line);border-radius:11px;padding:9px 12px;background:var(--panel);touch-action:pan-y}
+ .order-table td{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 0;max-width:none;white-space:normal;font-size:12px;min-width:0;text-align:right;overflow:visible}
+ .order-table td::before{content:attr(data-label);color:var(--muted);font-size:10px;text-align:left;flex-shrink:0;font-weight:650}
+ .order-table td:first-child{position:static;padding-top:6px}.order-table .order-model{min-width:0;max-width:none}
+ .order-table .order-editcell{justify-content:flex-end}.order-editcell button{min-height:35px;padding:8px 15px}
+ .order-fieldgrid{grid-template-columns:1fr}.order-drawer{padding:15px}.order-drawer footer{bottom:-15px}
+ .order-friday-head label{width:100%}.order-friday-head input{flex:1}
+}

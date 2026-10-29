@@ -5,14 +5,15 @@ import { auth, db } from './lib/firebase';
 import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lucide-react';
 
 type Role = 'admin' | 'editor' | 'viewer';
-type Section = 'catalog' | 'samples' | 'cuts';
+type Section = 'catalog' | 'samples' | 'cuts' | 'orders';
 type Account = { uid: string; email: string; role: Role; permissions: Section[]; disabled: boolean };
 type Request = { uid: string; email: string; status: 'pending' | 'approved' | 'denied' };
-const ALL: Section[] = ['catalog', 'samples', 'cuts'];
+const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders'];
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'catalog', label: 'Catálogo de modelos' },
   { value: 'samples', label: 'Amostras' },
   { value: 'cuts', label: 'Cortes' },
+  { value: 'orders', label: 'Ordem de Corte (oficinas e pagamentos)' },
 ];
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Não foi possível salvar.';
 const asSections = (value: unknown): Section[] => Array.isArray(value) ? value.filter((s): s is Section => ALL.includes(s as Section)) : ALL;
@@ -65,45 +66,50 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
     finally { setBusy(null); }
   };
   const approve = (request: Request) => {
-    if (!db || !auth?.currentUser || !window.confirm(`Aprovar ${request.email} para acessar o MB REFERENCIAS?`)) return;
+    const firestore = db, actorUid = auth?.currentUser?.uid;
+    if (!firestore || !actorUid || !window.confirm(`Aprovar ${request.email} para acessar o MB REFERENCIAS?`)) return;
     const draft = draftFor(request.uid);
     if (!draft.permissions.length) { setError('Selecione pelo menos uma área.'); return; }
     void execute(request.uid, async () => {
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'user_roles', request.uid), {
+      const batch = writeBatch(firestore);
+      batch.set(doc(firestore, 'user_roles', request.uid), {
         email: request.email, role: draft.role, permissions: draft.permissions,
-        disabled: false, approvedAt: serverTimestamp(), approvedBy: auth.currentUser!.uid,
+        disabled: false, approvedAt: serverTimestamp(), approvedBy: actorUid,
       });
-      batch.update(doc(db, 'access_requests', request.uid), {
-        status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser!.uid,
+      batch.update(doc(firestore, 'access_requests', request.uid), {
+        status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: actorUid,
       });
       await batch.commit();
     }, 'Acesso liberado. A pessoa poderá entrar nas áreas selecionadas.');
   };
   const deny = (request: Request) => {
-    if (!db || !auth?.currentUser || !window.confirm(`Recusar a solicitação de ${request.email}?`)) return;
-    void execute(request.uid, () => updateDoc(doc(db, 'access_requests', request.uid), {
-      status: 'denied', reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser!.uid,
+    const firestore = db, actorUid = auth?.currentUser?.uid;
+    if (!firestore || !actorUid || !window.confirm(`Recusar a solicitação de ${request.email}?`)) return;
+    void execute(request.uid, () => updateDoc(doc(firestore, 'access_requests', request.uid), {
+      status: 'denied', reviewedAt: serverTimestamp(), reviewedBy: actorUid,
     }), 'Solicitação recusada.');
   };
   const savePermissions = (account: Account) => {
-    if (!db || !auth?.currentUser) return;
+    const firestore = db, actorUid = auth?.currentUser?.uid;
+    if (!firestore || !actorUid) return;
     const draft = draftFor(account.uid, account);
     if (!draft.permissions.length) { setError('Selecione pelo menos uma área.'); return; }
-    void execute(account.uid, () => updateDoc(doc(db, 'user_roles', account.uid), {
+    void execute(account.uid, () => updateDoc(doc(firestore, 'user_roles', account.uid), {
       role: draft.role, permissions: draft.permissions,
-      updatedAt: serverTimestamp(), updatedBy: auth.currentUser!.uid,
+      updatedAt: serverTimestamp(), updatedBy: actorUid,
     }), 'Permissões atualizadas.');
   };
   const setDisabled = (account: Account) => {
-    if (!db || !auth?.currentUser || !window.confirm(`${account.disabled ? 'Reativar' : 'Bloquear'} o acesso de ${account.email || account.uid}?`)) return;
-    void execute(account.uid, () => updateDoc(doc(db, 'user_roles', account.uid), {
-      disabled: !account.disabled, updatedAt: serverTimestamp(), updatedBy: auth.currentUser!.uid,
+    const firestore = db, actorUid = auth?.currentUser?.uid;
+    if (!firestore || !actorUid || !window.confirm(`${account.disabled ? 'Reativar' : 'Bloquear'} o acesso de ${account.email || account.uid}?`)) return;
+    void execute(account.uid, () => updateDoc(doc(firestore, 'user_roles', account.uid), {
+      disabled: !account.disabled, updatedAt: serverTimestamp(), updatedBy: actorUid,
     }), account.disabled ? 'Acesso reativado.' : 'Acesso bloqueado. A conta de login foi preservada.');
   };
   const sendReset = (account: Account) => {
-    if (!auth || !account.email || !window.confirm(`Enviar um link de redefinição de senha para ${account.email}?`)) return;
-    void execute(account.uid, () => sendPasswordResetEmail(auth, account.email), 'Solicitação de recuperação enviada. A pessoa deve consultar seu e-mail.');
+    const authInstance = auth;
+    if (!authInstance || !account.email || !window.confirm(`Enviar um link de redefinição de senha para ${account.email}?`)) return;
+    void execute(account.uid, () => sendPasswordResetEmail(authInstance, account.email), 'Solicitação de recuperação enviada. A pessoa deve consultar seu e-mail.');
   };
   const pending = requests.filter(r => r.status === 'pending' && !accounts.some(a => a.uid === r.uid));
 
