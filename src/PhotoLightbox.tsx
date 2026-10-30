@@ -148,11 +148,19 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
 
     pointers.current.delete(event.pointerId);
     if (cancelled) {
-      pointers.current.clear();
-      gestureMode.current = 'none';
-      swipeStart.current = null;
-      panStart.current = null;
-      pinchStart.current = null;
+      // Um pointer cancelado não deve cancelar o segundo dedo de uma pinça.
+      if (pointers.current.size === 1) {
+        const [remaining] = Array.from(pointers.current.values());
+        gestureMode.current = zoomRef.current > 1.02 ? 'pan' : 'none';
+        swipeStart.current = null;
+        panStart.current = remaining ? { point: remaining, pan } : null;
+        pinchStart.current = null;
+      } else if (pointers.current.size === 0) {
+        gestureMode.current = 'none';
+        swipeStart.current = null;
+        panStart.current = null;
+        pinchStart.current = null;
+      }
       return;
     }
 
@@ -190,6 +198,7 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
         goTo(activeIndex + (wheelSwipe.current > 0 ? 1 : -1));
         wheelSwipe.current = 0;
         wheelLocked.current = true;
+        if (wheelLockTimer.current !== null) window.clearTimeout(wheelLockTimer.current);
         wheelLockTimer.current = window.setTimeout(() => { wheelLocked.current = false; wheelSwipe.current = 0; }, 420);
       }
       return;
@@ -220,7 +229,19 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
       onPointerMove={handlePointerMove}
       onPointerUp={event => finishPointer(event)}
       onPointerCancel={event => finishPointer(event, true)}
-      onLostPointerCapture={event => { if (pointers.current.has(event.pointerId)) finishPointer(event, true); }}
+      onLostPointerCapture={event => {
+        if (!pointers.current.has(event.pointerId)) return;
+        pointers.current.delete(event.pointerId);
+        if (pointers.current.size === 1) {
+          const [remaining] = Array.from(pointers.current.values());
+          gestureMode.current = zoomRef.current > 1.02 ? 'pan' : 'none';
+          swipeStart.current = null;
+          panStart.current = remaining ? { point: remaining, pan } : null;
+          pinchStart.current = null;
+        } else if (pointers.current.size === 0) {
+          gestureMode.current = 'none'; swipeStart.current = null; panStart.current = null; pinchStart.current = null;
+        }
+      }}
     >
       {currentSrc && <img src={currentSrc} alt={`${title} — foto ${activeIndex + 1}`} draggable={false} style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }} />}
       {hasMultiple && <>
@@ -228,6 +249,10 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
         <button type="button" className="photo-lightbox-arrow photo-lightbox-next" onClick={() => goTo(activeIndex + 1)} disabled={activeIndex === sources.length - 1} aria-label="Próxima foto"><ChevronRight size={30}/></button>
       </>}
     </div>
+
+    {hasMultiple && <div className="photo-lightbox-thumbnails" aria-label="Escolher foto">
+      {sources.map((image, index) => <button key={`${index}-${image.slice(0,24)}`} type="button" className={index===activeIndex?'active':''} onClick={()=>goTo(index)} aria-label={`Abrir foto ${index+1}`} aria-current={index===activeIndex?'true':undefined}><img src={image} alt={`Miniatura ${index+1}`} loading="lazy"/></button>)}
+    </div>}
 
     <div className="photo-lightbox-toolbar" aria-label="Controles da imagem">
       {hasMultiple && <span className="photo-lightbox-counter">{activeIndex + 1} / {sources.length}</span>}
@@ -238,6 +263,6 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
       </div>
       {hasMultiple && <span className="photo-lightbox-swipe-hint">Deslize para ver as outras fotos</span>}
     </div>
-    <div className="photo-lightbox-hint">Tela touch: pinça com dois dedos para zoom · Um dedo para trocar foto · Touchpad: pinça para zoom · Mouse: roda ou botões · Arraste para mover</div>
+    <div className="photo-lightbox-hint">Celular/notebook touch: arraste para trocar foto e use dois dedos para ampliar · Touchpad: pinça para zoom e deslize para trocar · Mouse: roda, duplo clique ou botões · Arraste para mover</div>
   </div>;
 }

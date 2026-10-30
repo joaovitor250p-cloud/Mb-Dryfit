@@ -1,4 +1,4 @@
-# MB REFERENCIAS — versão 4.15.2
+# MB REFERENCIAS — versão 5.0.0
 
 Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
@@ -32,6 +32,16 @@ O resultado é gerado na pasta `dist/`. O GitHub Actions publica automaticamente
 As credenciais do serviço de autenticação e dados permanecem configuradas nos Secrets já usados pelo fluxo de publicação. Não altere nem remova essas credenciais: login, permissões, fotos e registros dependem dessa conexão.
 
 As regras de acesso existentes foram mantidas nesta versão. Não é necessário publicar novas regras para as melhorias de interface.
+
+## Versão 5.0
+
+- Redesign responsivo: menu lateral no desktop e barra inferior fixa no celular.
+- Menu Mais no celular para áreas complementares, usuários e histórico.
+- Cartões, cabeçalho, painéis e grades revistos para leitura e uso mais confortáveis.
+- Swipe horizontal por toque e touchpad entre áreas, com proteção de campos, botões, tabelas e galeria.
+- Galeria com miniaturas, navegação por gesto, zoom por pinça, touchpad, mouse e controles.
+- Mantida a memória de pesquisa, filtros e rolagem das telas.
+- Mantidas as funções e os dados existentes.
 
 ## Versão 4.15
 
