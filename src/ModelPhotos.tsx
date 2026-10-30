@@ -8,9 +8,10 @@ import { normalizeReference, normalizeText, sortModels, type Model } from './lib
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 type Props = {
-  db: Firestore; user: User; canEdit: boolean; models: Model[];
+  db: Firestore; user: User; canEdit: boolean; models: Model[]; loaded: boolean;
   onAddModel:()=>void; onEditModel:(model:Model)=>void; onDeleteModel:(model:Model)=>void;
   onBackup:()=>void;
   onBulkDeleteModels:(models:Model[])=>Promise<number>;
@@ -39,9 +40,11 @@ function readableFirestoreError(error:unknown):string {
   return `Erro ${code||'inesperado'}: ${err?.message||String(error)}`;
 }
 
-export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditModel,onDeleteModel,onBackup,onBulkDeleteModels}:Props) {
-  const [search,setSearch]=useState('');
-  const [typeFilter,setTypeFilter]=useState<ModelType>('all');
+export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,onEditModel,onDeleteModel,onBackup,onBulkDeleteModels}:Props) {
+  const pageMemoryKey = `mb-referencias:${user.uid}:catalog`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { search: '', typeFilter: 'all' as ModelType }));
+  const [search,setSearch]=useState(String(initialPageState.search || ''));
+  const [typeFilter,setTypeFilter]=useState<ModelType>((initialPageState.typeFilter as ModelType) || 'all');
   const [selectionMode,setSelectionMode]=useState(false);
   const [selectedCardIds,setSelectedCardIds]=useState<string[]>([]);
   const [selected,setSelected]=useState<Model|null>(null);
@@ -56,6 +59,7 @@ export default function ModelPhotos({db,user,canEdit,models,onAddModel,onEditMod
   const mappingInput=useRef<HTMLInputElement>(null);
   const cameraInput=useRef<HTMLInputElement>(null);
   const galleryInput=useRef<HTMLInputElement>(null);
+  usePageMemory(pageMemoryKey, { search, typeFilter }, loaded);
   const list=useMemo(()=>sortModels(models,'reference').filter(m=>matchesModelType(m.name,typeFilter)&&([m.reference].some(v=>normalizeText(v).includes(normalizeText(search)))||matchesModelSearch(m.name,search))),[models,search,typeFilter]);
   const selectedCards=useMemo(()=>models.filter(m=>selectedCardIds.includes(m.id)),[models,selectedCardIds]);
   const visibleIds=useMemo(()=>list.map(m=>m.id),[list]);

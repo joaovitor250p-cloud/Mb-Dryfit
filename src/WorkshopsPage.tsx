@@ -4,6 +4,7 @@ import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { Building2, CheckCircle2, ClipboardList, Pencil, Phone, Plus, Search, Store, Trash2, Wrench, X } from 'lucide-react';
 import brandLogo from './assets/mb-dryfit-logo.png';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type Service = { name: string; price: string };
@@ -24,9 +25,11 @@ const mapDoc = (id:string, d:DocumentData): Workshop => ({
 });
 
 export default function WorkshopsPage({ db, user, canEdit }: Props) {
+  const pageMemoryKey = `mb-referencias:${user.uid}:workshops`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { queryText: '' }));
   const [items, setItems] = useState<Workshop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [queryText, setQueryText] = useState('');
+  const [queryText, setQueryText] = useState(String(initialPageState.queryText || ''));
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Workshop | null>(null);
@@ -36,6 +39,7 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
   const [services, setServices] = useState<Service[]>([{name:'',price:''}]);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  usePageMemory(pageMemoryKey, { queryText }, !loading);
 
   useEffect(() => onSnapshot(query(collection(db, 'workshops'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));

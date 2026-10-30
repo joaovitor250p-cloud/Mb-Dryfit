@@ -7,6 +7,8 @@ import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
+import { optimizePhoto } from './lib/photos';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 // 'store' é conservado apenas para leitura de registros legados no Firebase.
 // Novas alterações e a interface usam somente Em andamento e Pronto.
@@ -28,30 +30,6 @@ const auditEntry=(user:User,action:string,p:Pick<Production,'oc'|'name'|'referen
   before:before||null,after:after||null,at:serverTimestamp()
 });
 
-async function makePhoto(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw Error('Selecione um arquivo de imagem.');
-  if (file.size > 12 * 1024 * 1024) throw Error('A imagem original deve ter até 12 MB.');
-  const source = await createImageBitmap(file);
-  try {
-    let maxDimension = 900;
-    for (let pass = 0; pass < 5; pass++) {
-      const factor = Math.min(1, maxDimension / Math.max(source.width, source.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(source.width * factor));
-      canvas.height = Math.max(1, Math.round(source.height * factor));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw Error('Não foi possível processar a foto.');
-      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-      for (const quality of [0.77, 0.62, 0.48, 0.36]) {
-        const webp = canvas.toDataURL('image/webp', quality);
-        const encoded = webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', quality);
-        if (encoded.length < MAX_DATA_LENGTH) return encoded;
-      }
-      maxDimension = Math.floor(maxDimension * 0.75);
-    }
-    throw Error('A foto ficou grande demais mesmo após otimização. Escolha outra imagem.');
-  } finally { source.close(); }
-}
 function productionError(error:unknown):string {
   const e=error as {code?:string;message?:string};
   const code=String(e?.code||'');
@@ -70,9 +48,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<ModelType>('all');
-  const [filter, setFilter] = useState<VisibleStage>('in_progress');
+  const pageMemoryKey = `mb-referencias:${user.uid}:${view}`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { search: '', typeFilter: 'all' as ModelType, filter: 'in_progress' as VisibleStage }));
+  const [search, setSearch] = useState(String(initialPageState.search || ''));
+  const [typeFilter, setTypeFilter] = useState<ModelType>((initialPageState.typeFilter as ModelType) || 'all');
+  const [filter, setFilter] = useState<VisibleStage>((initialPageState.filter as VisibleStage) || 'in_progress');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Production | null>(null);
   const [oc, setOc] = useState('');
@@ -88,6 +68,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [lightbox,setLightbox]=useState<{src:string;name:string;reference:string;oc:string}|null>(null);
   const [selectionMode,setSelectionMode]=useState(false);
   const [selectedCutIds,setSelectedCutIds]=useState<string[]>([]);
+
+  usePageMemory(pageMemoryKey, { search, typeFilter, filter }, !loading);
 
   useEffect(() => {
     setLoading(true);
@@ -189,7 +171,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     setBusy(true);
     try {
       const prepared: string[] = [];
-      for (const file of selectedFiles.slice(0, remaining)) prepared.push(await makePhoto(file));
+      for (const file of selectedFiles.slice(0, remaining)) prepared.push(await optimizePhoto(file, MAX_DATA_LENGTH, 900));
       setImageGallery(current => [...current, ...prepared].slice(0, MAX_SAMPLE_PHOTOS));
       showMessage(prepared.length === 1 ? 'Foto otimizada e adicionada.' : `${prepared.length} fotos otimizadas e adicionadas.`);
     } catch (e) { setPhotoError(e instanceof Error ? e.message : 'Não foi possível carregar a imagem.'); }
@@ -342,11 +324,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     {lightbox&&<PhotoLightbox src={lightbox.src} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`}  onClose={()=>setLightbox(null)}/>}
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">AMOSTRAS</span><h2>{editing?'Editar amostra / adicionar foto':'Adicionar amostra'}</h2><p>A mesma OC será exibida em Amostras e em Cortes, sem duplicação.</p></div><button className="icon-button" onClick={closeModal}><X/></button></div>
     <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}><div className="production-image-field"><span>Fotos da peça (até {MAX_SAMPLE_PHOTOS})</span>
-      <div className="sample-gallery-grid">{imageGallery.map((image,index)=><div className="sample-gallery-item" key={`${index}-${image.slice(-24)}`}><button type="button" className="sample-gallery-thumb" onClick={()=>setLightbox({src:image,name:name||'Amostra',reference,oc})} aria-label={`Visualizar foto ${index+1}`}><img src={image} alt={`Foto ${index+1} da peça`} loading="lazy" decoding="async"/><span>{index===0?'PRINCIPAL':`FOTO ${index+1}`}</span></button><button type="button" className="sample-gallery-remove" disabled={busy} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button></div>)}{!imageGallery.length&&<div className="sample-gallery-empty"><ImagePlus size={27}/><span>Nenhuma foto adicionada</span></div>}</div>
+      <div className="sample-gallery-grid">{imageGallery.map((image,index)=><div className={`sample-gallery-item ${index===0?'is-primary':'is-extra'}`} key={`${index}-${image.slice(-24)}`}><button type="button" className="sample-gallery-thumb" onClick={()=>setLightbox({src:image,name:name||'Amostra',reference,oc})} aria-label={`Visualizar foto ${index+1}`}><img src={image} alt={`Foto ${index+1} da peça`} loading="lazy" decoding="async"/><span>{index===0?'PRINCIPAL':`FOTO ${index+1} · GALERIA`}</span></button><button type="button" className="sample-gallery-remove" disabled={busy} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button></div>)}{!imageGallery.length&&<div className="sample-gallery-empty"><ImagePlus size={27}/><span>Nenhuma foto adicionada</span></div>}</div>
       {photoError&&<div className="production-alert" role="alert">{photoError}</div>}
       <div className="sample-photo-choices"><button type="button" className="outline-button" disabled={busy||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button><button type="button" className="outline-button" disabled={busy||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button></div>
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={e=>{void processFiles(e.currentTarget.files);e.currentTarget.value=''}}/><input ref={galleryInput} type="file" accept="image/*" multiple hidden onChange={e=>{void processFiles(e.currentTarget.files);e.currentTarget.value=''}}/>
-      <small>Somente as fotos escolhidas nesta amostra serão salvas. A primeira é a principal; se removida, a próxima assume esse lugar. Não buscamos fotos do catálogo nem de outras OCs.</small></div>
+      <small>A primeira foto fica como principal. As próximas ficam na galeria, atrás dela e na ordem em que forem adicionadas. Se remover a principal, a próxima assume esse lugar. Não buscamos fotos do catálogo nem de outras OCs.</small></div>
       <div className="production-form-grid"><label>OC *<input required maxLength={80} readOnly={!!editing} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/></label><label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label></div>
       <label>Nome da peça *<input required maxLength={250} list="production-models" value={name} onChange={e=>fillModel(e.target.value)} placeholder="Pesquise ou digite o modelo"/><datalist id="production-models">{models.map(m=><option value={m.name} key={m.id}/>)}</datalist><small>Se escolher um modelo existente, a REF será preenchida automaticamente.</small></label>
       <label>Código Extra (REF)<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="REF.10359"/></label>

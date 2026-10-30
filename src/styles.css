@@ -47,7 +47,7 @@
 @media(max-width:700px) {
  .production-page .heading-actions { display:flex; flex-wrap:wrap; gap:8px; }
  .production-toolbar { padding:14px; }
- .production-grid { grid-template-columns:1fr; padding:8px 14px 20px; }
+ .production-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:8px 10px 16px; }
  .production-form-grid { grid-template-columns:1fr; }
  .production-tabs { width:100%; justify-content:space-around; }
  .production-tabs button { font-size:12px; }
@@ -204,7 +204,7 @@
   .production-card .production-actions button{width:100%;justify-content:center;font-size:11px;white-space:normal}
   .production-toolbar{gap:10px}
 }
-@media(max-width:360px){.production-grid,.photos-page .photos-grid{grid-template-columns:1fr}.production-card .production-photo{height:190px}}
+@media(max-width:360px){.production-grid,.photos-page .photos-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.production-card .production-photo{height:112px;min-height:112px}.production-card .production-details{padding:8px}.production-card .production-details h3{font-size:11px}.production-card .production-details dl{font-size:10px}}
 
 /* 4.1 Spark: aprovação de contas sem Cloud Functions */
 .auth-switch{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -399,9 +399,12 @@ body{touch-action:auto}
 .dark .workshop-remove-service{background:#40272a;border-color:#654045;color:#ff9a9a}
 .workshop-add-service{align-self:flex-start}
 @media(max-width:900px){
-  .production-grid{grid-template-columns:minmax(0,1fr)!important;padding:12px!important}
-  .production-card{width:100%;max-width:620px;margin-inline:auto}
-  .production-details dl>div{grid-template-columns:minmax(90px,34%) minmax(0,1fr);gap:10px}
+  /* Notebook compacto e tablet: manter duas colunas, sem esticar um único cartão. */
+  .production-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px;padding:12px!important}
+  .production-card{width:100%;max-width:none;margin:0}
+  .production-card .production-photo{height:auto;min-height:0;aspect-ratio:4/3}
+  .production-details{padding:13px}
+  .production-details dl>div{grid-template-columns:minmax(62px,32%) minmax(0,1fr);gap:7px}
   .production-details dt,.production-details dd{min-width:0;overflow-wrap:anywhere;word-break:normal}
 }
 @media(max-width:800px){
@@ -438,16 +441,22 @@ body{touch-action:auto}
 }
 
 /* MB REFERENCIAS — galeria de amostras, notas fiscais e grade mobile corrigida */
-.sample-gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}
+.sample-gallery-grid{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(2,minmax(0,1fr));align-items:start;gap:10px;margin:10px 0}
 .sample-gallery-item{position:relative;min-width:0}
 .sample-gallery-thumb{display:flex;flex-direction:column;gap:5px;width:100%;padding:5px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--text);cursor:pointer;overflow:hidden}
 .sample-gallery-thumb img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:7px;background:var(--panel)}
-.sample-gallery-thumb span{font-size:9px;font-weight:850;letter-spacing:.04em;color:var(--teal2);text-align:center}
+.sample-gallery-item.is-primary .sample-gallery-thumb img{aspect-ratio:4/3}
+.sample-gallery-item.is-primary .sample-gallery-thumb{border-color:#d8a76b;background:#fffaf3}
+.dark .sample-gallery-item.is-primary .sample-gallery-thumb{background:#33291f;border-color:#8b673d}
+.sample-gallery-item.is-extra .sample-gallery-thumb{opacity:.94}
+.sample-gallery-thumb span{font-size:9px;font-weight:850;letter-spacing:.025em;color:var(--teal2);text-align:center;line-height:1.25}
 .sample-gallery-remove{position:absolute;top:8px;right:8px;width:25px;height:25px;border:1px solid #e4baba;border-radius:50%;display:grid;place-items:center;background:#fff;color:#b52d2d;box-shadow:0 2px 7px #0002;cursor:pointer}
 .sample-gallery-remove:disabled{opacity:.5;cursor:not-allowed}
 .sample-gallery-empty,.sample-gallery-loading{min-height:92px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;border:1px dashed var(--line);border-radius:11px;background:var(--panel2);color:var(--muted);font-size:11px}
 .sample-photo-choices{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
 .sample-photo-choices button{justify-content:center;min-height:40px}
+@media(max-width:540px){.sample-gallery-grid{grid-template-columns:minmax(0,1.2fr) repeat(2,minmax(0,.9fr));gap:7px}.sample-gallery-thumb{padding:4px}.sample-gallery-thumb span{font-size:8px}.sample-gallery-remove{top:6px;right:6px;width:22px;height:22px}}
+@media(max-width:360px){.sample-gallery-grid{grid-template-columns:minmax(0,1.1fr) repeat(2,minmax(0,.85fr));gap:5px}.sample-gallery-thumb span{font-size:7px}}
 .expense-card-toggle{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto 22px;align-items:center;gap:16px;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
 .expense-card-toggle:focus-visible{outline:2px solid var(--teal2);outline-offset:5px;border-radius:6px}
 .expense-toggle-icon{color:var(--muted);transition:transform .16s ease}
@@ -464,10 +473,10 @@ body{touch-action:auto}
 .expense-receipt-form-preview img{width:min(100%,260px);max-height:220px;object-fit:contain;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
 .expense-receipt-form>small{font-size:10px;color:var(--muted);line-height:1.5}
 
-/* A grade de produção permanece em uma coluna; somente o catálogo ganha 2 colunas no celular. */
+/* Grade de produção responsiva: duas colunas no celular e notebook compacto. */
 @media(max-width:900px){
-  .production-page .production-grid{grid-template-columns:minmax(0,1fr)!important;padding:12px!important}
-  .production-page .production-card{width:100%;max-width:620px;margin-inline:auto}
+  .production-page .production-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px;padding:12px!important}
+  .production-page .production-card{width:100%;max-width:none;margin:0}
   .photos-page .photos-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px;padding:12px}
   .photos-page .production-card{width:100%;max-width:none;margin:0}
 }

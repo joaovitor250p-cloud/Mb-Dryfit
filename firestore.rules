@@ -1,10 +1,7 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // LOGIN E PERMISSOES
 
     function signedIn() {
       return request.auth != null;
@@ -42,9 +39,6 @@ service cloud.firestore {
             && get(rolePath()).data.permissions is list
             && area in get(rolePath()).data.permissions
           )
-          // Compatibilidade com contas antigas sem campo permissions:
-          // mantem as quatro areas originais, sem liberar automaticamente
-          // as novas areas financeiras.
           || (
             !('permissions' in get(rolePath()).data)
             && area in ['catalog', 'samples', 'cuts', 'orders']
@@ -56,8 +50,6 @@ service cloud.firestore {
       return canEdit() && canView(area);
     }
 
-    // Areas autorizaveis: catalogo, amostras, cortes, ordem de corte,
-    // gastos, informacoes internas e oficinas.
     function validSections(sections) {
       return sections is list
         && sections.size() >= 1
@@ -66,8 +58,6 @@ service cloud.firestore {
           'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops'
         ]);
     }
-
-    // VALIDACAO DAS CONTAS
 
     function validGrant() {
       let data = request.resource.data;
@@ -116,8 +106,6 @@ service cloud.firestore {
         && next.updatedBy == request.auth.uid
         && next.updatedAt == request.time;
     }
-
-    // SOLICITACOES DE ACESSO
 
     match /access_requests/{uid} {
 
@@ -168,8 +156,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // PERFIS DOS USUARIOS
-
     match /user_roles/{uid} {
 
       allow get: if signedIn()
@@ -197,8 +183,6 @@ service cloud.firestore {
 
       allow delete: if false;
     }
-
-    // FOTOS DOS MODELOS
 
     function validPhotoValue(value) {
       return value is string
@@ -237,8 +221,6 @@ service cloud.firestore {
         && validPhotoValue(request.resource.data.imageData);
     }
 
-    // CATALOGO DE MODELOS
-
     match /models/{modelId} {
 
       allow get, list: if canView('catalog')
@@ -256,8 +238,6 @@ service cloud.firestore {
 
       allow delete: if canWrite('catalog');
     }
-
-    // AMOSTRAS E CORTES
 
     function validProductionPhoto(value) {
       return value is string
@@ -404,9 +384,6 @@ service cloud.firestore {
 
       allow delete: if canWrite('samples');
 
-      // Galeria nova: fotos adicionais pertencem exclusivamente a esta OC.
-      // O app lê apenas photo_2 e photo_3 quando a própria amostra é aberta;
-      // não existe consulta geral nem leitura de fotos de outras OCs.
       match /gallery/{photoId} {
         allow get: if photoId in ['photo_2', 'photo_3'] && canView('samples');
         allow list: if false;
@@ -429,17 +406,11 @@ service cloud.firestore {
         allow delete: if photoId in ['photo_2', 'photo_3'] && canWrite('samples');
       }
 
-      // Compatibilidade de limpeza: remove IDs conhecidos da galeria antiga
-      // sem permitir leitura ou gravação de novas fotos nessa subcoleção.
       match /photos/{photoId} {
         allow get, list, create, update: if false;
         allow delete: if canWrite('samples') && photoId in ['photo_1', 'photo_2'];
       }
     }
-
-    // ==========================================
-    // NOVO: ORDEM DE CORTE — VERSAO 4.2
-    // ==========================================
 
     function validCutOrder() {
       let d = request.resource.data;
@@ -542,7 +513,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // GASTOS — campos compatíveis com ExpensesPage.tsx
     function validExpense() {
       let d = request.resource.data;
 
@@ -584,7 +554,6 @@ service cloud.firestore {
 
       allow delete: if canWrite('expenses');
 
-      // A nota fiscal é carregada somente quando alguém abre os detalhes do gasto.
       match /attachments/{attachmentId} {
         allow get: if attachmentId == 'receipt' && canView('expenses');
         allow list: if false;
@@ -608,7 +577,6 @@ service cloud.firestore {
       }
     }
 
-    // INFORMACOES MB — campos compatíveis com InfoPage.tsx
     function validMbInfo() {
       let d = request.resource.data;
 
@@ -652,7 +620,6 @@ service cloud.firestore {
       allow delete: if canWrite('info');
     }
 
-    // OFICINAS — contato e tabela de preços por tipo de peça.
     function validWorkshop() {
       let d = request.resource.data;
 
@@ -694,8 +661,6 @@ service cloud.firestore {
       allow delete: if canWrite('workshops');
     }
 
-    // HISTORICO DE ALTERACOES
-
     match /audit_log/{entryId} {
 
       allow get, list: if isAdmin();
@@ -708,8 +673,6 @@ service cloud.firestore {
 
       allow update, delete: if false;
     }
-
-    // BLOQUEIO PADRAO
 
     match /{document=**} {
       allow read, write: if false;

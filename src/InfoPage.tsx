@@ -4,6 +4,7 @@ import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { CheckCircle2, FileText, Pencil, Plus, Search, Trash2, UserSquare2, X } from 'lucide-react';
 import brandLogo from './assets/mb-dryfit-logo.png';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type InfoRecord = { id: string; name: string; value: string; pix: string; pixName: string; notes: string };
@@ -11,9 +12,11 @@ const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,''
 const mapDoc = (id:string, d:DocumentData): InfoRecord => ({ id, name: String(d.name || ''), value: String(d.value || ''), pix: String(d.pix || ''), pixName: String(d.pixName || ''), notes: String(d.notes || '') });
 
 export default function InfoPage({ db, user, canEdit }: Props) {
+  const pageMemoryKey = `mb-referencias:${user.uid}:info`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { queryText: '' }));
   const [items, setItems] = useState<InfoRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [queryText, setQueryText] = useState('');
+  const [queryText, setQueryText] = useState(String(initialPageState.queryText || ''));
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<InfoRecord | null>(null);
@@ -24,6 +27,7 @@ export default function InfoPage({ db, user, canEdit }: Props) {
   const [pixName, setPixName] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  usePageMemory(pageMemoryKey, { queryText }, !loading);
 
   useEffect(() => onSnapshot(query(collection(db, 'mb_info'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));

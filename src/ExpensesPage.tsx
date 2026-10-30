@@ -6,6 +6,7 @@ import { CalendarDays, Camera, CheckCircle2, ChevronDown, ImagePlus, Pencil, Plu
 import brandLogo from './assets/mb-dryfit-logo.png';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type Expense = { id: string; name: string; amount: string; date: string; notes: string; createdBy?: string };
@@ -25,9 +26,11 @@ const expenseError = (error: unknown) => {
 };
 
 export default function ExpensesPage({ db, user, canEdit }: Props) {
+  const pageMemoryKey = `mb-referencias:${user.uid}:expenses`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { queryText: '' }));
   const [items, setItems] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [queryText, setQueryText] = useState('');
+  const [queryText, setQueryText] = useState(String(initialPageState.queryText || ''));
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -45,6 +48,7 @@ export default function ExpensesPage({ db, user, canEdit }: Props) {
   const [busy, setBusy] = useState(false);
   const receiptCameraInput = useRef<HTMLInputElement>(null);
   const receiptGalleryInput = useRef<HTMLInputElement>(null);
+  usePageMemory(pageMemoryKey, { queryText }, !loading);
 
   useEffect(() => onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));

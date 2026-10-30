@@ -4,6 +4,7 @@ import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Download, Edit3, Filter, Plus, Search, ShieldAlert, UploadCloud, X } from 'lucide-react';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
+import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 // Ordem de Corte: documentos separados de production_samples, sem alterar as OCs da tela Cortes.
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
@@ -53,11 +54,14 @@ const numberKeys=new Set<DataField>(['qty','defects']);
 const moneyKeys=new Set<DataField>(['piecePrice','discountPiece','discountTotal','total']);
 const PAGE=120;
 export default function CutOrders({db,user,canEdit,isAdmin}:Props){
+  const pageMemoryKey = `mb-referencias:${user.uid}:orders`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { query: '', typeFilter: 'all' as ModelType, office: 'all', production: 'all', payFilter: 'all', view: 'summary' as View, count: PAGE, fridayDate: friday(today()) }));
   const [rows,setRows]=useState<Order[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [alert,setAlert]=useState(''),[notice,setNotice]=useState('');
-  const [query,setQuery]=useState(''),[typeFilter,setTypeFilter]=useState<ModelType>('all'),[office,setOffice]=useState('all'),[production,setProduction]=useState('all'),[payFilter,setPayFilter]=useState('all');
-  const [view,setView]=useState<View>('summary'),[count,setCount]=useState(PAGE),[editing,setEditing]=useState<Order|null>(null),[draft,setDraft]=useState<Order|null>(null);
-  const [fridayDate,setFridayDate]=useState(friday(today())),[showFriday,setShowFriday]=useState(false);
+  const [query,setQuery]=useState(String(initialPageState.query || '')),[typeFilter,setTypeFilter]=useState<ModelType>((initialPageState.typeFilter as ModelType)||'all'),[office,setOffice]=useState(String(initialPageState.office||'all')),[production,setProduction]=useState(String(initialPageState.production||'all')),[payFilter,setPayFilter]=useState(String(initialPageState.payFilter||'all'));
+  const [view,setView]=useState<View>((initialPageState.view as View)||'summary'),[count,setCount]=useState(Number(initialPageState.count)||PAGE),[editing,setEditing]=useState<Order|null>(null),[draft,setDraft]=useState<Order|null>(null);
+  const [fridayDate,setFridayDate]=useState(String(initialPageState.fridayDate||friday(today()))),[showFriday,setShowFriday]=useState(false);
+  usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, view, count, fridayDate }, !loading);
   useEffect(()=>onSnapshot(collection(db,'cut_orders'),s=>{setRows(s.docs.map(x=>fromData(x.id,x.data())).sort((a,b)=>(Number(b.oc)||0)-(Number(a.oc)||0)));setLoading(false);setAlert('')},e=>{setAlert(errorText(e));setLoading(false)}),[db]);
   const offices=useMemo(()=>[...new Map(rows.map(x=>[norm(x.office),officeLabel(x.office)])).entries()].filter(([k])=>k).sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')),[rows]);
   const filtered=useMemo(()=>rows.filter(o=>matchesModelType(o.model,typeFilter)&&(!query||norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(norm(query))||matchesModelSearch(o.model,query))&&(office==='all'||norm(o.office)===office)&&(production==='all'||(production==='done'?done(o):!done(o)))&&(payFilter==='all'||(payFilter==='paid'?paid(o):!paid(o)))),[rows,query,typeFilter,office,production,payFilter]);
