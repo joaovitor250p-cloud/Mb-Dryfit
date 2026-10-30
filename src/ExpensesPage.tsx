@@ -3,7 +3,7 @@ import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { CalendarDays, Camera, CheckCircle2, ChevronDown, ImagePlus, Pencil, Plus, Receipt, Search, Trash2, Wallet, X } from 'lucide-react';
-import brandLogo from './assets/mb-dryfit-logo.png';
+import brandLogo from './assets/mb-dryfit-logo.webp';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';

@@ -16,7 +16,7 @@ type Stage = 'in_progress' | 'done' | 'store';
 type VisibleStage = 'in_progress' | 'done';
 type Production = {
   id: string; oc: string; name: string; reference: string; tailor: string;
-  imageData: string; status: Stage; createdAt?: unknown; completedAt?: unknown; completedBy?: string|null;
+  imageData: string; status: Stage; createdAt?: unknown; updatedAt?: unknown; completedAt?: unknown; completedBy?: string|null;
 };
 type View = 'samples' | 'cuts';
 type Props = { view: View; db: Firestore; user: User; canEdit: boolean; isAdmin:boolean; models: Model[] };

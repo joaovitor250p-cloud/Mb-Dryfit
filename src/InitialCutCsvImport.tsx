@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getDocFromServer, getDocs, query, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
-import * as XLSX from 'xlsx';
 import { CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react';
 import { INITIAL_CUTS_SEED } from './lib/initialCutsSeed';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
@@ -54,6 +53,7 @@ export default function InitialCutCsvImport({db,user,isAdmin,models,alreadyOcs}:
     if(!file)return;
     setRows([]);setMessage('');setSourceLabel(file.name);
     try {
+      const XLSX=await import('xlsx');
       const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
       const sheet=wb.Sheets[wb.SheetNames[0]];
       const raw=XLSX.utils.sheet_to_json<Record<string,unknown>>(sheet,{defval:''});

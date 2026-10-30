@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase/firestore';
-import * as XLSX from 'xlsx';
 import { Camera, ImagePlus, Search, Filter, Trash2, Upload, X, FileSpreadsheet, Pencil, Plus, Download } from 'lucide-react';
 import { normalizeReference, normalizeText, sortModels, type Model } from './lib/catalog';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
@@ -120,6 +119,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
     if(!file)return;
     setError('');setMessage('');setRows(null);setReport('');
     try{
+      const XLSX=await import('xlsx');
       const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
       const raw=XLSX.utils.sheet_to_json<Record<string,unknown>>(wb.Sheets[wb.SheetNames[0]],{defval:''});
       if(!raw.length)throw Error('O arquivo não contém linhas.');

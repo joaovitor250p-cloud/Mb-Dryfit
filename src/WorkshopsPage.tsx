@@ -3,7 +3,7 @@ import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { Building2, CheckCircle2, ClipboardList, Pencil, Phone, Plus, Search, Store, Trash2, Wrench, X } from 'lucide-react';
-import brandLogo from './assets/mb-dryfit-logo.png';
+import brandLogo from './assets/mb-dryfit-logo.webp';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
