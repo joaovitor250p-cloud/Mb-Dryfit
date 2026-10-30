@@ -1,0 +1,76 @@
+diff --git a/src/App.tsx b/src/App.tsx
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,1 +1,2 @@
+ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from 'react';
++import { createPortal } from 'react-dom';
+@@ -268,1 +269,1 @@
+- {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">
++ {modal&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">
+@@ -292,1 +293,1 @@
+-  </section></div>}
++  </section></div>, document.body)}
+diff --git a/src/ModelPhotos.tsx b/src/ModelPhotos.tsx
+--- a/src/ModelPhotos.tsx
++++ b/src/ModelPhotos.tsx
+@@ -1,1 +1,2 @@
+ import { useMemo, useRef, useState } from 'react';
++import { createPortal } from 'react-dom';
+@@ -227,2 +228,2 @@
+-    {lightbox&&(lightbox.imageData||lightbox.fallbackImageData)&&<PhotoLightbox src={lightbox.imageData||lightbox.fallbackImageData||''} title={lightbox.name} detail={lightbox.reference||'SEM CÓDIGO'} onClose={()=>setLightbox(null)}/>}
+-    {selected&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><h2>Foto principal do modelo</h2><p>{selected.name} · {selected.reference||'SEM CÓDIGO'}</p></div><button className="icon-button" onClick={()=>setSelected(null)}><X/></button></div><div className="modal-form"><div className="production-image-preview">{preview?<img src={preview} alt="Prévia"/>:<span>Sem foto</span>}</div><div className="sample-photo-choices"><button type="button" className="outline-button" disabled={busy} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button><button type="button" className="outline-button" disabled={busy} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button></div><input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e=>{void upload(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/><input ref={galleryInput} type="file" accept="image/*" hidden disabled={busy} onChange={e=>{void upload(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/><label>Ou usar URL pública HTTPS<input value={preview.startsWith('data:')?'':preview} onChange={e=>setPreview(e.target.value.trim())} placeholder="https://storage.googleapis.com/..."/></label>{error&&<div className="production-alert">{error}</div>}<div className="modal-actions"><button className="outline-button" onClick={()=>setPreview('')}><Trash2 size={16}/> Remover</button><button className="outline-button" onClick={()=>setSelected(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar foto'}</button></div></div></section></div>}
++    {lightbox&&(lightbox.imageData||lightbox.fallbackImageData)&&createPortal(<PhotoLightbox src={lightbox.imageData||lightbox.fallbackImageData||''} title={lightbox.name} detail={lightbox.reference||'SEM CÓDIGO'} onClose={()=>setLightbox(null)}/>,document.body)}
++    {selected&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><h2>Foto principal do modelo</h2><p>{selected.name} · {selected.reference||'SEM CÓDIGO'}</p></div><button className="icon-button" onClick={()=>setSelected(null)}><X/></button></div><div className="modal-form"><div className="production-image-preview">{preview?<img src={preview} alt="Prévia"/>:<span>Sem foto</span>}</div><div className="sample-photo-choices"><button type="button" className="outline-button" disabled={busy} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button><button type="button" className="outline-button" disabled={busy} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button></div><input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e=>{void upload(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/><input ref={galleryInput} type="file" accept="image/*" hidden disabled={busy} onChange={e=>{void upload(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/><label>Ou usar URL pública HTTPS<input value={preview.startsWith('data:')?'':preview} onChange={e=>setPreview(e.target.value.trim())} placeholder="https://storage.googleapis.com/..."/></label>{error&&<div className="production-alert">{error}</div>}<div className="modal-actions"><button className="outline-button" onClick={()=>setPreview('')}><Trash2 size={16}/> Remover</button><button className="outline-button" onClick={()=>setSelected(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar foto'}</button></div></div></section></div>,document.body)}
+diff --git a/src/styles.css b/src/styles.css
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -1,0 +1,39 @@
++/* Correção de camadas: modais e visualizador ficam acima de qualquer área animada. */
++.modal-backdrop {
++  position: fixed !important;
++  inset: 0 !important;
++  z-index: 10000 !important;
++  display: grid !important;
++  place-items: center !important;
++  overflow-y: auto;
++  isolation: isolate;
++  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
++}
++.modal-backdrop > .modal {
++  position: relative;
++  z-index: 1;
++  display: block !important;
++  visibility: visible !important;
++  opacity: 1 !important;
++  flex: none;
++  width: min(100%, 680px);
++  max-height: calc(100dvh - 36px);
++  overflow-y: auto;
++  overscroll-behavior: contain;
++  background: var(--panel, #fff);
++  color: var(--text, #202a33);
++}
++.modal-backdrop > .modal.modal-wide {
++  width: min(100%, 820px);
++}
++.photo-lightbox {
++  position: fixed !important;
++  inset: 0 !important;
++  z-index: 10001 !important;
++  width: 100vw;
++  height: 100dvh;
++  min-height: 0;
++  overflow: hidden;
++}
++body:has(.modal-backdrop),
++body:has(.photo-lightbox) {
++  overflow: hidden;
++}
++@media (max-width: 600px) {
++  .modal-backdrop { padding: 10px; }
++  .modal-backdrop > .modal {
++    width: 100%;
++    max-height: calc(100dvh - 20px);
++    padding: 16px;
++  }
++}
