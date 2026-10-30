@@ -1,4 +1,4 @@
-# MB REFERÊNCIAS — versão 5.2.0
+# MB REFERÊNCIAS — versão 5.3.1
 
 Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
@@ -81,3 +81,8 @@ Não apague coleções, documentos, usuários, dados ou Secrets do Firebase.
 ## Versão 5.3.0
 
 Corrige o salvamento de novos modelos: a criação no catálogo é independente da gravação do histórico, com mensagens claras de erro e prevenção de duplicidade. Consulte `docs/RELATORIO-5.3.0-CORRECAO-SALVAR-MODELO.md`.
+
+
+## Versão 5.3.1
+
+Identifica automaticamente pedidos de Ordem de Corte atrasados: quando o prazo final registrado já passou e a produção ainda não está marcada como ENTREGUE, o sistema mostra o selo **Atrasado**, destaca a quantidade no resumo e permite filtrar somente os atrasados. A data original do prazo continua visível e não é apagada, recalculada ou substituída pela identificação de atraso. O selo é calculado na tela e não altera os dados gravados no Firestore. Nenhuma publicação foi realizada nesta entrega.

@@ -221,7 +221,7 @@
 .order-eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--teal2)}
 .order-buttons{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .order-buttons button,.order-foot button,.order-seed button,.order-friday button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:37px;padding:8px 12px;font-size:12px}
-.order-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.order-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}
 .order-stats>div{min-width:0;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:5px}
 .order-stats small{font-size:11px;color:var(--muted);line-height:1.4}.order-stats strong{font-size:23px;line-height:1.25;font-weight:800;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .order-seed{border:1px solid #93c5d2;background:var(--panel2);border-radius:11px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:16px}
@@ -246,7 +246,7 @@
 .order-table th:first-child{z-index:6;background:var(--panel2)}
 .order-table .order-model{min-width:190px;max-width:300px;font-weight:680}
 .order-paid,.order-pending,.order-done,.order-progress{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800}
-.order-paid,.order-done{background:#e5f5ed;color:#087447}.order-pending,.order-progress{background:#fff1d7;color:#8a5707}
+.order-paid,.order-done{background:#e5f5ed;color:#087447}.order-pending,.order-progress{background:#fff1d7;color:#8a5707}.order-overdue{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:850;letter-spacing:.02em;background:#fde8e7;color:#a92323;border:1px solid #f5c5c2}.order-stat-overdue{border-color:#f2c7c4!important}.order-stat-overdue strong{color:#b42318}.dark .order-overdue{background:#512c2c;color:#ffb4ae;border-color:#75403d}.dark .order-stat-overdue{border-color:#75403d!important}.dark .order-stat-overdue strong{color:#ffb4ae}
 .order-editcell button{display:inline-flex;align-items:center;justify-content:center;gap:5px;touch-action:manipulation;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;color:var(--text);font-size:11px;font-weight:750;cursor:pointer}
 .order-foot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin:11px 0}
 .order-foot>div{display:flex;gap:6px;flex-wrap:wrap}
