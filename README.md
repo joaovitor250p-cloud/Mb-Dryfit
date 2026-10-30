@@ -1,4 +1,4 @@
-# MB REFERENCIAS — versão 4.15
+# MB REFERENCIAS — versão 5.0.0
 
 Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
@@ -33,6 +33,16 @@ As credenciais do serviço de autenticação e dados permanecem configuradas nos
 
 As regras de acesso existentes foram mantidas nesta versão. Não é necessário publicar novas regras para as melhorias de interface.
 
+## Versão 5.0
+
+- Redesign responsivo: menu lateral no desktop e barra inferior fixa no celular.
+- Menu Mais no celular para áreas complementares, usuários e histórico.
+- Cartões, cabeçalho, painéis e grades revistos para leitura e uso mais confortáveis.
+- Swipe horizontal por toque e touchpad entre áreas, com proteção de campos, botões, tabelas e galeria.
+- Galeria com miniaturas, navegação por gesto, zoom por pinça, touchpad, mouse e controles.
+- Mantida a memória de pesquisa, filtros e rolagem das telas.
+- Mantidas as funções e os dados existentes.
+
 ## Versão 4.15
 
 - Galeria ampliada com navegação por toque, setas e teclado.
@@ -41,3 +51,20 @@ As regras de acesso existentes foram mantidas nesta versão. Não é necessário
 - Navegação por gesto horizontal entre áreas autorizadas, com transição suave.
 - Tela inicial com logo oficial e animação de carregamento.
 - Textos da interface e documentação sem nomes de provedores técnicos.
+
+
+## Correção 4.15.1
+
+- Corrigida a abertura da galeria de fotos no formulário de Amostras.
+- Ao clicar em qualquer miniatura, o visualizador recebe a lista completa de fotos e o índice selecionado, permitindo avançar e voltar entre as imagens.
+- Corrigido o objeto enviado ao estado do visualizador para usar `images` e `index`, em vez da propriedade inválida `src`.
+- Não altera regras, credenciais, coleções ou dados existentes.
+
+## Correção 4.15.2 — gestos touch e touchpad
+
+- Galeria: swipe horizontal com um dedo para trocar fotos.
+- Tela touchscreen: pinça com dois dedos para ampliar/reduzir e arrastar para mover a foto ampliada.
+- Touchpad de notebook: gesto de pinça (Ctrl/Cmd + roda) para zoom e deslize horizontal para trocar fotos.
+- Navegação entre áreas: swipe horizontal na tela touchscreen e deslize horizontal no touchpad, com transição suave.
+- Campos de texto, tabelas horizontais, modais e botões de navegação ficam protegidos contra troca acidental de área.
+- Nenhuma coleção, documento ou regra de acesso foi alterada.
