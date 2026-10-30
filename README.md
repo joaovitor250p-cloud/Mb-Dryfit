@@ -1,4 +1,4 @@
-# MB REFERENCIAS — versão 4.15.1
+# MB REFERENCIAS — versão 4.15.2
 
 Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
@@ -49,3 +49,12 @@ As regras de acesso existentes foram mantidas nesta versão. Não é necessário
 - Ao clicar em qualquer miniatura, o visualizador recebe a lista completa de fotos e o índice selecionado, permitindo avançar e voltar entre as imagens.
 - Corrigido o objeto enviado ao estado do visualizador para usar `images` e `index`, em vez da propriedade inválida `src`.
 - Não altera regras, credenciais, coleções ou dados existentes.
+
+## Correção 4.15.2 — gestos touch e touchpad
+
+- Galeria: swipe horizontal com um dedo para trocar fotos.
+- Tela touchscreen: pinça com dois dedos para ampliar/reduzir e arrastar para mover a foto ampliada.
+- Touchpad de notebook: gesto de pinça (Ctrl/Cmd + roda) para zoom e deslize horizontal para trocar fotos.
+- Navegação entre áreas: swipe horizontal na tela touchscreen e deslize horizontal no touchpad, com transição suave.
+- Campos de texto, tabelas horizontais, modais e botões de navegação ficam protegidos contra troca acidental de área.
+- Nenhuma coleção, documento ou regra de acesso foi alterada.

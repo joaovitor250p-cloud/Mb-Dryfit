@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
@@ -53,7 +53,11 @@ export default function App(){
  const [models,setModels]=useState<Model[]>([]),[loaded,setLoaded]=useState(false),[sync,setSync]=useState<'online'|'offline'|'error'>('offline');
  const [view,setView] = useState<View>('catalog');
  const [transitionDirection,setTransitionDirection]=useState<'next'|'previous'>('next');
- const touchStartRef=useRef<{x:number;y:number}|null>(null);
+ const swipeStartRef=useRef<{x:number;y:number;pointerId:number;interactive:boolean}|null>(null);
+ const suppressSwipeClickRef=useRef(false);
+ const wheelSwipeRef=useRef(0);
+ const wheelSwipeLockedRef=useRef(false);
+ const wheelSwipeTimerRef=useRef<number|null>(null);
  const [backupOpen,setBackupOpen]=useState(false);
  const [dark,setDark]=useState(false),[search,setSearch]=useState(''),[filter,setFilter]=useState<'all'|'with'|'without'|'pending'>('all'),[sort,setSort]=useState<'reference'|'name'>('reference');
  const [modal,setModal]=useState<Mode>(null),[editing,setEditing]=useState<Model|null>(null),[name,setName]=useState(''),[reference,setReference]=useState(''),[pending,setPending]=useState(false),[busy,setBusy]=useState(false);
@@ -81,23 +85,49 @@ export default function App(){
    if(!needsModels&&(next==='catalog'||next==='samples'||next==='cuts'))setLoaded(false);
    setView(next);
  };
- const handleMainTouchStart=(event:ReactTouchEvent<HTMLElement>)=>{
-   if(modal||backupOpen||event.touches.length!==1){touchStartRef.current=null;return;}
+ const excludedSwipeTarget=(target:HTMLElement)=>!!target.closest('input,textarea,select,[contenteditable="true"],.photo-lightbox,.modal-backdrop,.mobile-production-nav,.sample-gallery-grid,.table-wrap,.table-scroll,.preview-list,.order-scroll,.history-list,.horizontal-scroll');
+ const handleMainPointerDown=(event:ReactPointerEvent<HTMLElement>)=>{
+   if(event.pointerType!=='touch'||!event.isPrimary||modal||backupOpen){swipeStartRef.current=null;return;}
    const target=event.target as HTMLElement;
-   if(target.closest('input,textarea,select,button,a,[contenteditable="true"],.photo-lightbox,.modal-backdrop,.mobile-production-nav,.sample-gallery-grid,.table-wrap,.table-scroll,.preview-list,.order-scroll,.history-list')){touchStartRef.current=null;return;}
-   const touch=event.touches[0];
-   touchStartRef.current={x:touch.clientX,y:touch.clientY};
+   if(excludedSwipeTarget(target)){swipeStartRef.current=null;return;}
+   swipeStartRef.current={x:event.clientX,y:event.clientY,pointerId:event.pointerId,interactive:!!target.closest('button,a,[role="button"]')};
  };
- const handleMainTouchEnd=(event:ReactTouchEvent<HTMLElement>)=>{
-   const start=touchStartRef.current;touchStartRef.current=null;
-   if(!start||modal||backupOpen)return;
-   const touch=event.changedTouches[0];if(!touch)return;
-   const dx=touch.clientX-start.x,dy=touch.clientY-start.y;
-   if(Math.abs(dx)<76||Math.abs(dx)<Math.abs(dy)*1.25)return;
+ const completeMainSwipe=(event:ReactPointerEvent<HTMLElement>)=>{
+   const start=swipeStartRef.current;swipeStartRef.current=null;
+   if(!start||event.pointerId!==start.pointerId||modal||backupOpen)return;
+   const dx=event.clientX-start.x,dy=event.clientY-start.y;
+   if(Math.abs(dx)<68||Math.abs(dx)<Math.abs(dy)*1.3)return;
    const currentIndex=availableViews.indexOf(view);
    const next=availableViews[currentIndex+(dx<0?1:-1)];
-   if(next)navigateView(next);
+   if(!next)return;
+   if(start.interactive){
+     suppressSwipeClickRef.current=true;
+     window.setTimeout(()=>{suppressSwipeClickRef.current=false;},500);
+   }
+   navigateView(next);
  };
+ const handleMainWheel=(event:ReactWheelEvent<HTMLElement>)=>{
+   if(modal||backupOpen||Math.abs(event.deltaX)<Math.abs(event.deltaY)*1.35||Math.abs(event.deltaX)<8)return;
+   if(excludedSwipeTarget(event.target as HTMLElement))return;
+   event.preventDefault();
+   wheelSwipeRef.current+=event.deltaX;
+   if(Math.abs(wheelSwipeRef.current)>=90&&!wheelSwipeLockedRef.current){
+     const currentIndex=availableViews.indexOf(view);
+     const next=availableViews[currentIndex+(wheelSwipeRef.current>0?1:-1)];
+     wheelSwipeRef.current=0;
+     if(next)navigateView(next);
+     wheelSwipeLockedRef.current=true;
+     if(wheelSwipeTimerRef.current!==null)window.clearTimeout(wheelSwipeTimerRef.current);
+     wheelSwipeTimerRef.current=window.setTimeout(()=>{wheelSwipeLockedRef.current=false;wheelSwipeRef.current=0;},520);
+   }
+ };
+ const handleMainClickCapture=(event:React.MouseEvent<HTMLElement>)=>{
+   if(!suppressSwipeClickRef.current)return;
+   suppressSwipeClickRef.current=false;
+   event.preventDefault();
+   event.stopPropagation();
+ };
+ useEffect(()=>()=>{if(wheelSwipeTimerRef.current!==null)window.clearTimeout(wheelSwipeTimerRef.current)},[]);
  useEffect(()=>{
   if(!db||!user||!role||!needsModels||(!admin&&!access.some(x=>x==='catalog'||x==='samples'||x==='cuts'))){setModels([]);setLoaded(true);return}
   setLoaded(false);
@@ -187,7 +217,7 @@ export default function App(){
  if(!admin&&!access.length)return <div className="auth-shell"><section className="auth-card"><h1>Sem telas autorizadas</h1><p>Peça ao administrador para liberar seu acesso.</p><button onClick={()=>auth&&signOut(auth)} className="primary-button">Sair</button></section></div>;
  if(!permitted(view))return <BrandLoading label="Abrindo sua área..." />;
  return <div className="app-shell"><aside className="sidebar"><div className="sidebar-brand"><img className="brand-logo sidebar-logo" src={brandLogo} alt="MB DryFit" /><div><strong>MB REFERENCIAS</strong><span>CATÁLOGO ONLINE</span></div></div><span className="nav-label">PRINCIPAL</span>{permitted('catalog')&&<button className={`nav-item ${view==='catalog'?'active':''}`} onClick={()=>navigateView('catalog')}><Search size={17}/> Catálogo de modelos</button>}{permitted('samples')&&<button className={`nav-item ${view==='samples'?'active':''}`} onClick={()=>navigateView('samples')}><Camera size={17}/> Amostras</button>}{permitted('cuts')&&<button className={`nav-item ${view==='cuts'?'active':''}`} onClick={()=>navigateView('cuts')}><Scissors size={17}/> Cortes</button>}{permitted('orders')&&<button className={`nav-item ${view==='orders'?'active':''}`} onClick={()=>navigateView('orders')}><ClipboardList size={17}/> Ordem de Corte</button>}{permitted('expenses')&&<button className={`nav-item ${view==='expenses'?'active':''}`} onClick={()=>navigateView('expenses')}><Wallet size={17}/> Gastos</button>}{permitted('info')&&<button className={`nav-item ${view==='info'?'active':''}`} onClick={()=>navigateView('info')}><FileText size={17}/> Informações MB</button>}{permitted('workshops')&&<button className={`nav-item ${view==='workshops'?'active':''}`} onClick={()=>navigateView('workshops')}><Building2 size={17}/> Oficinas</button>}{admin&&<><span className="nav-label" style={{marginTop:24}}>ADMINISTRAÇÃO</span><button className="nav-item" onClick={()=>void loadUsers()}><Users size={17}/> Usuários</button><button className="nav-item" onClick={()=>void loadAudit()}><History size={17}/> Histórico</button></>}<div className="sidebar-bottom"><div className="sidebar-sync"><span className={`status-dot ${sync==='online'?'green':'red'}`}/>{sync==='online'?'Dados sincronizados':'Sem sincronização'}</div><div className="user-mini"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email}</strong><span>{roleLabel[role]}</span></div><button onClick={()=>auth&&signOut(auth)} title="Sair"><LogOut size={17}/></button></div></div></aside>
- <main className="main-content" onTouchStart={handleMainTouchStart} onTouchEnd={handleMainTouchEnd} onTouchCancel={()=>{touchStartRef.current=null}}><header className="topbar"><div className="mobile-brand"><img className="brand-logo mobile-logo" src={brandLogo} alt="MB DryFit" /><strong>MB REFERENCIAS</strong></div><div className="breadcrumb">Início <span>/</span> <strong>{view==='catalog'?'Catálogo de modelos':view==='samples'?'Amostras':view==='orders'?'Ordem de Corte':view==='expenses'?'Gastos':view==='info'?'Informações MB':view==='workshops'?'Oficinas':'Cortes'}</strong></div><div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/>{sync==='online'?'Conectado':'Verificar conexão'}</span><button className="icon-button" onClick={()=>setDark(!dark)} title="Alterar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div></header>
+ <main className="main-content" onPointerDownCapture={handleMainPointerDown} onPointerUpCapture={completeMainSwipe} onPointerCancelCapture={()=>{swipeStartRef.current=null}} onWheel={handleMainWheel} onClickCapture={handleMainClickCapture}><header className="topbar"><div className="mobile-brand"><img className="brand-logo mobile-logo" src={brandLogo} alt="MB DryFit" /><strong>MB REFERENCIAS</strong></div><div className="breadcrumb">Início <span>/</span> <strong>{view==='catalog'?'Catálogo de modelos':view==='samples'?'Amostras':view==='orders'?'Ordem de Corte':view==='expenses'?'Gastos':view==='info'?'Informações MB':view==='workshops'?'Oficinas':'Cortes'}</strong></div><div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/>{sync==='online'?'Conectado':'Verificar conexão'}</span><button className="icon-button" onClick={()=>setDark(!dark)} title="Alterar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button" title="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div></header>
  <nav className="mobile-production-nav" aria-label="Navegação principal">
    {permitted('catalog')&&<button className={view==='catalog'?'selected':''} onClick={()=>navigateView('catalog')}><Search size={16}/> Modelos</button>}
 
