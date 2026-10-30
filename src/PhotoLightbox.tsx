@@ -263,8 +263,8 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
            O celular mantém o dimensionamento original já validado. */
         @media (min-width: 701px) {
           .mb-photo-viewer__image {
-            max-width: min(72%, 1080px);
-            max-height: 62%;
+            max-width: min(94%, 1400px);
+            max-height: 88%;
           }
         }
         .mb-photo-viewer__message {

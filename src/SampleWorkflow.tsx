@@ -171,6 +171,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
   const [galleryLoaded, setGalleryLoaded] = useState(true);
+  // Se a leitura da galeria falhar, permite editar os dados sem tocar nas fotos existentes.
+  const [preserveExistingGallery, setPreserveExistingGallery] = useState(false);
   const [busy, setBusy] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
@@ -242,30 +244,51 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   };
 
   const showMessage = (s: string, bad = false) => { setError(bad ? s : ''); setMessage(bad ? '' : s); };
-  const closeModal = () => { setModal(false); setPhotoError(''); setGalleryLoaded(true); };
+  const closeModal = () => { setModal(false); setPhotoError(''); setGalleryLoaded(true); setPreserveExistingGallery(false); };
 
   const openNew = () => {
     setEditing(null); setOc(''); setName(''); setReference(''); setTailor('');
-    setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setModal(true);
+    setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setPreserveExistingGallery(false); setModal(true);
   };
 
   const openEdit = async (p: Production) => {
     if (busy) return;
-    setBusy(true); setGalleryLoaded(false); setPhotoError('');
+
+    // Abre o formulário imediatamente com os dados principais do documento.
+    // A consulta das fotos extras acontece depois, sem bloquear a edição.
+    setBusy(true);
+    setGalleryLoaded(false);
+    setPreserveExistingGallery(false);
+    setPhotoError('');
+    setEditing(p);
+    setOc(p.oc);
+    setName(p.name);
+    setReference(p.reference);
+    setTailor(p.tailor);
+    setImageGallery(p.imageData ? [p.imageData] : []);
+    setModal(true);
+
     try {
       const [photo2, photo3] = await Promise.all([
         getDoc(doc(db, 'production_samples', p.id, 'gallery', 'photo_2')),
         getDoc(doc(db, 'production_samples', p.id, 'gallery', 'photo_3'))
       ]);
-      const extras = [photo2, photo3].map(snap => snap.exists() ? String(snap.data().imageData || '') : '').filter(Boolean);
-      setEditing(p); setOc(p.oc); setName(p.name); setReference(p.reference); setTailor(p.tailor);
+      const extras = [photo2, photo3]
+        .map(snap => snap.exists() ? String(snap.data().imageData || '') : '')
+        .filter(Boolean);
       setImageGallery([...(p.imageData ? [p.imageData] : []), ...extras].slice(0, MAX_SAMPLE_PHOTOS));
-      setGalleryLoaded(true); setModal(true);
+      setGalleryLoaded(true);
     } catch (e) {
-      setPhotoError('Não foi possível carregar as fotos desta OC. Nenhuma imagem foi alterada. Publique as regras atualizadas e tente abrir novamente. ' + productionError(e));
-      setGalleryLoaded(false);
-      showMessage('A amostra não foi aberta para evitar substituir ou perder fotos existentes.', true);
-    } finally { setBusy(false); }
+      // Mantém as fotos adicionais no Firestore. A edição dos campos continua disponível.
+      setPreserveExistingGallery(true);
+      setGalleryLoaded(true);
+      setPhotoError(
+        'Os dados da amostra estão disponíveis para edição, mas não foi possível consultar as fotos adicionais. Elas serão preservadas no sistema. Para alterar a galeria, verifique as permissões do Firebase. ' +
+        productionError(e)
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   const fillModel = (text: string) => {
@@ -277,6 +300,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const processFiles = async (files?: FileList | null) => {
     const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
+    if (preserveExistingGallery) {
+      setPhotoError('A galeria não pôde ser consultada. As fotos existentes estão protegidas; corrija as permissões do Firebase antes de alterá-las.');
+      return;
+    }
     const remaining = MAX_SAMPLE_PHOTOS - imageGallery.length;
     if (remaining <= 0) { setPhotoError(`Cada amostra pode ter até ${MAX_SAMPLE_PHOTOS} fotos.`); return; }
     setPhotoError(selectedFiles.length > remaining ? `Você selecionou mais fotos do que o limite permite. Serão adicionadas somente ${remaining}.` : '');
@@ -292,7 +319,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
   const save = async () => {
     if (!canEdit || busy) return;
-    if (!galleryLoaded) return showMessage('A galeria desta OC ainda não foi carregada. Feche e abra novamente após atualizar as regras.', true);
+    if (!galleryLoaded) return showMessage('Aguarde a consulta inicial das fotos terminar antes de salvar.', true);
     if (!oc.trim() || !name.trim() || !tailor.trim()) return showMessage('Informe OC, nome da peça e costureiro.', true);
     if (imageGallery.some(image => image.length > MAX_DATA_LENGTH)) return showMessage('Uma das fotos ficou acima do limite. Selecione outra imagem.', true);
     const cleanedOC=normalizedOC(oc);
@@ -330,25 +357,28 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
       const sampleId = editing?.id || auditRecord.id;
       try {
-        const galleryBatch = writeBatch(db);
-        let galleryWrites = 0;
-        for (let index = 1; index < MAX_SAMPLE_PHOTOS; index++) {
-          const photoRef = doc(db, 'production_samples', sampleId, 'gallery', `photo_${index + 1}`);
-          const image = imageGallery[index] || '';
-          if (image) {
-            galleryBatch.set(photoRef, { imageData: image, updatedAt: serverTimestamp(), updatedBy: user.uid });
-            galleryWrites++;
-          } else if (editing) {
-            galleryBatch.delete(photoRef);
-            galleryWrites++;
+        // Se a leitura da galeria falhou, não sobrescreve nem exclui fotos desconhecidas.
+        if (!preserveExistingGallery) {
+          const galleryBatch = writeBatch(db);
+          let galleryWrites = 0;
+          for (let index = 1; index < MAX_SAMPLE_PHOTOS; index++) {
+            const photoRef = doc(db, 'production_samples', sampleId, 'gallery', `photo_${index + 1}`);
+            const image = imageGallery[index] || '';
+            if (image) {
+              galleryBatch.set(photoRef, { imageData: image, updatedAt: serverTimestamp(), updatedBy: user.uid });
+              galleryWrites++;
+            } else if (editing) {
+              galleryBatch.delete(photoRef);
+              galleryWrites++;
+            }
           }
-        }
-        if (galleryWrites) {
-          await galleryBatch.commit();
-          await updateDoc(doc(db, 'production_samples', sampleId), {
-            updatedAt: serverTimestamp(),
-            updatedBy: user.uid,
-          });
+          if (galleryWrites) {
+            await galleryBatch.commit();
+            await updateDoc(doc(db, 'production_samples', sampleId), {
+              updatedAt: serverTimestamp(),
+              updatedBy: user.uid,
+            });
+          }
         }
       } catch (galleryError) {
         setEditing(auditRecord);
@@ -357,8 +387,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         return;
       }
 
-      setModal(false); setPhotoError(''); setGalleryLoaded(true);
-      showMessage(editing ? 'Amostra e galeria de fotos salvas.' : 'Amostra cadastrada com as fotos escolhidas.');
+      setModal(false); setPhotoError(''); setGalleryLoaded(true); setPreserveExistingGallery(false);
+      showMessage(editing ? (preserveExistingGallery ? 'Dados da amostra salvos. As fotos existentes foram preservadas.' : 'Amostra e galeria de fotos salvas.') : 'Amostra cadastrada com as fotos escolhidas.');
       try { await setDoc(doc(collection(db,'audit_log')),auditEntry(user,auditAction,auditRecord,auditBefore,auditAfter)); }
       catch (auditError) { showMessage('A amostra foi salva, mas o histórico não pôde ser atualizado: ' + productionError(auditError), true); }
     } catch (e) { showMessage('Erro ao salvar: ' + safeProviderMessage(e), true); }
@@ -474,7 +504,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
                   <img src={image} alt={`Foto ${index+1} da peça`} loading="lazy" decoding="async"/>
                   <span>{index===0?'PRINCIPAL':`FOTO ${index+1} · GALERIA`}</span>
                 </button>
-                <button type="button" className="sample-gallery-remove" disabled={busy} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button>
+                <button type="button" className="sample-gallery-remove" disabled={busy||preserveExistingGallery} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button>
               </div>)}
               {!imageGallery.length&&<div className="sample-gallery-empty"><ImagePlus size={27}/><span>Nenhuma foto adicionada</span></div>}
             </div>
@@ -482,8 +512,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
             {photoError&&<div className="production-alert" role="alert">{photoError}</div>}
 
             <div className="sample-photo-choices">
-              <button type="button" className="outline-button" disabled={busy||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button>
-              <button type="button" className="outline-button" disabled={busy||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button>
+              <button type="button" className="outline-button" disabled={busy||preserveExistingGallery||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button>
+              <button type="button" className="outline-button" disabled={busy||preserveExistingGallery||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button>
             </div>
 
             <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={e=>{void processFiles(e.currentTarget.files);e.currentTarget.value=''}}/>
