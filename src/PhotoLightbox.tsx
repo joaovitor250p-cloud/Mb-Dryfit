@@ -191,10 +191,9 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
   };
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    // A roda comum não altera o zoom nem recentraliza a imagem.
-    // Ctrl + roda (ou pinça no touchpad) continua sendo o gesto de zoom.
+    // A rolagem comum não deve alterar o zoom nem reposicionar a imagem.
+    // No notebook, use Ctrl + roda para ampliar/reduzir.
     if (!event.ctrlKey && !event.metaKey) return;
-
     event.preventDefault();
     event.stopPropagation();
     zoomBy(Math.exp(-event.deltaY * 0.008));
@@ -246,21 +245,26 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
           border: 1px solid rgba(255,255,255,.08); border-radius: 15px;
           background: radial-gradient(ellipse at center, #18232c 0%, #0c131a 72%);
           touch-action: none; user-select: none; -webkit-user-select: none;
-          cursor: grab;
+          cursor: default;
         }
-        .mb-photo-viewer__stage.is-zoomed { cursor: grabbing; }
+        .mb-photo-viewer__stage.is-zoomed { cursor: grab; }
+        .mb-photo-viewer__stage.is-zoomed:active { cursor: grabbing; }
         .mb-photo-viewer__image {
-          display: block; position: relative; max-width: calc(100% - 90px); max-height: 100%;
-          width: auto; height: auto; object-fit: contain; pointer-events: none;
-          user-select: none; -webkit-user-drag: none; transform-origin: center center;
-          will-change: transform;
+          display: block; position: relative;
+          width: auto !important; height: auto !important;
+          max-width: min(calc(100% - 112px), 1200px) !important;
+          max-height: min(100%, calc(100dvh - 250px)) !important;
+          object-fit: contain !important; object-position: center center;
+          pointer-events: none; user-select: none; -webkit-user-drag: none;
+          transform-origin: center center; will-change: transform;
         }
-        /* Desktop/notebook: usa melhor a área disponível sem cortar a foto.
-           As setas continuam com espaço lateral e o celular mantém seu layout. */
+        /* O arquivo inteiro precisa caber na área útil do visualizador.
+           Não usar limites percentuais baixos: eles deixam fotos verticais enormes
+           e podem parecer cortadas em telas de notebook. */
         @media (min-width: 701px) {
           .mb-photo-viewer__image {
-            max-width: min(calc(100% - 140px), 1400px);
-            max-height: 88%;
+            max-width: min(calc(100% - 112px), calc(100vw - 160px), 1200px) !important;
+            max-height: min(100%, calc(100dvh - 250px)) !important;
           }
         }
         .mb-photo-viewer__message {
@@ -310,7 +314,10 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
           .mb-photo-viewer { gap: 8px; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
           .mb-photo-viewer__icon-button { width: 42px; height: 42px; }
           .mb-photo-viewer__stage { border-radius: 10px; }
-          .mb-photo-viewer__image { max-width: calc(100% - 66px); }
+          .mb-photo-viewer__image {
+            max-width: min(calc(100% - 66px), calc(100vw - 66px)) !important;
+            max-height: min(100%, calc(100dvh - 220px)) !important;
+          }
           .mb-photo-viewer__arrow { width: 34px; height: 44px; border-radius: 9px; }
           .mb-photo-viewer__prev { left: 5px; } .mb-photo-viewer__next { right: 5px; }
           .mb-photo-viewer__thumb { width: 50px; height: 46px; }
@@ -363,7 +370,14 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
               draggable={false}
               onLoad={() => setImageLoading(false)}
               onError={() => { setImageLoading(false); setImageError(true); }}
-              style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}
+              style={{
+                width: 'auto',
+                height: 'auto',
+                maxWidth: 'min(calc(100% - 112px), calc(100vw - 112px), 1200px)',
+                maxHeight: 'min(100%, calc(100dvh - 250px))',
+                objectFit: 'contain',
+                transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`
+              }}
             />
           )}
 
@@ -404,7 +418,7 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
             <button type="button" className="mb-photo-viewer__control" onClick={() => zoomBy(1.2)} disabled={zoom >= 4.99} title="Aumentar zoom" aria-label="Aumentar zoom"><Plus size={18} /></button>
             {currentSrc && <a className="mb-photo-viewer__control" href={currentSrc} target="_blank" rel="noreferrer" title="Abrir imagem em nova guia"><ExternalLink size={17} /><span>Abrir original</span></a>}
           </div>
-          <span className="mb-photo-viewer__hint">Mouse: Ctrl + roda ou botões · Celular: pinça para ampliar · Arraste para mover ou trocar foto</span>
+          <span className="mb-photo-viewer__hint">Notebook: Ctrl + roda ou botões · Duplo clique: zoom · Arraste após ampliar · Celular: pinça para ampliar</span>
         </footer>
       </div>
     </>,

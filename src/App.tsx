@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type TouchEvent a
 
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
 import { publicCatalogPhoto } from './lib/photoCatalog';
@@ -28,7 +28,18 @@ type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'w
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
-const modelKey=(name:string)=>encodeURIComponent(normalizeText(name).replace(/[.,;:()\-_\/]+/g,' ').replace(/\s+/g,' ').trim()).slice(0,900);
+const modelKey=(name:string)=>{
+ const normalized=normalizeText(name).replace(/[.,;:()\-_\/]+/g,' ').replace(/\s+/g,' ').trim();
+ if(!normalized)return '';
+ const encoded=encodeURIComponent(normalized);
+ // IDs do Firestore têm limite de 1.500 bytes. Para nomes muito longos ou
+ // com muitos caracteres acentuados, usa um prefixo estável + hash, sem
+ // alterar os IDs históricos dos nomes comuns.
+ if(encoded.length<=1400)return encoded;
+ let hash=2166136261;
+ for(const character of normalized){hash^=character.codePointAt(0)||0;hash=Math.imul(hash,16777619);}
+ return `${encoded.slice(0,1200)}-${(hash>>>0).toString(16)}`;
+};
 const mapModel=(id:string,r:DocumentData):Model=>({id,name:String(r.name||''),reference:String(r.reference||''),pendingReview:!!r.pendingReview,imageData:typeof r.imageData==='string'?r.imageData:'',fallbackImageData:publicCatalogPhoto(String(r.name||''),String(r.reference||'')),updatedAt:r.updatedAt?.toDate?.()?.toISOString?.()||'',updatedBy:r.updatedBy||''});
 const parseRole=(role:unknown):Role=>role==='admin'||role==='editor'?role:'viewer';
 const safeError=(e:unknown)=>safeProviderMessage(e);
@@ -63,6 +74,8 @@ export default function App(){
  const [modal,setModal]=useState<Mode>(null),[editing,setEditing]=useState<Model|null>(null),[name,setName]=useState(''),[reference,setReference]=useState(''),[pending,setPending]=useState(false),[busy,setBusy]=useState(false);
  const [modelPhoto,setModelPhoto]=useState(''),[modelPhotoChanged,setModelPhotoChanged]=useState(false),[modelPhotoBusy,setModelPhotoBusy]=useState(false),[modelPhotoError,setModelPhotoError]=useState('');
  const modelCameraInput=useRef<HTMLInputElement>(null),modelGalleryInput=useRef<HTMLInputElement>(null);
+ const modelSaveInFlight=useRef(false);
+ const [modelSaveMessage,setModelSaveMessage]=useState('');
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
@@ -174,11 +187,68 @@ export default function App(){
    notify('Solicitação de acesso enviada. Aguarde o administrador.');
  }catch(e){notify('Não foi possível solicitar acesso: '+safeError(e),true)}finally{setBusy(false)}};
  const resendVerification=async()=>{if(!auth?.currentUser)return;setBusy(true);notify('');try{await sendEmailVerification(auth.currentUser);notify('Enviamos outro e-mail de confirmação. Confira a caixa de entrada e spam.')}catch(e){notify('Falha ao enviar confirmação: '+safeError(e),true)}finally{setBusy(false)}};
- const resetModal=()=>{setModal(null);setEditing(null);setPreview([]);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');if(modelCameraInput.current)modelCameraInput.current.value='';if(modelGalleryInput.current)modelGalleryInput.current.value=''};
- const add=()=>{setEditing(null);setName('');setReference('');setPending(false);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');setModal('add')};
- const edit=(m:Model)=>{setEditing(m);setName(m.name);setReference(m.reference);setPending(!!m.pendingReview);setModelPhoto(m.imageData||'');setModelPhotoChanged(false);setModelPhotoError('');setModal('edit')};
+ const resetModal=()=>{setModal(null);setEditing(null);setPreview([]);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');setModelSaveMessage('');if(modelCameraInput.current)modelCameraInput.current.value='';if(modelGalleryInput.current)modelGalleryInput.current.value=''};
+ const add=()=>{setEditing(null);setName('');setReference('');setPending(false);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');setModelSaveMessage('');setModal('add')};
+ const edit=(m:Model)=>{setEditing(m);setName(m.name);setReference(m.reference);setPending(!!m.pendingReview);setModelPhoto(m.imageData||'');setModelPhotoChanged(false);setModelPhotoError('');setModelSaveMessage('');setModal('edit')};
  const chooseModelPhoto=async(file?:File)=>{if(!file)return;setModelPhotoBusy(true);setModelPhotoError('');try{const result=await optimizePhoto(file);setModelPhoto(result);setModelPhotoChanged(true)}catch(e){setModelPhotoError(safeError(e))}finally{setModelPhotoBusy(false)}};
- const save=async()=>{if(!db||!user||!editor||modelPhotoBusy)return;const clean=name.trim();if(!clean)return notify('Informe o nome do modelo.',true);if(models.some(m=>m.id!==editing?.id&&sameModel(m.name,clean)))return notify('Já existe um modelo com esse nome.',true);const newKey=modelKey(clean);if(!newKey)return notify('Nome inválido.',true);const newRef=normalizeReference(reference);const fields={name:clean,reference:newRef,pendingReview:pending,updatedBy:user.uid,updatedAt:serverTimestamp(),...(modelPhotoChanged?{imageData:modelPhoto}:{})};setBusy(true);try{if(editing){const oldSnap=await getDoc(doc(db,'models',editing.id));if(!oldSnap.exists())throw Error('Este modelo foi removido. Atualize a página.');const oldUpdated=oldSnap.data().updatedAt?.toDate?.()?.toISOString?.();if(oldUpdated!==editing.updatedAt)throw Error('Alguém modificou esse modelo. Atualize a listagem e tente novamente.');const batch=writeBatch(db);if(editing.id!==newKey){const duplicate=await getDoc(doc(db,'models',newKey));if(duplicate.exists())throw Error('Já existe um cadastro com esse nome.');batch.set(doc(db,'models',newKey),{...fields,imageData:modelPhotoChanged?modelPhoto:(oldSnap.data().imageData||''),createdAt:oldSnap.data().createdAt||serverTimestamp(),createdBy:oldSnap.data().createdBy||user.uid});batch.delete(doc(db,'models',editing.id))}else batch.update(doc(db,'models',editing.id),fields);batch.set(doc(collection(db,'audit_log')),makeAudit(user,'editou',clean,asPlain(editing),{name:clean,reference:newRef,pendingReview:pending}));await batch.commit();notify('Modelo atualizado.')}else{const found=await getDoc(doc(db,'models',newKey));if(found.exists())throw Error('Esse modelo já existe.');const batch=writeBatch(db);batch.set(doc(db,'models',newKey),{...fields,createdAt:serverTimestamp(),createdBy:user.uid});batch.set(doc(collection(db,'audit_log')),makeAudit(user,'adicionou',clean,null,{name:clean,reference:newRef,pendingReview:pending}));await batch.commit();notify('Modelo adicionado.')}resetModal()}catch(e){notify(safeError(e),true)}finally{setBusy(false)}};
+ const modelSaveError=(value:unknown)=>{
+  const code=String((value as {code?:unknown})?.code||'');
+  if(code.includes('permission-denied'))return 'O Firebase recusou a gravação. Confira se seu perfil é Administrador/Editor e se tem permissão para o Catálogo. Código: permission-denied.';
+  if(code.includes('unauthenticated'))return 'Sua sessão expirou. Entre novamente no sistema e tente salvar.';
+  if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Não foi possível alcançar o Firebase. Verifique a conexão e tente novamente.';
+  if(code.includes('resource-exhausted'))return 'O limite de gravação do Firebase foi atingido. Tente novamente mais tarde.';
+  if(code.includes('already-exists'))return 'Já existe um modelo com esse nome. Atualize o catálogo para conferir.';
+  const message=safeError(value);
+  return code?`${message} (código: ${code})`:message;
+ };
+ const save=async()=>{
+  if(modelSaveInFlight.current)return;
+  if(!db){const message='O Firebase não está configurado neste site. Confira as variáveis VITE_FIREBASE_* da publicação.';setModelSaveMessage(message);notify(message,true);return;}
+  if(!user){const message='Sua sessão não está ativa. Entre novamente no sistema.';setModelSaveMessage(message);notify(message,true);return;}
+  if(!editor||!permitted('catalog')){const message='Seu perfil não tem permissão de edição no Catálogo de modelos. Peça ao administrador para liberar esse acesso.';setModelSaveMessage(message);notify(message,true);return;}
+  if(modelPhotoBusy){const message='A foto ainda está sendo preparada. Aguarde terminar antes de salvar.';setModelSaveMessage(message);notify(message,true);return;}
+  const clean=name.trim();
+  if(!clean){const message='Informe o nome do modelo.';setModelSaveMessage(message);notify(message,true);return;}
+  if(clean.length>250){const message='O nome do modelo deve ter no máximo 250 caracteres.';setModelSaveMessage(message);notify(message,true);return;}
+  if(models.some(m=>m.id!==editing?.id&&sameModel(m.name,clean))){const message='Já existe um modelo com esse nome.';setModelSaveMessage(message);notify(message,true);return;}
+  const newKey=modelKey(clean);
+  if(!newKey){const message='Nome inválido. Informe letras ou números no nome do modelo.';setModelSaveMessage(message);notify(message,true);return;}
+  const newRef=normalizeReference(reference);
+  if(newRef.length>200){const message='A referência ultrapassa o limite de 200 caracteres.';setModelSaveMessage(message);notify(message,true);return;}
+  if(modelPhotoChanged&&modelPhoto.length>90000){const message='A foto compactada ultrapassou o limite aceito pelo Firebase. Escolha uma imagem menor.';setModelSaveMessage(message);notify(message,true);return;}
+  const fields={name:clean,reference:newRef,pendingReview:pending,updatedBy:user.uid,updatedAt:serverTimestamp(),...(modelPhotoChanged?{imageData:modelPhoto}:{})};
+  modelSaveInFlight.current=true;setModelSaveMessage('');setBusy(true);
+  try{
+   if(editing){const oldSnap=await getDoc(doc(db,'models',editing.id));if(!oldSnap.exists())throw Error('Este modelo foi removido. Atualize a página.');const oldUpdated=oldSnap.data().updatedAt?.toDate?.()?.toISOString?.();if(oldUpdated!==editing.updatedAt)throw Error('Alguém modificou esse modelo. Atualize a listagem e tente novamente.');const batch=writeBatch(db);if(editing.id!==newKey){const duplicate=await getDoc(doc(db,'models',newKey));if(duplicate.exists())throw Error('Já existe um cadastro com esse nome.');batch.set(doc(db,'models',newKey),{...fields,imageData:modelPhotoChanged?modelPhoto:(oldSnap.data().imageData||''),createdAt:oldSnap.data().createdAt||serverTimestamp(),createdBy:oldSnap.data().createdBy||user.uid});batch.delete(doc(db,'models',editing.id))}else batch.update(doc(db,'models',editing.id),fields);batch.set(doc(collection(db,'audit_log')),makeAudit(user,'editou',clean,asPlain(editing),{name:clean,reference:newRef,pendingReview:pending}));await batch.commit();notify('Modelo atualizado.')}else{
+    // A criação do modelo não depende do histórico. Em versões anteriores,
+    // o batch incluía models + audit_log; se a regra do histórico estivesse
+    // desatualizada, o Firestore cancelava as duas gravações e o modelo não entrava.
+    const modelRef=doc(db,'models',newKey);
+    await runTransaction(db,async transaction=>{
+      const found=await transaction.get(modelRef);
+      if(found.exists())throw Object.assign(new Error('Esse modelo já existe.'),{code:'already-exists'});
+      transaction.set(modelRef,{...fields,createdAt:serverTimestamp(),createdBy:user.uid});
+    });
+    let auditWarning='';
+    try{
+      await setDoc(doc(collection(db,'audit_log')),makeAudit(user,'adicionou',clean,null,{name:clean,reference:newRef,pendingReview:pending}));
+    }catch(auditError){
+      auditWarning=` O modelo foi salvo, mas o histórico não foi atualizado: ${modelSaveError(auditError)}`;
+    }
+    resetModal();
+    notify(auditWarning?`Modelo adicionado com sucesso.${auditWarning}`:'Modelo adicionado com sucesso.');
+    return;
+   }
+   resetModal();
+  }catch(e){
+   const message=modelSaveError(e);
+   setModelSaveMessage(message);
+   notify(message,true);
+  }finally{
+   modelSaveInFlight.current=false;
+   setBusy(false);
+  }
+ };
  const bulkDeleteModels=async(chosen:Model[]):Promise<number>=>{
   if(!db||!user||!editor)throw Error('Sem permissão para excluir modelos.');
   if(!chosen.length)return 0;
@@ -267,8 +337,8 @@ export default function App(){
  {(error||info)&&<div className={`toast ${error?'error':'success'}`}><span>{error?<AlertCircle size={18}/>:<CheckCircle2 size={18}/>}</span>{error||info}<button onClick={()=>notify('')}><X size={16}/></button></div>}
  {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">
  {(modal==='add'||modal==='edit')&&<><div className="modal-head"><div><span className="eyebrow">CADASTRO ONLINE</span><h2>{modal==='add'?'Novo modelo':'Editar modelo'}</h2><p>Nome, REF e foto no mesmo cadastro. A foto é opcional e pode ser adicionada depois.</p></div><button className="icon-button" onClick={resetModal}><X/></button></div><form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
-      <label>Nome do modelo *<input autoFocus required value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: BERM DRY NIKE SIMB BAS R.L"/></label>
-      <label>Código Extra (REF)<input value={reference} onChange={e=>setReference(e.target.value)} placeholder="REF.10359 ou 10359"/><small>Modelos diferentes podem ter a mesma referência.</small></label>
+      <label>Nome do modelo *<input autoFocus required value={name} onChange={e=>{setName(e.target.value);setModelSaveMessage('')}} placeholder="Ex.: BERM DRY NIKE SIMB BAS R.L"/></label>
+      <label>Código Extra (REF)<input value={reference} onChange={e=>{setReference(e.target.value);setModelSaveMessage('')}} placeholder="REF.10359 ou 10359"/><small>Modelos diferentes podem ter a mesma referência.</small></label>
       <div className="new-model-photo-section">
         <span className="new-model-photo-title"><ImagePlus size={17}/> Foto do modelo (opcional)</span>
         <div className="new-model-photo-preview">{(modelPhoto||(!modelPhotoChanged&&editing?.fallbackImageData))?<img src={modelPhoto||editing?.fallbackImageData} alt="Prévia da foto do modelo"/>:<div className="new-model-photo-empty"><ImagePlus size={30}/><span>Escolha uma foto da peça</span></div>}</div>
@@ -284,7 +354,8 @@ export default function App(){
         <small>Use a câmera para fotografar a peça ou a galeria para escolher uma imagem. Uma foto principal por modelo; a imagem é compactada antes de salvar.</small>
       </div>
       <label className="check-row"><input type="checkbox" checked={pending} onChange={e=>setPending(e.target.checked)}/> Pendente de conferência</label>
-      <div className="modal-actions"><button type="button" className="outline-button" onClick={resetModal}>Cancelar</button><button className="primary-button" disabled={busy||modelPhotoBusy}>{modelPhotoBusy?'Preparando foto...':busy?'Salvando…':'Salvar modelo'}</button></div></form></>}
+      {modelSaveMessage&&<div className="production-alert" role="alert" aria-live="assertive">{modelSaveMessage}</div>}
+      <div className="modal-actions"><button type="button" className="outline-button" onClick={resetModal}>Cancelar</button><button type="submit" className="primary-button" disabled={busy||modelPhotoBusy}>{modelPhotoBusy?'Preparando foto...':busy?'Salvando…':'Salvar modelo'}</button></div></form></>}
  {modal==='delete'&&<><div className="modal-head"><div><h2>Excluir modelo?</h2><p>Esta ação será sincronizada entre todos os usuários.</p></div><button className="icon-button" onClick={resetModal}><X/></button></div><div className="delete-preview"><strong>{editing?.name}</strong><span>{editing?.reference||'SEM CÓDIGO'}</span></div><div className="modal-actions"><button className="outline-button" onClick={resetModal}>Cancelar</button><button className="danger-button" disabled={busy} onClick={()=>void remove()}><Trash2 size={16}/> {busy?'Excluindo…':'Confirmar exclusão'}</button></div></>}
  {modal==='import'&&<><div className="modal-head"><div><h2>Importar modelos</h2><p>Escolha o Excel ou CSV atualizado; não é preciso colocar o catálogo no GitHub.</p></div><button className="icon-button" onClick={resetModal}><X/></button></div><div className="import-body"><label className="file-drop"><Upload size={24}/><strong>Selecione XLSX, XLS, CSV ou JSON</strong><span>Os dados serão enviados ao sistema após sua confirmação.</span><input type="file" accept=".xlsx,.xls,.csv,.json" onChange={e=>{const f=e.target.files?.[0];if(f)void readImport(f);e.currentTarget.value=''}}/></label><label>Para modelos existentes<select value={importMode} onChange={e=>{const mode=e.target.value as 'add'|'update';setImportMode(mode);setPreview(p=>p.map(r=>({...r,action:r.exists?(mode==='update'?'update':'skip'):'add'})))}}><option value="add">Não substituir os existentes</option><option value="update">Atualizar nomes existentes</option></select></label><div className="notice"><CheckCircle2 size={18}/> {preview.length} modelos identificados; {preview.filter(p=>p.action==='add').length} novos; {preview.filter(p=>p.action==='update').length} para atualizar.</div>{preview.length>0&&<><div className="preview-list"><table><thead><tr><th>MODELO</th><th>REF</th><th>AÇÃO</th></tr></thead><tbody>{preview.slice(0,120).map((p,i)=><tr key={i}><td>{p.name}</td><td>{p.reference||'SEM CÓDIGO'}</td><td>{p.action}</td></tr>)}</tbody></table></div><button className="primary-button full" disabled={busy||!editor} onClick={()=>void applyImport()}>{busy?'Importando…':'Confirmar importação'}</button></>}</div><div className="modal-actions"><button className="outline-button" onClick={resetModal}>Fechar</button></div></>}
  {modal==='users'&&<><div className="modal-head"><div><h2>Contas e permissões</h2><p>Aprove novos cadastros, defina acessos e bloqueie usuários no plano gratuito.</p></div><button className="icon-button" onClick={resetModal}><X/></button></div><Suspense fallback={<div className="empty-state">Carregando usuários...</div>}><AccountsAdmin selfUid={user.uid}/></Suspense><div className="modal-actions"><button className="outline-button" onClick={resetModal}>Fechar</button></div></>}

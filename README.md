@@ -1,13 +1,40 @@
-# MB REFERENCIAS — versão 5.1.0
+# MB REFERÊNCIAS — versão 5.2.0
 
 Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
+
+## O que mudou nesta versão
+
+### Amostras
+- Cartões mostram somente a foto e as informações da OC.
+- A criação de novas amostras e a importação inicial continuam nesta área.
+- A galeria de fotos continua disponível para consulta.
+
+### Cortes
+- Edição dos dados e das fotos da OC.
+- Exclusão individual e exclusão em lote.
+- Ações de andamento e Pronto continuam disponíveis.
+- As fotos adicionais são carregadas na galeria.
+
+### Visualizador de fotos
+- Fotos inteiras ajustadas à área disponível, sem corte vertical no notebook.
+- A rolagem normal do mouse não altera o zoom.
+- No notebook, Ctrl + roda ou os botões controlam o zoom.
+- Depois de ampliar, arraste a imagem para reposicionar.
+- No celular, pinça para ampliar e arraste para mover.
+
+### Proteção das imagens
+- O formulário de edição abre com os dados já disponíveis, sem esperar a leitura da galeria.
+- Se as fotos adicionais não puderem ser lidas, ainda é possível salvar os dados.
+- Nesse caso, a foto principal e as fotos adicionais existentes são preservadas; os controles de adicionar/remover fotos ficam bloqueados até a galeria carregar.
 
 ## Estrutura
 
 - `src/`: telas e componentes da aplicação.
 - `src/lib/`: conexão de dados, catálogo, fotos e memória de navegação.
 - `src/assets/`: identidade visual MB Dri-Fit.
-- `docs/`: guia de publicação e relatórios técnicos.
+- `docs/`: guias e relatórios técnicos.
+- `exemplos/`: arquivos de exemplo para importação.
+- `functions/`: funções do Firebase.
 - `.github/workflows/`: publicação automática no GitHub Pages.
 
 ## Executar localmente
@@ -19,7 +46,7 @@ npm install
 npm run dev
 ```
 
-## Validar a publicação
+## Validar a aplicação
 
 ```bash
 npm run build
@@ -27,49 +54,30 @@ npm run build
 
 O resultado é gerado na pasta `dist/`. O GitHub Actions publica automaticamente quando há push na branch `main`.
 
-## Configuração de conexão
+## Configuração do Firebase
 
-As credenciais do serviço de autenticação e dados permanecem configuradas nos Secrets já usados pelo fluxo de publicação. Não altere nem remova essas credenciais: login, permissões, fotos e registros dependem dessa conexão.
+As credenciais da aplicação continuam sendo fornecidas pelos Secrets já usados no fluxo de publicação. Não altere nem remova esses Secrets.
 
-As regras de acesso existentes foram mantidas nesta versão. Não é necessário publicar novas regras para as melhorias de interface.
+**Atenção: esta versão atualiza `firestore.rules`.** Como as ações de editar e excluir foram movidas para Cortes, as regras agora permitem que um editor com permissão de Cortes atualize e exclua as OCs e suas fotos.
 
-## Versão 5.1
+O workflow atual do GitHub publica somente o site no GitHub Pages; ele **não publica automaticamente as regras do Firestore**. Depois de atualizar o repositório, publique também o conteúdo de `firestore.rules` no Firebase Console:
 
-- Redesign responsivo: menu lateral no desktop e barra inferior fixa no celular.
-- Menu Mais no celular para áreas complementares, usuários e histórico.
-- Cartões, cabeçalho, painéis e grades revistos para leitura e uso mais confortáveis.
-- Swipe horizontal por toque e touchpad entre áreas, com proteção de campos, botões, tabelas e galeria.
-- Galeria com miniaturas, navegação por gesto, zoom por pinça, Ctrl/Cmd + roda no touchpad e controles; a roda comum não altera o zoom.
-- Mantida a memória de pesquisa, filtros e rolagem das telas.
-- Formulário de edição de Amostras abre imediatamente e não fica bloqueado por falha na leitura das fotos adicionais.
-- Edição de nome, REF e costureiro preserva as imagens existentes quando a galeria não pode ser lida.
-- Alterações da OC e da galeria são gravadas juntas quando a galeria está disponível.
-- Modais das Amostras são renderizados fora do painel animado para não ficarem atrás do menu ou deslocados.
-- Imagem do visualizador maior no notebook, sem corte; roda comum não recentraliza nem muda o zoom.
-- Mantidas as funções e os dados existentes.
+1. Abra o projeto correto no Firebase Console.
+2. Entre em **Firestore Database → Regras**.
+3. Faça backup das regras atuais.
+4. Substitua pelo conteúdo do arquivo `firestore.rules` desta versão.
+5. Clique em **Publicar**.
 
-## Versão 4.15
+Não apague coleções, documentos, usuários, dados ou Secrets do Firebase.
 
-- Galeria ampliada com navegação por toque, setas e teclado.
-- Controles de zoom para notebook (Ctrl/Cmd + roda), duplo clique, botões e arraste da imagem ampliada.
-- Fotos secundárias das amostras continuam em pilha atrás da principal.
-- Navegação por gesto horizontal entre áreas autorizadas, com transição suave.
-- Tela inicial com logo oficial e animação de carregamento.
-- Textos da interface e documentação sem nomes de provedores técnicos.
+## Segurança e dados
+
+- Esta atualização não migra nem apaga dados.
+- A exclusão de uma OC continua sendo definitiva e exige confirmação.
+- A galeria mantém o limite de três fotos por amostra.
+- O `.gitignore` exclui apenas dependências, saídas de build, arquivos locais e caches de compilação.
 
 
-## Correção 4.15.1
+## Versão 5.3.0
 
-- Corrigida a abertura da galeria de fotos no formulário de Amostras.
-- Ao clicar em qualquer miniatura, o visualizador recebe a lista completa de fotos e o índice selecionado, permitindo avançar e voltar entre as imagens.
-- Corrigido o objeto enviado ao estado do visualizador para usar `images` e `index`, em vez da propriedade inválida `src`.
-- Não altera regras, credenciais, coleções ou dados existentes.
-
-## Correção 4.15.2 — gestos touch e touchpad
-
-- Galeria: swipe horizontal com um dedo para trocar fotos.
-- Tela touchscreen: pinça com dois dedos para ampliar/reduzir e arrastar para mover a foto ampliada.
-- Touchpad de notebook: gesto de pinça (Ctrl/Cmd + roda) para zoom e deslize horizontal para trocar fotos.
-- Navegação entre áreas: swipe horizontal na tela touchscreen e deslize horizontal no touchpad, com transição suave.
-- Campos de texto, tabelas horizontais, modais e botões de navegação ficam protegidos contra troca acidental de área.
-- Nenhuma coleção, documento ou regra de acesso foi alterada.
+Corrige o salvamento de novos modelos: a criação no catálogo é independente da gravação do histórico, com mensagens claras de erro e prevenção de duplicidade. Consulte `docs/RELATORIO-5.3.0-CORRECAO-SALVAR-MODELO.md`.

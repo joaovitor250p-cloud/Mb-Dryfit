@@ -1,6 +1,5 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
@@ -41,15 +40,6 @@ function productionError(error:unknown):string {
   if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Conexão indisponível. O corte não foi confirmado; tente novamente.';
   if(code.includes('unauthenticated'))return 'Sua sessão expirou. Saia e entre novamente.';
   return `${code?code+': ':''}${safeProviderMessage(e?.message||error)}`;
-}
-
-function galleryReadError(error:unknown):string {
-  const e=error as {code?:string;message?:string};
-  const code=String(e?.code||'');
-  if(code.includes('permission-denied'))return 'O acesso às fotos adicionais foi recusado pelas regras de leitura da galeria no Firebase.';
-  if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'A conexão falhou ao carregar as fotos adicionais. Os dados da amostra continuam editáveis.';
-  if(code.includes('unauthenticated'))return 'Sua sessão expirou. Entre novamente para carregar as fotos adicionais.';
-  return safeProviderMessage(e?.message||error,'Não foi possível carregar as fotos adicionais.');
 }
 
 const humanDate = (raw: unknown) => {
@@ -137,17 +127,18 @@ function SamplePhotoStack({
 
   // CORREÇÃO: abre a foto imediatamente.
   // O carregamento das fotos adicionais acontece em segundo plano.
-  const openAt = (index: number) => {
-    const allPhotos = [sample.imageData, ...extraPhotos]
+  const openAt = async (index: number) => {
+    let extras = extraPhotos;
+    if (loadGallery && extras.length === 0) {
+      extras = await loadExtraPhotos();
+    }
+
+    const allPhotos = [sample.imageData, ...extras]
       .filter(Boolean)
       .slice(0, MAX_SAMPLE_PHOTOS);
 
     if (allPhotos.length) {
       onOpen(allPhotos, Math.min(index, allPhotos.length - 1));
-    }
-
-    if (loadGallery && extraPhotos.length === 0) {
-      void loadExtraPhotos();
     }
   };
 
@@ -191,13 +182,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   usePageMemory(pageMemoryKey, { search, typeFilter, filter }, !loading);
 
   useEffect(() => {
-    if (!modal) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [modal]);
+    setSelectionMode(false);
+    setSelectedCutIds([]);
+  }, [view]);
 
   useEffect(() => {
     setLoading(true);
@@ -233,7 +220,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const cancelCutSelection=()=>{setSelectionMode(false);setSelectedCutIds([]);};
 
   const bulkRemoveCuts=async()=>{
-    if(view!=='samples'||!canEdit||busy||!selectedCuts.length)return;
+    if(view!=='cuts'||!canEdit||busy||!selectedCuts.length)return;
     const count=selectedCuts.length;
     if(!window.confirm(`Excluir ${count} OC(s) selecionada(s)? Elas sairão de Cortes e de Amostras. Não afeta o Catálogo de Modelos.`))return;
     if(window.prompt(`Digite EXCLUIR para confirmar a remoção definitiva de ${count} OC(s):`)!=='EXCLUIR'){
@@ -264,7 +251,6 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const closeModal = () => { setModal(false); setPhotoError(''); setGalleryLoaded(true); };
 
   const openNew = () => {
-    if (busy) return;
     setEditing(null); setOc(''); setName(''); setReference(''); setTailor('');
     setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setModal(true);
   };
@@ -272,8 +258,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const openEdit = async (p: Production) => {
     if (busy) return;
 
-    // Abre o formulário antes de consultar a galeria, para que uma falha
-    // de leitura das fotos extras nunca impeça a edição dos dados da OC.
+    // Mostra o formulário imediatamente com os dados já disponíveis no cartão.
+    // A leitura da galeria extra é feita depois e nunca bloqueia a edição dos dados.
     setEditing(p);
     setOc(p.oc);
     setName(p.name);
@@ -296,13 +282,13 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       setImageGallery([...(p.imageData ? [p.imageData] : []), ...extras].slice(0, MAX_SAMPLE_PHOTOS));
       setGalleryLoaded(true);
     } catch (e) {
-      // Não mexe na galeria sem ter lido todas as fotos existentes.
-      // O usuário ainda pode corrigir nome, REF e costureiro com segurança.
-      setGalleryLoaded(false);
+      // Sem a galeria completa, os controles de foto ficam bloqueados e o salvamento
+      // preserva a foto principal e as fotos adicionais existentes no Firestore.
       setPhotoError(
-        'Não foi possível carregar as fotos adicionais. Você ainda pode editar os dados da amostra; as fotos existentes serão preservadas. Para trocar fotos, verifique as regras de leitura da galeria no Firebase. ' +
-        galleryReadError(e)
+        'Não foi possível carregar a galeria completa desta OC. Você ainda pode editar OC, nome, REF e costureiro. As fotos existentes serão preservadas. Para adicionar, remover ou trocar fotos, verifique as regras de leitura da coleção gallery. ' +
+        productionError(e)
       );
+      setGalleryLoaded(false);
     } finally {
       setBusy(false);
     }
@@ -332,7 +318,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
   const save = async () => {
     if (!canEdit || busy) return;
-    if (!galleryLoaded && !editing) return showMessage('Não foi possível preparar a galeria. Feche e tente novamente antes de cadastrar uma nova amostra.', true);
+    if (!galleryLoaded && !editing) return showMessage('A galeria ainda não foi carregada. Tente novamente antes de cadastrar uma nova amostra.', true);
     if (!oc.trim() || !name.trim() || !tailor.trim()) return showMessage('Informe OC, nome da peça e costureiro.', true);
     if (imageGallery.some(image => image.length > MAX_DATA_LENGTH)) return showMessage('Uma das fotos ficou acima do limite. Selecione outra imagem.', true);
     const cleanedOC=normalizedOC(oc);
@@ -345,9 +331,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         name: name.trim(),
         reference: normalizeReference(reference),
         tailor: tailor.trim(),
-        // Se a galeria não foi lida, não enviamos imageData: o Firebase mantém
-        // a foto principal existente, sem substituir uma imagem desconhecida.
-        ...(galleryLoaded ? { imageData: imageGallery[0] || '' } : {}),
+        // Se a galeria não foi lida, não sobrescreve nem remove a foto principal.
+        imageData: galleryLoaded ? (imageGallery[0] || '') : (editing?.imageData || ''),
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       };
@@ -358,99 +343,61 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       let auditBefore: unknown = null;
       let auditAfter: unknown;
 
-      if (editing) {
-        const sampleRef = doc(db, 'production_samples', editing.id);
+      if (editing){
+        await updateDoc(doc(db,'production_samples',editing.id),data);
+        auditAction = 'editou_oc';
+        auditRecord = {...editing,...data};
+        auditBefore = { oc: editing.oc, name: editing.name, reference: editing.reference, tailor: editing.tailor, status: editing.status, imageCount: galleryLoaded ? imageGallery.length : 'galeria preservada sem alteração' };
+        auditAfter = { oc: cleanedOC, name: data.name, reference: data.reference, tailor: data.tailor, status: editing.status, imageCount: galleryLoaded ? imageGallery.length : 'galeria preservada sem alteração' };
+      } else {
+        const recordRef=doc(db,'production_samples',ocDocId(cleanedOC));
+        const newRecord={...data,status:'in_progress' as Stage,createdAt:serverTimestamp(),createdBy:user.uid,completedAt:null,completedBy:null};
+        await runTransaction(db,async transaction=>{
+          const current=await transaction.get(recordRef);
+          if(current.exists())throw Error(`A OC ${cleanedOC} já foi cadastrada por outro usuário.`);
+          transaction.set(recordRef,newRecord);
+        });
+        auditAction = 'criou_oc';
+        auditRecord = {...newRecord,id:recordRef.id};
+        auditAfter = { oc:cleanedOC,name:data.name,reference:data.reference,status:'in_progress',imageCount:imageGallery.length };
+        setEditing(auditRecord);
+      }
 
-        if (galleryLoaded) {
-          // Atualiza a OC e as fotos secundárias em uma única gravação atômica.
-          const batch = writeBatch(db);
-          batch.update(sampleRef, data);
-
+      const sampleId = editing?.id || auditRecord.id;
+      if (galleryLoaded) {
+        try {
+          const galleryBatch = writeBatch(db);
+          let galleryWrites = 0;
           for (let index = 1; index < MAX_SAMPLE_PHOTOS; index++) {
-            const photoRef = doc(db, 'production_samples', editing.id, 'gallery', `photo_${index + 1}`);
+            const photoRef = doc(db, 'production_samples', sampleId, 'gallery', `photo_${index + 1}`);
             const image = imageGallery[index] || '';
             if (image) {
-              batch.set(photoRef, { imageData: image, updatedAt: serverTimestamp(), updatedBy: user.uid });
-            } else {
-              batch.delete(photoRef);
+              galleryBatch.set(photoRef, { imageData: image, updatedAt: serverTimestamp(), updatedBy: user.uid });
+              galleryWrites++;
+            } else if (editing) {
+              galleryBatch.delete(photoRef);
+              galleryWrites++;
             }
           }
-          await batch.commit();
-        } else {
-          // Edição somente dos campos textuais; a galeria não é tocada.
-          await updateDoc(sampleRef, data);
-        }
-
-        auditAction = 'editou_oc';
-        auditRecord = { ...editing, ...data, imageData: galleryLoaded ? (imageGallery[0] || '') : editing.imageData };
-        auditBefore = {
-          oc: editing.oc,
-          name: editing.name,
-          reference: editing.reference,
-          tailor: editing.tailor,
-          status: editing.status,
-          imageCount: galleryLoaded ? imageGallery.length : null
-        };
-        auditAfter = {
-          oc: cleanedOC,
-          name: data.name,
-          reference: data.reference,
-          tailor: data.tailor,
-          status: editing.status,
-          imageCount: galleryLoaded ? imageGallery.length : null
-        };
-      } else {
-        const recordRef = doc(db, 'production_samples', ocDocId(cleanedOC));
-        const newRecord = {
-          ...data,
-          imageData: imageGallery[0] || '',
-          status: 'in_progress' as Stage,
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-          completedAt: null,
-          completedBy: null
-        };
-        await runTransaction(db, async transaction => {
-          const current = await transaction.get(recordRef);
-          if (current.exists()) throw Error(`A OC ${cleanedOC} já foi cadastrada por outro usuário.`);
-          transaction.set(recordRef, newRecord);
-        });
-
-        auditAction = 'criou_oc';
-        auditRecord = { ...newRecord, id: recordRef.id };
-        auditAfter = {
-          oc: cleanedOC,
-          name: data.name,
-          reference: data.reference,
-          status: 'in_progress',
-          imageCount: imageGallery.length
-        };
-        setEditing(auditRecord);
-
-        // Para um novo cadastro, as fotos extras são gravadas depois que a OC
-        // principal existe, respeitando a validação da subcoleção nas regras.
-        if (imageGallery.length > 1) {
-          const galleryBatch = writeBatch(db);
-          for (let index = 1; index < MAX_SAMPLE_PHOTOS; index++) {
-            const image = imageGallery[index] || '';
-            if (!image) continue;
-            galleryBatch.set(
-              doc(db, 'production_samples', recordRef.id, 'gallery', `photo_${index + 1}`),
-              { imageData: image, updatedAt: serverTimestamp(), updatedBy: user.uid }
-            );
+          if (galleryWrites) {
+            await galleryBatch.commit();
+            await updateDoc(doc(db, 'production_samples', sampleId), {
+              updatedAt: serverTimestamp(),
+              updatedBy: user.uid,
+            });
           }
-          await galleryBatch.commit();
+        } catch (galleryError) {
+          setEditing(auditRecord);
+          setPhotoError('Os dados e a foto principal foram salvos, mas não foi possível salvar as fotos adicionais. Suas fotos continuam preservadas. Verifique as regras da coleção gallery. ' + productionError(galleryError));
+          setGalleryLoaded(true);
+          return;
         }
       }
 
       setModal(false); setPhotoError(''); setGalleryLoaded(true);
-      showMessage(
-        editing
-          ? (galleryLoaded
-              ? 'Amostra e galeria de fotos salvas.'
-              : 'Dados da amostra salvos. As fotos existentes foram preservadas.')
-          : 'Amostra cadastrada com as fotos escolhidas.'
-      );
+      showMessage(editing
+        ? (galleryLoaded ? 'Dados e galeria de fotos salvos.' : 'Dados da amostra salvos. Todas as fotos existentes foram preservadas sem alteração.')
+        : 'Amostra cadastrada com as fotos escolhidas.');
       try { await setDoc(doc(collection(db,'audit_log')),auditEntry(user,auditAction,auditRecord,auditBefore,auditAfter)); }
       catch (auditError) { showMessage('A amostra foi salva, mas o histórico não pôde ser atualizado: ' + productionError(auditError), true); }
     } catch (e) { showMessage('Erro ao salvar: ' + safeProviderMessage(e), true); }
@@ -502,8 +449,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   };
 
   return <div className="page-wrap production-page">
-    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Cadastre amostras, importe OCs do CSV e adicione as fotos depois.' : 'Veja imagens dos cortes em andamento ou prontos e finalize com o botão Pronto.'}</p></div>
-      <div className="heading-actions">{view==='samples'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<><button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button><button className="primary-button" disabled={busy} onClick={openNew}><Plus size={17}/> Adicionar amostra</button></>}</>}</div></div>
+    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte as fotos e informações das amostras. Cadastros novos podem ser feitos por Adicionar amostra.' : 'Gerencie os dados, fotos e exclusões das OCs; acompanhe o andamento e marque os cortes como prontos.'}</p></div>
+      <div className="heading-actions">
+        {view==='samples'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
+        {view==='cuts'&&canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
+      </div></div>
 
     {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade de amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Amostras</span><strong>{loading ? '—' : progress}</strong><small>Em andamento</small></div></div></section>}
 
@@ -516,7 +466,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
       </div>
 
-      {view==='samples'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
+      {view==='cuts'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
         <strong>{selectedCuts.length} OC(s) selecionada(s)</strong>
         <button className="outline-button" disabled={busy||!visibleCutIds.length} onClick={()=>setSelectedCutIds(ids=>allVisibleCutsSelected?ids.filter(id=>!visibleCutIds.includes(id)):[...new Set([...ids,...visibleCutIds])])}>{allVisibleCutsSelected?'Desmarcar visíveis':'Selecionar todos visíveis'} ({visibleCutIds.length})</button>
         <button className="outline-button" disabled={busy||!selectedCutIds.length} onClick={()=>setSelectedCutIds([])}>Limpar</button>
@@ -529,9 +479,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
       !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
       <div className="production-grid">{filtered.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
-        {view==='samples'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
+        {view==='cuts'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
 
-        <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={view==='samples'} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
+        <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={true} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
 
         <div className="production-details">
           <div className="production-oc">OC {p.oc}</div>
@@ -543,17 +493,23 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
             {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
           </dl>
 
-          {canEdit&&<div className="production-actions">{view==='cuts'? (p.status==='in_progress'?<button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>:<button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')} title={`Devolver OC ${p.oc} para Em andamento`}><RotateCcw size={16}/> Voltar para andamento</button>):<><button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Editar amostra e incluir fotos"><Camera size={15}/> {p.imageData ? 'Editar / fotos' : 'Adicionar fotos / editar'}</button><button className="icon-button" onClick={()=>void remove(p)} title="Excluir amostra"><Trash2 size={17}/></button></>}</div>}
+          {canEdit&&view==='cuts'&&<div className="production-actions">
+            {p.status==='in_progress'
+              ? <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>
+              : <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')} title={`Devolver OC ${p.oc} para Em andamento`}><RotateCcw size={16}/> Voltar para andamento</button>}
+            <button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Editar dados e fotos desta OC"><Camera size={15}/> Editar / fotos</button>
+            <button className="icon-button" disabled={busy} onClick={()=>void remove(p)} title="Excluir OC" aria-label={`Excluir OC ${p.oc}`}><Trash2 size={17}/></button>
+          </div>}
         </div>
       </article>})}</div>}
     </section>
 
     {lightbox&&<PhotoLightbox images={lightbox.images} initialIndex={lightbox.index} src={lightbox.images[lightbox.index]||lightbox.images[0]} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`} onClose={()=>setLightbox(null)}/>}
 
-    {modal&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}>
       <section className="modal production-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
-          <div><span className="eyebrow">AMOSTRAS</span><h2>{editing?'Editar amostra / adicionar foto':'Adicionar amostra'}</h2><p>A mesma OC será exibida em Amostras e em Cortes, sem duplicação.</p></div>
+          <div><span className="eyebrow">{editing?'CORTES / EDIÇÃO':'AMOSTRAS'}</span><h2>{editing?'Editar dados e fotos da OC':'Adicionar amostra'}</h2><p>{editing?'Altere as informações e gerencie as fotos desta OC.':'A mesma OC será exibida em Amostras e em Cortes, sem duplicação.'}</p></div>
           <button className="icon-button" onClick={closeModal}><X/></button>
         </div>
 
@@ -566,16 +522,16 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
                   <img src={image} alt={`Foto ${index+1} da peça`} loading="lazy" decoding="async"/>
                   <span>{index===0?'PRINCIPAL':`FOTO ${index+1} · GALERIA`}</span>
                 </button>
-                <button type="button" className="sample-gallery-remove" disabled={busy||!galleryLoaded} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button>
+                <button type="button" className="sample-gallery-remove" disabled={busy||(!galleryLoaded&&!!editing)} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button>
               </div>)}
               {!imageGallery.length&&<div className="sample-gallery-empty"><ImagePlus size={27}/><span>Nenhuma foto adicionada</span></div>}
             </div>
 
-            {busy&&!galleryLoaded&&<div className="sample-gallery-loading"><RefreshCw size={16} className="spin"/><span>Carregando fotos desta OC...</span></div>}{photoError&&<div className="production-alert" role="alert">{photoError}</div>}
+            {photoError&&<div className="production-alert" role="alert">{photoError}</div>}
 
             <div className="sample-photo-choices">
-              <button type="button" className="outline-button" disabled={busy||!galleryLoaded||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button>
-              <button type="button" className="outline-button" disabled={busy||!galleryLoaded||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button>
+              <button type="button" className="outline-button" disabled={busy||(!galleryLoaded&&!!editing)||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>cameraInput.current?.click()}><Camera size={16}/> Câmera</button>
+              <button type="button" className="outline-button" disabled={busy||(!galleryLoaded&&!!editing)||imageGallery.length>=MAX_SAMPLE_PHOTOS} onClick={()=>galleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button>
             </div>
 
             <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={e=>{void processFiles(e.currentTarget.files);e.currentTarget.value=''}}/>
@@ -598,10 +554,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
           <div className="modal-actions">
             <button type="button" className="outline-button" onClick={closeModal}>Cancelar</button>
-            <button type="submit" className="primary-button" disabled={busy||(!galleryLoaded&&!editing)}>{busy?'Salvando...':editing?(galleryLoaded?'Salvar amostra':'Salvar dados'):'Adicionar amostra'}</button>
+            <button type="submit" className="primary-button" disabled={busy||(!galleryLoaded&&!editing)}>{busy?'Salvando...':editing?'Salvar amostra':'Adicionar amostra'}</button>
           </div>
         </form>
       </section>
-    </div>, document.body)}
+    </div>}
   </div>;
 }

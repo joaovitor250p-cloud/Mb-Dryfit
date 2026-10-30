@@ -374,7 +374,7 @@ service cloud.firestore {
 
       ) || (
 
-        canWrite('samples')
+        (canWrite('samples') || canWrite('cuts'))
         && validProduction()
         && (!('extraImages' in request.resource.data) || ('extraImages' in resource.data))
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
@@ -382,14 +382,17 @@ service cloud.firestore {
         && request.resource.data.status == resource.data.status
       );
 
-      allow delete: if canWrite('samples');
+      // Edição e exclusão dos registros agora são oferecidas na área Cortes.
+      // Mantém também a permissão antiga de Amostras para compatibilidade.
+      allow delete: if canWrite('samples') || canWrite('cuts');
 
       match /gallery/{photoId} {
-        allow get: if photoId in ['photo_2', 'photo_3'] && canView('samples');
+        allow get: if photoId in ['photo_2', 'photo_3']
+          && (canView('samples') || canView('cuts'));
         allow list: if false;
 
         allow create, update: if photoId in ['photo_2', 'photo_3']
-          && canWrite('samples')
+          && (canWrite('samples') || canWrite('cuts'))
           && exists(/databases/$(database)/documents/production_samples/$(sampleId))
           && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
           && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
@@ -403,12 +406,12 @@ service cloud.firestore {
           && request.resource.data.updatedBy == request.auth.uid
           && request.resource.data.updatedAt == request.time;
 
-        allow delete: if photoId in ['photo_2', 'photo_3'] && canWrite('samples');
+        allow delete: if photoId in ['photo_2', 'photo_3'] && (canWrite('samples') || canWrite('cuts'));
       }
 
       match /photos/{photoId} {
         allow get, list, create, update: if false;
-        allow delete: if canWrite('samples') && photoId in ['photo_1', 'photo_2'];
+        allow delete: if (canWrite('samples') || canWrite('cuts')) && photoId in ['photo_1', 'photo_2'];
       }
     }
 
