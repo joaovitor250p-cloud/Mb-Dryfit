@@ -1,18 +1,14 @@
-# MB REFERENCIAS — versão 4.14
+# MB REFERENCIAS — versão 4.15
 
-Sistema web de catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
+Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
-## Estrutura enxuta
+## Estrutura
 
 - `src/`: telas e componentes da aplicação.
-- `src/lib/`: Firebase, catálogo, fotos e memória de navegação.
-- `src/assets/`: identidade visual otimizada.
-- `functions/`: funções administrativas do Firebase.
-- `exemplos/`: planilhas de referência para importação.
-- `docs/`: guia de publicação e relatórios técnicos atuais.
+- `src/lib/`: conexão de dados, catálogo, fotos e memória de navegação.
+- `src/assets/`: identidade visual MB Dri-Fit.
+- `docs/`: guia de publicação e relatórios técnicos.
 - `.github/workflows/`: publicação automática no GitHub Pages.
-
-Os componentes antigos duplicados na raiz foram removidos. A versão usada pelo aplicativo fica somente em `src/`.
 
 ## Executar localmente
 
@@ -31,18 +27,17 @@ npm run build
 
 O resultado é gerado na pasta `dist/`. O GitHub Actions publica automaticamente quando há push na branch `main`.
 
-## Configuração do Firebase
+## Configuração de conexão
 
-Configure no GitHub Secrets as variáveis `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID` e `VITE_FIREBASE_APP_ID`.
+As credenciais do serviço de autenticação e dados permanecem configuradas nos Secrets já usados pelo fluxo de publicação. Não altere nem remova essas credenciais: login, permissões, fotos e registros dependem dessa conexão.
 
-As regras atuais ficam em `firestore.rules`. A cópia original recebida foi preservada em `docs/firestore.rules.backup-original.txt` para consulta; publique somente o arquivo `firestore.rules` da raiz quando uma atualização de regras for necessária.
+As regras de acesso existentes foram mantidas nesta versão. Não é necessário publicar novas regras para as melhorias de interface.
 
-## Versão 4.14
+## Versão 4.15
 
-- Corrige o tipo `Production` para incluir o marcador Firestore `updatedAt`, usado pela pilha de fotos das Amostras.
-- Carrega as áreas do sistema sob demanda.
-- Carrega a biblioteca de planilhas apenas quando uma importação é iniciada.
-- Converte a logo para WebP, mantendo transparência e reduzindo o arquivo em aproximadamente 76%.
-- Remove cópias antigas de componentes e documentos de versões anteriores da raiz.
-
-Consulte `docs/GUIA-PUBLICACAO.md` e `docs/RELATORIO-4.14.md`.
+- Galeria ampliada com navegação por toque, setas e teclado.
+- Controles de zoom para notebook, roda do mouse e arraste da imagem ampliada.
+- Fotos secundárias das amostras continuam em pilha atrás da principal.
+- Navegação por gesto horizontal entre áreas autorizadas, com transição suave.
+- Tela inicial com logo oficial e animação de carregamento.
+- Textos da interface e documentação sem nomes de provedores técnicos.

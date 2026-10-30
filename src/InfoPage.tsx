@@ -5,6 +5,7 @@ import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp
 import { CheckCircle2, FileText, Pencil, Plus, Search, Trash2, UserSquare2, X } from 'lucide-react';
 import brandLogo from './assets/mb-dryfit-logo.webp';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type InfoRecord = { id: string; name: string; value: string; pix: string; pixName: string; notes: string };
@@ -32,7 +33,7 @@ export default function InfoPage({ db, user, canEdit }: Props) {
   useEffect(() => onSnapshot(query(collection(db, 'mb_info'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
     setLoading(false);
-  }, e => { setError('Não foi possível carregar as informações: ' + e.message); setLoading(false); }), [db]);
+  }, e => { setError('Não foi possível carregar as informações: ' + safeProviderMessage(e)); setLoading(false); }), [db]);
 
   const filtered = useMemo(() => items.filter(item => !queryText.trim() || normalize([item.name, item.value, item.pix, item.pixName, item.notes].join(' ')).includes(normalize(queryText))), [items, queryText]);
   const reset = () => { setEditing(null); setName(''); setValue(''); setPix(''); setPixName(''); setNotes(''); setOpen(false); };
@@ -50,7 +51,7 @@ export default function InfoPage({ db, user, canEdit }: Props) {
       else await setDoc(doc(collection(db, 'mb_info')), { ...payload, createdAt: serverTimestamp(), createdBy: user.uid });
       notify(editing ? 'Registro atualizado.' : 'Registro adicionado.');
       reset();
-    } catch (e) { notify(e instanceof Error ? e.message : 'Não foi possível salvar.', true); }
+    } catch (e) { notify(safeProviderMessage(e, 'Não foi possível salvar.'), true); }
     finally { setBusy(false); }
   };
 
@@ -58,7 +59,7 @@ export default function InfoPage({ db, user, canEdit }: Props) {
     if (!canEdit || busy || !window.confirm(`Excluir o registro de ${item.name}?`)) return;
     setBusy(true);
     try { await deleteDoc(doc(db, 'mb_info', item.id)); notify('Registro excluído.'); }
-    catch (e) { notify(e instanceof Error ? e.message : 'Não foi possível excluir.', true); }
+    catch (e) { notify(safeProviderMessage(e, 'Não foi possível excluir.'), true); }
     finally { setBusy(false); }
   };
 

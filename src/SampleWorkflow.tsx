@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
@@ -9,8 +9,9 @@ import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 import { optimizePhoto } from './lib/photos';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { safeProviderMessage } from './lib/safeMessage';
 
-// 'store' é conservado apenas para leitura de registros legados no Firebase.
+// 'store' é conservado apenas para leitura de registros legados.
 // Novas alterações e a interface usam somente Em andamento e Pronto.
 type Stage = 'in_progress' | 'done' | 'store';
 type VisibleStage = 'in_progress' | 'done';
@@ -33,10 +34,10 @@ const auditEntry=(user:User,action:string,p:Pick<Production,'oc'|'name'|'referen
 function productionError(error:unknown):string {
   const e=error as {code?:string;message?:string};
   const code=String(e?.code||'');
-  if(code.includes('permission-denied'))return 'O Firebase negou a gravação. Publique as regras firestore.rules desta versão e confira se seu perfil tem permissão para a área Amostras.';
+  if(code.includes('permission-denied'))return 'O sistema recusou a gravação. Confira se seu perfil tem permissão para a área Amostras.';
   if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Conexão indisponível. O corte não foi confirmado; tente novamente.';
   if(code.includes('unauthenticated'))return 'Sua sessão expirou. Saia e entre novamente.';
-  return `${code?code+': ':''}${e?.message||String(error)}`;
+  return `${code?code+': ':''}${safeProviderMessage(e?.message||error)}`;
 }
 const humanDate = (raw: unknown) => {
   const d = (raw as { toDate?: () => Date } | undefined)?.toDate?.();
@@ -57,40 +58,48 @@ function SamplePhotoStack({
   db: Firestore;
   sample: Production;
   loadGallery: boolean;
-  onOpen: (src: string) => void;
+  onOpen: (photos: string[], index: number) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const galleryPromiseRef = useRef<Promise<string[]> | null>(null);
   const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
   const updatedAt = sample.updatedAt as { seconds?: number; nanoseconds?: number } | undefined;
   const sampleVersion = `${updatedAt?.seconds ?? ''}:${updatedAt?.nanoseconds ?? ''}`;
 
+  const loadExtraPhotos = useCallback(async () => {
+    if (!loadGallery || !sample.imageData) return [];
+    if (!galleryPromiseRef.current) {
+      const pending: Promise<string[]> = Promise.all([
+        getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_2')),
+        getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_3')),
+      ]).then(snapshots => snapshots
+        .map(snapshot => snapshot.exists() ? String(snapshot.data().imageData || '') : '')
+        .filter(Boolean)
+        .slice(0, MAX_SAMPLE_PHOTOS - 1)
+      ).catch(() => {
+        galleryPromiseRef.current = null;
+        return [];
+      });
+      galleryPromiseRef.current = pending;
+    }
+    const pending = galleryPromiseRef.current;
+    if (!pending) return [];
+    const extras = await pending;
+    setExtraPhotos(extras);
+    return extras;
+  }, [db, loadGallery, sample.id, sample.imageData]);
+
   useEffect(() => {
     let cancelled = false;
-    let started = false;
     let observer: IntersectionObserver | undefined;
     setExtraPhotos([]);
+    galleryPromiseRef.current = null;
 
     if (!loadGallery || !sample.imageData) return;
 
     const load = async () => {
-      if (started) return;
-      started = true;
-      try {
-        const [photo2, photo3] = await Promise.all([
-          getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_2')),
-          getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_3')),
-        ]);
-        if (!cancelled) {
-          const extras = [photo2, photo3]
-            .map(snapshot => snapshot.exists() ? String(snapshot.data().imageData || '') : '')
-            .filter(Boolean)
-            .slice(0, MAX_SAMPLE_PHOTOS - 1);
-          setExtraPhotos(extras);
-        }
-      } catch {
-        // A lista continua funcional com a foto principal caso a galeria esteja indisponível.
-        if (!cancelled) setExtraPhotos([]);
-      }
+      const extras = await loadExtraPhotos();
+      if (!cancelled) setExtraPhotos(extras);
     };
 
     const node = rootRef.current;
@@ -111,15 +120,21 @@ function SamplePhotoStack({
       cancelled = true;
       observer?.disconnect();
     };
-  }, [db, loadGallery, sample.id, sample.imageData, sampleVersion]);
+  }, [loadExtraPhotos, sampleVersion]);
+
+  const openAt = async (index: number) => {
+    const extras = extraPhotos.length ? extraPhotos : await loadExtraPhotos();
+    const allPhotos = [sample.imageData, ...extras].filter(Boolean).slice(0, MAX_SAMPLE_PHOTOS);
+    if (allPhotos.length) onOpen(allPhotos, Math.min(index, allPhotos.length - 1));
+  };
 
   const photos = [sample.imageData, ...extraPhotos].filter(Boolean).slice(0, MAX_SAMPLE_PHOTOS);
   const hasMultiple = photos.length > 1;
 
   return <div ref={rootRef} className={`production-photo-stack${hasMultiple ? ` has-${photos.length}-photos` : ''}`}>
-    {photos.length > 2 && <button type="button" className="sample-stack-back sample-stack-back-2" onClick={() => onOpen(photos[2])} aria-label={`Abrir terceira foto da OC ${sample.oc}`}><img src={photos[2]} alt="Terceira foto da amostra" loading="lazy" decoding="async"/></button>}
-    {photos.length > 1 && <button type="button" className="sample-stack-back sample-stack-back-1" onClick={() => onOpen(photos[1])} aria-label={`Abrir segunda foto da OC ${sample.oc}`}><img src={photos[1]} alt="Segunda foto da amostra" loading="lazy" decoding="async"/></button>}
-    {photos.length > 0 && <button type="button" className="image-zoom-trigger sample-stack-front" onClick={() => onOpen(photos[0])} aria-label={`Ampliar foto principal da OC ${sample.oc}`}><img src={photos[0]} alt={`Foto principal de ${sample.name}`} loading="lazy" decoding="async"/><span className="image-zoom-hint">Ampliar foto principal</span></button>}
+    {photos.length > 2 && <button type="button" className="sample-stack-back sample-stack-back-2" onClick={() => void openAt(2)} aria-label={`Abrir terceira foto da OC ${sample.oc}`}><img src={photos[2]} alt="Terceira foto da amostra" loading="lazy" decoding="async"/></button>}
+    {photos.length > 1 && <button type="button" className="sample-stack-back sample-stack-back-1" onClick={() => void openAt(1)} aria-label={`Abrir segunda foto da OC ${sample.oc}`}><img src={photos[1]} alt="Segunda foto da amostra" loading="lazy" decoding="async"/></button>}
+    {photos.length > 0 && <button type="button" className="image-zoom-trigger sample-stack-front" onClick={() => void openAt(0)} aria-label={`Ampliar foto principal da OC ${sample.oc}`}><img src={photos[0]} alt={`Foto principal de ${sample.name}`} loading="lazy" decoding="async"/><span className="image-zoom-hint">Ampliar foto principal</span></button>}
     {hasMultiple && <span className="sample-stack-count">{photos.length} fotos</span>}
   </div>;
 }
@@ -146,7 +161,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [busy, setBusy] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
-  const [lightbox,setLightbox]=useState<{src:string;name:string;reference:string;oc:string}|null>(null);
+  const [lightbox,setLightbox]=useState<{images:string[];index:number;name:string;reference:string;oc:string}|null>(null);
   const [selectionMode,setSelectionMode]=useState(false);
   const [selectedCutIds,setSelectedCutIds]=useState<string[]>([]);
 
@@ -159,7 +174,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       setItems(next.sort((a, b) => ((b.createdAt as { seconds?: number } | undefined)?.seconds ?? 0) - ((a.createdAt as { seconds?: number } | undefined)?.seconds ?? 0)));
       setLoading(false);
       setError('');
-    }, e => { setError('Não foi possível consultar as amostras: ' + e.message); setLoading(false); });
+    }, e => { setError('Não foi possível consultar as amostras: ' + safeProviderMessage(e)); setLoading(false); });
   }, [db]);
   const progress = useMemo(() => items.filter(x => x.status === 'in_progress').length, [items]);
   // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
@@ -255,7 +270,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       for (const file of selectedFiles.slice(0, remaining)) prepared.push(await optimizePhoto(file, MAX_DATA_LENGTH, 900));
       setImageGallery(current => [...current, ...prepared].slice(0, MAX_SAMPLE_PHOTOS));
       showMessage(prepared.length === 1 ? 'Foto otimizada e adicionada.' : `${prepared.length} fotos otimizadas e adicionadas.`);
-    } catch (e) { setPhotoError(e instanceof Error ? e.message : 'Não foi possível carregar a imagem.'); }
+    } catch (e) { setPhotoError(safeProviderMessage(e, 'Não foi possível carregar a imagem.')); }
     finally { setBusy(false); }
   };
   const save = async () => {
@@ -336,7 +351,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       // O histórico é secundário: uma falha nele não desfaz a gravação da amostra.
       try { await setDoc(doc(collection(db,'audit_log')),auditEntry(user,auditAction,auditRecord,auditBefore,auditAfter)); }
       catch (auditError) { showMessage('A amostra foi salva, mas o histórico não pôde ser atualizado: ' + productionError(auditError), true); }
-    } catch (e) { showMessage('Erro ao salvar: ' + (e instanceof Error ? e.message : String(e)), true); }
+    } catch (e) { showMessage('Erro ao salvar: ' + safeProviderMessage(e), true); }
     finally { setBusy(false); }
   };
   const mark = async (p: Production, status: VisibleStage) => {
@@ -356,7 +371,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       showMessage(status === 'done'
         ? `OC ${p.oc} marcada como pronta.`
         : `OC ${p.oc} reaberta e devolvida ao andamento.`);
-      // Uma falha de auditoria não desfaz o status que o Firebase já confirmou.
+      // Uma falha de auditoria não desfaz o status que o serviço já confirmou.
       try {
         await setDoc(doc(collection(db, 'audit_log')), auditEntry(
           user, status === 'done' ? 'corte_pronto' : 'reabriu_corte',
@@ -406,11 +421,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>{view==='samples'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
-      <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={view==='samples'} onOpen={src=>setLightbox({src,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
+      <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={view==='samples'} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
       <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
       {canEdit&&<div className="production-actions">{view==='cuts'? (p.status==='in_progress'?<button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>:<button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')} title={`Devolver OC ${p.oc} para Em andamento`}><RotateCcw size={16}/> Voltar para andamento</button>):<><button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Editar amostra e incluir fotos"><Camera size={15}/> {p.imageData ? 'Editar / fotos' : 'Adicionar fotos / editar'}</button><button className="icon-button" onClick={()=>void remove(p)} title="Excluir amostra"><Trash2 size={17}/></button></>}</div>}</div>
     </article>})}</div>}</section>
-    {lightbox&&<PhotoLightbox src={lightbox.src} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`}  onClose={()=>setLightbox(null)}/>}
+    {lightbox&&<PhotoLightbox images={lightbox.images} initialIndex={lightbox.index} src={lightbox.images[lightbox.index]||lightbox.images[0]} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`} onClose={()=>setLightbox(null)}/>}
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}><section className="modal production-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">AMOSTRAS</span><h2>{editing?'Editar amostra / adicionar foto':'Adicionar amostra'}</h2><p>A mesma OC será exibida em Amostras e em Cortes, sem duplicação.</p></div><button className="icon-button" onClick={closeModal}><X/></button></div>
     <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}><div className="production-image-field"><span>Fotos da peça (até {MAX_SAMPLE_PHOTOS})</span>
       <div className="sample-gallery-grid">{imageGallery.map((image,index)=><div className={`sample-gallery-item ${index===0?'is-primary':'is-extra'}`} key={`${index}-${image.slice(-24)}`}><button type="button" className="sample-gallery-thumb" onClick={()=>setLightbox({src:image,name:name||'Amostra',reference,oc})} aria-label={`Visualizar foto ${index+1}`}><img src={image} alt={`Foto ${index+1} da peça`} loading="lazy" decoding="async"/><span>{index===0?'PRINCIPAL':`FOTO ${index+1} · GALERIA`}</span></button><button type="button" className="sample-gallery-remove" disabled={busy} onClick={()=>setImageGallery(current=>current.filter((_,photoIndex)=>photoIndex!==index))} aria-label={`Remover foto ${index+1}`}><X size={14}/></button></div>)}{!imageGallery.length&&<div className="sample-gallery-empty"><ImagePlus size={27}/><span>Nenhuma foto adicionada</span></div>}</div>

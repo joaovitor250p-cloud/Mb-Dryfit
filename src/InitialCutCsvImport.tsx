@@ -5,6 +5,7 @@ import type { User } from 'firebase/auth';
 import { CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react';
 import { INITIAL_CUTS_SEED } from './lib/initialCutsSeed';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Row = {oc:string;name:string;reference:string;tailor:string;sourceDate:string;reason:string};
 type Props = {db:Firestore;user:User;isAdmin:boolean;models:Model[];alreadyOcs:string[]};
@@ -28,7 +29,7 @@ export default function InitialCutCsvImport({db,user,isAdmin,models,alreadyOcs}:
   useEffect(()=>{
     if(!isAdmin)return;
     let active=true;
-    getDocFromServer(doc(db,'audit_log',MARKER_ID)).then(s=>{if(active){setImported(s.exists());setChecking(false)}}).catch(e=>{if(active){setMessage(`Não foi possível verificar o CSV inicial: ${e.message}`);setChecking(false)}});
+    getDocFromServer(doc(db,'audit_log',MARKER_ID)).then(s=>{if(active){setImported(s.exists());setChecking(false)}}).catch(e=>{if(active){setMessage(`Não foi possível verificar o CSV inicial: ${safeProviderMessage(e)}`);setChecking(false)}});
     return ()=>{active=false};
   },[db,isAdmin]);
   const preview=useMemo(()=>{
@@ -80,7 +81,7 @@ export default function InitialCutCsvImport({db,user,isAdmin,models,alreadyOcs}:
         return {oc,name,reference,tailor,sourceDate,reason};
       });
       setRows(parsed);
-    }catch(e){setMessage(e instanceof Error?e.message:'Não foi possível ler o arquivo.');}
+    }catch(e){setMessage(safeProviderMessage(e, 'Não foi possível ler o arquivo.'));}
     if(fileInput.current)fileInput.current.value='';
   };
   const confirm=async()=>{
@@ -113,7 +114,7 @@ export default function InitialCutCsvImport({db,user,isAdmin,models,alreadyOcs}:
       });
       setImported(true);setOpen(false);setRows([]);
       setMessage(`${created} OCs importadas. Abra os cartões em Amostras para adicionar imagens e completar os dados. A importação inicial não aparecerá novamente.`);
-    }catch(e){setMessage(`Foram criadas ${created} OCs antes do erro. Nenhum registro existente foi sobrescrito. É possível repetir a mesma planilha para completar: ${e instanceof Error?e.message:String(e)}`)}
+    }catch(e){setMessage(`Foram criadas ${created} OCs antes do erro. Nenhum registro existente foi sobrescrito. É possível repetir a mesma planilha para completar: ${safeProviderMessage(e)}`)}
     finally{setBusy(false)};
   };
   if(!isAdmin)return null;
@@ -123,7 +124,7 @@ export default function InitialCutCsvImport({db,user,isAdmin,models,alreadyOcs}:
     {open&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setOpen(false)}}><section className="modal modal-wide" role="dialog" aria-modal="true" aria-label="Importar CSV inicial de produção">
       <div className="modal-head"><div><span className="eyebrow">CONFIGURAÇÃO INICIAL · UMA VEZ</span><h2>Importar OCs e costureiros</h2><p>Use a planilha de 21 OCs que você enviou ou escolha outro CSV. As OCs existentes não serão modificadas; fotos e REFs podem ser adicionadas depois.</p></div><button className="icon-button" title="Fechar" disabled={busy} onClick={()=>setOpen(false)}><X/></button></div>
       <button type="button" className="outline-button" disabled={busy} onClick={useIncludedFile}><FileSpreadsheet size={18}/> Usar planilha enviada (21 OCs)</button>
-      <label className="file-drop"><FileSpreadsheet size={24}/><strong>Escolher CSV, XLS ou XLSX</strong><span>Confira os dados antes da gravação no Firebase.</span><input ref={fileInput} type="file" accept=".csv,.xlsx,.xls" disabled={busy} onChange={e=>void readCsv(e.target.files?.[0])}/></label>
+      <label className="file-drop"><FileSpreadsheet size={24}/><strong>Escolher CSV, XLS ou XLSX</strong><span>Confira os dados antes de salvar no sistema.</span><input ref={fileInput} type="file" accept=".csv,.xlsx,.xls" disabled={busy} onChange={e=>void readCsv(e.target.files?.[0])}/></label>
       {rows.length>0&&<><p className="csv-import-summary"><CheckCircle2 size={16}/> {rows.length} linhas · {valid.length} novas OCs · {rows.length-valid.length} itens para conferir/ignorar</p><div className="preview-list"><table><thead><tr><th>OC</th><th>NOME</th><th>REF</th><th>OFICINA / COSTUREIRO</th><th>DATA DO CSV</th><th>SITUAÇÃO</th></tr></thead><tbody>{preview.slice(0,80).map((r,i)=><tr key={`${r.oc}-${i}`}><td>{r.oc}</td><td>{r.name}</td><td>{r.reference||'SEM CÓDIGO'}</td><td>{r.tailor==='NÃO INFORMADO'?'Não informado (preencher depois)':r.tailor}</td><td>{r.sourceDate||'—'}</td><td>{r.reason||'Importar · sem foto'}</td></tr>)}</tbody></table></div>{rows.length>0&&<p className="helper-text">{sourceLabel.includes('MOVIMENTACAO')?'A planilha enviada usa 27/out, sem ano; a data original ficará no histórico, sem inventar um ano. ':''}REF ausente não será inventada. Você poderá adicionar fotos e editar responsáveis em Amostras.</p>}{rows.length>80&&<p className="helper-text">Exibindo as primeiras 80 linhas; todas serão verificadas.</p>}</>}
       {message&&<div className="production-alert" role="alert">{message}</div>}
       <div className="modal-actions"><button className="outline-button" disabled={busy} onClick={()=>setOpen(false)}>Cancelar</button><button className="primary-button" disabled={busy||!valid.length} onClick={()=>void confirm()}>{busy?'Importando...':`Confirmar ${valid.length} OCs`}</button></div>

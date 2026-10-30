@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { collection, doc, onSnapshot, serverTimestamp, updateDoc, writeBatch, type DocumentData } from 'firebase/firestore';
-import { auth, db } from './lib/firebase';
+import { auth, db } from './lib/dataClient';
 import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lucide-react';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Role = 'admin' | 'editor' | 'viewer';
 type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops';
@@ -18,7 +19,7 @@ const SECTIONS: { value: Section; label: string }[] = [
   { value: 'info', label: 'Informações MB' },
   { value: 'workshops', label: 'Oficinas' },
 ];
-const errorText = (e: unknown) => e instanceof Error ? e.message : 'Não foi possível salvar.';
+const errorText = (e: unknown) => safeProviderMessage(e, 'Não foi possível salvar.');
 const asSections = (value: unknown): Section[] => Array.isArray(value) ? value.filter((s): s is Section => ALL.includes(s as Section)) : ALL;
 const asAccount = (uid: string, data: DocumentData): Account => ({
   uid, email: String(data.email || ''),
@@ -26,8 +27,8 @@ const asAccount = (uid: string, data: DocumentData): Account => ({
   permissions: asSections(data.permissions), disabled: data.disabled === true,
 });
 
-// Spark: contas são criadas pelo próprio usuário no Firebase Authentication.
-// Somente um admin pré-existente no Firestore aprova acesso e autoriza áreas.
+// As contas são criadas pelo próprio usuário na tela inicial.
+// Somente um administrador existente aprova acessos e autoriza áreas.
 export default function AccountsAdmin({selfUid}: {selfUid: string}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
@@ -40,13 +41,13 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
     if (!db) return;
     const unsubscribeAccounts = onSnapshot(collection(db, 'user_roles'), snapshot => {
       setAccounts(snapshot.docs.map(d => asAccount(d.id, d.data())));
-    }, e => setError('Não foi possível listar as contas: ' + e.message));
+    }, e => setError('Não foi possível listar as contas: ' + safeProviderMessage(e)));
     const unsubscribeRequests = onSnapshot(collection(db, 'access_requests'), snapshot => {
       setRequests(snapshot.docs.map(d => ({
         uid: d.id, email: String(d.data().email || ''),
         status: d.data().status === 'approved' ? 'approved' : d.data().status === 'denied' ? 'denied' : 'pending',
       })));
-    }, e => setError('Não foi possível listar solicitações: ' + e.message));
+    }, e => setError('Não foi possível listar solicitações: ' + safeProviderMessage(e)));
     return () => { unsubscribeAccounts(); unsubscribeRequests(); };
   }, []);
 
@@ -69,43 +70,43 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
     finally { setBusy(null); }
   };
   const approve = (request: Request) => {
-    const firestore = db, actorUid = auth?.currentUser?.uid;
-    if (!firestore || !actorUid || !window.confirm(`Aprovar ${request.email} para acessar o MB REFERENCIAS?`)) return;
+    const database = db, actorUid = auth?.currentUser?.uid;
+    if (!database || !actorUid || !window.confirm(`Aprovar ${request.email} para acessar o MB REFERENCIAS?`)) return;
     const draft = draftFor(request.uid);
     if (!draft.permissions.length) { setError('Selecione pelo menos uma área.'); return; }
     void execute(request.uid, async () => {
-      const batch = writeBatch(firestore);
-      batch.set(doc(firestore, 'user_roles', request.uid), {
+      const batch = writeBatch(database);
+      batch.set(doc(database, 'user_roles', request.uid), {
         email: request.email, role: draft.role, permissions: draft.permissions,
         disabled: false, approvedAt: serverTimestamp(), approvedBy: actorUid,
       });
-      batch.update(doc(firestore, 'access_requests', request.uid), {
+      batch.update(doc(database, 'access_requests', request.uid), {
         status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: actorUid,
       });
       await batch.commit();
     }, 'Acesso liberado. A pessoa poderá entrar nas áreas selecionadas.');
   };
   const deny = (request: Request) => {
-    const firestore = db, actorUid = auth?.currentUser?.uid;
-    if (!firestore || !actorUid || !window.confirm(`Recusar a solicitação de ${request.email}?`)) return;
-    void execute(request.uid, () => updateDoc(doc(firestore, 'access_requests', request.uid), {
+    const database = db, actorUid = auth?.currentUser?.uid;
+    if (!database || !actorUid || !window.confirm(`Recusar a solicitação de ${request.email}?`)) return;
+    void execute(request.uid, () => updateDoc(doc(database, 'access_requests', request.uid), {
       status: 'denied', reviewedAt: serverTimestamp(), reviewedBy: actorUid,
     }), 'Solicitação recusada.');
   };
   const savePermissions = (account: Account) => {
-    const firestore = db, actorUid = auth?.currentUser?.uid;
-    if (!firestore || !actorUid) return;
+    const database = db, actorUid = auth?.currentUser?.uid;
+    if (!database || !actorUid) return;
     const draft = draftFor(account.uid, account);
     if (!draft.permissions.length) { setError('Selecione pelo menos uma área.'); return; }
-    void execute(account.uid, () => updateDoc(doc(firestore, 'user_roles', account.uid), {
+    void execute(account.uid, () => updateDoc(doc(database, 'user_roles', account.uid), {
       role: draft.role, permissions: draft.permissions,
       updatedAt: serverTimestamp(), updatedBy: actorUid,
     }), 'Permissões atualizadas.');
   };
   const setDisabled = (account: Account) => {
-    const firestore = db, actorUid = auth?.currentUser?.uid;
-    if (!firestore || !actorUid || !window.confirm(`${account.disabled ? 'Reativar' : 'Bloquear'} o acesso de ${account.email || account.uid}?`)) return;
-    void execute(account.uid, () => updateDoc(doc(firestore, 'user_roles', account.uid), {
+    const database = db, actorUid = auth?.currentUser?.uid;
+    if (!database || !actorUid || !window.confirm(`${account.disabled ? 'Reativar' : 'Bloquear'} o acesso de ${account.email || account.uid}?`)) return;
+    void execute(account.uid, () => updateDoc(doc(database, 'user_roles', account.uid), {
       disabled: !account.disabled, updatedAt: serverTimestamp(), updatedBy: actorUid,
     }), account.disabled ? 'Acesso reativado.' : 'Acesso bloqueado. A conta de login foi preservada.');
   };
@@ -117,7 +118,7 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
   const pending = requests.filter(r => r.status === 'pending' && !accounts.some(a => a.uid === r.uid));
 
   return <div className="account-admin">
-    <div className="admin-warning"><Shield size={19}/><span><strong>Modo gratuito (Spark).</strong> Cada pessoa clica em <strong>Criar conta</strong> na tela inicial. A conta aguarda sua aprovação, sem acesso aos modelos nem às OCs. Você libera as áreas abaixo. Não usamos Cloud Functions.</span></div>
+    <div className="admin-warning"><Shield size={19}/><span><strong>Plano gratuito.</strong> Cada pessoa clica em <strong>Criar conta</strong> na tela inicial. A conta aguarda sua aprovação, sem acesso aos modelos nem às OCs. Você libera as áreas abaixo.</span></div>
     {error && <div className="production-alert" role="alert">{error}</div>}
     {message && <div className="production-ok"><CheckCircle2 size={16}/>{message}</div>}
     <div className="account-list-head"><h3>Solicitações aguardando aprovação ({pending.length})</h3></div>
@@ -145,6 +146,6 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
         </>}
       </section>;
     })}</div>
-    <p className="account-note"><strong>Importante:</strong> bloquear o acesso não exclui a identidade do Firebase Authentication. Excluir definitivamente uma conta ou definir sua senha diretamente exige o Console do Firebase (Authentication → Users). Por segurança, o painel não permite criar outros administradores. Sua conta admin atual deve continuar preservada.</p>
+    <p className="account-note"><strong>Importante:</strong> bloquear o acesso não exclui a identidade do serviço de autenticação. Excluir definitivamente uma conta ou definir sua senha diretamente exige o painel administrativo do serviço de autenticação. Por segurança, o painel não permite criar outros administradores. Sua conta admin atual deve continuar preservada.</p>
   </div>;
 }

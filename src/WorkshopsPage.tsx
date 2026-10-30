@@ -5,6 +5,7 @@ import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp
 import { Building2, CheckCircle2, ClipboardList, Pencil, Phone, Plus, Search, Store, Trash2, Wrench, X } from 'lucide-react';
 import brandLogo from './assets/mb-dryfit-logo.webp';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type Service = { name: string; price: string };
@@ -44,7 +45,7 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
   useEffect(() => onSnapshot(query(collection(db, 'workshops'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
     setLoading(false);
-  }, e => { setError('Não foi possível carregar as oficinas: ' + e.message); setLoading(false); }), [db]);
+  }, e => { setError('Não foi possível carregar as oficinas: ' + safeProviderMessage(e)); setLoading(false); }), [db]);
 
   const filtered = useMemo(() => items.filter(item => !queryText.trim() || normalize([item.name,item.phone,item.notes,...item.services.flatMap(s=>[s.name,s.price])].join(' ')).includes(normalize(queryText))), [items, queryText]);
   const reset = () => { setEditing(null); setName(''); setPhone(''); setServices([{name:'',price:''}]); setNotes(''); setOpen(false); };
@@ -68,7 +69,7 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
       else await setDoc(doc(collection(db,'workshops')),{...payload,createdAt:serverTimestamp(),createdBy:user.uid});
       notify(editing ? 'Oficina atualizada.' : 'Oficina cadastrada.');
       reset();
-    } catch(e) { notify(e instanceof Error ? e.message : 'Não foi possível salvar a oficina.',true); }
+    } catch(e) { notify(safeProviderMessage(e, 'Não foi possível salvar a oficina.'),true); }
     finally { setBusy(false); }
   };
 
@@ -76,7 +77,7 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
     if (!canEdit || busy || !window.confirm(`Excluir a oficina "${item.name}"?`)) return;
     setBusy(true);
     try { await deleteDoc(doc(db,'workshops',item.id)); notify('Oficina excluída.'); }
-    catch(e) { notify(e instanceof Error ? e.message : 'Não foi possível excluir a oficina.',true); }
+    catch(e) { notify(safeProviderMessage(e, 'Não foi possível excluir a oficina.'),true); }
     finally { setBusy(false); }
   };
 

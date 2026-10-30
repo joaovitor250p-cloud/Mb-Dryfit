@@ -1,19 +1,16 @@
-# Análise de desempenho — versão 4.14
+# Análise de desempenho — versão 4.15
 
 ## Melhorias aplicadas
 
-1. **Divisão por tela:** cada área é carregada quando aberta, em vez de incluir todos os componentes no primeiro carregamento.
-2. **Planilhas sob demanda:** `xlsx` é carregado somente quando alguém escolhe importar uma planilha. Backup/Exportar também é uma tela carregada sob demanda.
-3. **Logo otimizada:** WebP com transparência, aproximadamente 76% menor que o PNG anterior.
-4. **Fotos das Amostras:** a listagem recebe a foto principal; as fotos 2 e 3 são consultadas sob demanda e apenas na OC visível.
-5. **Sem duplicação de componentes:** a raiz não contém mais cópias antigas das telas usadas em `src/`.
+1. **Carregamento por área:** cada tela é carregada quando aberta.
+2. **Planilhas sob demanda:** a biblioteca de planilhas é carregada somente quando uma importação é iniciada.
+3. **Fotos das Amostras:** as fotos 2 e 3 são consultadas sob demanda para cartões visíveis; ao abrir a galeria, o conjunto completo é entregue ao visualizador.
+4. **Visualizador:** a imagem ativa é exibida em tela cheia; controles e gestos mudam apenas o índice atual, sem buscar outras OCs.
+5. **Logo:** imagem WebP otimizada, usada também na tela animada de carregamento.
 
-## Pontos que ainda podem exigir evolução
+## Cuidados
 
-- O Catálogo ainda recebe as fotos de modelo que estão armazenadas nos documentos Firestore. Se o volume crescer bastante, uma migração planejada para Firebase Storage pode reduzir o tráfego; isso exige backup e migração controlada.
-- A lista de Amostras/Cortes ainda observa todos os documentos de `production_samples`. Se o volume aumentar muito, avaliar paginação por status/data e índices do Firestore.
-- As fotos adicionais das amostras são carregadas apenas para cartões visíveis, mas cada imagem ainda é um dado base64 no Firestore. Para volumes maiores, Storage será mais adequado.
-
-## Segurança
-
-Nenhuma regra foi aberta globalmente. Não altere as permissões apenas para tentar acelerar o sistema.
+- As galerias continuam limitadas a três imagens por OC.
+- A navegação por gesto ignora campos de formulário, botões, menus horizontais e a própria galeria de fotos para não conflitar com o uso normal.
+- As áreas continuam respeitando as permissões de cada usuário.
+- As credenciais e regras existentes foram preservadas.

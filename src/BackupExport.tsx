@@ -3,10 +3,11 @@ import { collection, getDocs, type Firestore } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { Download, FileSpreadsheet, ShieldCheck, X } from 'lucide-react';
 import type { Model } from './lib/catalog';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Fields = {name:boolean;reference:boolean;image:boolean;oc:boolean;tailor:boolean;status:boolean;date:boolean};
 type Groups = {models:boolean;cuts:boolean;users:boolean;history:boolean};
-// Documentos do Firestore incluem campos de dados dinâmicos além do ID.
+// Os registros incluem campos de dados dinâmicos além do identificador.
 // A tipagem anterior inferia apenas { id: string }, causando TS2339 no build.
 type ExportDocument = {id:string} & Record<string,unknown>;
 type Props={db:Firestore;models:Model[];admin:boolean;onClose:()=>void};
@@ -31,7 +32,7 @@ const statusText=(s:unknown)=>s==='done'||s==='store'?'PRONTO':'EM ANDAMENTO';
 const imageCell=(image:unknown, fallback:unknown)=>{
   const value=String(image||'');
   if(value.startsWith('https://'))return value;
-  if(value.startsWith('data:image/'))return 'Foto salva no Firebase — disponível no backup JSON';
+  if(value.startsWith('data:image/'))return 'Foto salva no sistema — disponível no backup JSON';
   return typeof fallback==='string'&&fallback.startsWith('https://')?fallback:'';
 };
 const choices:{key:keyof Fields;label:string}[]=[
@@ -111,7 +112,7 @@ export default function BackupExport({db,models,admin,onClose}:Props){
        XLSX.writeFile(book,`MB_REFERENCIAS_EXPORTACAO_${suffix}.xlsx`);
      }
      onClose();
-   }catch(e){setError(`Erro ao exportar: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
+   }catch(e){setError(`Erro ao exportar: ${safeProviderMessage(e)}`)}finally{setBusy(false)}
  };
  return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose()}}>
   <section className="modal modal-wide backup-export-modal" role="dialog" aria-modal="true" aria-label="Backup e exportação">
@@ -123,7 +124,7 @@ export default function BackupExport({db,models,admin,onClose}:Props){
     {admin&&<label><input type="checkbox" checked={groups.history} onChange={()=>toggleGroup('history')}/> Histórico</label>}
    </div></div>
    <div className="export-section"><strong>2. Campos da planilha</strong><div className="export-check-grid">{choices.map(item=><label key={item.key}><input type="checkbox" checked={fields[item.key]} disabled={format==='json'} onChange={()=>toggleField(item.key)}/>{item.label}</label>)}</div></div>
-   <div className="export-section"><strong>3. Formato</strong><div className="export-formats"><label><input type="radio" name="export-format" checked={format==='xlsx'} onChange={()=>setFormat('xlsx')}/><FileSpreadsheet size={18}/> Planilha Excel (.xlsx)</label><label><input type="radio" name="export-format" checked={format==='json'} onChange={()=>setFormat('json')}/><ShieldCheck size={18}/> Backup completo (.json)</label></div><p className="helper-text">O Excel exporta links das fotos. Fotos guardadas como imagem compactada no Firestore são preservadas no backup JSON. Não publique arquivos de backup que contenham dados pessoais.</p></div>
+   <div className="export-section"><strong>3. Formato</strong><div className="export-formats"><label><input type="radio" name="export-format" checked={format==='xlsx'} onChange={()=>setFormat('xlsx')}/><FileSpreadsheet size={18}/> Planilha Excel (.xlsx)</label><label><input type="radio" name="export-format" checked={format==='json'} onChange={()=>setFormat('json')}/><ShieldCheck size={18}/> Backup completo (.json)</label></div><p className="helper-text">O Excel exporta links das fotos. Fotos guardadas como imagem compactada são preservadas no backup JSON. Não publique arquivos de backup que contenham dados pessoais.</p></div>
    {error&&<div className="production-alert" role="alert">{error}</div>}
    <div className="modal-actions"><button className="outline-button" disabled={busy} onClick={onClose}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void exportNow()}><Download size={17}/>{busy?'Preparando...':`Exportar ${format==='xlsx'?'planilha':'backup'}`}</button></div>
   </section>

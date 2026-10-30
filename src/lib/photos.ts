@@ -1,4 +1,4 @@
-/** Uma única miniatura por modelo. Fotos originais não são armazenadas no Firestore. */
+/** Uma única miniatura por modelo. Fotos originais não são armazenadas no cadastro do catálogo. */
 export const PHOTO_MAX_CHARS = 90000;
 
 async function readJpegOrientation(file: File): Promise<number> {

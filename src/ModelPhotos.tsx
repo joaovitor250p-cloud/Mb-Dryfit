@@ -8,6 +8,7 @@ import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelTyp
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Props = {
   db: Firestore; user: User; canEdit: boolean; models: Model[]; loaded: boolean;
@@ -30,13 +31,13 @@ function imageLoads(url:string):Promise<boolean> {
   });
 }
 
-function readableFirestoreError(error:unknown):string {
+function readableDataError(error:unknown):string {
   const err=error as {code?:string;message?:string};
   const code=String(err?.code||'');
-  if(code.includes('permission-denied')) return 'O Firestore recusou a gravação (permission-denied). A gravação de imagem compactada foi negada. Confirme as regras PUBLICADAS de models e o perfil admin/editor. Nenhuma alteração foi feita.';
-  if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Firebase indisponível ou conexão interrompida. Confira a internet e tente novamente.';
+  if(code.includes('permission-denied')) return 'O serviço de dados recusou a gravação. Confirme as permissões do seu perfil. Nenhuma alteração foi feita.';
+  if(code.includes('unavailable')||code.includes('deadline-exceeded'))return 'Serviço de dados indisponível ou conexão interrompida. Confira a internet e tente novamente.';
   if(code.includes('unauthenticated'))return 'Seu login expirou. Entre novamente no sistema.';
-  return `Erro ${code||'inesperado'}: ${err?.message||String(error)}`;
+  return `Erro ${code||'inesperado'}: ${safeProviderMessage(err?.message||error)}`;
 }
 
 export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,onEditModel,onDeleteModel,onBackup,onBulkDeleteModels}:Props) {
@@ -68,7 +69,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
   const removeSelected=async()=>{
     if(!canEdit||busy||!selectedCards.length)return;
     const count=selectedCards.length;
-    if(!window.confirm(`Excluir ${count} modelo(s) selecionado(s)? Esta ação é definitiva, inclusive para fotos salvas no Firebase. As OCs já existentes não serão apagadas.`))return;
+    if(!window.confirm(`Excluir ${count} modelo(s) selecionado(s)? Esta ação é definitiva, inclusive para fotos salvas no sistema. As OCs já existentes não serão apagadas.`))return;
     if(window.prompt(`Para confirmar a exclusão de ${count} modelo(s), digite EXCLUIR:`)!=='EXCLUIR'){
       setMessage('Exclusão cancelada. Nenhum modelo foi apagado.');return;
     }
@@ -76,12 +77,12 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
     try{
       const deleted=await onBulkDeleteModels(selectedCards);
       setSelectedCardIds([]);setSelectionMode(false);
-      setMessage(`${deleted} modelo(s) excluído(s) do Firebase. As OCs não foram alteradas.`);
-    }catch(e){setError(e instanceof Error?e.message:'Falha na exclusão. Atualize a página para conferir o que permanece.');}
+      setMessage(`${deleted} modelo(s) excluído(s) do catálogo. As OCs não foram alteradas.`);
+    }catch(e){setError(safeProviderMessage(e, 'Falha na exclusão. Atualize a página para conferir o que permanece.'));}
     finally{setBusy(false)}
   };
   const open=(m:Model)=>{setSelected(m);setPreview(m.imageData||m.fallbackImageData||'');setMessage('');setError('');if(cameraInput.current)cameraInput.current.value='';if(galleryInput.current)galleryInput.current.value=''};
-  const upload=async(file?:File)=>{if(!file)return;setBusy(true);setError('');try{setPreview(await optimizePhoto(file))}catch(e){setError(e instanceof Error?e.message:'Erro ao abrir a foto')}finally{setBusy(false)}};
+  const upload=async(file?:File)=>{if(!file)return;setBusy(true);setError('');try{setPreview(await optimizePhoto(file))}catch(e){setError(safeProviderMessage(e, 'Erro ao abrir a foto'))}finally{setBusy(false)}};
   const save=async()=>{
     if(!selected||!canEdit)return;
     setBusy(true);setError('');
@@ -97,8 +98,8 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
         if(current!==String(selected.imageData||''))throw Error('A foto foi alterada por outra pessoa. Atualize a página.');
         tx.update(ref,{imageData:savedPhoto,updatedAt:serverTimestamp(),updatedBy:user.uid});
       });
-      setSelected(null);setMessage(preview?'Foto compactada salva no Firebase.':'Foto removida do Firebase. Se houver foto do catálogo público, ela volta a aparecer.');
-    }catch(e){setError(readableFirestoreError(e))}finally{setBusy(false)}
+      setSelected(null);setMessage(preview?'Foto compactada salva com sucesso.':'Foto removida com sucesso. Se houver foto do catálogo público, ela volta a aparecer.');
+    }catch(e){setError(readableDataError(e))}finally{setBusy(false)}
   };
   // Converte URLs públicas em imagem compactada, da mesma forma que o upload manual.
   // O navegador somente permite isso quando o servidor fornece CORS para a origem.
@@ -107,7 +108,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
     try {
       response = await fetch(url, {mode:'cors', credentials:'omit'});
     } catch {
-      throw Error('A imagem abre na página, mas o servidor não autoriza sua conversão (CORS). A foto inicial já aparece pelo catálogo; para gravar uma cópia no Firebase, envie o arquivo pelo botão Escolher foto.');
+      throw Error('A imagem abre na página, mas o servidor não autoriza sua conversão (CORS). A foto inicial já aparece pelo catálogo; para gravar uma cópia no sistema, envie o arquivo pelo botão Escolher foto.');
     }
     if(!response.ok) throw Error(`Não foi possível baixar a imagem: HTTP ${response.status}.`);
     const blob = await response.blob();
@@ -148,7 +149,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
       }).filter(r=>r.name||r.url);
       setRows(parsed);
       setReport(`Arquivo lido: ${parsed.length} linhas; ${parsed.filter(r=>r.status==='Pronto para conferir').length} correspondências por nome e REF; ${parsed.filter(r=>r.status==='Modelo não encontrado').length} não encontradas; ${parsed.filter(r=>r.status.includes('divergente')).length} divergências de REF. Nenhuma foto foi salva.`);
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível ler o arquivo.')}finally{if(mappingInput.current)mappingInput.current.value=''}
+    }catch(e){setError(safeProviderMessage(e, 'Não foi possível ler o arquivo.'))}finally{if(mappingInput.current)mappingInput.current.value=''}
   };
   const importMappings=async()=>{
     if(!rows||!canEdit||busy)return;
@@ -160,7 +161,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
     const outcomes=new Map<number,{status:string;selected:boolean;eligible:boolean}>();
     let firstError='',stopForPermissions=false;
     try {
-      // Lotes pequenos: não sobrecarregam o Firebase nem deixam o usuário aguardando
+      // Lotes pequenos: não sobrecarregam o serviço de dados nem deixam o usuário aguardando
       // centenas de requisições quando o banco estiver negando acesso.
       for(let start=0;start<ready.length;start++){
         if(stopForPermissions)break;
@@ -187,7 +188,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
           saved++;outcomes.set(index,{status:'Foto salva no modelo ✓',selected:false,eligible:false});
         }catch(e){
           failed++;
-          const detail=readableFirestoreError(e);
+          const detail=readableDataError(e);
           if(!firstError)firstError=detail;
           if(String((e as {code?:string})?.code||'').includes('permission-denied'))stopForPermissions=true;
           outcomes.set(index,{status:`Não foi salva: ${detail}`,selected:true,eligible:true});
@@ -196,7 +197,7 @@ export default function ModelPhotos({db,user,canEdit,models,loaded,onAddModel,on
         setProgress(`Processadas ${Math.min(start+1,ready.length)} de ${ready.length} · ${saved} salvas · ${failed} com erro`);
         setRows(previous=>previous?.map((r,j)=>outcomes.has(j)?{...r,...outcomes.get(j)!}:r)||null);
       }
-      setReport(`Resultado: ${saved} fotos SALVAS e confirmadas no Firestore; ${invalid} imagens inacessíveis; ${skipped} ignoradas; ${failed} falhas. ${stopForPermissions?'Importação interrompida porque o Firebase negou a gravação. ':''}${failed?'Os itens com erro continuam selecionados para uma nova tentativa.':''}`);
+      setReport(`Resultado: ${saved} fotos SALVAS e confirmadas; ${invalid} imagens inacessíveis; ${skipped} ignoradas; ${failed} falhas. ${stopForPermissions?'Importação interrompida porque o serviço de dados negou a gravação. ':''}${failed?'Os itens com erro continuam selecionados para uma nova tentativa.':''}`);
       if(firstError)setError(`Primeira falha: ${firstError}`);
       else if(saved)setMessage(`${saved} modelos receberam suas fotos. Elas aparecerão diretamente neste catálogo.`);
     }finally{setBusy(false);setProgress('')}

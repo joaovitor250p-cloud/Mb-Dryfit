@@ -7,6 +7,7 @@ import brandLogo from './assets/mb-dryfit-logo.webp';
 import { optimizePhoto } from './lib/photos';
 import PhotoLightbox from './PhotoLightbox';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { safeProviderMessage } from './lib/safeMessage';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type Expense = { id: string; name: string; amount: string; date: string; notes: string; createdBy?: string };
@@ -20,9 +21,9 @@ const RECEIPT_DOC_ID = 'receipt';
 const expenseError = (error: unknown) => {
   const e = error as { code?: string; message?: string };
   if (String(e?.code || '').includes('permission-denied') || String(e?.message || '').includes('Missing or insufficient permissions')) {
-    return 'Acesso negado pelo Firebase. Publique as regras firestore.rules desta versão e confira se seu perfil tem permissão para Gastos.';
+    return 'Acesso negado. Confira se seu perfil tem permissão para a área Gastos.';
   }
-  return e?.message || 'Não foi possível concluir a operação.';
+  return safeProviderMessage(e?.message, 'Não foi possível concluir a operação.');
 };
 
 export default function ExpensesPage({ db, user, canEdit }: Props) {
@@ -53,7 +54,7 @@ export default function ExpensesPage({ db, user, canEdit }: Props) {
   useEffect(() => onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
     setLoading(false);
-  }, e => { setError('Não foi possível carregar os gastos: ' + e.message); setLoading(false); }), [db]);
+  }, e => { setError('Não foi possível carregar os gastos: ' + safeProviderMessage(e)); setLoading(false); }), [db]);
 
   const filtered = useMemo(() => items.filter(item => !queryText.trim() || normalize([item.name, item.notes, item.date, item.amount].join(' ')).includes(normalize(queryText))), [items, queryText]);
   const total = useMemo(() => filtered.reduce((sum, item) => sum + (Number.isFinite(num(item.amount)) ? num(item.amount) : 0), 0), [filtered]);
@@ -94,7 +95,7 @@ export default function ExpensesPage({ db, user, canEdit }: Props) {
     if (!file) return;
     setBusy(true);
     try { setReceiptImage(await optimizePhoto(file, 160000)); setReceiptChanged(true); }
-    catch (e) { notify(e instanceof Error ? e.message : 'Não foi possível preparar a foto.', true); }
+    catch (e) { notify(safeProviderMessage(e, 'Não foi possível preparar a foto.'), true); }
     finally { setBusy(false); }
   };
 
