@@ -43,6 +43,87 @@ const humanDate = (raw: unknown) => {
   return d ? d.toLocaleDateString('pt-BR') : '—';
 };
 
+/**
+ * Pré-visualização em pilha das fotos da própria OC.
+ * A foto principal continua na frente; as fotos 2 e 3 são buscadas sob demanda
+ * somente quando o cartão entra na área visível da tela.
+ */
+function SamplePhotoStack({
+  db,
+  sample,
+  loadGallery,
+  onOpen,
+}: {
+  db: Firestore;
+  sample: Production;
+  loadGallery: boolean;
+  onOpen: (src: string) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
+  const updatedAt = sample.updatedAt as { seconds?: number; nanoseconds?: number } | undefined;
+  const sampleVersion = `${updatedAt?.seconds ?? ''}:${updatedAt?.nanoseconds ?? ''}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    let started = false;
+    let observer: IntersectionObserver | undefined;
+    setExtraPhotos([]);
+
+    if (!loadGallery || !sample.imageData) return;
+
+    const load = async () => {
+      if (started) return;
+      started = true;
+      try {
+        const [photo2, photo3] = await Promise.all([
+          getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_2')),
+          getDoc(doc(db, 'production_samples', sample.id, 'gallery', 'photo_3')),
+        ]);
+        if (!cancelled) {
+          const extras = [photo2, photo3]
+            .map(snapshot => snapshot.exists() ? String(snapshot.data().imageData || '') : '')
+            .filter(Boolean)
+            .slice(0, MAX_SAMPLE_PHOTOS - 1);
+          setExtraPhotos(extras);
+        }
+      } catch {
+        // A lista continua funcional com a foto principal caso a galeria esteja indisponível.
+        if (!cancelled) setExtraPhotos([]);
+      }
+    };
+
+    const node = rootRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      void load();
+      return () => { cancelled = true; };
+    }
+
+    observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        void load();
+        observer?.disconnect();
+      }
+    }, { rootMargin: '240px 0px' });
+    observer.observe(node);
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
+  }, [db, loadGallery, sample.id, sample.imageData, sampleVersion]);
+
+  const photos = [sample.imageData, ...extraPhotos].filter(Boolean).slice(0, MAX_SAMPLE_PHOTOS);
+  const hasMultiple = photos.length > 1;
+
+  return <div ref={rootRef} className={`production-photo-stack${hasMultiple ? ` has-${photos.length}-photos` : ''}`}>
+    {photos.length > 2 && <button type="button" className="sample-stack-back sample-stack-back-2" onClick={() => onOpen(photos[2])} aria-label={`Abrir terceira foto da OC ${sample.oc}`}><img src={photos[2]} alt="Terceira foto da amostra" loading="lazy" decoding="async"/></button>}
+    {photos.length > 1 && <button type="button" className="sample-stack-back sample-stack-back-1" onClick={() => onOpen(photos[1])} aria-label={`Abrir segunda foto da OC ${sample.oc}`}><img src={photos[1]} alt="Segunda foto da amostra" loading="lazy" decoding="async"/></button>}
+    {photos.length > 0 && <button type="button" className="image-zoom-trigger sample-stack-front" onClick={() => onOpen(photos[0])} aria-label={`Ampliar foto principal da OC ${sample.oc}`}><img src={photos[0]} alt={`Foto principal de ${sample.name}`} loading="lazy" decoding="async"/><span className="image-zoom-hint">Ampliar foto principal</span></button>}
+    {hasMultiple && <span className="sample-stack-count">{photos.length} fotos</span>}
+  </div>;
+}
+
 export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, models }: Props) {
   const [items, setItems] = useState<Production[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,7 +315,15 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
             galleryWrites++;
           }
         }
-        if (galleryWrites) await galleryBatch.commit();
+        if (galleryWrites) {
+          await galleryBatch.commit();
+          // Atualiza a versão do documento somente depois da galeria estar salva.
+          // Os cartões usam esse marcador para recarregar as fotos extras sem abrir a OC.
+          await updateDoc(doc(db, 'production_samples', sampleId), {
+            updatedAt: serverTimestamp(),
+            updatedBy: user.uid,
+          });
+        }
       } catch (galleryError) {
         setEditing(auditRecord);
         setPhotoError('A amostra e a foto principal foram salvas, mas não foi possível salvar a galeria. Suas fotos continuam no formulário; publique as regras de gallery e tente salvar novamente. ' + productionError(galleryError));
@@ -317,7 +406,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
     !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
     <div className="production-grid">{filtered.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>{view==='samples'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
-      <div className="production-photo">{cardImage?<button type="button" className="image-zoom-trigger" aria-label={`Ampliar foto da OC ${p.oc}`} onClick={()=>setLightbox({src:cardImage,name:p.name,reference:p.reference,oc:p.oc})}><img src={cardImage} alt={`Foto de ${p.name}`} loading="lazy" decoding="async"/><span className="image-zoom-hint">Ampliar foto</span></button>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
+      <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={view==='samples'} onOpen={src=>setLightbox({src,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
       <div className="production-details"><div className="production-oc">OC {p.oc}</div><h3>{p.name}</h3><dl><div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div><div><dt>Costureiro</dt><dd>{p.tailor}</dd></div><div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>{view === 'cuts' && p.status !== 'in_progress' && <div><dt>{'Pronto em'}</dt><dd>{humanDate(p.completedAt)}</dd></div>}</dl>
       {canEdit&&<div className="production-actions">{view==='cuts'? (p.status==='in_progress'?<button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>:<button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')} title={`Devolver OC ${p.oc} para Em andamento`}><RotateCcw size={16}/> Voltar para andamento</button>):<><button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Editar amostra e incluir fotos"><Camera size={15}/> {p.imageData ? 'Editar / fotos' : 'Adicionar fotos / editar'}</button><button className="icon-button" onClick={()=>void remove(p)} title="Excluir amostra"><Trash2 size={17}/></button></>}</div>}</div>
     </article>})}</div>}</section>

@@ -505,3 +505,19 @@ body{touch-action:auto}
 .samples-count-card span{font-size:10px}
 .samples-count-card small{font-size:9px}
 @media(max-width:800px){.samples-count-strip{margin-bottom:12px}.samples-count-card{width:190px;min-height:66px;padding:10px 12px}}
+
+
+/* 4.13 — prévia das fotos da amostra em pilha, sem esconder a foto principal */
+.production-photo-stack{position:absolute;inset:0;isolation:isolate;overflow:hidden}
+.production-photo-stack .sample-stack-back{position:absolute;display:block;padding:0;overflow:hidden;border:2px solid #fff;border-radius:9px;background:#f7f8f8;box-shadow:0 3px 10px rgba(15,35,45,.22);cursor:zoom-in}
+.production-photo-stack .sample-stack-back img{display:block;width:100%;height:100%;object-fit:contain;background:#f7f8f8}
+.production-photo-stack .sample-stack-back-2{z-index:1;inset:5px 5px 5px 17px;transform:rotate(5deg)}
+.production-photo-stack .sample-stack-back-1{z-index:2;inset:3px 9px 3px 8px;transform:rotate(2.5deg)}
+.production-photo-stack .sample-stack-front{position:absolute;z-index:3;inset:0;width:100%;height:100%;border:2px solid #fff;border-radius:8px;background:#fff;box-shadow:0 2px 9px rgba(15,35,45,.16);overflow:hidden}
+.production-photo-stack.has-2-photos .sample-stack-front{right:15px;width:calc(100% - 15px)}
+.production-photo-stack.has-3-photos .sample-stack-front{right:23px;width:calc(100% - 23px)}
+.production-photo-stack .sample-stack-front img{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
+.production-photo-stack .sample-stack-count{position:absolute;z-index:4;right:6px;bottom:6px;padding:4px 7px;border:1px solid rgba(255,255,255,.75);border-radius:20px;background:rgba(12,40,48,.82);color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;line-height:1;pointer-events:none;box-shadow:0 2px 7px rgba(0,0,0,.18)}
+.dark .production-photo-stack .sample-stack-back,.dark .production-photo-stack .sample-stack-back img{background:#26343a;border-color:#d5e0e3}
+.dark .production-photo-stack .sample-stack-front,.dark .production-photo-stack .sample-stack-front img{background:#1b282e;border-color:#d5e0e3}
+@media(max-width:540px){.production-photo-stack .sample-stack-count{right:4px;bottom:4px;padding:3px 5px;font-size:8px}.production-photo-stack .sample-stack-back-2{inset:4px 4px 4px 13px}.production-photo-stack.has-3-photos .sample-stack-front{right:19px;width:calc(100% - 19px)}}
