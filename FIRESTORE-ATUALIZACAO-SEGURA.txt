@@ -1,13 +1,22 @@
-ATENÇÃO — EXIGE AÇÃO MANUAL NO FIREBASE
+ATUALIZAÇÃO DAS REGRAS FIRESTORE — MB REFERÊNCIAS 4.9
 
-Não basta enviar o ZIP ao GitHub. O Firestore usa as regras que estão PUBLICADAS no Console do Firebase.
+Esta versão usa duas subcoleções novas:
+- production_samples/{sampleId}/photos/{photoId}
+- expenses/{expenseId}/attachments/receipt
 
-1. Faça backup das regras atuais em Firestore > Regras.
-2. Compare as regras ativas com firestore.rules deste pacote. Preserve permissões e regras personalizadas.
-3. Verifique especialmente as linhas de models: aceitar imageData HTTPS (sem liberar escrita pública), e de production_samples: permitir status store, inclusive atualizações parciais de OCs antigas.
-4. Publique o conteúdo revisado em Firebase Console > Firestore Database > Regras > Publicar.
-5. Teste uma foto e uma transição Pronto -> Foi pra loja.
+ANTES DE PUBLICAR:
+1. Abra Firebase Console > Firestore Database > Regras.
+2. Copie as regras atualmente publicadas para um arquivo de backup.
+3. Compare as regras publicadas com o arquivo firestore.rules deste pacote.
+4. Preserve regras personalizadas do seu projeto que não estejam neste arquivo.
+5. Publique as regras revisadas.
 
-As regras fornecidas exigem Authentication + user_roles e só permitem alterações a admin/editor.
-Não substitua regras de produção cegamente sem preservar regras personalizadas adicionais.
-O site agora apresenta códigos reais de erro para ajudar a verificar o motivo de qualquer recusa.
+As novas regras permitem:
+- leitura das fotos adicionais por usuários que podem visualizar Amostras ou Cortes;
+- gravação e exclusão dessas fotos somente por administrador/editor com permissão de Amostras;
+- leitura das notas fiscais por usuários que podem visualizar Gastos;
+- gravação e exclusão das notas fiscais somente por administrador/editor com permissão de Gastos.
+
+As imagens têm limites de tamanho e formatos validados. Não remova as verificações de autenticação, perfil, permissão e tamanho.
+
+Depois de publicar, teste com uma conta editor e uma conta visualizadora. Se aparecer permission-denied, confira primeiro se as regras atualizadas foram realmente publicadas e se a conta possui permissão para a área correspondente.

@@ -1,13 +1,15 @@
-# MB REFERÊNCIAS 4.7
+# MB REFERÊNCIAS 4.9
 
 Aplicação de gestão da MB com catálogo de modelos, amostras, cortes, ordens de corte, gastos, informações internas e oficinas.
 
-## Principais alterações 4.7
+## Atualização 4.9
 
-- Gastos e Informações MB com valores mais visíveis e menos repetição de nomes.
-- Removidos os botões de importação de planilhas dessas duas páginas.
-- Nova área **Oficinas**, com telefone/WhatsApp e tabela de preços por tipo de peça.
-- Melhorias de layout em celulares e zoom nativo do navegador habilitado.
-- Paleta branca e laranja e modo escuro.
+- Amostras com câmera, galeria e até três fotos por OC; a primeira permanece como principal.
+- Fotos adicionais das amostras carregadas sob demanda, em subcoleção própria.
+- Gastos com anexo opcional de nota fiscal, exibido somente ao expandir o gasto.
+- Notas fiscais armazenadas separadamente e carregadas sob demanda.
+- Catálogo de Modelos e Referências em duas colunas no celular.
+- Ajustes de renderização, imagens e histórico para reduzir trabalho e tráfego desnecessários.
+- Consulta de modelos ativa somente nas telas Catálogo, Amostras e Cortes.
 
-Leia `LEIA-PRIMEIRO-4.7.md` antes de publicar. Preserve as variáveis do Firebase e publique `firestore.rules` no projeto correto. Não inclua planilhas com dados pessoais no repositório.
+Leia `README-PTBR.md`, `ANALISE-DE-DESEMPENHO.md` e `FIRESTORE-ATUALIZACAO-SEGURA.txt` antes de publicar. Preserve as variáveis e regras personalizadas do Firebase; as novas subcoleções exigem a publicação das regras atualizadas.

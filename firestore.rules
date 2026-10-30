@@ -377,6 +377,39 @@ service cloud.firestore {
       );
 
       allow delete: if canWrite('samples');
+
+      // Fotos adicionais ficam separadas do documento principal para não
+      // serem baixadas em cada atualização da lista de Amostras/Cortes.
+      match /photos/{photoId} {
+        allow get, list: if canView('samples') || canView('cuts');
+
+        allow create, update: if canWrite('samples')
+          && existsAfter(/databases/$(database)/documents/production_samples/$(sampleId))
+          && photoId in ['photo_1', 'photo_2']
+          && request.resource.data.keys().hasOnly([
+            'imageData', 'position', 'updatedAt', 'updatedBy'
+          ])
+          && request.resource.data.keys().hasAll([
+            'imageData', 'position', 'updatedAt', 'updatedBy'
+          ])
+          && request.resource.data.imageData is string
+          && request.resource.data.imageData.size() > 0
+          && request.resource.data.imageData.size() <= 200000
+          && (
+            request.resource.data.imageData.matches('data:image/webp;base64,.*')
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+          )
+          && request.resource.data.position is int
+          && (
+            (photoId == 'photo_1' && request.resource.data.position == 1)
+            || (photoId == 'photo_2' && request.resource.data.position == 2)
+          )
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if canWrite('samples')
+          && photoId in ['photo_1', 'photo_2'];
+      }
     }
 
     // ==========================================
@@ -525,6 +558,29 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if canWrite('expenses');
+
+      // A nota fiscal é carregada somente quando alguém abre os detalhes do gasto.
+      match /attachments/{attachmentId} {
+        allow get: if attachmentId == 'receipt' && canView('expenses');
+        allow list: if false;
+
+        allow create, update: if attachmentId == 'receipt'
+          && canWrite('expenses')
+          && existsAfter(/databases/$(database)/documents/expenses/$(expenseId))
+          && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.imageData is string
+          && request.resource.data.imageData.size() > 0
+          && request.resource.data.imageData.size() <= 160000
+          && (
+            request.resource.data.imageData.matches('data:image/webp;base64,.*')
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+          )
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if attachmentId == 'receipt' && canWrite('expenses');
+      }
     }
 
     // INFORMACOES MB — campos compatíveis com InfoPage.tsx
