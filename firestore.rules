@@ -1,0 +1,681 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function rolePath() {
+      return /databases/$(database)/documents/user_roles/$(request.auth.uid);
+    }
+
+    function authorized() {
+      return signedIn()
+        && exists(rolePath())
+        && get(rolePath()).data.get('disabled', false) != true;
+    }
+
+    function myRole() {
+      return get(rolePath()).data.role;
+    }
+
+    function isAdmin() {
+      return authorized() && myRole() == 'admin';
+    }
+
+    function canEdit() {
+      return authorized()
+        && (myRole() == 'admin' || myRole() == 'editor');
+    }
+
+    function canView(area) {
+      return authorized()
+        && (
+          isAdmin()
+          || (
+            'permissions' in get(rolePath()).data
+            && get(rolePath()).data.permissions is list
+            && area in get(rolePath()).data.permissions
+          )
+          || (
+            !('permissions' in get(rolePath()).data)
+            && area in ['catalog', 'samples', 'cuts', 'orders']
+          )
+        );
+    }
+
+    function canWrite(area) {
+      return canEdit() && canView(area);
+    }
+
+    function validSections(sections) {
+      return sections is list
+        && sections.size() >= 1
+        && sections.size() <= 7
+        && sections.hasOnly([
+          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops'
+        ]);
+    }
+
+    function validGrant() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'email',
+          'role',
+          'permissions',
+          'disabled',
+          'approvedAt',
+          'approvedBy'
+        ])
+        && data.keys().hasAll([
+          'email',
+          'role',
+          'permissions',
+          'disabled',
+          'approvedAt',
+          'approvedBy'
+        ])
+        && data.email is string
+        && data.email.size() <= 320
+        && data.role in ['viewer', 'editor']
+        && validSections(data.permissions)
+        && data.disabled == false
+        && data.approvedBy == request.auth.uid
+        && data.approvedAt == request.time;
+    }
+
+    function validRoleUpdate() {
+      let next = request.resource.data;
+      let changed = next.diff(resource.data).affectedKeys();
+
+      return changed.hasOnly([
+          'role',
+          'permissions',
+          'disabled',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && next.role in ['viewer', 'editor']
+        && validSections(
+          next.get('permissions', ['catalog', 'samples', 'cuts', 'orders'])
+        )
+        && next.get('disabled', false) is bool
+        && next.updatedBy == request.auth.uid
+        && next.updatedAt == request.time;
+    }
+
+    match /access_requests/{uid} {
+
+      allow get: if signedIn()
+        && (request.auth.uid == uid || isAdmin());
+
+      allow list: if isAdmin();
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly([
+          'email', 'status', 'requestedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'email', 'status', 'requestedAt'
+        ])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedAt == request.time;
+
+      allow update: if (
+
+        signedIn()
+        && uid == request.auth.uid
+        && request.auth.token.email_verified == true
+        && resource.data.email == request.auth.token.email
+        && resource.data.status == 'denied'
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['status', 'requestedAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedAt == request.time
+
+      ) || (
+
+        isAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['status', 'reviewedAt', 'reviewedBy'])
+        && request.resource.data.status in ['approved', 'denied']
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+      );
+
+      allow delete: if false;
+    }
+
+    match /user_roles/{uid} {
+
+      allow get: if signedIn()
+        && (request.auth.uid == uid || isAdmin());
+
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && uid != request.auth.uid
+        && exists(
+          /databases/$(database)/documents/access_requests/$(uid)
+        )
+        && get(
+          /databases/$(database)/documents/access_requests/$(uid)
+        ).data.status == 'pending'
+        && request.resource.data.email == get(
+          /databases/$(database)/documents/access_requests/$(uid)
+        ).data.email
+        && validGrant();
+
+      allow update: if isAdmin()
+        && uid != request.auth.uid
+        && resource.data.role != 'admin'
+        && validRoleUpdate();
+
+      allow delete: if false;
+    }
+
+    function validPhotoValue(value) {
+      return value is string
+        && value.size() <= 90000
+        && (
+          value == ''
+          || value.matches('https://.+')
+          || value.matches('data:image/webp;base64,.*')
+          || value.matches('data:image/jpeg;base64,.*')
+        );
+    }
+
+    function validModel() {
+      let data = request.resource.data;
+
+      return data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 250
+        && data.reference is string
+        && data.reference.size() <= 200
+        && data.get('pendingReview', false) is bool
+        && data.updatedBy == request.auth.uid
+        && validPhotoValue(data.get('imageData', ''));
+    }
+
+    function validPhotoOnlyUpdate() {
+      let changed = request.resource.data.diff(resource.data)
+        .affectedKeys();
+
+      return changed.hasOnly([
+          'imageData', 'updatedAt', 'updatedBy'
+        ])
+        && changed.hasAny(['imageData'])
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && validPhotoValue(request.resource.data.imageData);
+    }
+
+    match /models/{modelId} {
+
+      allow get, list: if canView('catalog')
+        || canView('samples')
+        || canView('cuts');
+
+      allow create: if canWrite('catalog')
+        && validModel();
+
+      allow update: if canWrite('catalog')
+        && (
+          validPhotoOnlyUpdate()
+          || validModel()
+        );
+
+      allow delete: if canWrite('catalog');
+    }
+
+    function validProductionPhoto(value) {
+      return value is string
+        && value.size() <= 200000
+        && (
+          value == ''
+          || value.matches('data:image/webp;base64,.*')
+          || value.matches('data:image/jpeg;base64,.*')
+          || value.matches('https://.+')
+        );
+    }
+
+    function validProductionExtraImages(data) {
+      let photos = data.get('extraImages', []);
+      return photos is list
+        && photos.size() <= 2
+        && (photos.size() < 1 || (
+          photos[0] is string
+          && photos[0].size() > 0
+          && validProductionPhoto(photos[0])
+        ))
+        && (photos.size() < 2 || (
+          photos[1] is string
+          && photos[1].size() > 0
+          && validProductionPhoto(photos[1])
+        ));
+    }
+
+    function validProduction() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'oc',
+          'name',
+          'reference',
+          'tailor',
+          'imageData',
+          'extraImages',
+          'status',
+          'createdAt',
+          'createdBy',
+          'updatedAt',
+          'updatedBy',
+          'completedAt',
+          'completedBy'
+        ])
+        && data.keys().hasAll([
+          'oc',
+          'name',
+          'reference',
+          'tailor',
+          'imageData',
+          'status',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && data.oc is string
+        && data.oc.size() > 0
+        && data.oc.size() <= 80
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 250
+        && data.reference is string
+        && data.reference.size() <= 200
+        && data.tailor is string
+        && data.tailor.size() > 0
+        && data.tailor.size() <= 120
+        && validProductionPhoto(data.imageData)
+        && validProductionExtraImages(data)
+        && data.status in ['in_progress', 'done', 'store']
+        && data.updatedBy == request.auth.uid
+        && data.updatedAt == request.time
+        && (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp)
+        && (!('createdBy' in data) || data.createdBy is string)
+        && (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp)
+        && (!('completedBy' in data) || data.completedBy == null || data.completedBy is string);
+    }
+
+    function validStatusOnlyUpdate() {
+      let changed = request.resource.data.diff(resource.data)
+        .affectedKeys();
+
+      let next = request.resource.data;
+
+      return changed.hasOnly([
+          'status',
+          'completedAt',
+          'completedBy',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && changed.hasAny(['status'])
+        && next.status in ['in_progress', 'done']
+        && (
+          (
+            resource.data.status == 'in_progress'
+            && next.status == 'done'
+          )
+          || (
+            resource.data.status in ['done', 'store']
+            && next.status == 'in_progress'
+          )
+        )
+        && next.updatedBy == request.auth.uid
+        && next.updatedAt == request.time
+        && (
+          !changed.hasAny(['completedAt'])
+          || next.get('completedAt', null) == null
+          || next.get('completedAt', null) is timestamp
+        )
+        && (
+          !changed.hasAny(['completedBy'])
+          || next.get('completedBy', null) == null
+          || next.get('completedBy', null) is string
+        );
+    }
+
+    match /production_samples/{sampleId} {
+
+      allow get, list: if canView('samples')
+        || canView('cuts');
+
+      allow create: if canWrite('samples')
+        && validProduction()
+        && !('extraImages' in request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'in_progress';
+
+      allow update: if (
+
+        canWrite('cuts')
+        && validStatusOnlyUpdate()
+
+      ) || (
+
+        canWrite('samples')
+        && validProduction()
+        && (!('extraImages' in request.resource.data) || ('extraImages' in resource.data))
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.status == resource.data.status
+      );
+
+      allow delete: if canWrite('samples');
+
+      match /gallery/{photoId} {
+        allow get: if photoId in ['photo_2', 'photo_3'] && canView('samples');
+        allow list: if false;
+
+        allow create, update: if photoId in ['photo_2', 'photo_3']
+          && canWrite('samples')
+          && exists(/databases/$(database)/documents/production_samples/$(sampleId))
+          && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.imageData is string
+          && request.resource.data.imageData.size() > 0
+          && request.resource.data.imageData.size() <= 200000
+          && (
+            request.resource.data.imageData.matches('data:image/webp;base64,.*')
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+          )
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if photoId in ['photo_2', 'photo_3'] && canWrite('samples');
+      }
+
+      match /photos/{photoId} {
+        allow get, list, create, update: if false;
+        allow delete: if canWrite('samples') && photoId in ['photo_1', 'photo_2'];
+      }
+    }
+
+    function validCutOrder() {
+      let d = request.resource.data;
+
+      return d.keys().hasOnly([
+          'oc','ref','model','office','qty','piecePrice',
+          'entry','sent','due','status','deliveredFlag',
+          'deliveredAt','defects','discountPiece',
+          'discountTotal','total','paidAt','paymentDone',
+          'manualTotal','source',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && d.keys().hasAll([
+          'oc','ref','model','office','qty','piecePrice',
+          'entry','sent','due','status','deliveredFlag',
+          'deliveredAt','defects','discountPiece',
+          'discountTotal','total','paidAt','paymentDone',
+          'manualTotal','source',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && d.oc is string
+        && d.oc.size() > 0
+        && d.oc.size() <= 80
+
+        && d.model is string
+        && d.model.size() > 0
+        && d.model.size() <= 250
+
+        && d.ref is string
+        && d.ref.size() <= 100
+
+        && d.office is string
+        && d.office.size() <= 120
+
+        && d.qty is string
+        && d.qty.size() <= 30
+
+        && d.piecePrice is string
+        && d.piecePrice.size() <= 80
+
+        && d.entry is string
+        && d.entry.size() <= 30
+
+        && d.sent is string
+        && d.sent.size() <= 30
+
+        && d.due is string
+        && d.due.size() <= 30
+
+        && d.deliveredFlag is string
+        && d.deliveredFlag.size() <= 30
+
+        && d.deliveredAt is string
+        && d.deliveredAt.size() <= 30
+
+        && d.defects is string
+        && d.defects.size() <= 30
+
+        && d.discountPiece is string
+        && d.discountPiece.size() <= 80
+
+        && d.discountTotal is string
+        && d.discountTotal.size() <= 80
+
+        && d.total is string
+        && d.total.size() <= 80
+
+        && d.paidAt is string
+        && d.paidAt.size() <= 30
+
+        && d.paymentDone in ['OK', '']
+
+        && d.status in ['ENTREGUE', 'EM ANDAMENTO']
+
+        && d.manualTotal is bool
+
+        && d.source in ['manual', 'planilha_original']
+
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time
+
+        && d.createdBy is string;
+    }
+
+    match /cut_orders/{orderId} {
+
+      allow get, list: if canView('orders');
+
+      allow create: if canWrite('orders')
+        && validCutOrder()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if canWrite('orders')
+        && validCutOrder()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.source == resource.data.source;
+
+      allow delete: if isAdmin();
+    }
+
+    function validExpense() {
+      let d = request.resource.data;
+
+      return d.keys().hasOnly([
+          'name', 'amount', 'date', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.keys().hasAll([
+          'name', 'amount', 'date', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() <= 250
+        && d.amount is string
+        && d.amount.size() > 0
+        && d.amount.size() <= 80
+        && d.date is string
+        && d.date.size() <= 20
+        && d.notes is string
+        && d.notes.size() <= 1000
+        && d.createdBy is string
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    match /expenses/{expenseId} {
+      allow get, list: if canView('expenses');
+
+      allow create: if canWrite('expenses')
+        && validExpense()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if canWrite('expenses')
+        && validExpense()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if canWrite('expenses');
+
+      match /attachments/{attachmentId} {
+        allow get: if attachmentId == 'receipt' && canView('expenses');
+        allow list: if false;
+
+        allow create, update: if attachmentId == 'receipt'
+          && canWrite('expenses')
+          && exists(/databases/$(database)/documents/expenses/$(expenseId))
+          && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.imageData is string
+          && request.resource.data.imageData.size() > 0
+          && request.resource.data.imageData.size() <= 160000
+          && (
+            request.resource.data.imageData.matches('data:image/webp;base64,.*')
+            || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
+          )
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if attachmentId == 'receipt' && canWrite('expenses');
+      }
+    }
+
+    function validMbInfo() {
+      let d = request.resource.data;
+
+      return d.keys().hasOnly([
+          'name', 'value', 'pix', 'pixName', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.keys().hasAll([
+          'name', 'value', 'pix', 'pixName', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() <= 250
+        && d.value is string
+        && d.value.size() <= 120
+        && d.pix is string
+        && d.pix.size() <= 200
+        && d.pixName is string
+        && d.pixName.size() <= 250
+        && d.notes is string
+        && d.notes.size() <= 1000
+        && d.createdBy is string
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    match /mb_info/{infoId} {
+      allow get, list: if canView('info');
+
+      allow create: if canWrite('info')
+        && validMbInfo()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if canWrite('info')
+        && validMbInfo()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if canWrite('info');
+    }
+
+    function validWorkshop() {
+      let d = request.resource.data;
+
+      return d.keys().hasOnly([
+          'name', 'phone', 'services', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.keys().hasAll([
+          'name', 'phone', 'services', 'notes',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+        ])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() <= 250
+        && d.phone is string
+        && d.phone.size() <= 60
+        && d.services is list
+        && d.services.size() <= 50
+        && d.notes is string
+        && d.notes.size() <= 1000
+        && d.createdBy is string
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    match /workshops/{workshopId} {
+      allow get, list: if canView('workshops');
+
+      allow create: if canWrite('workshops')
+        && validWorkshop()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if canWrite('workshops')
+        && validWorkshop()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if canWrite('workshops');
+    }
+
+    match /audit_log/{entryId} {
+
+      allow get, list: if isAdmin();
+
+      allow create: if canEdit()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.at == request.time
+        && request.resource.data.action is string
+        && request.resource.data.modelName is string;
+
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
