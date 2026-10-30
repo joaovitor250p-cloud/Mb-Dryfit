@@ -259,6 +259,14 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
           user-select: none; -webkit-user-drag: none; transform-origin: center center;
           will-change: transform;
         }
+        /* Desktop/notebook: deixa uma margem maior para a foto respirar.
+           O celular mantém o dimensionamento original já validado. */
+        @media (min-width: 701px) {
+          .mb-photo-viewer__image {
+            max-width: min(calc(100% - 140px), 1180px);
+            max-height: 84%;
+          }
+        }
         .mb-photo-viewer__message {
           position: absolute; z-index: 2; inset: 0; display: grid; place-items: center;
           padding: 24px; color: #dbe5eb; text-align: center; font-size: 14px;
