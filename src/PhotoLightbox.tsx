@@ -191,17 +191,13 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
   };
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (event.ctrlKey || event.metaKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      zoomBy(Math.exp(-event.deltaY * 0.008));
-      return;
-    }
+    // A roda comum não altera o zoom nem recentraliza a imagem.
+    // Ctrl + roda (ou pinça no touchpad) continua sendo o gesto de zoom.
+    if (!event.ctrlKey && !event.metaKey) return;
 
-    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
-      event.preventDefault();
-      zoomBy(Math.exp(-event.deltaY * 0.0015));
-    }
+    event.preventDefault();
+    event.stopPropagation();
+    zoomBy(Math.exp(-event.deltaY * 0.008));
   };
 
   return createPortal(
@@ -259,11 +255,11 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
           user-select: none; -webkit-user-drag: none; transform-origin: center center;
           will-change: transform;
         }
-        /* Desktop/notebook: deixa uma margem maior para a foto respirar.
-           O celular mantém o dimensionamento original já validado. */
+        /* Desktop/notebook: usa melhor a área disponível sem cortar a foto.
+           As setas continuam com espaço lateral e o celular mantém seu layout. */
         @media (min-width: 701px) {
           .mb-photo-viewer__image {
-            max-width: min(94%, 1400px);
+            max-width: min(calc(100% - 140px), 1400px);
             max-height: 88%;
           }
         }
@@ -408,7 +404,7 @@ export default function PhotoLightbox({ src, images, initialIndex = 0, title, de
             <button type="button" className="mb-photo-viewer__control" onClick={() => zoomBy(1.2)} disabled={zoom >= 4.99} title="Aumentar zoom" aria-label="Aumentar zoom"><Plus size={18} /></button>
             {currentSrc && <a className="mb-photo-viewer__control" href={currentSrc} target="_blank" rel="noreferrer" title="Abrir imagem em nova guia"><ExternalLink size={17} /><span>Abrir original</span></a>}
           </div>
-          <span className="mb-photo-viewer__hint">Mouse: roda ou botões · Celular: pinça para ampliar · Arraste para mover ou trocar foto</span>
+          <span className="mb-photo-viewer__hint">Mouse: Ctrl + roda ou botões · Celular: pinça para ampliar · Arraste para mover ou trocar foto</span>
         </footer>
       </div>
     </>,
