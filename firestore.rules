@@ -259,6 +259,33 @@ service cloud.firestore {
 
     // AMOSTRAS E CORTES
 
+    function validProductionPhoto(value) {
+      return value is string
+        && value.size() <= 200000
+        && (
+          value == ''
+          || value.matches('data:image/webp;base64,.*')
+          || value.matches('data:image/jpeg;base64,.*')
+          || value.matches('https://.+')
+        );
+    }
+
+    function validProductionExtraImages(data) {
+      let photos = data.get('extraImages', []);
+      return photos is list
+        && photos.size() <= 2
+        && (photos.size() < 1 || (
+          photos[0] is string
+          && photos[0].size() > 0
+          && validProductionPhoto(photos[0])
+        ))
+        && (photos.size() < 2 || (
+          photos[1] is string
+          && photos[1].size() > 0
+          && validProductionPhoto(photos[1])
+        ));
+    }
+
     function validProduction() {
       let data = request.resource.data;
 
@@ -268,6 +295,7 @@ service cloud.firestore {
           'reference',
           'tailor',
           'imageData',
+          'extraImages',
           'status',
           'createdAt',
           'createdBy',
@@ -283,12 +311,8 @@ service cloud.firestore {
           'tailor',
           'imageData',
           'status',
-          'createdAt',
-          'createdBy',
           'updatedAt',
-          'updatedBy',
-          'completedAt',
-          'completedBy'
+          'updatedBy'
         ])
         && data.oc is string
         && data.oc.size() > 0
@@ -301,16 +325,15 @@ service cloud.firestore {
         && data.tailor is string
         && data.tailor.size() > 0
         && data.tailor.size() <= 120
-        && data.imageData is string
-        && data.imageData.size() <= 200000
-        && (
-          data.imageData == ''
-          || data.imageData.matches('data:image/webp;base64,.*')
-          || data.imageData.matches('data:image/jpeg;base64,.*')
-          || data.imageData.matches('https://.+')
-        )
+        && validProductionPhoto(data.imageData)
+        && validProductionExtraImages(data)
         && data.status in ['in_progress', 'done', 'store']
-        && data.updatedBy == request.auth.uid;
+        && data.updatedBy == request.auth.uid
+        && data.updatedAt == request.time
+        && (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp)
+        && (!('createdBy' in data) || data.createdBy is string)
+        && (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp)
+        && (!('completedBy' in data) || data.completedBy == null || data.completedBy is string);
     }
 
     function validStatusOnlyUpdate() {
@@ -359,7 +382,9 @@ service cloud.firestore {
 
       allow create: if canWrite('samples')
         && validProduction()
+        && !('extraImages' in request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
         && request.resource.data.status == 'in_progress';
 
       allow update: if (
@@ -371,27 +396,26 @@ service cloud.firestore {
 
         canWrite('samples')
         && validProduction()
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt
+        && (!('extraImages' in request.resource.data) || ('extraImages' in resource.data))
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.status == resource.data.status
       );
 
       allow delete: if canWrite('samples');
 
-      // Fotos adicionais ficam separadas do documento principal para não
-      // serem baixadas em cada atualização da lista de Amostras/Cortes.
-      match /photos/{photoId} {
-        allow get, list: if canView('samples') || canView('cuts');
+      // Galeria nova: fotos adicionais pertencem exclusivamente a esta OC.
+      // O app lê apenas photo_2 e photo_3 quando a própria amostra é aberta;
+      // não existe consulta geral nem leitura de fotos de outras OCs.
+      match /gallery/{photoId} {
+        allow get: if photoId in ['photo_2', 'photo_3'] && canView('samples');
+        allow list: if false;
 
-        allow create, update: if canWrite('samples')
-          && existsAfter(/databases/$(database)/documents/production_samples/$(sampleId))
-          && photoId in ['photo_1', 'photo_2']
-          && request.resource.data.keys().hasOnly([
-            'imageData', 'position', 'updatedAt', 'updatedBy'
-          ])
-          && request.resource.data.keys().hasAll([
-            'imageData', 'position', 'updatedAt', 'updatedBy'
-          ])
+        allow create, update: if photoId in ['photo_2', 'photo_3']
+          && canWrite('samples')
+          && exists(/databases/$(database)/documents/production_samples/$(sampleId))
+          && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
           && request.resource.data.imageData is string
           && request.resource.data.imageData.size() > 0
           && request.resource.data.imageData.size() <= 200000
@@ -399,16 +423,17 @@ service cloud.firestore {
             request.resource.data.imageData.matches('data:image/webp;base64,.*')
             || request.resource.data.imageData.matches('data:image/jpeg;base64,.*')
           )
-          && request.resource.data.position is int
-          && (
-            (photoId == 'photo_1' && request.resource.data.position == 1)
-            || (photoId == 'photo_2' && request.resource.data.position == 2)
-          )
           && request.resource.data.updatedBy == request.auth.uid
           && request.resource.data.updatedAt == request.time;
 
-        allow delete: if canWrite('samples')
-          && photoId in ['photo_1', 'photo_2'];
+        allow delete: if photoId in ['photo_2', 'photo_3'] && canWrite('samples');
+      }
+
+      // Compatibilidade de limpeza: remove IDs conhecidos da galeria antiga
+      // sem permitir leitura ou gravação de novas fotos nessa subcoleção.
+      match /photos/{photoId} {
+        allow get, list, create, update: if false;
+        allow delete: if canWrite('samples') && photoId in ['photo_1', 'photo_2'];
       }
     }
 
@@ -566,7 +591,7 @@ service cloud.firestore {
 
         allow create, update: if attachmentId == 'receipt'
           && canWrite('expenses')
-          && existsAfter(/databases/$(database)/documents/expenses/$(expenseId))
+          && exists(/databases/$(database)/documents/expenses/$(expenseId))
           && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
           && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
           && request.resource.data.imageData is string

@@ -6,7 +6,7 @@ import CutOrders from './CutOrders';
 import ExpensesPage from './ExpensesPage';
 import InfoPage from './InfoPage';
 import WorkshopsPage from './WorkshopsPage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, serverTimestamp, type DocumentData } from 'firebase/firestore';
@@ -43,6 +43,7 @@ export default function App(){
  const [dark,setDark]=useState(false),[search,setSearch]=useState(''),[filter,setFilter]=useState<'all'|'with'|'without'|'pending'>('all'),[sort,setSort]=useState<'reference'|'name'>('reference');
  const [modal,setModal]=useState<Mode>(null),[editing,setEditing]=useState<Model|null>(null),[name,setName]=useState(''),[reference,setReference]=useState(''),[pending,setPending]=useState(false),[busy,setBusy]=useState(false);
  const [modelPhoto,setModelPhoto]=useState(''),[modelPhotoChanged,setModelPhotoChanged]=useState(false),[modelPhotoBusy,setModelPhotoBusy]=useState(false),[modelPhotoError,setModelPhotoError]=useState('');
+ const modelCameraInput=useRef<HTMLInputElement>(null),modelGalleryInput=useRef<HTMLInputElement>(null);
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
@@ -90,7 +91,7 @@ export default function App(){
    notify('Solicitação de acesso enviada. Aguarde o administrador.');
  }catch(e){notify('Não foi possível solicitar acesso: '+safeError(e),true)}finally{setBusy(false)}};
  const resendVerification=async()=>{if(!auth?.currentUser)return;setBusy(true);notify('');try{await sendEmailVerification(auth.currentUser);notify('Enviamos outro e-mail de confirmação. Confira a caixa de entrada e spam.')}catch(e){notify('Falha ao enviar confirmação: '+safeError(e),true)}finally{setBusy(false)}};
- const resetModal=()=>{setModal(null);setEditing(null);setPreview([]);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('')};
+ const resetModal=()=>{setModal(null);setEditing(null);setPreview([]);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');if(modelCameraInput.current)modelCameraInput.current.value='';if(modelGalleryInput.current)modelGalleryInput.current.value=''};
  const add=()=>{setEditing(null);setName('');setReference('');setPending(false);setModelPhoto('');setModelPhotoChanged(false);setModelPhotoError('');setModal('add')};
  const edit=(m:Model)=>{setEditing(m);setName(m.name);setReference(m.reference);setPending(!!m.pendingReview);setModelPhoto(m.imageData||'');setModelPhotoChanged(false);setModelPhotoError('');setModal('edit')};
  const chooseModelPhoto=async(file?:File)=>{if(!file)return;setModelPhotoBusy(true);setModelPhotoError('');try{const result=await optimizePhoto(file);setModelPhoto(result);setModelPhotoChanged(true)}catch(e){setModelPhotoError(safeError(e))}finally{setModelPhotoBusy(false)}};
@@ -173,11 +174,16 @@ export default function App(){
       <div className="new-model-photo-section">
         <span className="new-model-photo-title"><ImagePlus size={17}/> Foto do modelo (opcional)</span>
         <div className="new-model-photo-preview">{(modelPhoto||(!modelPhotoChanged&&editing?.fallbackImageData))?<img src={modelPhoto||editing?.fallbackImageData} alt="Prévia da foto do modelo"/>:<div className="new-model-photo-empty"><ImagePlus size={30}/><span>Escolha uma foto da peça</span></div>}</div>
-        <label className="new-model-photo-chooser">Selecionar foto do aparelho<input type="file" accept="image/jpeg,image/png,image/webp,image/*" disabled={modelPhotoBusy||busy} onChange={e=>{void chooseModelPhoto(e.target.files?.[0]);e.currentTarget.value=''}}/></label>
+        <div className="sample-photo-choices model-photo-choices">
+          <button type="button" className="outline-button" disabled={modelPhotoBusy||busy} onClick={()=>modelCameraInput.current?.click()}><Camera size={16}/> Câmera</button>
+          <button type="button" className="outline-button" disabled={modelPhotoBusy||busy} onClick={()=>modelGalleryInput.current?.click()}><ImagePlus size={16}/> Galeria</button>
+        </div>
+        <input ref={modelCameraInput} type="file" accept="image/*" capture="environment" hidden disabled={modelPhotoBusy||busy} onChange={e=>{void chooseModelPhoto(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/>
+        <input ref={modelGalleryInput} type="file" accept="image/*" hidden disabled={modelPhotoBusy||busy} onChange={e=>{void chooseModelPhoto(e.currentTarget.files?.[0]);e.currentTarget.value=''}}/>
         {modelPhotoBusy&&<small>Otimizando a imagem para salvar no Firebase...</small>}
         {modelPhotoError&&<div className="production-alert" role="alert">{modelPhotoError}</div>}
         {modelPhoto&&<button type="button" className="outline-button" disabled={modelPhotoBusy||busy} onClick={()=>{setModelPhoto('');setModelPhotoChanged(true)}}><Trash2 size={15}/> Remover foto selecionada</button>}
-        <small>Uma foto por modelo. A imagem é compactada e salva com o cadastro, sem alterar os outros modelos.</small>
+        <small>Use a câmera para fotografar a peça ou a galeria para escolher uma imagem. Uma foto principal por modelo; a imagem é compactada antes de salvar.</small>
       </div>
       <label className="check-row"><input type="checkbox" checked={pending} onChange={e=>setPending(e.target.checked)}/> Pendente de conferência</label>
       <div className="modal-actions"><button type="button" className="outline-button" onClick={resetModal}>Cancelar</button><button className="primary-button" disabled={busy||modelPhotoBusy}>{modelPhotoBusy?'Preparando foto...':busy?'Salvando…':'Salvar modelo'}</button></div></form></>}

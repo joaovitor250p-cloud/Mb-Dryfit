@@ -486,3 +486,13 @@ body{touch-action:auto}
   .sample-gallery-thumb{padding:3px}
   .sample-gallery-thumb span{font-size:8px}
 }
+
+/* Cartão compacto de contagem na tela de Amostras */
+.samples-count-strip{display:flex;justify-content:flex-start;margin:0 0 14px}
+.samples-count-card{width:min(100%,220px);min-height:72px;padding:12px 14px;gap:11px}
+.samples-count-card .stat-icon{width:38px;height:38px;border-radius:11px}
+.samples-count-card .stat-icon svg{width:19px;height:19px}
+.samples-count-card strong{font-size:22px;margin:2px 0}
+.samples-count-card span{font-size:10px}
+.samples-count-card small{font-size:9px}
+@media(max-width:800px){.samples-count-strip{margin-bottom:12px}.samples-count-card{width:190px;min-height:66px;padding:10px 12px}}

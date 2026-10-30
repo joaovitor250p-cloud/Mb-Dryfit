@@ -1,37 +1,41 @@
-# MB REFERÊNCIAS — análise de desempenho e alterações 4.9
+# MB REFERENCIAS — análise de desempenho e alterações 4.11
 
-## Problemas confirmados no código recebido
+## Diagnóstico do projeto
 
-1. **Grade do catálogo no celular:** havia uma regra `@media(max-width:900px)` posterior que aplicava `grid-template-columns: 1fr !important` a todo `.production-grid`. Como o catálogo de Modelos e Referências também usa essa classe, a regra anulava a grade de duas colunas.
-2. **Consultas repetidas no render das amostras:** cada cartão procurava o modelo correspondente repetidamente em `models.find(...)` para resolver a foto de fallback.
-3. **Dados de imagens nas listas:** as fotos principais das amostras ficam no próprio documento `production_samples`, portanto chegam junto com o snapshot da coleção. Antes, não havia um local separado para fotos adicionais. O `App.tsx` também mantinha o snapshot de todos os modelos ativo até mesmo em telas como Gastos, Informações e Oficinas.
-4. **Gastos:** a lista recebia os campos de texto e não tinha uma separação própria para comprovantes. Guardar a imagem no documento principal faria cada snapshot transportar o conteúdo da nota fiscal mesmo quando ninguém a estivesse vendo.
-5. **Renderização:** contadores e seleções derivados eram recalculados em cada renderização de algumas telas, e os cartões de gastos aplicavam uma animação de entrada em todos os itens.
-6. **Limite estrutural que permanece:** `App.tsx` ainda observa toda a coleção `models`, cujos documentos atuais podem conter `imageData` em base64. Firestore não oferece seleção parcial de campos em consultas comuns; por isso, enquanto as fotos antigas dos modelos permanecerem nesses documentos, o carregamento inicial do catálogo continuará trazendo esse conteúdo.
+1. **Catálogo no celular:** a grade do catálogo foi ajustada para duas colunas sem forçar Amostras e Cortes a usar o mesmo layout compacto.
+2. **Modelos:** as fotos continuam no campo `imageData` dos documentos `models`. Enquanto isso permanecer assim, a consulta da coleção de modelos traz as fotos junto com os dados do catálogo. A migração para Firebase Storage pode reduzir esse tráfego, mas precisa ser feita separadamente com backup.
+3. **Amostras:** antes, as fotos adicionais estavam no campo `extraImages` do documento principal, que é recebido no snapshot de todas as OCs. A versão 4.11 mantém a foto principal no documento e move as fotos 2/3 para uma subcoleção por OC, carregada somente quando a pessoa abre aquela amostra.
+4. **Fotos inesperadas:** a versão 4.11 não lê a antiga subcoleção `production_samples/{id}/photos` nem exibe o campo legado `extraImages`. Assim, fotos antigas de origem incerta não aparecem automaticamente. Os dados legados não são apagados.
+5. **Gastos:** notas fiscais ficam em `expenses/{id}/attachments/receipt`; a lista de gastos não baixa imagens e só consulta a nota quando o cartão é expandido.
+6. **Telas que não precisam do catálogo:** o snapshot de `models` é encerrado em Gastos, Informações, Oficinas e Ordem de Corte.
+7. **Listas e imagens:** imagens de cartões usam carregamento tardio e decodificação assíncrona; contadores e seleções derivados usam memoização onde apropriado.
 
-## Alterações feitas nesta versão
+## Alterações da versão 4.11
 
-- O catálogo de Modelos e Referências usa **duas colunas no celular**; a grade de Amostras e Cortes permanece em uma coluna para preservar a leitura dos dados operacionais.
-- Amostras oferecem botões separados para **Câmera** e **Galeria**, com seleção múltipla na galeria.
-- Cada amostra aceita até **3 fotos compactadas**. A primeira é a principal; ao removê-la, a seguinte assume automaticamente.
-- A foto principal continua no documento `production_samples` para manter a compatibilidade com os cartões e com os registros antigos. As fotos adicionais são gravadas em `production_samples/{id}/photos` e só são consultadas ao abrir a edição da amostra.
-- Notas fiscais são gravadas em `expenses/{id}/attachments/receipt`. O snapshot da lista de gastos não transporta as imagens; a nota é consultada somente quando alguém expande o gasto ou abre a edição.
-- A visualização do gasto foi organizada como um cartão expansível: nome/valor/data ficam visíveis e observações/nota fiscal aparecem ao clicar.
-- A edição de amostras deixa de duplicar base64 no histórico de auditoria; o log registra os dados do cadastro e a quantidade de fotos.
-- O snapshot da coleção `models` só fica ativo nas telas Catálogo, Amostras e Cortes; ao navegar para Gastos, Informações, Oficinas ou Ordem de Corte, a consulta é encerrada.
-- Mapas de modelos, contadores e seleções derivados usam `useMemo` para evitar trabalho repetido.
-- Imagens de amostras e do catálogo usam carregamento tardio e decodificação assíncrona.
-- Foi removida a animação de entrada dos cartões de gastos.
+- Câmera e Galeria adicionadas ao cadastro/edição de modelos.
+- Câmera e Galeria adicionadas também à janela de edição rápida da foto principal no Catálogo.
+- A foto do modelo é compactada antes do salvamento e só é gravada após a confirmação.
+- Até três fotos por amostra: `imageData` no documento principal e `gallery/photo_2` + `gallery/photo_3` na subcoleção daquela OC.
+- O formulário consulta apenas os dois IDs conhecidos da OC aberta; não executa consulta geral da galeria.
+- Ao excluir uma OC, o app remove os IDs conhecidos das galerias nova e antiga sem ler imagens de outras OCs.
+- A nota fiscal continua isolada em uma subcoleção, consultada apenas ao abrir os detalhes do gasto.
+- O card compacto de quantidade de amostras usa o snapshot existente, sem uma consulta extra.
+- As regras Firestore permitem os novos caminhos sem abrir leitura geral e mantêm o bloqueio padrão.
 
 ## O que ainda pode causar lentidão
 
-A coleção `models` continua trazendo `imageData` junto com os dados de todos os modelos. Se o catálogo tiver muitos modelos com fotos grandes, esse é o próximo gargalo estrutural. A solução mais eficiente é migrar as fotos dos modelos (e, numa segunda etapa, as fotos principais antigas das amostras) para **Firebase Storage**, mantendo no Firestore somente as URLs e os metadados. Essa migração exige confirmar que o Storage está habilitado no projeto Firebase, configurar regras próprias e executar uma migração controlada com backup; não foi feita automaticamente para não arriscar as fotos já cadastradas.
+- O catálogo ainda carrega `imageData` de todos os modelos observados. Para um catálogo muito grande, o próximo passo recomendado é migrar imagens para Firebase Storage e manter URLs/metadados no Firestore.
+- A lista de Amostras/Cortes ainda carrega a foto principal de cada OC porque ela é usada como miniatura. As fotos 2 e 3 não são baixadas até abrir a OC.
+- A consulta de produção continua observando todos os documentos de `production_samples`. Se o volume crescer muito, poderá ser necessário paginar ou filtrar por status/data no Firestore, depois de validar índices e regras.
 
-## Validação necessária antes da publicação
+## Validação necessária no ambiente real
 
-- Executar `npm run build`.
-- Publicar as regras atualizadas de `firestore.rules` no Console do Firebase (ou via Firebase CLI), preservando regras personalizadas que existam no projeto real.
-- Testar com uma conta editor: cadastrar amostra com câmera, adicionar várias imagens pela galeria, remover a principal, salvar e reabrir; confirmar que a próxima foto virou principal.
-- Testar nota fiscal: anexar, salvar, fechar, abrir o gasto, ampliar a imagem, editar e remover.
-- Testar com conta visualizadora: confirmar leitura das notas fiscais e ausência dos controles de edição.
-- Testar no celular a grade de Modelos e Referências com duas colunas.
+1. Instalar dependências e executar `npm run build`.
+2. Publicar o arquivo completo `firestore.rules` no projeto Firebase.
+3. Testar câmera e galeria no celular com administrador e editor.
+4. Criar amostra com três fotos, fechar e reabrir a mesma OC, remover a principal e salvar.
+5. Confirmar que nenhuma foto de outra OC ou da antiga subcoleção aparece.
+6. Salvar nota fiscal, abrir detalhes, ampliar, editar os dados do gasto e confirmar que a nota continua anexada.
+7. Testar acesso somente leitura com perfil visualizador.
+
+O ambiente desta execução não conseguiu concluir `npm install` dentro do tempo disponível e não possui credenciais do Firebase de produção. Portanto, o build final e as permissões reais ainda precisam ser confirmados antes da publicação.

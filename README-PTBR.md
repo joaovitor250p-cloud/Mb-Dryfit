@@ -1,62 +1,71 @@
-# MB REFERÊNCIAS — versão 4.9
+# MB REFERENCIAS — versão 4.11
 
-Este ZIP contém o código-fonte atualizado do sistema. As alterações são locais ao projeto: **não publicam automaticamente no GitHub e não modificam os dados já salvos no Firebase**.
+Este pacote contém o projeto completo do MB REFERENCIAS. As alterações não publicam automaticamente no GitHub e não alteram os dados do Firebase até que você publique o site e as regras.
 
-## Alterações
+## O que mudou na versão 4.11
+
+### Catálogo de modelos
+- Botões separados **Câmera** e **Galeria** ao cadastrar ou editar um modelo.
+- Os mesmos botões também aparecem na janela **Foto principal do modelo** do catálogo.
+- A câmera usa a câmera traseira do celular quando o navegador oferece suporte a `capture="environment"`.
+- A imagem é compactada antes de ser enviada ao Firestore; continua sendo uma foto principal por modelo.
+- A foto não é enviada até a pessoa clicar em **Salvar modelo** ou **Salvar foto**.
 
 ### Amostras
-- Botões separados **Câmera** e **Galeria**.
-- A galeria do aparelho permite selecionar mais de uma foto de uma vez.
-- Até 3 fotos por amostra, compactadas antes de salvar.
-- A primeira foto é sempre a principal. Se for removida, a próxima assume.
-- Fotos adicionais ficam em documentos separados no Firestore e são carregadas quando a amostra é aberta para edição.
-- A foto principal continua no documento da amostra para preservar a compatibilidade com os cartões e dados antigos.
+- Até 3 fotos por amostra: uma principal e até duas adicionais.
+- A primeira foto escolhida é a principal. Ao removê-la, a próxima assume a posição principal.
+- A foto principal fica no documento da OC para aparecer como miniatura na lista.
+- As fotos 2 e 3 ficam em `production_samples/{id}/gallery/photo_2` e `photo_3`.
+- As fotos adicionais só são consultadas quando a pessoa abre aquela amostra para editar. A lista não carrega a galeria completa de todas as OCs.
+- A subcoleção antiga `production_samples/{id}/photos` não é consultada. O campo legado `extraImages` também não é exibido nem apagado automaticamente; isso evita que fotos antigas reapareçam na galeria e preserva os dados existentes. Como esse campo antigo continua no documento, ele ainda pode fazer parte do snapshot até uma migração/limpeza autorizada.
+- O card compacto mostra a quantidade de amostras em andamento.
 
 ### Gastos
-- Campo opcional **Nota fiscal**, com câmera ou galeria.
-- O cartão do gasto pode ser aberto pelo nome/valor/data.
-- Observações e nota fiscal aparecem somente quando o gasto é expandido.
-- A nota fiscal pode ser ampliada, trocada ou removida durante a edição.
-- A imagem fica em uma subcoleção separada e não é baixada junto com a lista de gastos.
+- Campo opcional **Nota fiscal**, com Câmera ou Galeria.
+- A nota fiscal fica em `expenses/{id}/attachments/receipt`.
+- A imagem só é consultada quando alguém expande os detalhes daquele gasto.
+- Abrir o formulário de edição não carrega a nota fiscal e não a apaga. Se a pessoa não selecionar outra imagem, o anexo existente é preservado.
+- Se o anexo falhar ao salvar, o sistema informa separadamente que o gasto foi salvo, mantendo o formulário aberto para tentar novamente sem duplicar o lançamento.
 
-### Celular e desempenho
-- Catálogo de Modelos e Referências com dois cartões por linha no celular.
-- Amostras e Cortes mantêm cartões em uma coluna para facilitar a leitura dos dados operacionais.
-- Busca de modelo otimizada com mapa em memória.
-- A consulta de todos os modelos é encerrada nas telas que não precisam do catálogo.
-- Contadores e seleções derivados memorizados.
-- Imagens com carregamento tardio e decodificação assíncrona.
-- Removida a animação repetida dos cartões de gastos.
-- O histórico de alterações das amostras não duplica o conteúdo base64 das fotos.
+### Regras e permissões
+- O arquivo `firestore.rules` foi alinhado ao código desta versão.
+- As regras permitem ler apenas os documentos `photo_2` e `photo_3` da galeria da OC aberta; consultas gerais da galeria ficam bloqueadas.
+- As regras permitem salvar a nota fiscal somente para administrador/editor com permissão de Gastos.
+- Foram preservadas as áreas atuais do projeto, inclusive Ordem de Corte e Oficinas.
+- O bloqueio padrão continua negando qualquer caminho que não tenha uma regra explícita.
 
-## Como atualizar o sistema
+### Desempenho
+- As fotos adicionais das amostras deixaram de ser carregadas junto com o snapshot de todas as OCs.
+- O catálogo continua com duas colunas no celular.
+- O snapshot dos modelos só fica ativo nas telas Catálogo, Amostras e Cortes.
+- Imagens usam carregamento tardio e decodificação assíncrona onde apropriado.
 
-1. Faça backup do projeto atual e confirme que os arquivos estão sincronizados com o GitHub.
-2. Substitua os arquivos do projeto pelos arquivos deste pacote, preservando os arquivos de configuração e segredos do seu ambiente.
-3. Antes de publicar o site, abra `firestore.rules` neste pacote e atualize as regras no Firebase Console. Faça backup das regras atuais e compare qualquer regra personalizada antes de substituir.
-4. No terminal, dentro da pasta que contém `package.json`, execute:
+## Como publicar corretamente
+
+1. Faça backup do repositório atual e das regras publicadas no Firebase.
+2. Substitua os arquivos do projeto pelos arquivos deste pacote, preservando as configurações e segredos próprios do seu ambiente.
+3. Abra `firestore.rules` deste pacote e publique o arquivo completo em **Firebase Console → Firestore Database → Regras**. Não cole apenas um trecho. Se você tiver regras personalizadas que não aparecem neste arquivo, faça a conciliação antes de publicar.
+4. Na pasta que contém `package.json`, execute:
 
    ```bash
    npm install
    npm run build
    ```
 
-5. Se o build terminar sem erros, faça commit e push para a branch `main`.
-6. Aguarde o GitHub Actions terminar e teste o site atualizado. No navegador, use `Ctrl + Shift + R`; no celular, teste em uma aba anônima.
+5. Se o build terminar sem erros, faça commit e push para a branch usada pelo GitHub Pages.
+6. Aguarde a publicação terminar. No celular, feche a aba antiga e abra o site novamente; se necessário, teste em uma aba anônima.
 
-## Importante sobre o Firebase
+## Testes obrigatórios após publicar
 
-Esta versão usa duas subcoleções novas:
+- **Catálogo:** cadastrar um modelo usando Câmera; repetir usando Galeria; editar a foto de um modelo existente usando Câmera.
+- **Amostras:** criar uma OC com 3 fotos; salvar; fechar; reabrir a mesma OC; confirmar que somente as fotos daquela OC aparecem; remover a principal; salvar e confirmar que a próxima virou principal.
+- **Gastos:** cadastrar um gasto com nota fiscal; salvar; abrir os detalhes; ampliar a imagem; editar o valor sem trocar a nota e confirmar que ela continua anexada.
+- **Permissões:** testar com administrador e editor autorizado; confirmar que visualizador consegue apenas consultar.
+- **Mobile:** conferir o catálogo em duas colunas e testar câmera/galeria em um celular real.
 
-- `production_samples/{id}/photos` para as fotos adicionais das amostras.
-- `expenses/{id}/attachments/receipt` para a nota fiscal de cada gasto.
+## Observações importantes
 
-As regras correspondentes já estão incluídas em `firestore.rules`. **Se o código for publicado sem publicar as regras atualizadas, as operações de salvar, consultar ou remover essas imagens poderão retornar `permission-denied`.**
-
-Nenhum registro antigo é migrado ou excluído automaticamente. As amostras antigas continuam usando a foto principal já cadastrada.
-
-## Limite de desempenho conhecido
-
-As fotos antigas dos modelos ainda estão no campo `imageData` dos documentos da coleção `models`, que é carregada em tempo real. Para catálogos muito grandes, o próximo passo recomendado é migrar essas imagens para Firebase Storage com backup e validação, mantendo no Firestore apenas URLs e metadados. Essa migração não foi feita nesta atualização para preservar os arquivos existentes.
-
-Consulte `ANALISE-DE-DESEMPENHO.md` para o diagnóstico técnico e o roteiro de testes.
+- Publicar o site não publica automaticamente as regras do Firestore. As duas etapas são necessárias.
+- O código não tem acesso ao Firebase de produção nesta etapa; por isso, não é possível confirmar as permissões reais da sua conta ou do seu projeto.
+- As imagens antigas no campo legado `extraImages` não são exibidas, apagadas nem migradas automaticamente. A foto principal existente permanece no campo `imageData`. Se houver muitas OCs antigas com esse campo preenchido, o conteúdo legado ainda pode pesar no snapshot até uma limpeza/migração aprovada.
+- As fotos dos modelos ainda estão armazenadas no campo `imageData` dos documentos `models`. Para catálogos muito grandes, uma migração futura para Firebase Storage pode reduzir ainda mais o tráfego, mas exige backup, regras próprias e validação separada.
