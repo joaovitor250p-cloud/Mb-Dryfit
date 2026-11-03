@@ -53,9 +53,9 @@ service cloud.firestore {
     function validSections(sections) {
       return sections is list
         && sections.size() >= 1
-        && sections.size() <= 7
+        && sections.size() <= 9
         && sections.hasOnly([
-          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops'
+          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution'
         ]);
     }
 
@@ -374,7 +374,7 @@ service cloud.firestore {
 
       ) || (
 
-        (canWrite('samples') || canWrite('cuts'))
+        canWrite('samples')
         && validProduction()
         && (!('extraImages' in request.resource.data) || ('extraImages' in resource.data))
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
@@ -382,17 +382,14 @@ service cloud.firestore {
         && request.resource.data.status == resource.data.status
       );
 
-      // Edição e exclusão dos registros agora são oferecidas na área Cortes.
-      // Mantém também a permissão antiga de Amostras para compatibilidade.
-      allow delete: if canWrite('samples') || canWrite('cuts');
+      allow delete: if canWrite('samples');
 
       match /gallery/{photoId} {
-        allow get: if photoId in ['photo_2', 'photo_3']
-          && (canView('samples') || canView('cuts'));
+        allow get: if photoId in ['photo_2', 'photo_3'] && canView('samples');
         allow list: if false;
 
         allow create, update: if photoId in ['photo_2', 'photo_3']
-          && (canWrite('samples') || canWrite('cuts'))
+          && canWrite('samples')
           && exists(/databases/$(database)/documents/production_samples/$(sampleId))
           && request.resource.data.keys().hasOnly(['imageData', 'updatedAt', 'updatedBy'])
           && request.resource.data.keys().hasAll(['imageData', 'updatedAt', 'updatedBy'])
@@ -406,12 +403,12 @@ service cloud.firestore {
           && request.resource.data.updatedBy == request.auth.uid
           && request.resource.data.updatedAt == request.time;
 
-        allow delete: if photoId in ['photo_2', 'photo_3'] && (canWrite('samples') || canWrite('cuts'));
+        allow delete: if photoId in ['photo_2', 'photo_3'] && canWrite('samples');
       }
 
       match /photos/{photoId} {
         allow get, list, create, update: if false;
-        allow delete: if (canWrite('samples') || canWrite('cuts')) && photoId in ['photo_1', 'photo_2'];
+        allow delete: if canWrite('samples') && photoId in ['photo_1', 'photo_2'];
       }
     }
 
@@ -675,6 +672,60 @@ service cloud.firestore {
         && request.resource.data.modelName is string;
 
       allow update, delete: if false;
+    }
+
+
+    // Fichas de produção: a atribuição é exclusiva de editores autorizados
+    // individualmente pelo administrador para sheet_distribution.
+    function validSheetFields(d) {
+      return d.keys().hasOnly(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
+        && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
+        && d.model is string && d.model.size() > 0 && d.model.size() <= 250
+        && d.reference is string && d.reference.size() <= 200
+        && d.composition is string && d.composition.size() <= 2000
+        && d.trims is string && d.trims.size() <= 4000
+        && d.officeInstructions is string && d.officeInstructions.size() <= 4000
+        && d.oc is string && d.oc.size() > 0 && d.oc.size() <= 80
+        && d.withdrawalDate is string && d.withdrawalDate.size() <= 30
+        && d.tailorInstructions is string && d.tailorInstructions.size() <= 4000
+        && d.finishingInstructions is string && d.finishingInstructions.size() <= 4000
+        && d.colors is list && d.colors.size() <= 50
+        && d.status in ['pending','assigned']
+        && d.assignedTailor is string && d.assignedTailor.size() <= 120
+        && d.createdBy is string && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time
+        && (d.assignedAt == null || d.assignedAt is timestamp)
+        && (d.assignedBy == null || d.assignedBy is string);
+    }
+
+    match /production_sheets/{sheetId} {
+      allow get, list: if canView('sheets') || canView('sheet_distribution');
+      allow create: if canWrite('sheets') && validSheetFields(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'pending'
+        && request.resource.data.assignedTailor == ''
+        && request.resource.data.assignedAt == null
+        && request.resource.data.assignedBy == null;
+      allow update: if (
+        canWrite('sheets') && validSheetFields(request.resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.assignedTailor == ''
+        && request.resource.data.assignedAt == null
+        && request.resource.data.assignedBy == null
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+      ) || (
+        canWrite('sheet_distribution') && validSheetFields(request.resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','assignedTailor','assignedAt','assignedBy','updatedAt','updatedBy'])
+        && request.resource.data.status == 'assigned'
+        && request.resource.data.assignedTailor.size() > 0
+        && request.resource.data.assignedAt == request.time
+        && request.resource.data.assignedBy == request.auth.uid
+      );
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

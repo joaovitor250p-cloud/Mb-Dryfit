@@ -21,10 +21,11 @@ const CutOrders = lazy(() => import('./CutOrders'));
 const ExpensesPage = lazy(() => import('./ExpensesPage'));
 const InfoPage = lazy(() => import('./InfoPage'));
 const WorkshopsPage = lazy(() => import('./WorkshopsPage'));
+const ProductionSheets = lazy(() => import('./ProductionSheets'));
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
-type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops';
+type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution';
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
@@ -77,11 +78,11 @@ export default function App(){
  const modelSaveInFlight=useRef(false);
  const [modelSaveMessage,setModelSaveMessage]=useState('');
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
- const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops')[]>(['catalog','samples','cuts']);
+ const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
  const admin=role==='admin',editor=admin||role==='editor';
  const permitted=(section:View)=>admin||access.includes(section);
- const viewOrder:View[]=['catalog','samples','cuts','orders','expenses','info','workshops'];
+ const viewOrder:View[]=['catalog','samples','cuts','orders','expenses','info','workshops','sheets','sheet_distribution'];
  const availableViews=viewOrder.filter(permitted);
  const navMeta:Record<View,{label:string;short:string;Icon:LucideIcon}>={
    catalog:{label:'Catálogo de modelos',short:'Modelos',Icon:Search},
@@ -90,7 +91,9 @@ export default function App(){
    orders:{label:'Ordem de corte',short:'OCs',Icon:ClipboardList},
    expenses:{label:'Gastos',short:'Gastos',Icon:Wallet},
    info:{label:'Informações MB',short:'Info MB',Icon:FileText},
-   workshops:{label:'Oficinas',short:'Oficinas',Icon:Building2}
+   workshops:{label:'Oficinas',short:'Oficinas',Icon:Building2},
+   sheets:{label:'Fichas de produção',short:'Fichas',Icon:FileText},
+   sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList}
  };
  const mobilePrimaryViews=(['catalog','samples','cuts','orders'] as View[]).filter(permitted).slice(0,4);
  const mobileMoreViews=availableViews.filter(item=>!mobilePrimaryViews.includes(item));
@@ -99,7 +102,7 @@ export default function App(){
  useEffect(()=>{setDark(localStorage.getItem('mb-theme')==='dark')},[]);
  useEffect(()=>{document.documentElement.classList.toggle('dark',dark);localStorage.setItem('mb-theme',dark?'dark':'light')},[dark]);
  useEffect(()=>{if(!auth){setAuthReady(true);return}return onAuthStateChanged(auth,u=>{setUser(u);setRole(null);setRoleChecked(false);setRoleDisabled(false);setVerified(!!u?.emailVerified);setAccessRequest('loading');setAuthReady(true)})},[]);
- useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'||x==='orders'||x==='expenses'||x==='info'||x==='workshops'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{notify(`Não foi possível verificar seu acesso: ${safeProviderMessage(e)}`,true);setRoleChecked(true)})},[user]);
+ useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'||x==='orders'||x==='expenses'||x==='info'||x==='workshops'||x==='sheets'||x==='sheet_distribution'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{notify(`Não foi possível verificar seu acesso: ${safeProviderMessage(e)}`,true);setRoleChecked(true)})},[user]);
  useEffect(()=>{if(!db||!user){setAccessRequest('none');return}return onSnapshot(doc(db,'access_requests',user.uid),s=>{setAccessRequest(s.exists()?(s.data().status==='approved'?'approved':s.data().status==='denied'?'denied':'pending'):'none')},e=>{setAccessRequest('none');notify('Falha ao consultar sua solicitação: '+safeProviderMessage(e),true)})},[user]);
  const needsModels = view==='catalog' || view==='samples' || view==='cuts';
  const navigateView=(next:View)=>{
@@ -314,7 +317,7 @@ export default function App(){
      </header>
      <div key={view} className={`view-transition view-transition-${transitionDirection}`}>
        <Suspense fallback={<BrandLoading label="Preparando esta área..." />}>
-         {view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : view==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : view==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='catalog' ?
+         {view==='sheets'||view==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={view==='sheet_distribution'?'distribution':'create'}/> : view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : view==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : view==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='catalog' ?
            <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
            : <SampleWorkflow key={view} view={view as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(view)} isAdmin={admin} models={models}/>}
        </Suspense>
