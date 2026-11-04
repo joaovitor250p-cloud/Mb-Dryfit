@@ -1086,3 +1086,47 @@ body { background: var(--bg); color: var(--text); }
 @media(prefers-reduced-motion:reduce){.nav-item,.primary-button,.settings-tabs button,.combined-work-tabs button{transition:none}}
 
 .office-directory-contact a{color:var(--teal2);font-weight:650;text-decoration:none}.office-directory-contact a:hover{text-decoration:underline}
+
+
+/* MB 2026.11 — formulários sem camadas transformadas e rolagem horizontal leve.
+   Um ancestral com transform faz position:fixed ficar preso dentro dele,
+   motivo comum de formulários aparentemente vazios/fora da janela. */
+.view-transition,.view-transition-next,.view-transition-previous{animation:none!important;transform:none!important;will-change:auto!important;}
+.view-parked,.view-transition[hidden],.settings-content[hidden],.combined-work-content[hidden]{display:none!important;}
+.modal-backdrop,.order-overlay,.order-delete-overlay{position:fixed;inset:0;}
+.modal-backdrop{z-index:2000;}
+.order-overlay{z-index:2000;}
+.order-delete-overlay{z-index:2100;}
+.modal,.production-modal,.workshop-modal,.order-drawer{overscroll-behavior:contain;}
+.order-scroll,.order-scrollbar-top{scroll-behavior:auto!important;overscroll-behavior-x:contain;overflow-anchor:none;}
+.order-scrollbar-top{height:22px;touch-action:pan-x;}
+.order-scrollbar-top::-webkit-scrollbar,.order-scroll::-webkit-scrollbar{height:14px;width:12px;}
+.order-scrollbar-top::-webkit-scrollbar-thumb,.order-scroll::-webkit-scrollbar-thumb{background:var(--teal2);border-radius:9px;border:3px solid var(--panel2);}
+.expense-month-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;}
+.expense-month-selector,.order-month-history-heading label{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;color:var(--text);}
+.expense-month-selector select,.order-month-history-heading select{max-width:260px;min-height:41px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:var(--panel);color:var(--text);}
+.expense-month-toolbar .search-box{flex:1;min-width:min(100%,240px);}
+.expense-month-note{flex-basis:100%;color:var(--muted);font-size:11px;}
+.expense-row-actions{display:flex;gap:8px;justify-content:flex-end;padding:0 17px 12px;}
+.expense-row-actions button{padding:7px 11px;font-size:11px;}
+.order-month-history{margin:15px 0;padding:16px 18px;background:var(--panel);border:1px solid var(--line);border-radius:13px;}
+.order-month-history-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;}
+.order-month-history-heading>div{display:flex;flex-direction:column;gap:5px;}
+.order-month-history-heading strong{font-size:15px;}
+.order-month-history-heading small{font-size:11px;color:var(--muted);line-height:1.5;}
+.order-month-history-numbers{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0;}
+.order-month-history-numbers>div{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px;padding:13px;background:var(--panel2);border-radius:10px;}
+.order-month-history-numbers small{color:var(--muted);font-size:11px;}
+.order-month-history-numbers strong{font-size:20px;}
+.order-month-details{border-top:1px solid var(--line);padding-top:10px;}
+.order-month-details summary{cursor:pointer;font-size:12px;font-weight:700;}
+.order-month-details p{color:var(--muted);font-size:12px;}
+@media(max-width:700px){.expense-row-actions{justify-content:flex-start}.order-month-history{padding:12px}.order-month-history-heading label{flex-wrap:wrap}}
+
+/* Sem filtros gráficos que deixam o formulário lento ao abrir sobre tabelas longas. */
+.modal-backdrop{backdrop-filter:none!important;animation:none!important;}
+.order-overlay,.order-delete-overlay{backdrop-filter:none!important;animation:none!important;}
+
+.production-pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:20px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+/* Fotos abertas de dentro de um formulário precisam ficar acima do modal. */
+.photo-lightbox{z-index:3000!important;}

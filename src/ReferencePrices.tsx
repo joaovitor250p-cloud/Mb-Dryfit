@@ -1,11 +1,13 @@
-import {useEffect,useState} from 'react';
+import {useContext,useEffect,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {collection,doc,onSnapshot,serverTimestamp,setDoc,type Firestore} from 'firebase/firestore';
 import {STARTER_PRICES,TYPES,KEY,parsePrice,currency,type ReferencePrice} from './lib/referencePrices';
 import {safeProviderMessage} from './lib/safeMessage';
+import {PageActiveContext} from './lib/pageMemory';
 export default function ReferencePrices({db,user,canEdit}:{db:Firestore;user:User;canEdit:boolean}){
+ const pageActive=useContext(PageActiveContext);
  const [rows,setRows]=useState<ReferencePrice[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState(''),[type,setType]=useState('Camiseta'),[reference,setReference]=useState(''),[price,setPrice]=useState(''),[filter,setFilter]=useState(''),[busy,setBusy]=useState(false);
- useEffect(()=>onSnapshot(collection(db,'reference_prices'),snap=>{setRows(snap.docs.map(d=>({reference:String(d.data().reference||''),type:String(d.data().type||''),price:String(d.data().price||'')})));setLoading(false)},e=>{setError(safeProviderMessage(e));setLoading(false)}),[db]);
+ useEffect(()=>{if(!pageActive)return;return onSnapshot(collection(db,'reference_prices'),snap=>{setRows(snap.docs.map(d=>({reference:String(d.data().reference||''),type:String(d.data().type||''),price:String(d.data().price||'')})));setLoading(false)},e=>{setError(safeProviderMessage(e));setLoading(false)})},[db,pageActive]);
  const startEdit=(r:ReferencePrice)=>{setType(r.type);setReference(r.reference);setPrice(r.price);window.scrollTo({top:0,behavior:'smooth'})};
  const save=async()=>{if(!canEdit)return;const ref=reference.trim().toUpperCase(),amount=parsePrice(price);if(!ref||!Number.isFinite(amount)){setError('Informe a referência e um preço válido.');return;}setBusy(true);setError('');try{await setDoc(doc(db,'reference_prices',KEY(type,ref)),{reference:ref,type,price:amount.toFixed(2).replace('.',','),updatedAt:serverTimestamp(),updatedBy:user.uid});setMessage('Preço salvo.');setReference('');setPrice('')}catch(e){setError(safeProviderMessage(e))}finally{setBusy(false)}};
  const importStarter=async()=>{if(!canEdit||!window.confirm('Importar preços iniciais? Referências já cadastradas serão preservadas.'))return;setBusy(true);setError('');try{const {getDoc}=await import('firebase/firestore');let count=0;for(const r of STARTER_PRICES){const d=doc(db,'reference_prices',KEY(r.type,r.reference));if(!(await getDoc(d)).exists()){await setDoc(d,{...r,updatedAt:serverTimestamp(),updatedBy:user.uid});count++}}setMessage(`${count} referências importadas; preços existentes preservados.`)}catch(e){setError(safeProviderMessage(e))}finally{setBusy(false)}};

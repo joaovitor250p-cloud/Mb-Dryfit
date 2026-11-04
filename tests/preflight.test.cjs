@@ -123,3 +123,42 @@ test('endereço é opcional para documentos antigos do Firestore',()=>{
   assert.match(rules,/\(!\('address' in d\) \|\| \(d\.address is string && d\.address\.size\(\) <= 800\)\)/);
   assert.match(source('src/WorkshopsPage.tsx'),/Endereço completo/);
 });
+
+test('virada do mês conserva históricos de gastos e pagamentos sem gravações destrutivas',()=>{
+  const code=ts.transpileModule(source('src/lib/monthlyAccounting.ts'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
+  const exports={};vm.runInNewContext(code,{exports,module:{exports},Date},{timeout:2000});
+  assert.equal(exports.currentAccountingMonth(new Date(2026,9,31)), '2026-10');
+  assert.equal(exports.currentAccountingMonth(new Date(2026,10,1)), '2026-11');
+  assert.equal(exports.expenseMonth('2026-10-30'), '2026-10');
+  assert.equal(exports.expenseMonth('2026-11-01'), '2026-11');
+  assert.equal(exports.expenseMonth('2026-02-31'), 'undated');
+  assert.equal(exports.paymentMonth('31/10/2026'),'2026-10');
+  assert.equal(exports.paymentMonth('06/11/2026'),'2026-11');
+  assert.equal(exports.paymentMonth('31/02/2026'),'undated');
+});
+
+test('edições usam modais sobrepostos à aplicação e interrupção de consultas ocultas',()=>{
+  for(const file of ['ExpensesPage.tsx','WorkshopsPage.tsx','SampleWorkflow.tsx','InfoPage.tsx','CutOrders.tsx']){
+    assert.match(source(`src/${file}`),/createPortal\(/,file);
+    assert.match(source(`src/${file}`),/pageActive/,file);
+  }
+  for(const file of ['ExpensesPage.tsx','ProductionSheets.tsx','CutOrders.tsx','WorkshopsPage.tsx','ReferencePrices.tsx','InfoPage.tsx']){
+    assert.match(source(`src/${file}`),/onSnapshot\(/,file);
+    assert.match(source(`src/${file}`),/(if\s*\(!pageActive\)|if\s*\(!active\|\|)/,file);
+  }
+});
+
+test('exclusão de gastos é visível e segue a permissão do Firestore',()=>{
+  assert.match(source('src/ExpensesPage.tsx'),/expense-row-actions/);
+  assert.match(source('src/ExpensesPage.tsx'),/batch\.delete\(doc\(db, 'expenses', item\.id\)\)/);
+  assert.match(source('firestore.rules'),/match \/expenses\/\{expenseId\}[\s\S]*?allow delete: if canWrite\('expenses'\)/);
+  assert.match(source('src/CutOrders.tsx'),/monthlyPaid/);
+});
+
+test('planilhas financeiras mantêm valores corretos com ponto e vírgula',()=>{
+  const code=ts.transpileModule(source('src/lib/financeNumbers.ts'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
+  const exports={};vm.runInNewContext(code,{exports,module:{exports}},{timeout:2000});
+  const parse=exports.parseFinanceNumber;
+  for(const [value,number] of [['4,50',4.5],['4.50',4.5],['R$ 1.072,50',1072.5],['1,072.50',1072.5],['1000',1000],['0,00',0],['2.000',2000]])assert.equal(parse(value),number,value);
+  for(const invalid of ['','abc','R$','4,5,2','1..5'])assert.ok(Number.isNaN(parse(invalid)),invalid);
+});

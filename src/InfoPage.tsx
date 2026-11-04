@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { CheckCircle2, FileText, Pencil, Plus, Search, Trash2, UserSquare2, X } from 'lucide-react';
 import brandLogo from './assets/mb-dryfit-logo.webp';
-import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
 import { safeProviderMessage } from './lib/safeMessage';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
@@ -13,6 +14,7 @@ const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,''
 const mapDoc = (id:string, d:DocumentData): InfoRecord => ({ id, name: String(d.name || ''), value: String(d.value || ''), pix: String(d.pix || ''), pixName: String(d.pixName || ''), notes: String(d.notes || '') });
 
 export default function InfoPage({ db, user, canEdit }: Props) {
+  const pageActive=useContext(PageActiveContext);
   const pageMemoryKey = `mb-referencias:${user.uid}:info`;
   const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { queryText: '' }));
   const [items, setItems] = useState<InfoRecord[]>([]);
@@ -30,10 +32,10 @@ export default function InfoPage({ db, user, canEdit }: Props) {
   const [busy, setBusy] = useState(false);
   usePageMemory(pageMemoryKey, { queryText }, !loading);
 
-  useEffect(() => onSnapshot(query(collection(db, 'mb_info'), orderBy('name')), snap => {
+  useEffect(() => {if(!pageActive)return;return onSnapshot(query(collection(db, 'mb_info'), orderBy('name')), snap => {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
     setLoading(false);
-  }, e => { setError('Não foi possível carregar as informações: ' + safeProviderMessage(e)); setLoading(false); }), [db]);
+  }, e => { setError('Não foi possível carregar as informações: ' + safeProviderMessage(e)); setLoading(false); });}, [db,pageActive]);
 
   const filtered = useMemo(() => items.filter(item => !queryText.trim() || normalize([item.name, item.value, item.pix, item.pixName, item.notes].join(' ')).includes(normalize(queryText))), [items, queryText]);
   const reset = () => { setEditing(null); setName(''); setValue(''); setPix(''); setPixName(''); setNotes(''); setOpen(false); };
@@ -89,6 +91,6 @@ export default function InfoPage({ db, user, canEdit }: Props) {
         </article>;
       })}</div>}
     </section>
-    {open && <div className="modal-backdrop" onMouseDown={e=>{ if (e.target === e.currentTarget) reset(); }}><section className="modal extra-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">INFORMAÇÕES MB</span><h2>{editing ? 'Editar registro' : 'Novo registro'}</h2></div><button className="icon-button" onClick={reset} aria-label="Fechar"><X/></button></div><form className="modal-form" onSubmit={e=>{e.preventDefault(); void save();}}><label>Nome *<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: José"/></label><div className="production-form-grid"><label>Valor<input value={value} onChange={e=>setValue(e.target.value)} placeholder="Ex.: R$ 2.500,00"/></label><label>PIX<input value={pix} onChange={e=>setPix(e.target.value)} placeholder="Chave PIX"/></label></div><label>Nome do titular do PIX<input value={pixName} onChange={e=>setPixName(e.target.value)} placeholder="Titular da chave"/></label><label>Observações<textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Opcional" rows={3}/></label><div className="modal-actions"><button type="button" className="outline-button" onClick={reset}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? 'Salvando...' : 'Salvar registro'}</button></div></form></section></div>}
+    {open && pageActive && createPortal(<div className="modal-backdrop" onMouseDown={e=>{ if (e.target === e.currentTarget) reset(); }}><section className="modal extra-modal" role="dialog" aria-modal="true"><div className="modal-head"><div><span className="eyebrow">INFORMAÇÕES MB</span><h2>{editing ? 'Editar registro' : 'Novo registro'}</h2></div><button className="icon-button" onClick={reset} aria-label="Fechar"><X/></button></div><form className="modal-form" onSubmit={e=>{e.preventDefault(); void save();}}><label>Nome *<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: José"/></label><div className="production-form-grid"><label>Valor<input value={value} onChange={e=>setValue(e.target.value)} placeholder="Ex.: R$ 2.500,00"/></label><label>PIX<input value={pix} onChange={e=>setPix(e.target.value)} placeholder="Chave PIX"/></label></div><label>Nome do titular do PIX<input value={pixName} onChange={e=>setPixName(e.target.value)} placeholder="Titular da chave"/></label><label>Observações<textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Opcional" rows={3}/></label><div className="modal-actions"><button type="button" className="outline-button" onClick={reset}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? 'Salvando...' : 'Salvar registro'}</button></div></form></section></div>,document.body)}
   </div>;
 }

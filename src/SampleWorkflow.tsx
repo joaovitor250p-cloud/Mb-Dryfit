@@ -1,4 +1,5 @@
 
+import { createPortal } from 'react-dom';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
@@ -173,12 +174,16 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
   const [galleryLoaded, setGalleryLoaded] = useState(true);
+  const [galleryFetching,setGalleryFetching]=useState(false);
+  const galleryRequestRef=useRef(0);
   const [busy, setBusy] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const [lightbox,setLightbox]=useState<{images:string[];index:number;name:string;reference:string;oc:string}|null>(null);
   const [selectionMode,setSelectionMode]=useState(false);
   const [selectedCutIds,setSelectedCutIds]=useState<string[]>([]);
+  // Limita cartões/fotos simultâneas: reduz travamentos ao abrir a edição.
+  const [visibleCount,setVisibleCount]=useState(48);
 
   usePageMemory(pageMemoryKey, { search, typeFilter, filter }, !loading);
 
@@ -216,8 +221,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       return normalizeText(a.oc).localeCompare(normalizeText(b.oc),'pt-BR');
     }), [items, view, filter, search, typeFilter]);
 
+  useEffect(()=>setVisibleCount(48),[search,typeFilter,filter,view]);
+  const displayed=useMemo(()=>filtered.slice(0,visibleCount),[filtered,visibleCount]);
   const selectedCuts=useMemo(()=>items.filter(x=>selectedCutIds.includes(x.id)),[items,selectedCutIds]);
-  const visibleCutIds=useMemo(()=>filtered.map(x=>x.id),[filtered]);
+  const visibleCutIds=useMemo(()=>displayed.map(x=>x.id),[displayed]);
   const allVisibleCutsSelected=useMemo(()=>visibleCutIds.length>0&&visibleCutIds.every(id=>selectedCutIds.includes(id)),[visibleCutIds,selectedCutIds]);
   const cancelCutSelection=()=>{setSelectionMode(false);setSelectedCutIds([]);};
 
@@ -250,9 +257,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   };
 
   const showMessage = (s: string, bad = false) => { setError(bad ? s : ''); setMessage(bad ? '' : s); };
-  const closeModal = () => { setModal(false); setPhotoError(''); setGalleryLoaded(true); };
+  const closeModal = () => { galleryRequestRef.current++;setGalleryFetching(false);setModal(false); setPhotoError(''); setGalleryLoaded(true); };
 
   const openNew = () => {
+    galleryRequestRef.current++;setGalleryFetching(false);
     setEditing(null); setOc(''); setName(''); setReference(''); setTailor('');
     setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setModal(true);
   };
@@ -262,6 +270,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
     // Mostra o formulário imediatamente com os dados já disponíveis no cartão.
     // A leitura da galeria extra é feita depois e nunca bloqueia a edição dos dados.
+    const requestId=++galleryRequestRef.current;
     setEditing(p);
     setOc(p.oc);
     setName(p.name);
@@ -271,7 +280,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     setPhotoError('');
     setGalleryLoaded(false);
     setModal(true);
-    setBusy(true);
+    setGalleryFetching(true);
 
     try {
       const [photo2, photo3] = await Promise.all([
@@ -281,9 +290,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       const extras = [photo2, photo3]
         .map(snap => snap.exists() ? String(snap.data().imageData || '') : '')
         .filter(Boolean);
+      if(requestId!==galleryRequestRef.current)return;
       setImageGallery([...(p.imageData ? [p.imageData] : []), ...extras].slice(0, MAX_SAMPLE_PHOTOS));
       setGalleryLoaded(true);
     } catch (e) {
+      if(requestId!==galleryRequestRef.current)return;
       // Sem a galeria completa, os controles de foto ficam bloqueados e o salvamento
       // preserva a foto principal e as fotos adicionais existentes no Firestore.
       setPhotoError(
@@ -292,7 +303,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       );
       setGalleryLoaded(false);
     } finally {
-      setBusy(false);
+      if(requestId===galleryRequestRef.current)setGalleryFetching(false);
     }
   };
 
@@ -480,7 +491,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
       {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
       !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
-      <div className="production-grid">{filtered.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
+      <div className="production-grid">{displayed.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
         {view==='cuts'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
 
         <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={true} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
@@ -504,11 +515,12 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
           </div>}
         </div>
       </article>})}</div>}
+      {!loading&&visibleCount<filtered.length&&<div className="production-pagination"><span>Exibindo {Math.min(visibleCount,filtered.length)} de {filtered.length} registros</span><button type="button" className="outline-button" onClick={()=>setVisibleCount(n=>n+48)}>Mostrar mais 48</button></div>}
     </section>
 
     {lightbox&&<PhotoLightbox images={lightbox.images} initialIndex={lightbox.index} src={lightbox.images[lightbox.index]||lightbox.images[0]} title={lightbox.name} detail={`OC ${lightbox.oc} · ${lightbox.reference||'SEM CÓDIGO'}`} onClose={()=>setLightbox(null)}/>}
 
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}>
+    {modal&&pageActive&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}>
       <section className="modal production-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
           <div><span className="eyebrow">{editing?'CORTES / EDIÇÃO':'AMOSTRAS'}</span><h2>{editing?'Editar dados e fotos da OC':'Adicionar amostra'}</h2><p>{editing?'Altere as informações e gerencie as fotos desta OC.':'A mesma OC será exibida em Amostras e em Cortes, sem duplicação.'}</p></div>
@@ -518,6 +530,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
           <div className="production-image-field">
             <span>Fotos da peça (até {MAX_SAMPLE_PHOTOS})</span>
+            {galleryFetching&&<small role="status">Carregando as fotos adicionais... Você já pode preencher os outros campos.</small>}
             <div className="sample-gallery-grid">
               {imageGallery.map((image,index)=><div className={`sample-gallery-item ${index===0?'is-primary':'is-extra'}`} key={`${index}-${image.slice(-24)}`}>
                 <button type="button" className="sample-gallery-thumb" onClick={()=>setLightbox({images:[...imageGallery],index,name:name||'Amostra',reference,oc})} aria-label={`Visualizar foto ${index+1}`}>
@@ -560,6 +573,6 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
           </div>
         </form>
       </section>
-    </div>}
+    </div>,document.body)}
   </div>;
 }

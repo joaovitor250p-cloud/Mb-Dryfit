@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState, useRef, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { useContext, useEffect, useMemo, useState, useRef, type MouseEvent } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore, DocumentData } from 'firebase/firestore';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Copy, Download, Edit3, Filter, Plus, Search, ShieldAlert, Trash2, UploadCloud, X } from 'lucide-react';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
-import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
 import { safeProviderMessage } from './lib/safeMessage';
+import { currentAccountingMonth as monthNow, accountingMonthLabel as monthLabel, paymentMonth as monthOfPaidDate } from './lib/monthlyAccounting';
+import { parseFinanceNumber as num } from './lib/financeNumbers';
 
 // Ordem de Corte: documentos separados de production_samples, sem alterar as OCs da tela Cortes.
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
@@ -26,7 +29,6 @@ const cols: Record<View,DataField[]> = {
 const fresh = (): Order => ({...Object.fromEntries(fields.map(k=>[k,''])),id:'',source:'manual',manualTotal:false} as unknown as Order);
 const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt});
 const errorText=(e:unknown)=>{const x=e as {code?:string;message?:string};return x?.code?.includes('permission-denied')?'Permissão negada. Confira se seu perfil tem acesso à área Ordem de Corte.':safeProviderMessage(x?.message,'Falha ao salvar.')};
-const num=(s:string):number => {if(!s.trim())return NaN;const n=Number(s.replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.'));return Number.isFinite(n)?n:NaN};
 const brl=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
 const money=(s:string)=>{const n=num(s);return Number.isFinite(n)?brl(n):'—'};
 const moneyText=(n:number)=>Number.isFinite(n)?brl(Math.max(0,n)):' ';
@@ -56,8 +58,10 @@ function download(data:string,name:string,type='text/csv;charset=utf-8') {const 
 const dateKeys=new Set<DataField>(['entry','sent','due','deliveredAt','paidAt']);
 const numberKeys=new Set<DataField>(['qty','defects']);
 const moneyKeys=new Set<DataField>(['piecePrice','discountPiece','discountTotal','total']);
-const PAGE=120;
+const PAGE=75;
+const monthOfPaid=(o:Order)=>monthOfPaidDate(o.paidAt);
 export default function CutOrders({db,user,canEdit,isAdmin}:Props){
+  const pageActive=useContext(PageActiveContext);
   const pageMemoryKey = `mb-referencias:${user.uid}:orders`;
   const currentDate=today();
   const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { query: '', typeFilter: 'all' as ModelType, office: 'all', production: 'all', payFilter: 'all', view: 'summary' as View, count: PAGE, fridayDate: friday(today()) }));
@@ -66,18 +70,36 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [deleteTarget,setDeleteTarget]=useState<Order|null>(null);
   const [query,setQuery]=useState(String(initialPageState.query || '')),[typeFilter,setTypeFilter]=useState<ModelType>((initialPageState.typeFilter as ModelType)||'all'),[office,setOffice]=useState(String(initialPageState.office||'all')),[production,setProduction]=useState(String(initialPageState.production||'all')),[payFilter,setPayFilter]=useState(String(initialPageState.payFilter||'all'));
   const [count,setCount]=useState(Number(initialPageState.count)||PAGE),[editing,setEditing]=useState<Order|null>(null),[draft,setDraft]=useState<Order|null>(null);
-  const [fridayDate,setFridayDate]=useState(String(initialPageState.fridayDate||friday(today()))),[showFriday,setShowFriday]=useState(false);
+  const [fridayDate,setFridayDate]=useState(String(initialPageState.fridayDate||friday(today()))),[showFriday,setShowFriday]=useState(!!initialPageState.showFriday);
+  const [paymentMonth,setPaymentMonth]=useState(monthNow());
+  useEffect(()=>{
+    let last=monthNow();
+    const check=()=>{const next=monthNow();if(next!==last){setPaymentMonth(previous=>previous===last?next:previous);last=next;}};
+    document.addEventListener('visibilitychange',check);window.addEventListener('focus',check);
+    const interval=window.setInterval(check,60000);
+    return()=>{document.removeEventListener('visibilitychange',check);window.removeEventListener('focus',check);window.clearInterval(interval)};
+  },[]);
   const tableRef=useRef<HTMLDivElement>(null),railRef=useRef<HTMLDivElement>(null);
   const [tableWidth,setTableWidth]=useState(1640);
   const [pixByOffice,setPixByOffice]=useState<Map<string,string>>(new Map());
-  usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, count, fridayDate }, !loading);
-  useEffect(()=>onSnapshot(collection(db,'cut_orders'),s=>{setRows(s.docs.map(x=>fromData(x.id,x.data())).sort((a,b)=>(Number(b.oc)||0)-(Number(a.oc)||0)));setLoading(false);setAlert('')},e=>{setAlert(errorText(e));setLoading(false)}),[db]);
+  const [monthlyDetailsOpen,setMonthlyDetailsOpen]=useState(false);
+  usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, count, fridayDate,showFriday }, !loading);
+  useEffect(()=>{if(!pageActive)return;return onSnapshot(collection(db,'cut_orders'),s=>{setRows(s.docs.map(x=>fromData(x.id,x.data())).sort((a,b)=>(Number(b.oc)||0)-(Number(a.oc)||0)));setLoading(false);setAlert('')},e=>{setAlert(errorText(e));setLoading(false)})},[db,pageActive]);
   // Carrega chaves PIX apenas quando o editor abre o fechamento de sexta.
   // As permissões do Firestore permitem somente a quem pode editar OCs acessar esses contatos.
-  useEffect(()=>{if(!showFriday||!canEdit){setPixByOffice(new Map());return;}
+  useEffect(()=>{if(!pageActive||!showFriday||!canEdit){setPixByOffice(new Map());return;}
     return onSnapshot(collection(db,'workshops'),snap=>{const next=new Map<string,string>();for(const item of snap.docs){const data=item.data();const name=norm(String(data.name||'')),pix=String(data.pix||'').trim();if(name&&pix&&!next.has(name))next.set(name,pix)}setPixByOffice(next)},()=>setPixByOffice(new Map()));
-  },[db,showFriday,canEdit]);
-  useEffect(()=>{if(showFriday||!tableRef.current)return;const element=tableRef.current;const update=()=>setTableWidth(element.scrollWidth);update();const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(update):null;observer?.observe(element);if(element.firstElementChild)observer?.observe(element.firstElementChild);return()=>observer?.disconnect()},[showFriday,count,rows.length]);
+  },[db,pageActive,showFriday,canEdit]);
+  // Mede somente a largura da tabela, sem observar o contêiner de rolagem.
+  // Isso evita ciclos de layout e renderização enquanto arrastamos a barra horizontal.
+  useEffect(()=>{if(!pageActive||showFriday||!tableRef.current)return;
+    const table=tableRef.current.querySelector('table');if(!table)return;
+    let frame=0;
+    const update=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const width=Math.ceil(table.scrollWidth);setTableWidth(old=>old===width?old:width)})};
+    update();const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(update):null;
+    observer?.observe(table);
+    return()=>{observer?.disconnect();if(frame)cancelAnimationFrame(frame)};
+  },[pageActive,showFriday,count,rows.length]);
   const scrollRail=(left:number)=>{if(tableRef.current&&Math.abs(tableRef.current.scrollLeft-left)>1)tableRef.current.scrollLeft=left};
   const scrollBody=(left:number)=>{if(railRef.current&&Math.abs(railRef.current.scrollLeft-left)>1)railRef.current.scrollLeft=left};
   const copyPix=async(pix:string,name:string)=>{try{await navigator.clipboard.writeText(pix);notify(`Chave PIX de ${name} copiada.`)}catch{notify('Não foi possível copiar automaticamente o PIX. Selecione o texto e copie.',true)}};
@@ -126,6 +148,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const downloadJson=()=>download(JSON.stringify({version:1,exportedAt:new Date().toISOString(),rows},null,2),`BACKUP_ORDEM_DE_CORTE_${today()}.json`,'application/json;charset=utf-8');
   const amount=eligible.reduce((a,x)=>a+num(x.total),0);
   const paidThisFriday=useMemo(()=>rows.filter(o=>paid(o)&&toISO(o.paidAt)===fridayDate),[rows,fridayDate]);
+  const monthlyPaid=useMemo(()=>rows.filter(o=>paid(o)&&monthOfPaid(o)===paymentMonth),[rows,paymentMonth]);
+  const monthOptions=useMemo(()=>[...new Set([monthNow(),...rows.filter(paid).map(monthOfPaid)])].sort((a,b)=>b.localeCompare(a)),[rows]);
+  const monthlyTotal=useMemo(()=>monthlyPaid.reduce((sum,o)=>sum+(Number.isFinite(num(o.total))?num(o.total):0),0),[monthlyPaid]);
   return <div className="order-page">
     <header className="order-heading"><div><span className="order-eyebrow">MB REFERENCIAS / CONTROLE DAS OFICINAS</span><h1><ClipboardList size={26}/> Ordem de Corte</h1><p>Planilha compartilhada · 10 dias de prazo · pagamentos na sexta-feira</p></div><div className="order-buttons">{canEdit&&<button className="primary-button" onClick={()=>open()}><Plus size={17}/> Nova OC</button>}<button className="outline-button" onClick={()=>downloadCsv(filtered,'ORDEM_CORTE')}><Download size={15}/> CSV</button><button className="outline-button" onClick={downloadJson}>Backup</button></div></header>
     {alert&&<div className="production-alert" role="alert">{alert}</div>}{notice&&<div className="production-ok"><CheckCircle2 size={16}/>{notice}</div>}
@@ -133,6 +158,13 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
     {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Somente OCs entregues, pendentes e com data válida. Nenhum pagamento bancário é realizado pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>setFridayDate(friday(e.target.value))}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
+      <div className="order-month-history">
+        <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>O mês atual começa automaticamente em zero; pagamentos anteriores continuam salvos na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>setPaymentMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
+        <div className="order-month-history-numbers"><div><small>OCs pagas em {monthLabel(paymentMonth)}</small><strong>{monthlyPaid.length}</strong></div><div><small>Total registrado como pago</small><strong>{brl(monthlyTotal)}</strong></div></div>
+        <details className="order-month-details" onToggle={e=>setMonthlyDetailsOpen(e.currentTarget.open)}><summary>Ver pagamentos registrados neste mês ({monthlyPaid.length})</summary>
+          {monthlyDetailsOpen&&(monthlyPaid.length?monthlyPaid.map(o=><div className="order-office-line" key={o.id}><span>OC {o.oc} · {officeLabel(o.office)} · {o.paidAt}</span><strong>{money(o.total)}</strong></div>):<p>Nenhum pagamento registrado neste mês.</p>)}
+        </details>
+      </div>
       <p className="order-payment-guidance">Ao confirmar o pagamento, a OC é atualizada imediatamente com <strong>Pagamento: Pago</strong> e a data <strong>{toBR(fridayDate)||'—'}</strong>. Você pode quitar uma OC de cada vez ou todas as OCs de uma oficina.</p>
       {groups.length===0&&<div className="order-empty">Nenhuma OC pendente elegível nesta sexta-feira.</div>}{groups.map(g=>{const pix=pixByOffice.get(norm(g.name))||'';return <details key={norm(g.name)} className="order-office"><summary><span><strong>{g.name}</strong><small>{g.list.length} OCs pendentes</small></span><b>{brl(g.total)}</b><ChevronDown size={16}/></summary><div>
         <div className="order-friday-pix"><span><b>PIX da oficina</b><small>{pix||'Não cadastrado em Configurações → Oficinas'}</small></span>{pix&&<button className="outline-button" type="button" onClick={()=>void copyPix(pix,g.name)}><Copy size={14}/> Copiar PIX</button>}</div>
@@ -148,12 +180,12 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       <div className="order-helper"><span>{filtered.length} OCs encontradas · exibindo {Math.min(count,filtered.length)} {loading?'· carregando...':''}</span><span><Edit3 size={14}/> Para editar: <strong>3 cliques/toques</strong> no registro ou <strong>Editar</strong> com um toque</span></div>
       <div className="order-scrollbar-top" ref={railRef} tabIndex={0} role="region" onScroll={e=>scrollRail(e.currentTarget.scrollLeft)} aria-label="Barra horizontal para navegar nas colunas"><div style={{width:tableWidth,height:1}}/></div>
       <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
-      <div className="order-foot"><span>Você pode rolar a tabela para ver todas as colunas.</span>{count<filtered.length&&<div><button className="outline-button" onClick={()=>setCount(n=>n+PAGE)}>Mostrar mais 120</button><button className="outline-button" onClick={()=>setCount(filtered.length)}>Mostrar todas ({filtered.length})</button></div>}</div>
+      <div className="order-foot"><span>Você pode rolar a tabela para ver todas as colunas.</span>{count<filtered.length&&<div><button className="outline-button" onClick={()=>setCount(n=>n+PAGE)}>Mostrar mais 75</button><button className="outline-button" onClick={()=>setCount(filtered.length)}>Mostrar todas ({filtered.length})</button></div>}</div>
     </>}
-    {draft&&<div className="order-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setDraft(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Editar Ordem de Corte"><header><div><span className="order-eyebrow">{editing?'EDIÇÃO AUTORIZADA':'NOVO CADASTRO'}</span><h2>{editing?`OC ${editing.oc}`:'Nova Ordem de Corte'}</h2><p>Edite os campos e clique em Salvar. Os descontos são calculados automaticamente.</p></div><button className="outline-button" onClick={()=>setDraft(null)}><X size={17}/></button></header>
+    {draft&&pageActive&&createPortal(<div className="order-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setDraft(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Editar Ordem de Corte"><header><div><span className="order-eyebrow">{editing?'EDIÇÃO AUTORIZADA':'NOVO CADASTRO'}</span><h2>{editing?`OC ${editing.oc}`:'Nova Ordem de Corte'}</h2><p>Edite os campos e clique em Salvar. Os descontos são calculados automaticamente.</p></div><button className="outline-button" onClick={()=>setDraft(null)}><X size={17}/></button></header>
       {([['Identificação',['oc','ref','model','office','qty','piecePrice']],['Produção e datas',['entry','sent','due','status','deliveredFlag','deliveredAt']],['Descontos e valores',['defects','discountPiece','discountTotal','total']],['Pagamento',['paymentDone','paidAt']]] as [string,DataField[]][]).map(([title,sectionFields])=><fieldset key={title} className="order-fieldset"><legend>{title}</legend><div className="order-fieldgrid">{sectionFields.map(k=><label key={k}>{names[k]}{k==='status'?<select value={draft[k]} onChange={e=>fieldChange(k,e.target.value)}><option value="EM ANDAMENTO">Em andamento</option><option value="ENTREGUE">Entregue</option></select>:k==='paymentDone'?<select value={draft[k]==='OK'?'OK':''} onChange={e=>fieldChange(k,e.target.value)}><option value="">Pendente</option><option value="OK">Pago</option></select>:k==='discountTotal'?<input readOnly title="Calculado por quantidade de defeitos × desconto por peça. Valores históricos são preservados se não há dados suficientes." value={draft[k]}/>:dateKeys.has(k)?<><input type="date" value={toISO(draft[k])} onChange={e=>fieldChange(k,toBR(e.target.value))}/>{!!draft[k]&&!toISO(draft[k])&&<small>Data da planilha a corrigir: {draft[k]} <button type="button" onClick={()=>fieldChange(k,'')}>Apagar</button></small>}</>:<input type={numberKeys.has(k)?'number':'text'} min={numberKeys.has(k)?0:undefined} value={draft[k]} onChange={e=>fieldChange(k,e.target.value)} placeholder={moneyKeys.has(k)?'Ex.: 8,50':''}/>}</label>)}</div></fieldset>)}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
-      <footer>{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>}
-    {deleteTarget&&isAdmin&&<div className="order-delete-overlay" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)setDeleteTarget(null)}}><section className="order-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-oc-title" aria-describedby="delete-oc-description"><div className="order-delete-icon"><Trash2 size={23}/></div><h2 id="delete-oc-title">Excluir a OC {deleteTarget.oc}?</h2><p id="delete-oc-description">Tem certeza que deseja excluir a <strong>OC {deleteTarget.oc}</strong> — {deleteTarget.model || 'sem modelo'}?</p><p>Esta ação apaga o registro da Ordem de Corte do Firebase e não pode ser desfeita. A Ficha de Produção vinculada não será apagada.</p><div className="order-delete-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button type="button" className="order-delete-button order-delete-confirm-button" disabled={busy} onClick={()=>void removeOrder()}>{busy?'Excluindo...':`Sim, excluir OC ${deleteTarget.oc}`}</button></div></section></div>}
+      <footer>{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
+    {deleteTarget&&isAdmin&&pageActive&&createPortal(<div className="order-delete-overlay" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)setDeleteTarget(null)}}><section className="order-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-oc-title" aria-describedby="delete-oc-description"><div className="order-delete-icon"><Trash2 size={23}/></div><h2 id="delete-oc-title">Excluir a OC {deleteTarget.oc}?</h2><p id="delete-oc-description">Tem certeza que deseja excluir a <strong>OC {deleteTarget.oc}</strong> — {deleteTarget.model || 'sem modelo'}?</p><p>Esta ação apaga o registro da Ordem de Corte do Firebase e não pode ser desfeita. A Ficha de Produção vinculada não será apagada.</p><div className="order-delete-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button type="button" className="order-delete-button order-delete-confirm-button" disabled={busy} onClick={()=>void removeOrder()}>{busy?'Excluindo...':`Sim, excluir OC ${deleteTarget.oc}`}</button></div></section></div>,document.body)}
   </div>;
 }
