@@ -933,6 +933,8 @@ body { background: var(--bg); color: var(--text); }
 @media print{
  html,body{height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
  body> #root{display:none!important}
+ /* Oculta também modais abertos enquanto a ficha é impressa pela planilha. */
+ body> :not(.sheet-print-only){display:none!important}
  body> .sheet-print-only{display:block!important;position:static!important;width:194mm!important;max-width:194mm!important;min-height:0!important;margin:0!important;padding:0!important;background:white!important;color:#1f2937!important;visibility:visible!important;page-break-after:avoid!important}
  .sheet-print-only *{visibility:visible!important}
  .sheet-print-only .sheet-paper{box-sizing:border-box!important;display:grid!important;width:194mm!important;min-height:275mm!important;max-height:none!important;padding:0!important;margin:0!important;border:0!important;gap:3mm!important;grid-template-rows:27mm 110mm auto minmax(33mm,1fr)!important;font-size:10px!important;break-inside:avoid!important}
@@ -1130,3 +1132,8 @@ body { background: var(--bg); color: var(--text); }
 .production-pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:20px;color:var(--muted);font-size:12px;flex-wrap:wrap}
 /* Fotos abertas de dentro de um formulário precisam ficar acima do modal. */
 .photo-lightbox{z-index:3000!important;}
+
+/* Ficha vinculada à OC: ação acessível na planilha, inclusive em telas menores. */
+.order-editcell .order-ficha-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;margin-left:6px;padding:7px 10px;border:1px solid #81a4b9;border-radius:7px;background:#eef6fb;color:#174765;font-weight:700;cursor:pointer;white-space:nowrap}
+.order-editcell .order-ficha-button:disabled{opacity:.5;cursor:wait}
+@media print{.order-ficha-button{display:none!important}}

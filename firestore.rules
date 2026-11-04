@@ -721,7 +721,11 @@ service cloud.firestore {
     }
 
     match /production_sheets/{sheetId} {
-      allow get, list: if canView('sheets') || canView('sheet_distribution');
+      // Quem acessa Ordens de Corte pode baixar somente fichas já distribuídas,
+      // pelo ID específico da OC; não libera listagem de fichas nem rascunhos.
+      allow get: if canView('sheets') || canView('sheet_distribution')
+        || (canView('orders') && resource.data.status == 'assigned');
+      allow list: if canView('sheets') || canView('sheet_distribution');
       allow create: if canWrite('sheets') && validSheetFields(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time

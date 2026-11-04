@@ -162,3 +162,20 @@ test('planilhas financeiras mantêm valores corretos com ponto e vírgula',()=>{
   for(const [value,number] of [['4,50',4.5],['4.50',4.5],['R$ 1.072,50',1072.5],['1,072.50',1072.5],['1000',1000],['0,00',0],['2.000',2000]])assert.equal(parse(value),number,value);
   for(const invalid of ['','abc','R$','4,5,2','1..5'])assert.ok(Number.isNaN(parse(invalid)),invalid);
 });
+
+test('ficha de produção acessível diretamente pela OC, com PDF A4 e permissão restrita',()=>{
+  const orders=source('src/CutOrders.tsx'), sheet=source('src/SheetPrint.tsx');
+  const rules=source('firestore.rules'), print=source('src/ProductionSheets.tsx');
+  assert.match(orders,/showFriday: false/);
+  assert.match(orders,/getDoc\(doc\(db,'production_sheets',o\.id\)\)/);
+  assert.match(orders,/sheet\.status!=='assigned'/);
+  assert.match(orders,/aria-label=\{`Ficha OC \${o\.oc}`\}/);
+  assert.match(orders,/printSheet&&pageActive&&createPortal\(<SheetPrint/);
+  assert.match(orders,/document\.title=`Ficha_OC_/);
+  assert.match(print,/createPortal\(<SheetPrint sheet=\{printSheet\}/);
+  assert.match(sheet,/sheet\.assignedTailor/);
+  assert.match(sheet,/GERAL: \{total\}/);
+  assert.match(source('src/styles.css'),/body> :not\(\.sheet-print-only\)\{display:none!important\}/);
+  assert.match(rules,/allow get: if canView\('sheets'\) \|\| canView\('sheet_distribution'\)[\s\S]*?canView\('orders'\) && resource\.data\.status == 'assigned'/);
+  assert.match(rules,/allow list: if canView\('sheets'\) \|\| canView\('sheet_distribution'\)/);
+});
