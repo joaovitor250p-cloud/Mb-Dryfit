@@ -43,12 +43,14 @@ test('permissões da função administrativa abrangem as novas páginas',()=>{
   assert.match(source('firestore.rules'),/match \/cut_orders\/\{orderId\}/);
   assert.match(source('firestore.rules'),/getAfter\(/);
 });
-test('impressão separada do conteúdo do site e oficinas com OCs reais',()=>{
+test('impressão da ficha isolada e oficinas sem consultas de OCs',()=>{
   assert.match(source('src/ProductionSheets.tsx'),/createPortal\(/);
   assert.match(source('src/ProductionSheets.tsx'),/document\.body/);
   assert.match(source('src/styles.css'),/body> #root\{display:none!important\}/);
-  assert.match(source('src/WorkshopsPage.tsx'),/collection\(db,'cut_orders'\)/);
-  assert.match(source('src/WorkshopsPage.tsx'),/canSeeOrders/);
+  assert.doesNotMatch(source('src/WorkshopsPage.tsx'),/collection\(db,'cut_orders'\)/);
+  assert.doesNotMatch(source('src/WorkshopsPage.tsx'),/exportOCs|expandedOrders|workshop-oc-panel/);
+  assert.match(source('src/WorkshopsPage.tsx'),/address:address\.trim\(\)/);
+  assert.match(source('src/WorkshopsPage.tsx'),/services:editing\?\.services\|\|\[\]/);
 });
 test('arquivos TS e TSX do projeto sem erros sintáticos',()=>{
   const walk=folder=>fs.readdirSync(folder,{withFileTypes:true}).flatMap(x=>x.isDirectory()?walk(path.join(folder,x.name)):/\.tsx?$/.test(x.name)&&!x.name.endsWith('.d.ts')?[path.join(folder,x.name)]:[]);
@@ -80,4 +82,44 @@ test('exclusão de OC exige confirmação e a regra do Firestore permite somente
   assert.match(orders,/await deleteDoc\(doc\(db,'cut_orders',target\.id\)\)/);
   assert.match(rules,/match \/cut_orders\/\{orderId\}[\s\S]*?allow delete: if isAdmin\(\);/);
   assert.match(source('src/ProductionSheets.tsx'),/batch\.set\(orderRef,order\)/);
+});
+
+
+test('menus agrupados, sem criar novas permissões, e ajustes mantidos entre telas',()=>{
+  const app=source('src/App.tsx');
+  assert.match(app,/const viewOrder:View\[\]=\['catalog','samples','orders','expenses','sheets','sheet_distribution','settings'\]/);
+  assert.match(app,/SettingsHub/);
+  assert.match(app,/SamplesAndCuts/);
+  assert.match(app,/canViewSamples=\{admin\|\|access\.includes\('samples'\)\}/);
+  assert.match(source('src/SettingsHub.tsx'),/Informações MB/);
+  assert.match(source('src/SettingsHub.tsx'),/Preços de REF/);
+  assert.match(source('src/SamplesAndCuts.tsx'),/> Cortes<\/button>/);
+  assert.match(source('src/SamplesAndCuts.tsx'),/visited\.filter/);
+});
+
+test('sexta-feira usa data selecionada e grava pagamento na coleção cut_orders',()=>{
+  const code=source('src/CutOrders.tsx');
+  assert.match(code,/const paymentDate=toBR\(fridayDate\)/);
+  assert.match(code,/paymentDone:'OK',paidAt:paymentDate/);
+  assert.match(code,/batch\.update\(doc\(db,'cut_orders',o\.id\)/);
+  assert.match(code,/markPaid\(\[o\]\)/);
+  assert.match(code,/markPaid\(g\.list\)/);
+  assert.match(code,/navigator\.clipboard\.writeText\(pix\)/);
+  assert.match(code,/pixByOffice\.get\(norm\(g\.name\)\)/);
+  assert.match(source('firestore.rules'),/canView\('workshops'\) \|\| canView\('sheet_distribution'\) \|\| canWrite\('orders'\)/);
+});
+
+test('resumo em planilha única possui barra de rolagem horizontal',()=>{
+  const code=source('src/CutOrders.tsx');
+  assert.match(code,/order-scrollbar-top/);
+  assert.match(code,/order-scroll/);
+  assert.match(code,/cols\.summary\.map/);
+  assert.doesNotMatch(code,/\{\(\['summary','dates','finance','all'\]/);
+  assert.match(source('src/styles.css'),/\.order-table\{display:table!important/);
+});
+
+test('endereço é opcional para documentos antigos do Firestore',()=>{
+  const rules=source('firestore.rules');
+  assert.match(rules,/\(!\('address' in d\) \|\| \(d\.address is string && d\.address\.size\(\) <= 800\)\)/);
+  assert.match(source('src/WorkshopsPage.tsx'),/Endereço completo/);
 });

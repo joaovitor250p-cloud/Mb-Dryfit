@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type TouchEvent a
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp, type DocumentData } from 'firebase/firestore';
-import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, Settings2, MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
 import { publicCatalogPhoto } from './lib/photoCatalog';
 import { optimizePhoto } from './lib/photos';
@@ -15,19 +15,17 @@ import { PageActiveContext } from './lib/pageMemory';
 // Carrega cada área somente quando ela é aberta. Isso reduz o pacote inicial
 // e evita baixar telas administrativas/financeiras para quem está no catálogo.
 const ModelPhotos = lazy(() => import('./ModelPhotos'));
-const SampleWorkflow = lazy(() => import('./SampleWorkflow'));
+const SamplesAndCuts = lazy(() => import('./SamplesAndCuts'));
 const BackupExport = lazy(() => import('./BackupExport'));
 const AccountsAdmin = lazy(() => import('./AccountsAdmin'));
 const CutOrders = lazy(() => import('./CutOrders'));
 const ExpensesPage = lazy(() => import('./ExpensesPage'));
-const InfoPage = lazy(() => import('./InfoPage'));
-const WorkshopsPage = lazy(() => import('./WorkshopsPage'));
-const ReferencePrices = lazy(() => import('./ReferencePrices'));
+const SettingsHub = lazy(() => import('./SettingsHub'));
 const ProductionSheets = lazy(() => import('./ProductionSheets'));
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
-type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'prices' | 'sheets' | 'sheet_distribution';
+type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'prices' | 'sheets' | 'sheet_distribution' | 'settings';
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
@@ -88,8 +86,8 @@ export default function App(){
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
  const admin=role==='admin',editor=admin||role==='editor';
- const permitted=(section:View)=>admin||(section==='prices'?access.includes('workshops'):access.includes(section));
- const viewOrder:View[]=['catalog','samples','cuts','orders','expenses','info','workshops','prices','sheets','sheet_distribution'];
+ const permitted=(section:View)=>admin||(section==='settings'?access.some(x=>x==='info'||x==='workshops'):section==='samples'?access.includes('samples')||access.includes('cuts'):section==='prices'?access.includes('workshops'):access.includes(section));
+ const viewOrder:View[]=['catalog','samples','orders','expenses','sheets','sheet_distribution','settings'];
  const availableViews=viewOrder.filter(permitted);
  const navMeta:Record<View,{label:string;short:string;Icon:LucideIcon}>={
    catalog:{label:'Catálogo de modelos',short:'Modelos',Icon:Search},
@@ -101,9 +99,10 @@ export default function App(){
    workshops:{label:'Oficinas',short:'Oficinas',Icon:Building2},
    prices:{label:'Preços de REF',short:'Preços',Icon:Wallet},
    sheets:{label:'Fichas de produção',short:'Fichas',Icon:FileText},
-   sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList}
+   sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList},
+   settings:{label:'Configurações',short:'Config.',Icon:Settings2}
  };
- const mobilePrimaryViews=(['catalog','samples','cuts','orders'] as View[]).filter(permitted).slice(0,4);
+ const mobilePrimaryViews=(['catalog','samples','orders','expenses'] as View[]).filter(permitted).slice(0,4);
  const mobileMoreViews=availableViews.filter(item=>!mobilePrimaryViews.includes(item));
  useEffect(()=>{if(role&&!permitted(view)){const first=(viewOrder as View[]).find(x=>permitted(x));if(first){setVisitedViews(old=>old.includes(first)?old:[...old,first]);setView(first)}}},[role,access,view]);
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
@@ -132,7 +131,7 @@ export default function App(){
    });
    return()=>window.cancelAnimationFrame(first);
  },[view]);
- const excludedSwipeTarget=(target:HTMLElement)=>!!target.closest('input,textarea,select,[contenteditable="true"],button,a,[role="button"],.photo-lightbox,.modal-backdrop,.mobile-bottom-nav,.mobile-more-backdrop,.mobile-more-sheet,.sample-gallery-grid,.production-photo,.image-zoom-trigger,.table-wrap,.table-scroll,.preview-list,.order-scroll,.history-list,.horizontal-scroll');
+ const excludedSwipeTarget=(target:HTMLElement)=>!!target.closest('input,textarea,select,[contenteditable="true"],button,a,[role="button"],.photo-lightbox,.modal-backdrop,.mobile-bottom-nav,.mobile-more-backdrop,.mobile-more-sheet,.sample-gallery-grid,.production-photo,.image-zoom-trigger,.table-wrap,.table-scroll,.preview-list,.order-scroll,.order-scrollbar-top,.settings-tabs,.combined-work-tabs,.history-list,.horizontal-scroll');
  const handleMainTouchStart=(event:ReactTouchEvent<HTMLElement>)=>{
    if(event.touches.length!==1||modal||backupOpen){swipeStartRef.current=null;return;}
    const target=event.target as HTMLElement;
@@ -337,9 +336,9 @@ export default function App(){
      {visitedViews.filter(permitted).map(item=><div key={item} className={`view-transition ${view===item?`view-transition-${transitionDirection}`:'view-parked'}`} hidden={view!==item} aria-hidden={view!==item}>
        <PageActiveContext.Provider value={view===item}>
          <Suspense fallback={view===item?<BrandLoading label="Preparando esta área..." />:null}>
-           {item==='sheets'||item==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={item==='sheet_distribution'?'distribution':'create'}/> : item==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : item==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : item==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : item==='prices' ? <ReferencePrices db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : item==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')} canSeeOrders={permitted('orders')}/> : item==='catalog' ?
+           {item==='sheets'||item==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={item==='sheet_distribution'?'distribution':'create'}/> : item==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : item==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : item==='settings' ? <SettingsHub db={db!} user={user} canViewInfo={permitted('info')} canViewOffices={permitted('workshops')} canEditInfo={editor&&permitted('info')} canEditOffices={editor&&permitted('workshops')}/> : item==='samples' ? <SamplesAndCuts db={db!} user={user} models={models} isAdmin={admin} canViewSamples={admin||access.includes('samples')} canViewCuts={admin||access.includes('cuts')} canEditSamples={editor&&(admin||access.includes('samples'))} canEditCuts={editor&&(admin||access.includes('cuts'))}/> : item==='catalog' ?
              <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
-             : <SampleWorkflow view={item as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(item)} isAdmin={admin} models={models}/>}
+             : null}
          </Suspense>
        </PageActiveContext.Provider>
      </div>)}

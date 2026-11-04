@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
@@ -9,7 +9,7 @@ import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, ty
 import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 import { optimizePhoto } from './lib/photos';
-import { readPageMemory, usePageMemory } from './lib/pageMemory';
+import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
 import { safeProviderMessage } from './lib/safeMessage';
 
 // 'store' é conservado apenas para leitura de registros legados.
@@ -154,6 +154,7 @@ function SamplePhotoStack({
 }
 
 export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, models }: Props) {
+  const pageActive=useContext(PageActiveContext);
   const [items, setItems] = useState<Production[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -187,6 +188,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   }, [view]);
 
   useEffect(() => {
+    if(!pageActive)return;
     setLoading(true);
     return onSnapshot(collection(db, 'production_samples'), snapshot => {
       const next = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Production));
@@ -194,7 +196,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       setLoading(false);
       setError('');
     }, e => { setError('Não foi possível consultar as amostras: ' + safeProviderMessage(e)); setLoading(false); });
-  }, [db]);
+  }, [db,pageActive]);
 
   const progress = useMemo(() => items.filter(x => x.status === 'in_progress').length, [items]);
   // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
