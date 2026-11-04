@@ -30,8 +30,8 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
   const filtered=useMemo(()=>{const q=norm(search);return q?items.filter(w=>norm([w.name,w.phone,w.pix,w.address,w.notes,...w.types].join(' ')).includes(q)):items},[items,search]);
   const notify=(text:string,bad=false)=>{setError(bad?text:'');setNotice(bad?'':text)};
   const reset=()=>{setPricesExpanded(false);setEditing(null);setName('');setPhone('');setPix('');setAddress('');setTypes([]);setSpecialPrices([]);setNotes('');setOpen(false)};
-  const add=()=>{reset();setOpen(true)};
-  const edit=(item:Workshop)=>{setPricesExpanded(false);setEditing(item);setName(item.name);setPhone(item.phone);setPix(item.pix);setAddress(item.address);setTypes([...item.types]);setSpecialPrices(item.specialPrices.map(x=>({...x})));setNotes(item.notes);setOpen(true)};
+  const add=()=>{reset();setError('');setNotice('');setOpen(true)};
+  const edit=(item:Workshop)=>{setError('');setNotice('');setPricesExpanded(false);setEditing(item);setName(item.name);setPhone(item.phone);setPix(item.pix);setAddress(item.address);setTypes([...item.types]);setSpecialPrices(item.specialPrices.map(x=>({...x})));setNotes(item.notes);setOpen(true)};
   const save=async()=>{
     if(!canEdit||busy)return;
     if(!name.trim())return notify('Informe o nome da oficina.',true);
@@ -40,14 +40,14 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
     if(valid.some(x=>!x.reference.trim()||!Number.isFinite(parsePrice(x.price))||parsePrice(x.price)<0))return notify('Confira a REF e o valor dos preços especiais.',true);
     setBusy(true);
     try{
-      const payload={name:name.trim(),phone:phone.trim(),pix:pix.trim(),address:address.trim(),types,
+      const payload={name:name.trim(),phone:phone.trim(),pix:pix.trim(),...(address.trim()?{address:address.trim()}:editing&&editing.address?{address:''}:{}),types,
         specialPrices:valid.map(x=>({reference:x.reference.trim().toUpperCase(),type:x.type,price:x.price.trim()})),
         services:editing?.services||[], // não apagar os serviços antigos ao editar outro dado
         notes:notes.trim(),updatedAt:serverTimestamp(),updatedBy:user.uid};
       if(editing)await updateDoc(doc(db,'workshops',editing.id),payload);
       else await setDoc(doc(collection(db,'workshops')),{...payload,createdAt:serverTimestamp(),createdBy:user.uid});
       reset();notify(editing?'Oficina atualizada.':'Oficina cadastrada.');
-    }catch(e){notify(safeProviderMessage(e,'Não foi possível salvar a oficina.'),true)}finally{setBusy(false)}
+    }catch(e){const code=String((e as {code?:string})?.code||'');notify(code==='permission-denied'?'O Firebase recusou salvar esta oficina. Verifique se o usuário tem permissão de edição de Oficinas e se as regras de firestore.rules, incluindo o campo endereço, foram publicadas. Detalhe: '+safeProviderMessage(e):safeProviderMessage(e,'Não foi possível salvar a oficina.'),true)}finally{setBusy(false)}
   };
   const remove=async(item:Workshop)=>{
     if(!canEdit||busy||!window.confirm(`Excluir a oficina "${item.name}"?`))return;
@@ -64,7 +64,7 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
         if(existing){const nextTypes=[...new Set([...existing.types,...eligibleTypes(person)])],nextSpecials=[...existing.specialPrices];
           for(const sp of specials)if(!nextSpecials.some(x=>x.reference===sp.reference&&x.type===sp.type))nextSpecials.push(sp);
           if(nextTypes.length!==existing.types.length||nextSpecials.length!==existing.specialPrices.length){await updateDoc(doc(db,'workshops',existing.id),{types:nextTypes,specialPrices:nextSpecials,updatedAt:serverTimestamp(),updatedBy:user.uid});updated++}
-        }else{await setDoc(doc(collection(db,'workshops')),{name:person,phone:'',pix:'',address:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});added++}
+        }else{await setDoc(doc(collection(db,'workshops')),{name:person,phone:'',pix:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});added++}
       }notify(`${added} costureiros cadastrados, ${updated} complementados.`)
     }catch(e){notify(safeProviderMessage(e),true)}finally{setBusy(false)}
   };
@@ -82,6 +82,7 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
       </article>)}</div>}</section>
     {open&&pageActive&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)reset()}}><section className="modal extra-modal workshop-modal" role="dialog" aria-modal="true" aria-label="Cadastro de oficina"><div className="modal-head"><div><span className="eyebrow">OFICINAS</span><h2>{editing?'Editar oficina':'Nova oficina'}</h2><p>Cadastre os dados de contato e os preços especiais necessários.</p></div><button className="icon-button" onClick={reset} aria-label="Fechar"><X/></button></div>
       <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
+        {error&&<div className="production-alert" role="alert">{error}</div>}
         <label>Nome da oficina / costureiro *<input required maxLength={250} value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Mauro"/></label>
         <div className="office-form-pair"><label>WhatsApp / telefone<input value={phone} maxLength={60} onChange={e=>setPhone(e.target.value)} placeholder="(11) 99999-9999"/></label><label>Chave PIX<input value={pix} maxLength={250} onChange={e=>setPix(e.target.value)} placeholder="Chave do responsável"/></label></div>
         <label>Endereço completo<textarea rows={2} maxLength={800} value={address} onChange={e=>setAddress(e.target.value)} placeholder="Rua, número, bairro, cidade, CEP"/></label>

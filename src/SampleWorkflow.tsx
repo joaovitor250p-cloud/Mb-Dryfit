@@ -528,6 +528,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         </div>
 
         <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
+          {error&&<div className="production-alert" role="alert">{error}</div>}
           <div className="production-image-field">
             <span>Fotos da peça (até {MAX_SAMPLE_PHOTOS})</span>
             {galleryFetching&&<small role="status">Carregando as fotos adicionais... Você já pode preencher os outros campos.</small>}
