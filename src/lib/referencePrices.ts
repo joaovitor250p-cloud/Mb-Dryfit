@@ -103,7 +103,18 @@ export const STARTER_PRICES:ReferencePrice[]=[
   {reference:'10002',type:'M.L.',price:'5'}
 ];
 export const KEY=(type:string,reference:string)=>`${type.trim().toLowerCase().replace(/\./g,'')}__${reference.trim().toUpperCase()}`;
-export const parsePrice=(raw:string)=>{const n=Number(raw.replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.'));return raw.trim()&&Number.isFinite(n)&&n>=0?n:NaN};
+// Aceita 4,50 / 4.50 / R$ 1.234,56; nunca interpreta 4.50 como 450.
+export const parsePrice=(raw:string):number=>{
+  const value=String(raw??'').trim().replace(/^R\$\s*/i,'').replace(/\s/g,'');
+  if(!value)return NaN;
+  let normalized:string;
+  if(/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(value))normalized=value.replace(/\./g,'').replace(',','.');
+  else if(/^\d+(?:,\d{1,2})?$/.test(value))normalized=value.replace(',','.');
+  else if(/^\d+(?:\.\d{1,2})?$/.test(value))normalized=value;
+  else return NaN;
+  const amount=Number(normalized);
+  return Number.isFinite(amount)&&amount>0?amount:NaN;
+};
 export const currency=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 export const eligibleTypes=(name:string)=>['Mauro','Dario Medina','Jony','Rodrigo'].includes(name)?(name==='Rodrigo'?TYPES:TYPES.slice(0,3)):['Bermuda','Calça'];
 export const TAILORS=['Mauro','Dario Medina','Jony','Rodrigo','Dona Francisca','Ramiro','Vitor','Theodoro','Virgílio'];

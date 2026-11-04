@@ -10,6 +10,7 @@ import { optimizePhoto } from './lib/photos';
 import { safeProviderMessage } from './lib/safeMessage';
 import { auth, db, serviceConfigured } from './lib/dataClient';
 import brandLogo from './assets/mb-dryfit-logo.webp';
+import { PageActiveContext } from './lib/pageMemory';
 
 // Carrega cada área somente quando ela é aberta. Isso reduz o pacote inicial
 // e evita baixar telas administrativas/financeiras para quem está no catálogo.
@@ -65,6 +66,11 @@ export default function App(){
  const [accessRequest,setAccessRequest]=useState<'loading'|'none'|'pending'|'approved'|'denied'>('loading'),[roleDisabled,setRoleDisabled]=useState(false),[verified,setVerified]=useState(false);
  const [models,setModels]=useState<Model[]>([]),[loaded,setLoaded]=useState(false),[sync,setSync]=useState<'online'|'offline'|'error'>('offline');
  const [view,setView] = useState<View>('catalog');
+ // Mantém cada área visitada montada. Formulários, modais e filtros ficam como estavam ao voltar.
+ // Esta regra é central: funciona também nas próximas áreas adicionadas ao menu.
+ const [visitedViews,setVisitedViews] = useState<View[]>(['catalog']);
+ const viewScroll=useRef<Partial<Record<View,number>>>({});
+ const previousView=useRef<View>('catalog');
  const [transitionDirection,setTransitionDirection]=useState<'next'|'previous'>('next');
  const swipeStartRef=useRef<{x:number;y:number;startedAt:number}|null>(null);
  const suppressSwipeClickRef=useRef(false);
@@ -99,7 +105,7 @@ export default function App(){
  };
  const mobilePrimaryViews=(['catalog','samples','cuts','orders'] as View[]).filter(permitted).slice(0,4);
  const mobileMoreViews=availableViews.filter(item=>!mobilePrimaryViews.includes(item));
- useEffect(()=>{if(role&&!permitted(view)){const first=(viewOrder as View[]).find(x=>permitted(x));if(first)setView(first)}},[role,access,view]);
+ useEffect(()=>{if(role&&!permitted(view)){const first=(viewOrder as View[]).find(x=>permitted(x));if(first){setVisitedViews(old=>old.includes(first)?old:[...old,first]);setView(first)}}},[role,access,view]);
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
  useEffect(()=>{setDark(localStorage.getItem('mb-theme')==='dark')},[]);
  useEffect(()=>{document.documentElement.classList.toggle('dark',dark);localStorage.setItem('mb-theme',dark?'dark':'light')},[dark]);
@@ -112,9 +118,20 @@ export default function App(){
    const currentIndex=availableViews.indexOf(view),nextIndex=availableViews.indexOf(next);
    if(currentIndex>=0&&nextIndex>=0)setTransitionDirection(nextIndex>currentIndex?'next':'previous');
    if(!needsModels&&(next==='catalog'||next==='samples'||next==='cuts'))setLoaded(false);
+   viewScroll.current[view]=window.scrollY;
+   setVisitedViews(old=>old.includes(next)?old:[...old,next]);
    setMobileMoreOpen(false);
    setView(next);
  };
+ // Restaura também a posição de leitura sem perder o estado dos componentes ocultos.
+ useEffect(()=>{
+   if(previousView.current===view)return;
+   previousView.current=view;
+   const first=window.requestAnimationFrame(()=>{
+     window.scrollTo(0,viewScroll.current[view]??0);
+   });
+   return()=>window.cancelAnimationFrame(first);
+ },[view]);
  const excludedSwipeTarget=(target:HTMLElement)=>!!target.closest('input,textarea,select,[contenteditable="true"],button,a,[role="button"],.photo-lightbox,.modal-backdrop,.mobile-bottom-nav,.mobile-more-backdrop,.mobile-more-sheet,.sample-gallery-grid,.production-photo,.image-zoom-trigger,.table-wrap,.table-scroll,.preview-list,.order-scroll,.history-list,.horizontal-scroll');
  const handleMainTouchStart=(event:ReactTouchEvent<HTMLElement>)=>{
    if(event.touches.length!==1||modal||backupOpen){swipeStartRef.current=null;return;}
@@ -317,13 +334,15 @@ export default function App(){
        <div className="breadcrumb"><span>Área de trabalho</span><i>/</i><strong>{navMeta[view].label}</strong></div>
        <div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/><span>{sync==='online'?'Tudo sincronizado':'Verificar conexão'}</span></span><button className="icon-button" onClick={()=>setDark(!dark)} title={dark?'Ativar tema claro':'Ativar tema escuro'} aria-label="Alternar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button top-logout" title="Sair" aria-label="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div>
      </header>
-     <div key={view} className={`view-transition view-transition-${transitionDirection}`}>
-       <Suspense fallback={<BrandLoading label="Preparando esta área..." />}>
-         {view==='sheets'||view==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={view==='sheet_distribution'?'distribution':'create'}/> : view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : view==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : view==='prices' ? <ReferencePrices db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='catalog' ?
-           <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
-           : <SampleWorkflow key={view} view={view as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(view)} isAdmin={admin} models={models}/>}
-       </Suspense>
-     </div>
+     {visitedViews.filter(permitted).map(item=><div key={item} className={`view-transition ${view===item?`view-transition-${transitionDirection}`:'view-parked'}`} hidden={view!==item} aria-hidden={view!==item}>
+       <PageActiveContext.Provider value={view===item}>
+         <Suspense fallback={view===item?<BrandLoading label="Preparando esta área..." />:null}>
+           {item==='sheets'||item==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={item==='sheet_distribution'?'distribution':'create'}/> : item==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : item==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : item==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : item==='prices' ? <ReferencePrices db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : item==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')} canSeeOrders={permitted('orders')}/> : item==='catalog' ?
+             <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
+             : <SampleWorkflow view={item as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(item)} isAdmin={admin} models={models}/>}
+         </Suspense>
+       </PageActiveContext.Provider>
+     </div>)}
    </main>
    <nav className="mobile-bottom-nav" aria-label="Navegação principal">
      {mobilePrimaryViews.map(item=>{const Icon=navMeta[item].Icon;return <button key={item} className={view===item?'selected':''} aria-current={view===item?'page':undefined} onClick={()=>navigateView(item)}><Icon size={19}/><span>{navMeta[item].short}</span></button>})}

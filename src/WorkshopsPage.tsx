@@ -8,8 +8,9 @@ import brandLogo from './assets/mb-dryfit-logo.webp';
 import { readPageMemory, usePageMemory } from './lib/pageMemory';
 import { safeProviderMessage } from './lib/safeMessage';
 
-type Props = { db: Firestore; user: User; canEdit: boolean };
+type Props = { db: Firestore; user: User; canEdit: boolean; canSeeOrders: boolean };
 type Service = { name: string; price: string };
+type OfficeOrder = {oc:string;ref:string;model:string;office:string;qty:string;piecePrice:string;total:string;sent:string;status:string;paymentDone:string;paidAt:string};
 type Workshop = { id: string; name: string; phone: string; pix:string; types:string[]; specialPrices:{reference:string;type:string;price:string}[]; services: Service[]; notes: string; createdBy?: string };
 const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const parseMoney = (raw:string) => { const cleaned=String(raw).replace(/[^\d,.-]/g,''); const normalized=cleaned.includes(',')?cleaned.replace(/\./g,'').replace(',','.'):cleaned; const value=Number(normalized); return Number.isFinite(value) ? value : NaN; };
@@ -27,10 +28,12 @@ const mapDoc = (id:string, d:DocumentData): Workshop => ({
   createdBy: String(d.createdBy || ''),
 });
 
-export default function WorkshopsPage({ db, user, canEdit }: Props) {
+export default function WorkshopsPage({ db, user, canEdit, canSeeOrders }: Props) {
   const pageMemoryKey = `mb-referencias:${user.uid}:workshops`;
   const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { queryText: '' }));
   const [items, setItems] = useState<Workshop[]>([]);
+  const [orders,setOrders]=useState<OfficeOrder[]>([]);
+  const [expandedOrders,setExpandedOrders]=useState<string|null>(null);
   const [loading, setLoading] = useState(true);
   const [queryText, setQueryText] = useState(String(initialPageState.queryText || ''));
   const [message, setMessage] = useState('');
@@ -49,6 +52,27 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
     setItems(snap.docs.map(d => mapDoc(d.id, d.data())));
     setLoading(false);
   }, e => { setError('Não foi possível carregar as oficinas: ' + safeProviderMessage(e)); setLoading(false); }), [db]);
+
+  // OCs financeiras só são consultadas por quem já tem permissão para Ordem de Corte.
+  useEffect(()=>{
+    if(!canSeeOrders){setOrders([]);return;}
+    return onSnapshot(collection(db,'cut_orders'),snap=>setOrders(snap.docs.map(d=>{
+      const data=d.data();
+      const str=(key:string)=>String(data[key]??'');
+      return {oc:str('oc'),ref:str('ref'),model:str('model'),office:str('office'),qty:str('qty'),piecePrice:str('piecePrice'),total:str('total'),sent:str('sent'),status:str('status'),paymentDone:str('paymentDone'),paidAt:str('paidAt')};
+    })),e=>setError('Não foi possível carregar as OCs das oficinas: '+safeProviderMessage(e)));
+  },[db,canSeeOrders]);
+  const ordersFor=(name:string)=>orders.filter(order=>normalize(order.office)===normalize(name)).sort((a,b)=>(Number(b.oc)||0)-(Number(a.oc)||0));
+  const exportOCs=(name:string)=>{
+    const headers=['OC','REF','MODELO','OFICINA','QUANTIDADE','PREÇO UNITÁRIO','TOTAL','DATA ENVIO','STATUS','PAGO','DATA PAGAMENTO'];
+    const lines=[headers,...ordersFor(name).map(o=>[o.oc,o.ref,o.model,o.office,o.qty,o.piecePrice,o.total,o.sent,o.status,o.paymentDone,o.paidAt])];
+    // Prefixa conteúdo que poderia ser interpretado como fórmula pelo Excel.
+    const esc=(v:string)=>{const safe=/^[=+@\-\t\r]/.test(v.trimStart())?"'"+v:v;return '"'+safe.replace(/"/g,'""')+'"';};
+    const csv='\uFEFF'+lines.map(row=>row.map(esc).join(';')).join('\r\n');
+    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    const link=document.createElement('a');link.href=url;link.download='OCs_'+name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_')+'.csv';document.body.appendChild(link);link.click();link.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
 
   const filtered = useMemo(() => items.filter(item => !queryText.trim() || normalize([item.name,item.phone,item.notes,...item.services.flatMap(s=>[s.name,s.price])].join(' ')).includes(normalize(queryText))), [items, queryText]);
   const reset = () => { setEditing(null); setName(''); setPhone('');setPix('');setTypes([]);setSpecialPrices([]); setServices([{name:'',price:''}]); setNotes(''); setOpen(false); };
@@ -84,7 +108,30 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
     finally { setBusy(false); }
   };
 
-  const importTailors=async()=>{if(!canEdit||busy||!window.confirm('Cadastrar os 9 costureiros iniciais? Os já existentes serão preservados.'))return;setBusy(true);try{let added=0;for(const person of TAILORS){if(items.some(w=>normalize(w.name)===normalize(person)))continue;const specials=person==='Mauro'?[{reference:'10088',type:'Camiseta',price:'4,00'},{reference:'10216',type:'Camiseta',price:'4,00'},{reference:'10089',type:'Camiseta',price:'4,00'},{reference:'10002',type:'M.L.',price:'6,00'}]:[];await setDoc(doc(collection(db,'workshops')),{name:person,phone:'',pix:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});added++}notify(`${added} costureiros cadastrados. Os existentes foram preservados.`)}catch(e){notify(safeProviderMessage(e),true)}finally{setBusy(false)}};
+  const importTailors=async()=>{
+    if(!canEdit||busy||!window.confirm('Cadastrar ou completar os 9 costureiros iniciais? Dados e preços especiais que você já editou serão preservados.'))return;
+    setBusy(true);
+    try{
+      let added=0,updated=0;
+      for(const person of TAILORS){
+        const specials=person==='Mauro'?[{reference:'10088',type:'Camiseta',price:'4,00'},{reference:'10216',type:'Camiseta',price:'4,00'},{reference:'10089',type:'Camiseta',price:'4,00'},{reference:'10002',type:'M.L.',price:'6,00'}]:[];
+        const existing=items.find(w=>normalize(w.name)===normalize(person));
+        if(existing){
+          const nextTypes=[...new Set([...existing.types,...eligibleTypes(person)])];
+          const nextSpecials=[...existing.specialPrices];
+          for(const item of specials){if(!nextSpecials.some(x=>x.reference.trim().toUpperCase()===item.reference&&x.type===item.type))nextSpecials.push(item);}
+          if(nextTypes.length!==existing.types.length||nextSpecials.length!==existing.specialPrices.length){
+            await updateDoc(doc(db,'workshops',existing.id),{types:nextTypes,specialPrices:nextSpecials,updatedAt:serverTimestamp(),updatedBy:user.uid});
+            updated++;
+          }
+        }else{
+          await setDoc(doc(collection(db,'workshops')),{name:person,phone:'',pix:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});
+          added++;
+        }
+      }
+      notify(`${added} costureiros cadastrados e ${updated} cadastros complementados. Valores especiais existentes preservados.`);
+    }catch(e){notify(safeProviderMessage(e),true)}finally{setBusy(false)}
+  };
   const serviceCount = filtered.reduce((total,item)=>total+item.services.length,0);
 
   return <div className="page-wrap extra-page workshops-page">
@@ -108,6 +155,7 @@ export default function WorkshopsPage({ db, user, canEdit }: Props) {
         <div className="workshop-service-heading"><Wrench size={16}/><strong>Peças e preços</strong></div>
         {item.services.length ? <div className="workshop-services">{item.services.map((service,index)=><div className="workshop-service-row" key={`${service.name}-${index}`}><div><strong>{service.name}</strong><small>Preço por peça</small></div><b>{formatMoney(service.price)}</b></div>)}</div> : <p className="workshop-no-services">Nenhuma peça cadastrada.</p>}
         <p><b>Produz:</b> {item.types.join(', ')||'Não informado'} · <b>PIX:</b> {item.pix||'Não informado'}</p>{item.specialPrices.length>0&&<div className="workshop-services"><strong>Preços especiais por REF</strong>{item.specialPrices.map((x,i)=><div className="workshop-service-row" key={i}>{x.type} · REF {x.reference} — {currency(parsePrice(x.price))}</div>)}</div>}{item.notes && <p className="workshop-notes">{item.notes}</p>}
+        {canSeeOrders&&<section className="workshop-oc-panel"><div className="office-oc-header"><strong>Ordens de Corte ({ordersFor(item.name).length})</strong><div className="workshop-oc-actions"><button className="outline-button" onClick={()=>setExpandedOrders(v=>v===item.id?null:item.id)}>{expandedOrders===item.id?'Ocultar OCs':'Ver OCs'}</button><button className="outline-button" disabled={!ordersFor(item.name).length} onClick={()=>exportOCs(item.name)}>Baixar OCs (CSV)</button></div></div>{expandedOrders===item.id&&<div className="workshop-oc-table-wrap"><table className="sheet-table"><thead><tr><th>OC</th><th>REF</th><th>Modelo</th><th>Qtd.</th><th>Enviada</th><th>Status</th><th>Pago</th></tr></thead><tbody>{ordersFor(item.name).map((o,i)=><tr key={o.oc+'-'+i}><td>{o.oc}</td><td>{o.ref}</td><td>{o.model}</td><td>{o.qty}</td><td>{o.sent}</td><td>{o.status}</td><td>{o.paymentDone==='OK'?'Sim':'Não'}</td></tr>)}</tbody></table>{!ordersFor(item.name).length&&<p>Nenhuma OC encontrada para esta oficina.</p>}</div>}</section>}
         {canEdit && <div className="simple-card-actions"><button className="outline-button" onClick={()=>openEdit(item)}><Pencil size={14}/> Editar</button><button className="danger-button" onClick={()=>void remove(item)}><Trash2 size={14}/> Excluir</button></div>}
       </article>)}</div>}
     </section>

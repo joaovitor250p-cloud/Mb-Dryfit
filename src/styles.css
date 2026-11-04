@@ -883,52 +883,93 @@ body { background: var(--bg); color: var(--text); }
   .sidebar::-webkit-scrollbar-thumb { background: #52616c; border-radius: 8px; }
 }
 
-/* Fichas de produção — layout inspirado no formulário original */
-.sheets-page{padding:20px;max-width:1100px;margin:auto}.sheet-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.sheet-tabs button{padding:10px 15px;border:1px solid #a8b1ba;border-radius:8px;background:transparent;color:inherit;cursor:pointer}.sheet-tabs button.active{background:#234b67;color:white}.sheet-paper{background:#fff;color:#242b31;border:1px solid #a4adb5;padding:18px;display:grid;gap:18px}.sheet-top{display:grid;grid-template-columns:3fr 1fr;gap:18px}.sheet-middle{display:grid;grid-template-columns:1fr 1fr;gap:18px}.sheet-right{display:grid;gap:0}.sheet-field{display:flex;flex-direction:column;border:1px solid #a4adb5;padding:9px;min-width:0}.sheet-field strong{margin-bottom:8px}.sheet-field input,.sheet-field textarea{width:100%;background:white;color:#242b31;border:0;outline-offset:2px;font:inherit;min-height:28px}.sheet-field textarea{min-height:95px;resize:vertical}.sheet-middle>.sheet-field textarea{min-height:330px}.sheet-field p{color:#64748b;font-size:13px}.sheet-table-wrap{overflow-x:auto}.sheet-table{border-collapse:collapse;width:100%;min-width:600px}.sheet-table th,.sheet-table td{border:1px solid #a4adb5;padding:5px;text-align:center}.sheet-table th{background:#f1f3f5}.sheet-table input{width:100%;min-width:45px;border:0;background:transparent;color:#242b31;text-align:center}.sheet-actions{display:flex;justify-content:flex-end}.sheet-list{display:grid;gap:15px}.sheet-card{border:1px solid #b6c0c8;border-radius:10px;padding:16px;display:grid;gap:12px}.sheet-card label{display:grid;gap:6px}.sheet-card input{padding:10px;border:1px solid #a4adb5;border-radius:6px;color:#242b31;background:white}.sheet-detail{display:grid;gap:8px;white-space:pre-wrap}@media(max-width:700px){.sheets-page{padding:10px}.sheet-paper{padding:10px}.sheet-top,.sheet-middle{grid-template-columns:1fr}.sheet-middle>.sheet-field textarea{min-height:150px}}@media print{.sidebar,.topbar,.sheet-tabs,.sheet-actions,.sheet-list button{display:none!important}.sheet-paper{border:0}.sheet-detail{display:block}}
-
-/* Fichas: conteúdo preenchido em vermelho, mantendo títulos escuros. */
-.sheet-paper .sheet-field input,.sheet-paper .sheet-field textarea,.sheet-paper .sheet-table input,.sheet-print-only .sheet-field span,.sheet-print-only .sheet-table td{color:#c40000!important;-webkit-text-fill-color:#c40000;}
-.sheet-paper input::placeholder,.sheet-paper textarea::placeholder{color:#a6a6a6;-webkit-text-fill-color:#a6a6a6;}
-.sheet-actions{gap:10px;flex-wrap:wrap;}
-.sheet-print-only{display:none;}
-@media print{
- @page{size:A4 portrait;margin:10mm;}
- body *{visibility:hidden!important;}
- .sheet-print-only,.sheet-print-only *{visibility:visible!important;}
- .sheet-print-only{display:block!important;position:absolute;top:0;left:0;width:100%;background:white!important;}
- .sheet-print-only .sheet-paper{border:0!important;padding:0!important;gap:10px!important;font-size:11px!important;}
- .sheet-print-only .sheet-top{gap:10px!important;}
- .sheet-print-only .sheet-middle{gap:10px!important;}
- .sheet-print-only .sheet-field{padding:7px!important;break-inside:avoid;}
- .sheet-print-only .sheet-field span{display:block;white-space:pre-wrap;overflow-wrap:anywhere;min-height:20px;}
- .sheet-print-only .sheet-middle>.sheet-field{min-height:260px;}
- .sheet-print-only .sheet-table{min-width:0!important;font-size:10px!important;}
- .sheet-print-only .sheet-table td{height:22px;}
- .sheet-print-only .sheet-finishing{min-height:110px;}
+/* Fichas de produção — layout de edição e impressão baseado no modelo A4 enviado */
+.sheets-page{padding:20px;max-width:1100px;margin:auto}
+.sheet-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.sheet-tabs button{padding:10px 15px;border:1px solid #a8b1ba;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+.sheet-tabs button.active{background:#234b67;color:white}
+.sheet-paper{box-sizing:border-box;background:#fff;color:#242b31;border:1px solid #a4adb5;padding:12px;display:grid;gap:8px;max-width:850px;margin-inline:auto}
+.sheet-top{display:grid;grid-template-columns:3fr 1fr;gap:6px}
+.sheet-middle{display:grid;grid-template-columns:minmax(0,48fr) minmax(0,52fr);gap:6px;min-width:0}
+.sheet-right{display:grid;grid-template-rows:60px minmax(110px,1fr) 48px 48px 125px;min-width:0}
+.sheet-field{box-sizing:border-box;display:flex;flex-direction:column;border:1px solid #a4adb5;padding:6px;min-width:0;overflow-wrap:anywhere}
+.sheet-field strong{margin-bottom:4px;font-size:11px}
+.sheet-field input,.sheet-field textarea{width:100%;background:white;color:#c40000;border:0;outline-offset:2px;font:inherit;min-height:28px}
+.sheet-field textarea{min-height:60px;resize:vertical}
+.sheet-middle>.sheet-field textarea{min-height:145px}
+.sheet-field p{color:#64748b;font-size:13px}
+.sheet-table-wrap{overflow-x:auto}
+.sheet-table{border-collapse:collapse;width:100%;min-width:600px}
+.sheet-table th,.sheet-table td{border:1px solid #a4adb5;padding:4px;text-align:center}
+.sheet-table th{background:#f1f3f5}
+.sheet-table input{width:100%;min-width:45px;border:0;background:transparent;color:#c40000;text-align:center}
+.sheet-total-row th,.sheet-total-row td{font-weight:700;background:#fff;color:#c40000}
+.sheet-total-row th{color:#20252a}
+.sheet-paper .sheet-field input,.sheet-paper .sheet-field textarea,.sheet-paper .sheet-table input,.sheet-print-only .sheet-field span,.sheet-print-only .sheet-table td{color:#c40000!important;-webkit-text-fill-color:#c40000}
+.sheet-paper input::placeholder,.sheet-paper textarea::placeholder{color:#a6a6a6;-webkit-text-fill-color:#a6a6a6}
+.sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.sheet-list{display:grid;gap:15px}
+.sheet-card{border:1px solid #b6c0c8;border-radius:10px;padding:16px;display:grid;gap:12px}
+.sheet-card label{display:block;margin:10px 0}
+.sheet-card input,.sheet-card select{display:block;width:100%;max-width:420px;padding:9px;border:1px solid #a4adb5;border-radius:6px;color:#242b31;background:white}
+.sheet-detail{display:grid;gap:8px;white-space:pre-wrap}
+.office-oc-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:10px 0}
+.price-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:12px 0}
+.price-form label{display:flex;flex-direction:column;gap:5px}
+.price-form input,.price-form select,.sheets-page select{padding:9px;border:1px solid #9ca3af;border-radius:6px;background:var(--surface,#fff);color:inherit}
+.price-types{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.price-types label{display:flex;gap:5px;align-items:center}
+.price-table-wrap{max-height:650px;overflow:auto}
+.sheet-print-only{display:none}
+@media(max-width:700px){
+ .sheets-page{padding:10px}
+ .sheet-paper{padding:10px}
+ .sheet-top,.sheet-middle{grid-template-columns:1fr}
+ .sheet-right{grid-template-rows:auto}
+ .sheet-table{min-width:600px}
 }
-
-/* Fichas: totais automaticos e impressao isolada em uma unica pagina */
-.sheet-total-row th,.sheet-total-row td{font-weight:700;background:#fff;color:#c40000!important}
-.sheet-total-row th{color:#20252a!important}
+/* A impressão da ficha é criada diretamente sob <body> via React portal. */
+@page{size:A4 portrait;margin:8mm}
 @media print{
- @page{size:A4 portrait;margin:7mm 8mm}
- html,body,#root{margin:0!important;padding:0!important;background:#fff!important;height:auto!important;overflow:visible!important}
- .sheet-print-only,.sheet-print-only *{display:revert!important;visibility:visible!important}
- .sheet-print-only{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:999999!important;overflow:hidden!important;background:#fff!important}
- .sheet-print-only .sheet-paper{display:grid!important;box-sizing:border-box!important;height:280mm!important;grid-template-rows:auto minmax(0,1fr) auto auto!important;gap:8px!important;padding:0!important}
- .sheet-print-only .sheet-top{display:grid!important;grid-template-columns:3fr 1fr!important}
- .sheet-print-only .sheet-middle{display:grid!important;grid-template-columns:1fr 1fr!important;min-height:0!important}
- .sheet-print-only .sheet-right{display:grid!important;grid-template-rows:45px 1fr 36px 36px 1.4fr!important;min-height:0!important}
- .sheet-print-only .sheet-field{display:flex!important;flex-direction:column!important;padding:5px!important;min-height:0!important;overflow:hidden!important}
- .sheet-print-only .sheet-table-wrap{display:block!important;overflow:visible!important}
- .sheet-print-only .sheet-table{display:table!important;width:100%!important}
+ html,body{height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
+ body> #root{display:none!important}
+ body> .sheet-print-only{display:block!important;position:static!important;width:194mm!important;max-width:194mm!important;min-height:0!important;margin:0!important;padding:0!important;background:white!important;color:#1f2937!important;visibility:visible!important;page-break-after:avoid!important}
+ .sheet-print-only *{visibility:visible!important}
+ .sheet-print-only .sheet-paper{box-sizing:border-box!important;display:grid!important;width:194mm!important;min-height:275mm!important;max-height:none!important;padding:0!important;margin:0!important;border:0!important;gap:3mm!important;grid-template-rows:27mm 110mm auto minmax(33mm,1fr)!important;font-size:10px!important;break-inside:avoid!important}
+ .sheet-print-only .sheet-top{display:grid!important;grid-template-columns:3fr 1fr!important;gap:2mm!important;min-height:0!important}
+ .sheet-print-only .sheet-middle{display:grid!important;grid-template-columns:minmax(0,48fr) minmax(0,52fr)!important;gap:2mm!important;min-height:0!important}
+ .sheet-print-only .sheet-right{display:grid!important;grid-template-rows:14mm minmax(0,1fr) 10mm 10mm 29mm!important;min-height:0!important}
+ .sheet-print-only .sheet-field{box-sizing:border-box!important;display:flex!important;flex-direction:column!important;padding:1.4mm!important;min-width:0!important;min-height:0!important;overflow:visible!important}
+ .sheet-print-only .sheet-field strong{font-size:9px!important;margin-bottom:2px!important;color:#1f2937!important}
+ .sheet-print-only .sheet-field span{display:block!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;min-height:0!important;font-size:10px!important;line-height:1.2!important}
+ .sheet-print-only .sheet-table{display:table!important;min-width:0!important;width:100%!important;table-layout:fixed!important;font-size:9px!important;border-collapse:collapse!important}
  .sheet-print-only .sheet-table thead{display:table-header-group!important}
  .sheet-print-only .sheet-table tbody{display:table-row-group!important}
- .sheet-print-only .sheet-table tr{display:table-row!important}
- .sheet-print-only .sheet-table td,.sheet-print-only .sheet-table th{display:table-cell!important;padding:2px!important;height:19px!important}
- .sheet-print-only .sheet-finishing{min-height:100px!important}
- .sheet-print-only .sheet-field span{display:block!important}
+ .sheet-print-only .sheet-table tr{display:table-row!important;break-inside:avoid!important}
+ .sheet-print-only .sheet-table th,.sheet-print-only .sheet-table td{display:table-cell!important;height:5mm!important;padding:0.8mm!important;overflow-wrap:anywhere!important;border:1px solid #a4adb5!important}
+ .sheet-print-only .sheet-finishing{min-height:33mm!important}
+ .sheet-print-only .sheet-field,.sheet-print-only .sheet-table tr{break-inside:avoid!important}
 }
 
-.price-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:12px 0}.price-form label{display:flex;flex-direction:column;gap:5px}.price-form input,.price-form select,.sheets-page select{padding:9px;border:1px solid #9ca3af;border-radius:6px;background:var(--surface,#fff);color:inherit}.price-types{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.price-types label{display:flex;gap:5px;align-items:center}.price-table-wrap{max-height:650px;overflow:auto}.sheet-card label{display:block;margin:10px 0}.sheet-card label select,.sheet-card label input{display:block;width:100%;max-width:420px}
-@media print{body *{visibility:hidden!important} .sheet-print-only,.sheet-print-only *{visibility:visible!important} .sheet-print-only{display:block!important;position:absolute!important;top:0!important;left:0!important;width:100%!important;z-index:999999!important} .sheet-print-only .sheet-paper{display:grid!important}}
+.workshop-oc-panel{border-top:1px solid #b6c0c8;margin-top:12px;padding-top:12px}
+.workshop-oc-actions{display:flex;gap:8px;flex-wrap:wrap}
+.workshop-oc-table-wrap{max-width:100%;max-height:420px;overflow:auto}
+.workshop-oc-table-wrap .sheet-table{min-width:650px}
+
+@media print{.sheet-print-only .sheet-table th:first-child{width:13%}.sheet-print-only .sheet-table th:last-child{width:19%}}
+
+/* Navegação que conserva a tela editada ao alternar entre módulos. */
+.view-parked,.view-transition[hidden] { display: none !important; }
+.order-editcell { white-space: nowrap; }
+.order-editcell .order-delete-button { color: #ab2d3a; border-color: #e9afb4; background: #fff3f3; margin-left: 6px; }
+.order-delete-button { display: inline-flex; justify-content: center; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 8px; border: 1px solid #cb4b58; color: #a62030; background: #fff0f1; font-weight: 750; cursor: pointer; }
+.order-delete-button:disabled { opacity: .55; cursor: not-allowed; }
+.order-drawer footer>.order-delete-button { margin-right: auto; }
+.order-delete-overlay { position: fixed; inset: 0; z-index: 1600; display: flex; align-items: center; justify-content: center; padding: 18px; background: #061923c9; }
+.order-delete-confirm { width: min(470px,100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 65px #0004; padding: 25px; color: var(--text); }
+.order-delete-icon { width: 48px; height: 48px; background: #fee2e2; color: #b42332; display: flex; align-items: center; justify-content: center; border-radius: 13px; margin-bottom: 15px; }
+.order-delete-confirm h2 { font-size: 21px; line-height: 1.3; margin: 0 0 11px; }
+.order-delete-confirm p { font-size: 13px; line-height: 1.6; margin: 0 0 10px; }
+.order-delete-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; margin-top: 20px; }
+.order-delete-confirm-button { background: #b42332; border-color: #b42332; color: white; }
+@media(max-width:600px) { .order-drawer footer { flex-wrap: wrap; } .order-drawer footer>.order-delete-button { margin-right: 0; } .order-delete-actions>* { flex: 1; } }

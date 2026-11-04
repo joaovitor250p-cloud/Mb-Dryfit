@@ -1,4 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
+
+// Páginas mantidas montadas só podem registrar o scroll quando estiverem visíveis.
+export const PageActiveContext = createContext(true);
 
 type StoredPageState = Record<string, unknown> & { scrollY?: number };
 
@@ -13,13 +16,14 @@ export function readPageMemory<T extends Record<string, unknown>>(key: string, f
 }
 
 export function usePageMemory(key: string, state: Record<string, unknown>, ready = true): void {
+  const active = useContext(PageActiveContext);
   const stateRef = useRef(state);
   stateRef.current = state;
   const serializedState = JSON.stringify(state);
   const restoredKeyRef = useRef('');
 
   useEffect(() => {
-    if (!ready || restoredKeyRef.current === key) return;
+    if (!ready || !active || restoredKeyRef.current === key) return;
     restoredKeyRef.current = key;
     const saved = readPageMemory(key, {});
     let firstFrame = 0;
@@ -31,9 +35,10 @@ export function usePageMemory(key: string, state: Record<string, unknown>, ready
       cancelAnimationFrame(firstFrame);
       cancelAnimationFrame(secondFrame);
     };
-  }, [key, ready]);
+  }, [key, ready, active]);
 
   useEffect(() => {
+    if (!active) return;
     const writeState = (includeScroll: boolean) => {
       try {
         const previous = readPageMemory(key, {});
@@ -61,9 +66,10 @@ export function usePageMemory(key: string, state: Record<string, unknown>, ready
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('pagehide', onPageHide);
       if (frame) cancelAnimationFrame(frame);
-      writeState(true);
+      // Ao sair da aba, o navegador pode já ter mudado o scroll; não grave essa posição na aba anterior.
+      writeState(false);
     };
-  }, [key]);
+  }, [key, active]);
 
   useEffect(() => {
     try {
