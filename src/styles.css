@@ -906,3 +906,29 @@ body { background: var(--bg); color: var(--text); }
  .sheet-print-only .sheet-table td{height:22px;}
  .sheet-print-only .sheet-finishing{min-height:110px;}
 }
+
+/* Fichas: totais automaticos e impressao isolada em uma unica pagina */
+.sheet-total-row th,.sheet-total-row td{font-weight:700;background:#fff;color:#c40000!important}
+.sheet-total-row th{color:#20252a!important}
+@media print{
+ @page{size:A4 portrait;margin:7mm 8mm}
+ html,body,#root{margin:0!important;padding:0!important;background:#fff!important;height:auto!important;overflow:visible!important}
+ .sheet-print-only,.sheet-print-only *{display:revert!important;visibility:visible!important}
+ .sheet-print-only{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:999999!important;overflow:hidden!important;background:#fff!important}
+ .sheet-print-only .sheet-paper{display:grid!important;box-sizing:border-box!important;height:280mm!important;grid-template-rows:auto minmax(0,1fr) auto auto!important;gap:8px!important;padding:0!important}
+ .sheet-print-only .sheet-top{display:grid!important;grid-template-columns:3fr 1fr!important}
+ .sheet-print-only .sheet-middle{display:grid!important;grid-template-columns:1fr 1fr!important;min-height:0!important}
+ .sheet-print-only .sheet-right{display:grid!important;grid-template-rows:45px 1fr 36px 36px 1.4fr!important;min-height:0!important}
+ .sheet-print-only .sheet-field{display:flex!important;flex-direction:column!important;padding:5px!important;min-height:0!important;overflow:hidden!important}
+ .sheet-print-only .sheet-table-wrap{display:block!important;overflow:visible!important}
+ .sheet-print-only .sheet-table{display:table!important;width:100%!important}
+ .sheet-print-only .sheet-table thead{display:table-header-group!important}
+ .sheet-print-only .sheet-table tbody{display:table-row-group!important}
+ .sheet-print-only .sheet-table tr{display:table-row!important}
+ .sheet-print-only .sheet-table td,.sheet-print-only .sheet-table th{display:table-cell!important;padding:2px!important;height:19px!important}
+ .sheet-print-only .sheet-finishing{min-height:100px!important}
+ .sheet-print-only .sheet-field span{display:block!important}
+}
+
+.price-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:12px 0}.price-form label{display:flex;flex-direction:column;gap:5px}.price-form input,.price-form select,.sheets-page select{padding:9px;border:1px solid #9ca3af;border-radius:6px;background:var(--surface,#fff);color:inherit}.price-types{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.price-types label{display:flex;gap:5px;align-items:center}.price-table-wrap{max-height:650px;overflow:auto}.sheet-card label{display:block;margin:10px 0}.sheet-card label select,.sheet-card label input{display:block;width:100%;max-width:420px}
+@media print{body *{visibility:hidden!important} .sheet-print-only,.sheet-print-only *{visibility:visible!important} .sheet-print-only{display:block!important;position:absolute!important;top:0!important;left:0!important;width:100%!important;z-index:999999!important} .sheet-print-only .sheet-paper{display:grid!important}}

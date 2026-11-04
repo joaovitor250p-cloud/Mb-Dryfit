@@ -499,7 +499,14 @@ service cloud.firestore {
 
       allow get, list: if canView('orders');
 
-      allow create: if canWrite('orders')
+      allow create: if (canWrite('orders') || (canWrite('sheet_distribution')
+          && existsAfter(/databases/$(database)/documents/production_sheets/$(orderId))
+          && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.status == 'assigned'
+          && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedBy == request.auth.uid
+          && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status == 'pending'
+          && request.resource.data.oc == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.oc
+          && request.resource.data.ref == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.reference
+          && request.resource.data.office == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedTailor))
         && validCutOrder()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time;
@@ -624,11 +631,11 @@ service cloud.firestore {
       let d = request.resource.data;
 
       return d.keys().hasOnly([
-          'name', 'phone', 'services', 'notes',
+          'name', 'phone', 'pix', 'types', 'specialPrices', 'services', 'notes',
           'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
         ])
         && d.keys().hasAll([
-          'name', 'phone', 'services', 'notes',
+          'name', 'phone', 'pix', 'types', 'specialPrices', 'services', 'notes',
           'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
         ])
         && d.name is string
@@ -636,6 +643,9 @@ service cloud.firestore {
         && d.name.size() <= 250
         && d.phone is string
         && d.phone.size() <= 60
+        && d.pix is string && d.pix.size() <= 250
+        && d.types is list && d.types.size() <= 5
+        && d.specialPrices is list && d.specialPrices.size() <= 150
         && d.services is list
         && d.services.size() <= 50
         && d.notes is string
@@ -646,7 +656,7 @@ service cloud.firestore {
     }
 
     match /workshops/{workshopId} {
-      allow get, list: if canView('workshops');
+      allow get, list: if canView('workshops') || canView('sheet_distribution');
 
       allow create: if canWrite('workshops')
         && validWorkshop()
@@ -659,6 +669,18 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if canWrite('workshops');
+    }
+
+    match /reference_prices/{priceId} {
+      allow get, list: if canView('workshops') || canView('sheet_distribution');
+      allow create, update: if canWrite('workshops')
+        && request.resource.data.keys().hasOnly(['reference','type','price','updatedAt','updatedBy'])
+        && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 80
+        && request.resource.data.type in ['Camiseta','M.L.','Regata','Bermuda','Calça']
+        && request.resource.data.price is string && request.resource.data.price.size() <= 30
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
     }
 
     match /audit_log/{entryId} {
@@ -674,23 +696,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
       return d.keys().hasOnly(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
-        && d.model is string && d.model.size() > 0 && d.model.size() <= 250
+        && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && d.reference.size() <= 200
         && d.composition is string && d.composition.size() <= 2000
         && d.trims is string && d.trims.size() <= 4000
         && d.officeInstructions is string && d.officeInstructions.size() <= 4000
-        && d.oc is string && d.oc.size() > 0 && d.oc.size() <= 80
+        && d.oc is string && (d.status == 'draft' || d.oc.size() > 0) && d.oc.size() <= 80
         && d.withdrawalDate is string && d.withdrawalDate.size() <= 30
         && d.tailorInstructions is string && d.tailorInstructions.size() <= 4000
         && d.finishingInstructions is string && d.finishingInstructions.size() <= 4000
         && d.colors is list && d.colors.size() <= 50
-        && d.status in ['pending','assigned']
+        && d.status in ['draft','pending','assigned']
         && d.assignedTailor is string && d.assignedTailor.size() <= 120
         && d.createdBy is string && d.updatedBy == request.auth.uid
         && d.updatedAt == request.time
@@ -703,14 +724,15 @@ service cloud.firestore {
       allow create: if canWrite('sheets') && validSheetFields(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && request.resource.data.status == 'pending'
+        && request.resource.data.status in ['draft','pending']
         && request.resource.data.assignedTailor == ''
         && request.resource.data.assignedAt == null
         && request.resource.data.assignedBy == null;
       allow update: if (
         canWrite('sheets') && validSheetFields(request.resource.data)
-        && resource.data.status == 'pending'
-        && request.resource.data.status == 'pending'
+        && resource.data.status == 'draft'
+        && request.resource.data.status in ['draft','pending']
+        && request.auth.uid == resource.data.createdBy
         && request.resource.data.assignedTailor == ''
         && request.resource.data.assignedAt == null
         && request.resource.data.assignedBy == null

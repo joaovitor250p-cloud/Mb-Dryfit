@@ -21,11 +21,12 @@ const CutOrders = lazy(() => import('./CutOrders'));
 const ExpensesPage = lazy(() => import('./ExpensesPage'));
 const InfoPage = lazy(() => import('./InfoPage'));
 const WorkshopsPage = lazy(() => import('./WorkshopsPage'));
+const ReferencePrices = lazy(() => import('./ReferencePrices'));
 const ProductionSheets = lazy(() => import('./ProductionSheets'));
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
-type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution';
+type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'prices' | 'sheets' | 'sheet_distribution';
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
@@ -81,8 +82,8 @@ export default function App(){
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
  const admin=role==='admin',editor=admin||role==='editor';
- const permitted=(section:View)=>admin||access.includes(section);
- const viewOrder:View[]=['catalog','samples','cuts','orders','expenses','info','workshops','sheets','sheet_distribution'];
+ const permitted=(section:View)=>admin||(section==='prices'?access.includes('workshops'):access.includes(section));
+ const viewOrder:View[]=['catalog','samples','cuts','orders','expenses','info','workshops','prices','sheets','sheet_distribution'];
  const availableViews=viewOrder.filter(permitted);
  const navMeta:Record<View,{label:string;short:string;Icon:LucideIcon}>={
    catalog:{label:'Catálogo de modelos',short:'Modelos',Icon:Search},
@@ -92,6 +93,7 @@ export default function App(){
    expenses:{label:'Gastos',short:'Gastos',Icon:Wallet},
    info:{label:'Informações MB',short:'Info MB',Icon:FileText},
    workshops:{label:'Oficinas',short:'Oficinas',Icon:Building2},
+   prices:{label:'Preços de REF',short:'Preços',Icon:Wallet},
    sheets:{label:'Fichas de produção',short:'Fichas',Icon:FileText},
    sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList}
  };
@@ -317,7 +319,7 @@ export default function App(){
      </header>
      <div key={view} className={`view-transition view-transition-${transitionDirection}`}>
        <Suspense fallback={<BrandLoading label="Preparando esta área..." />}>
-         {view==='sheets'||view==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={view==='sheet_distribution'?'distribution':'create'}/> : view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : view==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : view==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='catalog' ?
+         {view==='sheets'||view==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={view==='sheet_distribution'?'distribution':'create'}/> : view==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : view==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : view==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : view==='prices' ? <ReferencePrices db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : view==='catalog' ?
            <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
            : <SampleWorkflow key={view} view={view as 'samples'|'cuts'} db={db!} user={user} canEdit={editor&&permitted(view)} isAdmin={admin} models={models}/>}
        </Suspense>
