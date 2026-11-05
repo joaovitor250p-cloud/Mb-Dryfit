@@ -1,0 +1,8 @@
+/* Extensão visual da IA local. Não substitui o tema do MB REFERÊNCIAS. */
+.mb-assistant-ai-activation{display:flex;flex-direction:column;gap:9px;padding:13px;border-radius:13px;margin:10px 0 12px;background:linear-gradient(120deg,#eef1ff,#f7efff);border:1px solid #d9dbfc;color:#454375}
+.mb-assistant-ai-activation p{margin:0;font-size:12px;line-height:1.55}
+.mb-assistant-ai-activation button{align-self:flex-start;background:#6555df;color:white;padding:10px 14px;border:0;border-radius:10px;font-weight:750;cursor:pointer}
+.mb-assistant-ai-activation button:hover{background:#5040c3}
+.mb-assistant-ai-activation button:disabled{opacity:.58;cursor:wait}
+.mb-assistant-ai-activation small{font-size:11px;color:#635e92;max-height:70px;overflow:auto;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.mb-assistant-ai-activation *{transition:none!important;animation:none!important}}

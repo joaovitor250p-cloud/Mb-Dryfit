@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import './local-ai.css';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
@@ -9,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { Bot, CheckCircle2, ClipboardList, Copy, Mic, MicOff, Send, ShieldCheck, Trash2, X } from 'lucide-react';
 import { fridayForDay, parseAssistantCommand } from './lib/assistantCommands';
+import { askFreeAI, isFreeAIConfigured, loadFreeAI } from './lib/freeAI';
 import { safeProviderMessage } from './lib/safeMessage';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 import { parseFinanceNumber } from './lib/financeNumbers';
@@ -76,6 +78,12 @@ export default function AssistantMB({
   const [listening,setListening]=useState(false);
   const [error,setError]=useState(false);
   const [copied,setCopied]=useState(false);
+
+  const [aiNote,setAiNote]=useState('');
+  const [aiReady,setAiReady]=useState(false);
+  const [loadingAI,setLoadingAI]=useState(false);
+  const [aiProgress,setAiProgress]=useState('');
+  const aiHistory=useRef<Array<{role:'user'|'assistant';text:string}>>([]);
   const recognition=useRef<VoiceRecognizer|null>(null);
   const busyRef=useRef(false);
   const inputRef=useRef<HTMLInputElement|null>(null);
@@ -84,6 +92,35 @@ export default function AssistantMB({
   useEffect(()=>{if(open)inputRef.current?.focus()},[open]);
 
   const notice=(message:string,failed=false)=>{setError(failed);setStatus(message)};
+  const activateAI=async()=>{
+    if(loadingAI||aiReady)return;
+    setLoadingAI(true);setAiProgress('Preparando IA local...');
+    try{
+      await loadFreeAI(setAiProgress);
+      setAiReady(true);setAiProgress('IA local carregada. Pode escrever ou falar normalmente.');
+      notice('IA local pronta. Os dados reais continuam sendo buscados pelo aplicativo, com suas permissões.');
+    }catch(e){notice(`Não foi possível carregar a IA local: ${errorMessage(e)}`,true);setAiProgress('')}
+    finally{setLoadingAI(false)}
+  };
+  // A saída do modelo é texto NÃO CONFIÁVEL; só aceita ações explícitas do usuário.
+  const aiIntentMatches=(raw:string,command:ReturnType<typeof parseAssistantCommand>):boolean=>{
+    const simplified=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const mentions=(n:string)=>new RegExp(`(^|\\D)${n.replace(/[^0-9]/g,'')}(\\D|$)`).test(simplified);
+    const negated=/\b(?:nao|nunca|sem)\b/.test(simplified);
+    if(command.kind==='pay-order')return !negated&&mentions(command.oc)&&/\b(?:paga|pago|pagar|pague|quitar|quite|liquidar|marcar como paga)\b/.test(simplified);
+    if(command.kind==='delete-sample')return !negated&&mentions(command.oc)&&/\b(?:apaga|apagar|exclui|excluir|remove|remover|deletar)\b/.test(simplified)&&/\bamostra/.test(simplified);
+    if(command.kind==='price-change'){
+      const prices=[...simplified.matchAll(/(?:r\$\s*)?(\d+(?:[.,]\d{1,2}))\b/g)].map(m=>Number(m[1].replace(',','.')));
+      return !negated&&mentions(command.reference)&&/\b(?:mudar|alterar|trocar|corrigir|atualizar)\b/.test(simplified)&&/\b(?:preco|valor|ref|referencia)\b/.test(simplified)&&prices.some(n=>Math.abs(n-command.amount)<0.001);
+    }
+    if(command.kind==='find-order')return mentions(command.oc);
+    if(command.kind==='price-lookup')return mentions(command.reference);
+    if(command.kind.startsWith('workshop-')){
+      const key=workshopKey(command.workshop);
+      return Boolean(key)&&workshopKey(raw).includes(key);
+    }
+    return false;
+  };
   const findUnique=async(collectionName:'cut_orders'|'production_samples',oc:string):Promise<Row|null>=>{
     const rows=asRows(await getDocs(query(collection(db,collectionName),where('oc','==',oc))));
     if(rows.length>1)throw new Error(`Encontrei ${rows.length} registros com a OC ${oc}. Confira os registros manualmente antes de executar este comando.`);
@@ -95,10 +132,35 @@ export default function AssistantMB({
     if(busyRef.current)return;
     const raw=message.trim();
     if(!raw){notice('Digite ou fale um comando.',true);return;}
-    setHeard(raw);setPreview(null);setSelectedPrice('');setError(false);setCopied(false);
+    setHeard(raw);setPreview(null);setSelectedPrice('');setError(false);setCopied(false);setAiNote('');
     busyRef.current=true;setBusy(true);
     try{
-      const command=parseAssistantCommand(raw);
+      let command=parseAssistantCommand(raw);
+      // Primeiro usa comandos locais gratuitos. Só consulta a IA quando a frase não foi compreendida.
+      if(command.kind==='unknown'&&isFreeAIConfigured&&aiReady){
+        const ai=await askFreeAI(user,raw,aiHistory.current,setAiProgress);
+
+        aiHistory.current=[...aiHistory.current,{role:'user',text:raw},{role:'assistant',text:ai.reply}].slice(-6);
+        if(ai.command){
+          const interpreted=parseAssistantCommand(ai.command);
+          // Uma ação financeira com preço especial nunca vira alteração de preço geral.
+          const specialPrice=/\b(?:mauro|dario|jony|rodrigo|francisca|ramiro|vitor|theodoro|virg[ií]lio|vig[ií]lio|costureiro|oficina)\b/i.test(raw);
+          if(interpreted.kind==='price-change'&&specialPrice){
+            notice('Você mencionou um preço por costureiro. Para sua segurança, faça essa alteração em Configurações → Oficinas. Não alterei o preço geral.',true);
+            return;
+          }
+          if(interpreted.kind!=='unknown'&&interpreted.kind!=='help'&&aiIntentMatches(raw,interpreted)){
+            command=interpreted;
+            setAiNote(`IA local interpretou: “${ai.command}”. Confira os dados antes de confirmar.`);
+          }else{
+            notice(ai.reply||'Não consegui transformar o pedido em uma operação segura.',true);
+            return;
+          }
+        }else{
+          notice(ai.reply||'Não consegui interpretar este pedido. Tente explicar de outro jeito.');
+          return;
+        }
+      }
       if(command.kind==='help'){
         notice('Posso consultar dívidas, PIX, OCs pendentes, peças em produção e pagamentos do mês. Também localizo OCs e referências. Para pagar, mudar preços ou excluir amostras, sempre peço confirmação.');
         return;
@@ -178,7 +240,7 @@ export default function AssistantMB({
         notice(rows.length>1?`Esta REF tem ${rows.length} tipos de peça. Escolha qual preço deseja alterar.`:`Confira a mudança da REF ${command.reference} e confirme.`);
         return;
       }
-      notice('Não reconheci essa frase. Tente: “quanto devo ao Mauro?”, “qual o PIX do Virgílio?”, “quantas peças do Rodrigo estão em andamento?”, “OC 707 paga” ou digite “ajuda”.',true);
+      notice(!aiReady&&isFreeAIConfigured?'Para frases livres, clique em “Ativar IA local”. Ou tente um comando direto como “quanto devo ao Mauro?”.':'Não reconheci essa frase. Tente: “quanto devo ao Mauro?”, “qual o PIX do Virgílio?”, “quantas peças do Rodrigo estão em andamento?”, “OC 707 paga” ou digite “ajuda”.',true);
     }catch(e){notice(errorMessage(e),true)}
     finally{busyRef.current=false;setBusy(false)}
   };
@@ -269,11 +331,14 @@ export default function AssistantMB({
   return createPortal(<div className="mb-assistant-root">
     {!open&&<button type="button" className="mb-assistant-launcher" title="Abrir Assistente MB" aria-label="Abrir Assistente MB" onClick={()=>setOpen(true)}><Bot size={23}/><span>Assistente MB</span></button>}
     {open&&<section className="mb-assistant-panel" role="dialog" aria-label="Assistente MB — comandos por texto e voz" aria-modal="false">
-      <header className="mb-assistant-header"><div className="mb-assistant-avatar"><Bot size={22}/></div><div><strong>Assistente MB</strong><small>Comandos por texto e voz</small></div><button type="button" onClick={()=>{recognition.current?.stop();setOpen(false)}} aria-label="Fechar assistente"><X size={18}/></button></header>
+      <header className="mb-assistant-header"><div className="mb-assistant-avatar"><Bot size={22}/></div><div><strong>Assistente MB</strong><small>Voz e texto · IA local sem API paga</small></div><button type="button" onClick={()=>{recognition.current?.stop();setOpen(false)}} aria-label="Fechar assistente"><X size={18}/></button></header>
       <div className="mb-assistant-content" aria-live="polite">
-        <p className="mb-assistant-intro">Fale ou digite o que precisa fazer. Vou localizar o registro, mostrar os dados e pedir confirmação antes de alterar.</p>
+        <p className="mb-assistant-intro">Fale ou digite. Os comandos conhecidos funcionam imediatamente. Para conversar com um modelo aberto, ative a IA local uma vez no seu dispositivo.</p>
+        <p className="mb-assistant-safety" aria-live="polite"><ShieldCheck size={14}/>{isFreeAIConfigured?(aiReady?'IA local pronta · sem custo por mensagem':'IA local disponível neste aparelho · toque para ativar'):'Este aparelho não oferece WebGPU · comandos locais disponíveis'}</p>
+        {isFreeAIConfigured&&!aiReady&&<div className="mb-assistant-ai-activation"><p><strong>IA local gratuita</strong> · Modelo aberto Qwen 0.5B. O primeiro download pode consumir centenas de MB; use Wi-Fi e um aparelho com memória disponível.</p><button type="button" disabled={loadingAI} onClick={()=>void activateAI()}>{loadingAI?'Carregando...':'Ativar IA local'}</button>{aiProgress&&<small aria-live="polite">{aiProgress}</small>}</div>}
         {!heard&&<div className="mb-assistant-suggestions"><button type="button" onClick={()=>void processCommand('Quanto devo ao Mauro?')}>Quanto devo ao Mauro?</button><button type="button" onClick={()=>void processCommand('Qual o PIX do Virgílio?')}>PIX do Virgílio</button><button type="button" onClick={()=>void processCommand('Quantas peças do Rodrigo estão em andamento?')}>Peças do Rodrigo</button><button type="button" onClick={()=>void processCommand('Ajuda')}>Ver comandos</button></div>}
         {heard&&<div className="mb-assistant-bubble mb-assistant-user"><small>{listening?'Ouvindo':'Você pediu'}</small>{heard}</div>}
+        {aiNote&&<p className="mb-assistant-safety">{aiNote}</p>}
         <div className={`mb-assistant-bubble mb-assistant-reply ${error?'is-error':''}`}><small><Bot size={13}/> Assistente MB</small>{status}</div>
         {preview&&<div className="mb-assistant-preview"><h4><ClipboardList size={16}/>{preview.kind==='pay'?'Conferir pagamento':preview.kind==='delete-sample'?'Conferir exclusão':preview.kind==='change-price'?'Conferir alteração de preço':preview.kind==='show-price'?'Preços encontrados':preview.kind==='workshop-pix'?'Chave PIX':preview.kind.startsWith('workshop-')?'Resumo da oficina':'Ordem de Corte encontrada'}</h4>
           {(preview.kind==='pay'||preview.kind==='delete-sample'||preview.kind==='show-order')&&<dl>
