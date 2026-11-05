@@ -473,7 +473,7 @@ service cloud.firestore {
       let d = request.resource.data;
 
       return d.keys().hasOnly([
-          'oc','ref','model','office','qty','piecePrice',
+          'oc','ref','model','office','qty','piecePrice','pieceType',
           'entry','sent','due','status','deliveredFlag',
           'deliveredAt','defects','discountPiece',
           'discountTotal','total','paidAt','paymentDone',
@@ -488,6 +488,8 @@ service cloud.firestore {
           'manualTotal','source',
           'createdAt','createdBy','updatedAt','updatedBy'
         ])
+        && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
+
         && d.oc is string
         && d.oc.size() > 0
         && d.oc.size() <= 80
@@ -730,8 +732,17 @@ service cloud.firestore {
     }
 
     match /reference_prices/{priceId} {
-      allow get, list: if canView('workshops') || canView('sheet_distribution');
-      allow create, update: if canWrite('workshops')
+      allow get, list: if canView('workshops') || canView('sheet_distribution') || canView('orders');
+      // Quem pode editar OCs pode CADASTRAR uma nova REF sem sair do formulário.
+      // Apenas administradores de Oficinas/Preços podem ALTERAR preços já cadastrados.
+      allow create: if (canWrite('workshops') || canWrite('orders'))
+        && request.resource.data.keys().hasOnly(['reference','type','price','updatedAt','updatedBy'])
+        && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 80
+        && request.resource.data.type is string && request.resource.data.type.size() > 0 && request.resource.data.type.size() <= 80
+        && request.resource.data.price is string && request.resource.data.price.size() <= 30
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canWrite('workshops')
         && request.resource.data.keys().hasOnly(['reference','type','price','updatedAt','updatedBy'])
         && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 80
         && request.resource.data.type is string && request.resource.data.type.size() > 0 && request.resource.data.type.size() <= 80
