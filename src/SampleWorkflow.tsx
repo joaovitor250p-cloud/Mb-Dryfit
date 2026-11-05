@@ -11,6 +11,8 @@ import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 import { optimizePhoto } from './lib/photos';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
+import { buildOrderLookup, missingDataFromOrder, normalizeSampleOC, orderForSample, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
+import { canonicalWorkshopName } from './lib/workshopNames';
 import { safeProviderMessage } from './lib/safeMessage';
 
 // 'store' é conservado apenas para leitura de registros legados.
@@ -18,11 +20,11 @@ import { safeProviderMessage } from './lib/safeMessage';
 type Stage = 'in_progress' | 'done' | 'store';
 type VisibleStage = 'in_progress' | 'done';
 type Production = {
-  id: string; oc: string; name: string; reference: string; tailor: string; quantity?: string;
+  id: string; oc: string; name: string; reference: string; tailor: string; quantity?: string; orderId?: string;
   imageData: string; status: Stage; createdAt?: unknown; updatedAt?: unknown; completedAt?: unknown; completedBy?: string|null;
 };
 type View = 'samples' | 'cuts';
-type Props = { view: View; db: Firestore; user: User; canEdit: boolean; isAdmin:boolean; models: Model[] };
+type Props = { view: View; db: Firestore; user: User; canEdit: boolean; isAdmin:boolean; canReadOrders:boolean; models: Model[] };
 const MAX_DATA_LENGTH = 200000;
 const MAX_SAMPLE_PHOTOS = 3;
 
@@ -154,7 +156,7 @@ function SamplePhotoStack({
   </div>;
 }
 
-export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, models }: Props) {
+export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canReadOrders, models }: Props) {
   const pageActive=useContext(PageActiveContext);
   const [items, setItems] = useState<Production[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,8 +174,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [reference, setReference] = useState('');
   const [tailor, setTailor] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [orderQuantities, setOrderQuantities] = useState<Record<string, string>>({});
-  const requestedQuantityOcs = useRef<Set<string>>(new Set());
+  // Completa visualmente campos ausentes com dados da OC, sem sobrescrever informações da amostra.
+  const [linkedOrders, setLinkedOrders] = useState<Record<string, OrderInfo|null>>({});
+  const requestedOrderOcs = useRef<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState('');
   const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
   const [galleryLoaded, setGalleryLoaded] = useState(true);
@@ -226,31 +231,96 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
   useEffect(()=>setVisibleCount(48),[search,typeFilter,filter,view]);
   const displayed=useMemo(()=>filtered.slice(0,visibleCount),[filtered,visibleCount]);
-  // Só consulta as OCs dos cartões visíveis sem quantidade. Evita baixar todas
-  // as Ordens de Corte (e eventuais milhares de registros) ao abrir Amostras.
+  // Consulta pontual: somente OCs dos cartões visíveis com REF, costureiro,
+  // modelo ou quantidade ausentes. Não carrega todas as OCs ao abrir a página.
+  // Sem permissão para Ordem de Corte, lê os dados já salvos na Amostra normalmente.
   useEffect(() => {
-    if (!pageActive || view !== 'samples') return;
-    const missing = [...new Set(displayed.filter(item => !String(item.quantity || '').trim())
-      .map(item => normalizedOC(item.oc)).filter(ocKey => ocKey && !orderQuantities[ocKey] && !requestedQuantityOcs.current.has(ocKey)))];
-    if (!missing.length) return;
-    missing.forEach(ocKey => requestedQuantityOcs.current.add(ocKey));
-    let cancelled = false;
-    // Firestore suporta consultas 'in' de até 30 valores; limitar também evita lag.
+    if (!pageActive || view !== 'samples' || !canReadOrders) return;
+    const missing = displayed.filter(sampleHasMissingData);
+    const wanted = [...new Set(missing.map(item => normalizeSampleOC(item.oc))
+      .filter(key => key && !requestedOrderOcs.current.has(key)))];
+    if (!wanted.length) return;
+    wanted.forEach(key => requestedOrderOcs.current.add(key));
+    // Também consulta o texto original se a OC antiga tiver maiúsculas/espaços diferentes.
+    const searchValues = [...new Set(missing.filter(item => wanted.includes(normalizeSampleOC(item.oc)))
+      .flatMap(item => [item.oc, normalizeSampleOC(item.oc)]))].filter(Boolean);
     const batches: string[][] = [];
-    for (let index = 0; index < missing.length; index += 30) batches.push(missing.slice(index, index + 30));
-    Promise.all(batches.map(values => getDocs(fsQuery(collection(db, 'cut_orders'), where('oc', 'in', values)))))
+    for (let i = 0; i < searchValues.length; i += 30) batches.push(searchValues.slice(i, i + 30));
+    let cancelled = false;
+    Promise.all(batches.map(values => getDocs(fsQuery(collection(db,'cut_orders'), where('oc','in',values)))))
       .then(results => {
         if (cancelled) return;
-        const totals: Record<string, string> = {};
-        results.forEach(snapshot => snapshot.docs.forEach(order => {
-          const value = String(order.data().qty ?? '').trim();
-          const key = normalizedOC(String(order.data().oc || ''));
-          if (key && /^\d+$/.test(value)) totals[key] = value;
-        }));
-        if (Object.keys(totals).length) setOrderQuantities(current => ({...current, ...totals}));
-      }).catch(() => { /* Sem permissão para ver OCs: quantidade pode ser editada manualmente. */ });
-    return () => { cancelled = true; };
-  }, [db, pageActive, view, displayed, orderQuantities]);
+        const orders: OrderInfo[] = results.flatMap(result => result.docs.map(order => ({
+          id: order.id, oc: String(order.data().oc || ''), model: String(order.data().model || ''),
+          ref: String(order.data().ref || ''), office: String(order.data().office || ''), qty: String(order.data().qty || '')
+        })));
+        const lookup = buildOrderLookup(orders);
+        const resolved: Record<string,OrderInfo|null> = {};
+        for (const key of wanted) resolved[key] = lookup.byOc.get(key) || null;
+        setLinkedOrders(current => ({...current,...resolved}));
+      }).catch(() => {
+        // Não bloquear Amostras por falha da leitura de OCs.
+        // A sincronização manual informa o motivo, se necessário.
+        wanted.forEach(key => requestedOrderOcs.current.delete(key));
+      });
+    return () => { cancelled = true; wanted.forEach(key => requestedOrderOcs.current.delete(key)); };
+  }, [db, pageActive, view, canReadOrders, displayed]);
+
+  const currentInfo = (sample: Production): Production => {
+    const fromOrder = linkedOrders[normalizeSampleOC(sample.oc)];
+    const patch = missingDataFromOrder(sample, fromOrder);
+    if (patch.tailor) patch.tailor = canonicalWorkshopName(patch.tailor);
+    return {...sample, ...patch};
+  };
+
+  // Atualização histórica explícita: sincroniza TODAS as amostras antigas, não
+  // apenas as 48 visíveis. Transações relêem cada amostra antes de completar
+  // somente os campos faltantes. Fotos, status e observações são preservados.
+  const synchronizeSamples = async () => {
+    if (syncing || busy || !canEdit || !canReadOrders || view !== 'samples') return;
+    const candidates = items.filter(sampleHasMissingData).filter(item => normalizeSampleOC(item.oc));
+    if (!candidates.length) return showMessage('Todas as amostras já têm os dados disponíveis preenchidos.');
+    if (!window.confirm(`Conferir ${candidates.length} amostra(s) com dados incompletos pela OC? O sistema só preencherá campos vazios e manterá fotos e informações já cadastradas.`)) return;
+    setSyncing(true);
+    setBusy(true);
+    setSyncProgress('Buscando as Ordens de Corte...');
+    let completed = 0;
+    try {
+      // Esta consulta completa só acontece quando o usuário pede sincronização.
+      const orderSnapshot = await getDocs(collection(db,'cut_orders'));
+      const orders = orderSnapshot.docs.map(order => ({id: order.id,
+        oc: String(order.data().oc || ''), model: String(order.data().model || ''),
+        ref: String(order.data().ref || ''), office: String(order.data().office || ''),
+        qty: String(order.data().qty || '')} satisfies OrderInfo));
+      const lookup = buildOrderLookup(orders);
+      const matches = candidates.map(sample => ({sample,order:orderForSample(sample,lookup)}))
+        .filter((entry): entry is {sample:Production;order:OrderInfo} => !!entry.order)
+        .filter(entry => Object.keys(missingDataFromOrder(entry.sample,entry.order)).length > 0);
+      const unmatched = candidates.length - matches.length;
+      for (let index = 0; index < matches.length; index += 20) {
+        const group = matches.slice(index,index+20);
+        const changed = await runTransaction(db,async transaction => {
+          const snapshots = await Promise.all(group.map(entry => transaction.get(doc(db,'production_samples',entry.sample.id))));
+          let updates = 0;
+          snapshots.forEach((snapshot,position) => {
+            if (!snapshot.exists()) return;
+            const current = snapshot.data() as Production;
+            const values = missingDataFromOrder(current,group[position].order);
+            if (values.tailor) values.tailor = canonicalWorkshopName(values.tailor);
+            if (!Object.keys(values).length) return;
+            transaction.update(snapshot.ref,{...values,updatedAt:serverTimestamp(),updatedBy:user.uid});
+            updates++;
+          });
+          return updates;
+        });
+        completed += changed;
+        setSyncProgress(`Atualizadas ${completed} de até ${matches.length} amostras...`);
+      }
+      showMessage(`${completed} amostra(s) completadas pela Ordem de Corte. ${unmatched ? `${unmatched} sem correspondência única ou sem dados disponíveis; confira a OC.` : ''} As fotos e os campos já preenchidos foram preservados.`);
+    } catch(e) {
+      showMessage(`Sincronização interrompida após ${completed} amostra(s). ${productionError(e)} Confira as permissões da área Ordem de Corte.`,true);
+    } finally {setSyncing(false);setBusy(false);setSyncProgress('');}
+  };
 
   const selectedCuts=useMemo(()=>items.filter(x=>selectedCutIds.includes(x.id)),[items,selectedCutIds]);
   const visibleCutIds=useMemo(()=>displayed.map(x=>x.id),[displayed]);
@@ -300,12 +370,13 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     // Mostra o formulário imediatamente com os dados já disponíveis no cartão.
     // A leitura da galeria extra é feita depois e nunca bloqueia a edição dos dados.
     const requestId=++galleryRequestRef.current;
+    const completed = currentInfo(p);
     setEditing(p);
     setOc(p.oc);
-    setName(p.name);
-    setReference(p.reference);
-    setTailor(p.tailor);
-    setQuantity(String(p.quantity || orderQuantities[normalizedOC(p.oc)] || ''));
+    setName(completed.name);
+    setReference(completed.reference);
+    setTailor(completed.tailor);
+    setQuantity(String(completed.quantity || ''));
     setImageGallery(p.imageData ? [p.imageData] : []);
     setPhotoError('');
     setGalleryLoaded(false);
@@ -496,7 +567,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   return <div className="page-wrap production-page">
     <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte as fotos e informações das amostras. Cadastros novos podem ser feitos por Adicionar amostra.' : 'Gerencie os dados, fotos e exclusões das OCs; acompanhe o andamento e marque os cortes como prontos.'}</p></div>
       <div className="heading-actions">
-        {view==='samples'&&<><InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
+        {view==='samples'&&<>{canEdit&&canReadOrders&&<button type="button" className="outline-button" disabled={busy||syncing||loading} onClick={()=>void synchronizeSamples()} title="Completar REF, costureiro, quantidade e nome usando a OC correspondente, sem alterar fotos ou dados preenchidos"><RefreshCw size={16}/>{syncing?'Sincronizando...':'Completar dados pelas OCs'}</button>}<InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
         {view==='cuts'&&canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
       </div></div>
 
@@ -519,11 +590,12 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
       </div>}
 
       {error&&<div className="production-alert" role="alert">{error}</div>}
+      {syncProgress&&view==='samples'&&<div className="production-ok" role="status">{syncProgress}</div>}
       {message&&<div className="production-ok">{message}</div>}
 
       {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
       !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
-      <div className="production-grid">{displayed.map(p=>{const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
+      <div className="production-grid">{displayed.map(original=>{const p=currentInfo(original);const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
         {view==='cuts'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
 
         <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={true} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
@@ -534,7 +606,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
           <dl>
             <div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div>
             <div><dt>Costureiro</dt><dd>{p.tailor}</dd></div>
-            <div><dt>Quantidade total</dt><dd>{p.quantity || orderQuantities[normalizedOC(p.oc)] || 'A informar'}</dd></div>
+            <div><dt>Quantidade total</dt><dd>{p.quantity || 'A informar'}</dd></div>
             <div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>
             {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
           </dl>

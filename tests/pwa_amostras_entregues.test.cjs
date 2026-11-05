@@ -49,7 +49,8 @@ test('OC entregue cria amostra na mesma transação, sem apagar foto existente',
 test('amostras antigas e sem REF são exibidas e permitem edição de foto e quantidade',()=>{
   assert.match(samples,/view === 'samples'\s*\? true/);
   assert.match(samples,/Quantidade total/);
-  assert.match(samples,/orderQuantities/);
+  assert.match(samples,/missingDataFromOrder/);
+  assert.match(samples,/linkedOrders/);
   assert.match(samples,/view==='samples'&&<div className="production-actions"/);
   assert.match(samples,/SEM CÓDIGO|SEM REF/);
 });
