@@ -132,7 +132,9 @@ export const normalizedGarmentType=(input:string):string=>{
   if(key==='REGATA')return 'Regata';
   if(key==='BERMUDA')return 'Bermuda';
   if(key==='CALCA')return 'Calça';
-  return '';
+  // Tipos personalizados podem ser cadastrados em Oficinas. Não liberar costureiros
+  // sem a categoria correspondente, mas preservar o texto digitado.
+  return key.slice(0,80);
 };
 export const canSewType=(name:string,type:string,registeredTypes:string[]=[]):boolean=>{
   const kind=normalizedGarmentType(type);

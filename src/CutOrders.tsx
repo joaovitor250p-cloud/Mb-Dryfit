@@ -187,7 +187,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         pieceType:String(sheet.pieceType||''),fabric:String(sheet.fabric||''),
         composition:String(sheet.composition||''),trims:String(sheet.trims||''),
         officeInstructions:String(sheet.officeInstructions||''),oc:String(sheet.oc||''),
-        withdrawalDate:String(sheet.withdrawalDate||''),
+        withdrawalDate:String(sheet.withdrawalDate||''),volumes:String(sheet.volumes||''),
         tailorInstructions:String(sheet.tailorInstructions||''),
         finishingInstructions:String(sheet.finishingInstructions||''),
         colors,assignedTailor:String(sheet.assignedTailor||o.office||'')

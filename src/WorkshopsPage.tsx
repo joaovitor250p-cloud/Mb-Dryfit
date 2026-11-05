@@ -7,13 +7,14 @@ import { Building2, CheckCircle2, Copy, MapPin, Pencil, Phone, Plus, Search, Sto
 import { TAILORS, eligibleTypes, TYPES, parsePrice } from './lib/referencePrices';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
 import { safeProviderMessage } from './lib/safeMessage';
+import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
 type Props = { db: Firestore; user: User; canEdit: boolean };
 type SpecialPrice = { reference: string; type: string; price: string };
 type Service = { name: string; price: string }; // dados antigos: preservados sem reexibir o cadastro de peças e preços
 export type Workshop = { id:string; name:string; phone:string; pix:string; address:string; types:string[]; specialPrices:SpecialPrice[]; services:Service[]; notes:string; createdBy?:string };
-const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-const fromDoc=(id:string,d:DocumentData):Workshop=>({id,name:String(d.name||''),phone:String(d.phone||''),pix:String(d.pix||''),address:String(d.address||''),types:Array.isArray(d.types)?d.types:[],specialPrices:Array.isArray(d.specialPrices)?d.specialPrices:[],services:Array.isArray(d.services)?d.services:[],notes:String(d.notes||''),createdBy:String(d.createdBy||'')});
+const norm=(s:string)=>workshopKey(s);
+const fromDoc=(id:string,d:DocumentData):Workshop=>({id,name:canonicalWorkshopName(d.name),phone:String(d.phone||''),pix:String(d.pix||''),address:String(d.address||''),types:Array.isArray(d.types)?d.types:[],specialPrices:Array.isArray(d.specialPrices)?d.specialPrices:[],services:Array.isArray(d.services)?d.services:[],notes:String(d.notes||''),createdBy:String(d.createdBy||'')});
 
 export default function WorkshopsPage({db,user,canEdit}:Props){
   const pageActive=useContext(PageActiveContext);
@@ -24,23 +25,26 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
   const [open,setOpen]=useState(false),[editing,setEditing]=useState<Workshop|null>(null);
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[pix,setPix]=useState(''),[address,setAddress]=useState(''),[notes,setNotes]=useState('');
   const [types,setTypes]=useState<string[]>([]),[specialPrices,setSpecialPrices]=useState<SpecialPrice[]>([]);
+  const [customType,setCustomType]=useState('');
   const [pricesExpanded,setPricesExpanded]=useState(false);
   usePageMemory(key,{queryText:search},!loading);
   useEffect(()=>{if(!pageActive)return;return onSnapshot(query(collection(db,'workshops'),orderBy('name')),s=>{setItems(s.docs.map(d=>fromDoc(d.id,d.data())));setLoading(false);setError('')},e=>{setError('Não foi possível carregar as oficinas: '+safeProviderMessage(e));setLoading(false)})},[db,pageActive]);
   const filtered=useMemo(()=>{const q=norm(search);return q?items.filter(w=>norm([w.name,w.phone,w.pix,w.address,w.notes,...w.types].join(' ')).includes(q)):items},[items,search]);
   const notify=(text:string,bad=false)=>{setError(bad?text:'');setNotice(bad?'':text)};
-  const reset=()=>{setPricesExpanded(false);setEditing(null);setName('');setPhone('');setPix('');setAddress('');setTypes([]);setSpecialPrices([]);setNotes('');setOpen(false)};
+  const reset=()=>{setPricesExpanded(false);setEditing(null);setName('');setPhone('');setPix('');setAddress('');setTypes([]);setSpecialPrices([]);setCustomType('');setNotes('');setOpen(false)};
   const add=()=>{reset();setError('');setNotice('');setOpen(true)};
-  const edit=(item:Workshop)=>{setError('');setNotice('');setPricesExpanded(false);setEditing(item);setName(item.name);setPhone(item.phone);setPix(item.pix);setAddress(item.address);setTypes([...item.types]);setSpecialPrices(item.specialPrices.map(x=>({...x})));setNotes(item.notes);setOpen(true)};
+  const edit=(item:Workshop)=>{setError('');setNotice('');setPricesExpanded(false);setEditing(item);setName(item.name);setPhone(item.phone);setPix(item.pix);setAddress(item.address);setTypes([...item.types]);setCustomType('');setSpecialPrices(item.specialPrices.map(x=>({...x})));setNotes(item.notes);setOpen(true)};
   const save=async()=>{
     if(!canEdit||busy)return;
     if(!name.trim())return notify('Informe o nome da oficina.',true);
+    if(items.some(w=>w.id!==editing?.id&&workshopKey(w.name)===workshopKey(name))&&(!editing||workshopKey(editing.name)!==workshopKey(name)))return notify('Esta oficina já está cadastrada com esse nome (ou outra grafia equivalente). Edite o cadastro existente.',true);
     if(address.length>800)return notify('O endereço deve ter no máximo 800 caracteres.',true);
+    if(types.length>20)return notify('Cadastre no máximo 20 tipos de roupa por oficina.',true);
     const valid=specialPrices.filter(x=>x.reference.trim()||x.price.trim());
     if(valid.some(x=>!x.reference.trim()||!Number.isFinite(parsePrice(x.price))||parsePrice(x.price)<0))return notify('Confira a REF e o valor dos preços especiais.',true);
     setBusy(true);
     try{
-      const payload={name:name.trim(),phone:phone.trim(),pix:pix.trim(),...(address.trim()?{address:address.trim()}:editing&&editing.address?{address:''}:{}),types,
+      const payload={name:canonicalWorkshopName(name),phone:phone.trim(),pix:pix.trim(),...(address.trim()?{address:address.trim()}:editing&&editing.address?{address:''}:{}),types,
         specialPrices:valid.map(x=>({reference:x.reference.trim().toUpperCase(),type:x.type,price:x.price.trim()})),
         services:editing?.services||[], // não apagar os serviços antigos ao editar outro dado
         notes:notes.trim(),updatedAt:serverTimestamp(),updatedBy:user.uid};
@@ -59,12 +63,12 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
     setBusy(true);
     try{let added=0,updated=0;
       for(const person of TAILORS){
-        const specials:SpecialPrice[]=person==='Mauro'?[{reference:'10088',type:'Camiseta',price:'4,00'},{reference:'10216',type:'Camiseta',price:'4,00'},{reference:'10089',type:'Camiseta',price:'4,00'},{reference:'10002',type:'M.L.',price:'6,00'}]:[];
+        const specials:SpecialPrice[]=workshopKey(person)==='MAURO'?[{reference:'10088',type:'Camiseta',price:'4,00'},{reference:'10216',type:'Camiseta',price:'4,00'},{reference:'10089',type:'Camiseta',price:'4,00'},{reference:'10002',type:'M.L.',price:'6,00'}]:[];
         const existing=items.find(w=>norm(w.name)===norm(person));
         if(existing){const nextTypes=[...new Set([...existing.types,...eligibleTypes(person)])],nextSpecials=[...existing.specialPrices];
           for(const sp of specials)if(!nextSpecials.some(x=>x.reference===sp.reference&&x.type===sp.type))nextSpecials.push(sp);
           if(nextTypes.length!==existing.types.length||nextSpecials.length!==existing.specialPrices.length){await updateDoc(doc(db,'workshops',existing.id),{types:nextTypes,specialPrices:nextSpecials,updatedAt:serverTimestamp(),updatedBy:user.uid});updated++}
-        }else{await setDoc(doc(collection(db,'workshops')),{name:person,phone:'',pix:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});added++}
+        }else{await setDoc(doc(collection(db,'workshops')),{name:canonicalWorkshopName(person),phone:'',pix:'',types:eligibleTypes(person),specialPrices:specials,services:[],notes:'',createdAt:serverTimestamp(),createdBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});added++}
       }notify(`${added} costureiros cadastrados, ${updated} complementados.`)
     }catch(e){notify(safeProviderMessage(e),true)}finally{setBusy(false)}
   };
@@ -83,11 +87,11 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
     {open&&pageActive&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)reset()}}><section className="modal extra-modal workshop-modal" role="dialog" aria-modal="true" aria-label="Cadastro de oficina"><div className="modal-head"><div><span className="eyebrow">OFICINAS</span><h2>{editing?'Editar oficina':'Nova oficina'}</h2><p>Cadastre os dados de contato e os preços especiais necessários.</p></div><button className="icon-button" onClick={reset} aria-label="Fechar"><X/></button></div>
       <form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
         {error&&<div className="production-alert" role="alert">{error}</div>}
-        <label>Nome da oficina / costureiro *<input required maxLength={250} value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Mauro"/></label>
+        <label>Nome da oficina / costureiro *<input required maxLength={250} value={name} onChange={e=>setName(canonicalWorkshopName(e.target.value))} placeholder="Ex.: Mauro"/></label>
         <div className="office-form-pair"><label>WhatsApp / telefone<input value={phone} maxLength={60} onChange={e=>setPhone(e.target.value)} placeholder="(11) 99999-9999"/></label><label>Chave PIX<input value={pix} maxLength={250} onChange={e=>setPix(e.target.value)} placeholder="Chave do responsável"/></label></div>
         <label>Endereço completo<textarea rows={2} maxLength={800} value={address} onChange={e=>setAddress(e.target.value)} placeholder="Rua, número, bairro, cidade, CEP"/></label>
-        <div className="office-form-types"><strong>O que produz</strong><div className="price-types">{TYPES.map(t=><label key={t}><input type="checkbox" checked={types.includes(t)} onChange={e=>setTypes(v=>e.target.checked?[...v,t]:v.filter(x=>x!==t))}/>{t}</label>)}</div></div>
-        <details className="office-overrides" onToggle={e=>setPricesExpanded(e.currentTarget.open)}><summary>Preços especiais por referência <span>({specialPrices.length})</span></summary><p>Opcional: se não houver preço especial, será utilizado o preço de REF padrão. Os valores cadastrados continuam editáveis.</p>{pricesExpanded&&specialPrices.map((x,i)=><div className="price-form" key={i}><select value={x.type} onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,type:e.target.value}:a))}>{TYPES.map(t=><option key={t}>{t}</option>)}</select><input placeholder="REF" value={x.reference} onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,reference:e.target.value}:a))}/><input placeholder="Valor R$" value={x.price} onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,price:e.target.value}:a))}/><button type="button" onClick={()=>setSpecialPrices(v=>v.filter((_,j)=>j!==i))}>Remover</button></div>)}<button type="button" className="outline-button" onClick={()=>setSpecialPrices(v=>[...v,{reference:'',type:types[0]||'Camiseta',price:''}])}><Plus size={15}/> Adicionar exceção</button></details>
+        <div className="office-form-types"><strong>O que produz</strong><div className="price-types">{TYPES.map(t=><label key={t}><input type="checkbox" checked={types.includes(t)} onChange={e=>setTypes(v=>e.target.checked?[...v,t]:v.filter(x=>x!==t))}/>{t}</label>)}</div><div className="sheet-custom-type"><input value={customType} maxLength={80} placeholder="Outro tipo: ex. Jaqueta" onChange={e=>setCustomType(e.target.value)}/><button type="button" className="outline-button" onClick={()=>{const t=customType.trim().replace(/\s+/g,' ');if(!t)return;if(types.length>=20){notify('Limite de 20 tipos por oficina.',true);return;}setTypes(v=>v.some(x=>norm(x)===norm(t))?v:[...v,t]);setCustomType('')}}>Adicionar tipo</button></div><div className="sheet-custom-tags">{types.filter(t=>!TYPES.includes(t)).map(t=><button key={t} type="button" className="outline-button" onClick={()=>setTypes(v=>v.filter(x=>x!==t))}>{t} ×</button>)}</div></div>
+        <details className="office-overrides" onToggle={e=>setPricesExpanded(e.currentTarget.open)}><summary>Preços especiais por referência <span>({specialPrices.length})</span></summary><p>Opcional: se não houver preço especial, será utilizado o preço de REF padrão. Os valores cadastrados continuam editáveis.</p>{pricesExpanded&&specialPrices.map((x,i)=><div className="price-form" key={i}><><input list={`workshop-types-${i}`} value={x.type} maxLength={80} placeholder="Tipo de roupa" onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,type:e.target.value}:a))}/><datalist id={`workshop-types-${i}`}>{[...new Set([...TYPES,...types])].map(t=><option key={t} value={t}/>)}</datalist></><input placeholder="REF" value={x.reference} onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,reference:e.target.value}:a))}/><input placeholder="Valor R$" value={x.price} onChange={e=>setSpecialPrices(v=>v.map((a,j)=>i===j?{...a,price:e.target.value}:a))}/><button type="button" onClick={()=>setSpecialPrices(v=>v.filter((_,j)=>j!==i))}>Remover</button></div>)}<button type="button" className="outline-button" onClick={()=>setSpecialPrices(v=>[...v,{reference:'',type:types[0]||'Camiseta',price:''}])}><Plus size={15}/> Adicionar exceção</button></details>
         <label>Observações<textarea rows={2} value={notes} maxLength={1000} onChange={e=>setNotes(e.target.value)}/></label>
         <div className="modal-actions"><button type="button" className="outline-button" onClick={reset}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy?'Salvando...':'Salvar oficina'}</button></div>
       </form></section></div>,document.body)}

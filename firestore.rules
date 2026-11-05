@@ -645,7 +645,7 @@ service cloud.firestore {
         && d.phone.size() <= 60
         && d.pix is string && d.pix.size() <= 250
         && (!('address' in d) || (d.address is string && d.address.size() <= 800))
-        && d.types is list && d.types.size() <= 5
+        && d.types is list && d.types.size() <= 20
         && d.specialPrices is list && d.specialPrices.size() <= 150
         && d.services is list
         && d.services.size() <= 50
@@ -677,7 +677,7 @@ service cloud.firestore {
       allow create, update: if canWrite('workshops')
         && request.resource.data.keys().hasOnly(['reference','type','price','updatedAt','updatedBy'])
         && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 80
-        && request.resource.data.type in ['Camiseta','M.L.','Regata','Bermuda','Calça']
+        && request.resource.data.type is string && request.resource.data.type.size() > 0 && request.resource.data.type.size() <= 80
         && request.resource.data.price is string && request.resource.data.price.size() <= 30
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time;
@@ -700,11 +700,12 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','pieceType','fabric','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
+      return d.keys().hasOnly(['model','reference','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
-        && (!('pieceType' in d) || (d.pieceType is string && d.pieceType in ['', 'Camiseta', 'M.L.', 'Regata', 'Bermuda', 'Calça']))
+        && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
+        && (!('volumes' in d) || (d.volumes is string && d.volumes.matches('^[0-9]{0,6}$')))
         && (!('fabric' in d) || (d.fabric is string && d.fabric.size() <= 250))
         && d.composition is string && d.composition.size() <= 2000
         && d.trims is string && d.trims.size() <= 4000

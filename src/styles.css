@@ -1174,3 +1174,71 @@ body { background: var(--bg); color: var(--text); }
 .sheet-top{grid-template-columns:minmax(0,60fr) minmax(0,40fr)}
 @media print{.sheet-print-only .sheet-top{grid-template-columns:minmax(0,60fr) minmax(0,40fr)!important}}
 @media(max-width:700px){.sheet-top{grid-template-columns:1fr}}
+
+/* 2026-11-05 — ficha A4, detalhes à esquerda, VOL. e visualização do histórico */
+.sheet-paper .sheet-middle{grid-template-columns:minmax(0,37fr) minmax(0,63fr);min-height:0}
+.sheet-paper .sheet-right{grid-template-rows:54px minmax(94px,1fr) 48px minmax(95px,1fr)}
+.sheet-paper .sheet-trims textarea{min-height:90px;resize:vertical}
+.sheet-paper .sheet-table th:first-child,.sheet-paper .sheet-table td:first-child{width:29%;text-align:left}
+.sheet-paper .sheet-table th:nth-child(2),.sheet-paper .sheet-table td:nth-child(2){width:18%}
+.sheet-paper .sheet-table th:nth-child(n+3),.sheet-paper .sheet-table td:nth-child(n+3){width:10.6%}
+.sheet-paper .sheet-table th,.sheet-paper .sheet-table td{font-size:13px;line-height:1.3}
+.sheet-paper .sheet-table input{font:500 14px/1.2 Arial,Helvetica,sans-serif;min-width:0;box-sizing:border-box}
+.sheet-paper .sheet-table input[type=number]{appearance:textfield;-moz-appearance:textfield}
+.sheet-paper .sheet-table input[type=number]::-webkit-inner-spin-button{appearance:none}
+.sheet-paper .sheet-detail-input{font:normal 13px/1.25 Arial,Helvetica,sans-serif;min-height:40px}
+.sheet-paper .sheet-volumes{max-width:190px;flex-direction:row;gap:12px;align-items:center}
+.sheet-paper .sheet-volumes input{min-width:80px;max-width:95px;text-align:center;color:#c40000}
+.sheet-history-card{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.sheet-history-card p{margin:5px 0 0;color:var(--muted,#64748b)}
+.sheet-history-search{display:grid;gap:5px;max-width:440px;font-size:13px;font-weight:600}
+.sheet-history-search input{padding:10px 12px;border:1px solid #a4adb5;border-radius:7px}
+.sheet-custom-type{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.sheet-custom-type input{width:min(300px,100%);padding:9px;border:1px solid #a4adb5;border-radius:6px}
+.sheet-custom-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+@media(max-width:700px){.sheet-paper .sheet-middle{grid-template-columns:1fr}.sheet-paper .sheet-right{grid-template-rows:auto}.sheet-history-card{grid-template-columns:1fr}}
+@media print{
+  /* 194 x 281 mm é a área útil de uma folha A4 com margem de 8 mm. */
+  .sheet-print-only .sheet-paper.sheet-paper-a4{
+    width:194mm!important;min-height:275mm!important;height:275mm!important;
+    max-height:275mm!important;box-sizing:border-box!important;
+    display:grid!important;grid-template-rows:32mm 68mm max-content minmax(35mm,1fr) 12mm!important;
+    gap:2mm!important;padding:0!important;margin:0!important;
+    font:normal 11px/1.2 Arial,Helvetica,sans-serif!important;
+    break-inside:avoid!important;
+  }
+  .sheet-print-only .sheet-top{grid-template-columns:minmax(0,60fr) minmax(0,40fr)!important;gap:2mm!important}
+  .sheet-print-only .sheet-middle{grid-template-columns:minmax(0,37fr) minmax(0,63fr)!important;gap:2mm!important}
+  .sheet-print-only .sheet-right{grid-template-rows:11mm minmax(0,1fr) 10mm 23mm!important}
+  .sheet-print-only .sheet-field{overflow:hidden!important;padding:1.1mm!important}
+  .sheet-print-only .sheet-field strong{font-size:9.5px!important}
+  .sheet-print-only .sheet-field span{font-size:11px!important;line-height:1.18!important;color:#c40000!important}
+  .sheet-print-only .sheet-table{font:normal 11px/1.25 Arial,Helvetica,sans-serif!important;table-layout:fixed!important;height:auto!important;align-self:start!important}
+  .sheet-print-only .sheet-table .sheet-col-details{width:29%!important}
+  .sheet-print-only .sheet-table .sheet-col-color{width:18%!important}
+  .sheet-print-only .sheet-table .sheet-col-size{width:10.6%!important}
+  .sheet-print-only .sheet-table th,.sheet-print-only .sheet-table td{height:auto!important;min-height:5.8mm!important;padding:0.9mm!important;font-size:11px!important;line-height:1.25!important;text-align:center!important;white-space:pre-wrap!important;vertical-align:middle!important}
+  .sheet-print-only .sheet-table td:first-child{text-align:left!important;overflow-wrap:anywhere!important}
+  .sheet-print-only .sheet-table th:first-child{width:auto!important}
+  .sheet-print-only .sheet-table th:last-child,.sheet-print-only .sheet-table td:last-child{width:auto!important;text-align:center!important;font:inherit!important}
+  .sheet-print-only .sheet-finishing{min-height:0!important}
+  .sheet-print-only .sheet-volumes{display:flex!important;flex-direction:row!important;align-items:center!important;gap:9mm!important;max-width:none!important;font-size:12px!important}
+  .sheet-print-only .sheet-volumes strong{font-size:11px!important}
+  .sheet-print-only .sheet-volumes span{font-size:13px!important;font-weight:bold!important}
+}
+/* Impressão determinística sem esticar as linhas conforme o número de cores. */
+@media print {
+  .sheet-print-only .sheet-paper.sheet-paper-a4 {
+    box-sizing:border-box!important;position:relative!important;display:block!important;
+    width:194mm!important;height:275mm!important;min-height:275mm!important;
+    max-height:275mm!important;padding:0!important;margin:0!important;border:0!important;
+  }
+  .sheet-print-only .sheet-top { height:32mm!important;display:grid!important; }
+  .sheet-print-only .sheet-middle { height:68mm!important;display:grid!important;margin-top:2mm!important; }
+  .sheet-print-only .sheet-color-table { display:table!important;height:auto!important;min-height:0!important;margin-top:2mm!important; }
+  .sheet-print-only .sheet-color-table th,.sheet-print-only .sheet-color-table td {
+    height:5.6mm!important;min-height:0!important;padding:.6mm!important;
+  }
+  .sheet-print-only .sheet-finishing {height:35mm!important;min-height:0!important;margin-top:2mm!important;}
+  .sheet-print-only .sheet-volumes {position:absolute!important;bottom:0!important;left:0!important;right:0!important;height:12mm!important;min-height:0!important;margin:0!important;}
+}
