@@ -1242,3 +1242,250 @@ body { background: var(--bg); color: var(--text); }
   .sheet-print-only .sheet-finishing {height:35mm!important;min-height:0!important;margin-top:2mm!important;}
   .sheet-print-only .sheet-volumes {position:absolute!important;bottom:0!important;left:0!important;right:0!important;height:12mm!important;min-height:0!important;margin:0!important;}
 }
+
+/* Ficha de produção: restaurar DETALHES à direita das cores e quantidades.
+   A disposição é a mesma no preenchimento, no histórico e no PDF A4. */
+.sheet-paper .sheet-color-table th:first-child,
+.sheet-paper .sheet-color-table td:first-child,
+.sheet-paper .sheet-table-wrap .sheet-table th:first-child,
+.sheet-paper .sheet-table-wrap .sheet-table td:first-child{width:19%;text-align:center}
+.sheet-paper .sheet-color-table th:nth-child(n+2):not(:last-child),
+.sheet-paper .sheet-color-table td:nth-child(n+2):not(:last-child),
+.sheet-paper .sheet-table-wrap .sheet-table th:nth-child(n+2):not(:last-child),
+.sheet-paper .sheet-table-wrap .sheet-table td:nth-child(n+2):not(:last-child){width:11%;text-align:center}
+.sheet-paper .sheet-color-table th:last-child,
+.sheet-paper .sheet-color-table td:last-child,
+.sheet-paper .sheet-table-wrap .sheet-table th:last-child,
+.sheet-paper .sheet-table-wrap .sheet-table td:last-child{width:26%;text-align:left}
+.sheet-paper .sheet-color-table th:last-child,
+.sheet-paper .sheet-table-wrap .sheet-table th:last-child{text-align:center}
+@media print{
+  .sheet-print-only .sheet-color-table .sheet-col-color{width:19%!important}
+  .sheet-print-only .sheet-color-table .sheet-col-size{width:11%!important}
+  .sheet-print-only .sheet-color-table .sheet-col-details{width:26%!important}
+  .sheet-print-only .sheet-color-table th:first-child,
+  .sheet-print-only .sheet-color-table td:first-child{text-align:center!important}
+  .sheet-print-only .sheet-color-table th:last-child{text-align:center!important}
+  .sheet-print-only .sheet-color-table td:last-child{
+    text-align:left!important;white-space:pre-wrap!important;
+    overflow-wrap:anywhere!important;font:normal 11px/1.25 Arial,Helvetica,sans-serif!important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MB REFERÊNCIAS • Visual colorido, inspirado em quadros de gestão de trabalho.
+   Apenas aparência de tela: não altera eventos, estados, dados ou impressão A4.
+   ───────────────────────────────────────────────────────────────────────────── */
+@media screen {
+  :root {
+    --bg:#f7f8fd;
+    --panel:#ffffff;
+    --panel2:#f6f7fd;
+    --text:#252b47;
+    --muted:#727a97;
+    --line:#e5e8f3;
+    --teal:#6858e8;
+    --teal2:#5a4bce;
+    --shadow:0 8px 30px rgba(50,55,119,.055);
+    --mb-purple:#6858e8;
+    --mb-green:#00a977;
+    --mb-pink:#e954a9;
+    --mb-blue:#1996d5;
+    --mb-orange:#e89627;
+  }
+  html.dark {
+    --bg:#171b2c;
+    --panel:#242941;
+    --panel2:#2d334c;
+    --text:#f1f2fb;
+    --muted:#b2b8d2;
+    --line:#414862;
+    --teal:#8e80ff;
+    --teal2:#a69cff;
+    --shadow:0 10px 30px rgba(0,0,0,.16);
+  }
+  .app-shell .sidebar {
+    background:linear-gradient(180deg,#fff 0%,#fafaff 100%);
+    border-right:1px solid #e4e6f1;
+    box-shadow:4px 0 22px rgba(49,49,117,.035);
+    color:#353a59;
+  }
+  .app-shell .sidebar-brand {
+    padding:5px 8px 28px;
+    margin-bottom:8px;
+    border-bottom:1px solid #ebeaf5;
+  }
+  .app-shell .sidebar-logo {
+    border:1px solid #eaeaf4;
+    border-radius:16px;
+    box-shadow:0 5px 13px rgba(85,79,166,.09);
+    background:white;
+  }
+  .app-shell .sidebar-brand strong {color:#252b46;font-size:13px;letter-spacing:.01em}
+  .app-shell .sidebar-brand span {color:#858ba5;font-size:9px;letter-spacing:.095em}
+  .app-shell .sidebar .nav-label {color:#9298af;font-size:9px;letter-spacing:.145em;padding-top:10px}
+  .app-shell .sidebar .nav-item {
+    min-height:46px;
+    margin:3px 0;
+    border:1px solid transparent;
+    border-radius:11px;
+    color:#525b79;
+    font-size:12px;
+    font-weight:700;
+    transition:color .17s ease,background-color .17s ease,border-color .17s ease;
+  }
+  .app-shell .sidebar .nav-item svg {color:#8274d7}
+  .app-shell .sidebar .nav-item:nth-of-type(4n+2) svg {color:#16a88d}
+  .app-shell .sidebar .nav-item:nth-of-type(4n+3) svg {color:#e39b2d}
+  .app-shell .sidebar .nav-item:nth-of-type(4n+4) svg {color:#dc70a5}
+  .app-shell .sidebar .nav-item:hover {background:#f3f1ff;color:#554ac1;border-color:#e7e3ff}
+  .app-shell .sidebar .nav-item.active {
+    background:linear-gradient(95deg,#edeaff,#f5f2ff);
+    color:#5949c9;
+    border-color:#e4dfff;
+    box-shadow:inset 3px 0 #715cf1;
+  }
+  .app-shell .sidebar .nav-item.active svg {color:#6756e7}
+  .app-shell .sidebar-bottom {border-top:1px solid #ececf6}
+  .app-shell .sidebar-sync {color:#7e869f}
+  .app-shell .sidebar .user-mini {border-top:1px solid #ebecf5}
+  .app-shell .sidebar .avatar {background:#e9e5ff;color:#5947cb;border-radius:12px}
+  .app-shell .sidebar .user-meta strong {color:#2f3353}
+  .app-shell .sidebar .user-meta span {color:#7a829d}
+  .app-shell .sidebar .user-mini>button {color:#6f7793}
+  .app-shell .main-content {
+    background:radial-gradient(ellipse at 87% 2%,rgba(230,227,255,.32),transparent 40%),var(--bg);
+  }
+  .app-shell .topbar {
+    background:color-mix(in srgb,var(--panel) 95%,transparent);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 2px 14px rgba(35,37,96,.018);
+  }
+  .app-shell .breadcrumb strong {color:var(--text)}
+  .app-shell .breadcrumb i {color:#aaa6dd}
+  .app-shell .connection-pill.ok {
+    color:#13875e;
+    border-color:#d5f1e4;
+    background:#ecfaf3;
+  }
+  .app-shell .icon-button {border-color:var(--line);background:var(--panel);color:#6f7394}
+  .app-shell .icon-button:hover {background:#eeeaff;color:#5a49d1;border-color:#d7d0ff}
+  .app-shell .eyebrow {color:#7060db;letter-spacing:.13em}
+  .app-shell .page-heading h1,.app-shell .settings-header h1,.app-shell .order-heading h1 {
+    color:var(--text);
+    letter-spacing:-.045em;
+  }
+  .app-shell .page-heading h1::selection {background:#d7cffc}
+  .app-shell .primary-button {
+    border-color:#6556e7;
+    background:linear-gradient(125deg,#7668f4,#5e51d8);
+    color:#fff;
+    box-shadow:0 8px 18px rgba(102,86,230,.19);
+    transition:transform .15s ease,box-shadow .15s ease,background-color .15s ease;
+  }
+  .app-shell .primary-button:hover {background:linear-gradient(125deg,#6353da,#5143c7);border-color:#5143c7;box-shadow:0 10px 24px rgba(102,86,230,.27)}
+  .app-shell .outline-button {background:var(--panel);border-color:var(--line);color:var(--text)}
+  .app-shell .outline-button:hover {background:#f3f0ff;border-color:#cac4fb;color:#594acc}
+  .app-shell .export-button {background:#edf9fb;color:#148ba5;border-color:#d6f0f3}
+  .app-shell .danger-button {background:#d94565;border-color:#d94565}
+  .app-shell .stat-card,.app-shell .samples-count-card {
+    border-radius:17px;
+    border-color:var(--line);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .app-shell .stat-card::before,.app-shell .samples-count-card::before {
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#7966ef;
+  }
+  .app-shell .stat-card:nth-child(3n+2)::before {background:#00bf85}
+  .app-shell .stat-card:nth-child(3n+3)::before {background:#ffae35}
+  .app-shell .stat-card:nth-child(3n+1) .stat-icon {color:#6e58d8;background:#f0ebff}
+  .app-shell .stat-card:nth-child(3n+2) .stat-icon {color:#048b63;background:#e6f9ef}
+  .app-shell .stat-card:nth-child(3n+3) .stat-icon {color:#bd7914;background:#fff3df}
+  .app-shell .samples-count-card {position:relative;background:linear-gradient(115deg,#fff 72%,#f5f2ff 100%)}
+  .app-shell .catalog-panel,.app-shell .extra-panel,.app-shell .simple-card,
+  .app-shell .sheet-card,.app-shell .office-directory-row,.app-shell .production-card {
+    border-color:var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+  }
+  .app-shell .production-card {transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+  .app-shell .production-card:hover {transform:translateY(-2px);border-color:#c8c1f9;box-shadow:0 12px 32px rgba(79,71,160,.12)}
+  .app-shell .production-photo {background:#f4f5fb}
+  .app-shell .model-photo-ref {color:#6453ce}
+  .app-shell .search-box {background:var(--panel2);border-color:var(--line);border-radius:12px}
+  .app-shell .search-box:focus-within {border-color:#a89af9;box-shadow:0 0 0 3px rgba(108,93,235,.09)}
+  .app-shell :is(input:not([type="checkbox"]),select,textarea):focus-visible {
+    outline:2px solid #a79aff;
+    outline-offset:1px;
+  }
+  .app-shell .status-badge.active {color:#12885e;background:#e1f8ec}
+  .app-shell .status-badge.pending {color:#a66e0b;background:#fff2d6}
+  .app-shell .status-badge.muted {color:#656b8e;background:#efeff8}
+  .app-shell .status-badge {font-size:10px;border-radius:7px;padding:6px 10px}
+  .app-shell .settings-symbol,.app-shell .office-directory-avatar {color:#6453dd;background:#f0edff;border-color:#e8e4ff}
+  .app-shell .settings-tabs button.active,.app-shell .combined-work-tabs button.active {
+    color:#6251dc;
+    border-bottom-color:#6959ed;
+    background:#f3f0ff;
+  }
+  .app-shell .settings-tabs button:hover,.app-shell .combined-work-tabs button:hover {background:#f4f2ff}
+  .app-shell .sheet-tabs button {background:var(--panel);border-color:var(--line);border-radius:10px;color:var(--text);font-weight:700}
+  .app-shell .sheet-tabs button:hover {border-color:#c7befa;background:#f5f3ff}
+  .app-shell .sheet-tabs button.active {background:#6557e8;border-color:#6557e8;color:#fff}
+  .app-shell .sheet-history-search input {border-color:var(--line);border-radius:10px}
+  .app-shell .sheet-card {background:var(--panel);padding:18px}
+  .app-shell .sheet-paper {box-shadow:0 14px 28px rgba(41,47,84,.08)}
+  .app-shell .order-table th {background:#f1efff;color:#6456c3;border-bottom:1px solid #e7e2ff}
+  .app-shell .order-table tbody tr:hover {background:#f4f2ff}
+  .app-shell .order-scrollbar-top,.app-shell .order-scroll {scrollbar-color:#8274e8 var(--panel2)}
+  .app-shell .order-summary-head strong {color:var(--text)}
+  .app-shell .order-payment-guidance {background:#f0f0ff;border-color:#e4e1ff}
+  .app-shell .office-directory-row:hover {background:#f7f5ff}
+  .app-shell .office-directory-avatar {border-radius:13px}
+  .app-shell .ref-copy {background:#efedff;color:#6353cd}
+  .app-shell .filter-select:focus-within {border-color:#a99bfa}
+  .app-shell .mobile-more-grid button.active {background:#eeeaff;color:#5c4bcc}
+  .app-shell :is(.stats-grid,.production-grid,.photos-grid,.samples-count-strip) {scrollbar-color:#9e92ef transparent}
+  /* Contraste e identidade preservados no tema escuro. */
+  .dark .app-shell .sidebar {background:linear-gradient(180deg,#20253a,#242a40);border-right-color:#41445d;color:#f2f2ff}
+  .dark .app-shell .sidebar-brand {border-bottom-color:#3e435c}
+  .dark .app-shell .sidebar-brand strong,.dark .app-shell .sidebar .user-meta strong {color:#f7f6ff}
+  .dark .app-shell .sidebar-brand span,.dark .app-shell .sidebar .user-meta span {color:#a8aecb}
+  .dark .app-shell .sidebar .nav-label,.dark .app-shell .sidebar-sync {color:#b0b4ce}
+  .dark .app-shell .sidebar .nav-item {color:#c3c7dd}
+  .dark .app-shell .sidebar .nav-item:hover {background:#323553;color:#fff;border-color:#535075}
+  .dark .app-shell .sidebar .nav-item.active {background:#373358;border-color:#554b93;color:#d9d2ff;box-shadow:inset 3px 0 #a294ff}
+  .dark .app-shell .sidebar .nav-item.active svg {color:#c9bdff}
+  .dark .app-shell .sidebar-bottom,.dark .app-shell .sidebar .user-mini {border-color:#3d435a}
+  .dark .app-shell .sidebar .avatar {background:#463b78;color:#e0d8ff}
+  .dark .app-shell .sidebar .user-mini>button {color:#c4c7df}
+  .dark .app-shell .connection-pill.ok {background:#1d453a;color:#9bebc4;border-color:#396656}
+  .dark .app-shell .icon-button {color:#ccd1e8}
+  .dark .app-shell .icon-button:hover,.dark .app-shell .outline-button:hover {background:#37345e;color:#e6deff;border-color:#6258a0}
+  .dark .app-shell .export-button {background:#263e51;color:#98e9f4;border-color:#3d5e77}
+  .dark .app-shell .stat-card:nth-child(3n+1) .stat-icon {background:#392f69;color:#c8c0ff}
+  .dark .app-shell .stat-card:nth-child(3n+2) .stat-icon {background:#1e4c41;color:#92f6cc}
+  .dark .app-shell .stat-card:nth-child(3n+3) .stat-icon {background:#514023;color:#ffdb87}
+  .dark .app-shell .samples-count-card {background:var(--panel)}
+  .dark .app-shell .status-badge.active {background:#244c3d;color:#9ff0c4}
+  .dark .app-shell .status-badge.pending {background:#594624;color:#ffdc8d}
+  .dark .app-shell .status-badge.muted {background:#353a54;color:#cad0e7}
+  .dark .app-shell .settings-tabs button.active,.dark .app-shell .combined-work-tabs button.active,.dark .app-shell .sheet-tabs button:hover {background:#38315c;color:#e7e1ff}
+  .dark .app-shell .order-table th {background:#363057;color:#c8baff;border-color:#4d437a}
+  .dark .app-shell .order-table tbody tr:hover,.dark .app-shell .office-directory-row:hover {background:#32324e}
+  .dark .app-shell .order-payment-guidance {background:#312d52;border-color:#544b7a}
+  .dark .app-shell .ref-copy {background:#38325d;color:#d5ccff}
+  /* Em telas pequenas, o menu inferior também recebe o novo tema. */
+  @media(max-width:800px) {
+    .app-shell .mobile-bottom-nav {background:color-mix(in srgb,var(--panel) 97%,transparent);border-top:1px solid var(--line);box-shadow:0 -8px 26px rgba(72,67,130,.08)}
+    .app-shell .mobile-bottom-nav button.selected {color:#6857e8;background:#eeeaff}
+    .app-shell .mobile-more-sheet {background:var(--panel);border-color:var(--line)}
+    .dark .app-shell .mobile-bottom-nav button.selected {background:#413561;color:#dfd5ff}
+    .app-shell .page-wrap {padding-left:16px;padding-right:16px}
+    .app-shell .production-card:hover {transform:none}
+  }
+  @media(prefers-reduced-motion:reduce) {
+    .app-shell .nav-item,.app-shell .primary-button,.app-shell .production-card {transition:none!important;transform:none!important}
+  }
+}

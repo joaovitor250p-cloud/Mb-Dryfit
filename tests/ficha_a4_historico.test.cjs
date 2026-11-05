@@ -15,12 +15,14 @@ test('fichas enviadas visíveis na criação e na distribuição com opção de 
   assert.match(s,/Baixar PDF \/ Imprimir/);
   assert.match(s,/historical\.slice\(0,historyLimit\)/);
 });
-test('layout da ficha: detalhes à esquerda, sem data de retirada, com volumes no rodapé',()=>{
+test('layout da ficha: detalhes à direita, sem data de retirada, com volumes no rodapé',()=>{
   const sheet=read('src/SheetPrint.tsx');
-  assert.match(sheet,/\['detalhes','cor','p','m','g','gg','xg'\]/);
+  assert.match(sheet,/\['cor','p','m','g','gg','xg','detalhes'\]/);
+  assert.match(sheet,/\['CORES','P','M','G','GG','XG','DETALHES'\]/);
+  const editor=read('src/ProductionSheets.tsx');
+  assert.match(editor,/\['CORES','P','M','G','GG','XG','DETALHES'\]/);
   assert.match(sheet,/VOL\.:/);
   assert.doesNotMatch(sheet,/Data retirada:/);
-  const editor=read('src/ProductionSheets.tsx');
   assert.match(editor,/VOL\. — Quantidade de volumes:/);
   assert.match(editor,/Tipo de roupa \(escolha ou escreva\):/);
   assert.doesNotMatch(editor,/Data retirada:/);

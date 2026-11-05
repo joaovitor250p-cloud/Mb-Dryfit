@@ -24,7 +24,17 @@ test('página separada para instalar com alternativa quando prompt não aparece'
   assert.match(html,/beforeinstallprompt/);
   assert.match(html,/Android/);
   assert.match(html,/Chrome ou Edge/);
-  assert.match(html,/Instalar aplicativo/);
+  assert.match(html,/Instalar MB REFERÊNCIAS/);
+  assert.match(html,/id="como-instalar"/);
+  assert.match(html,/id="recursos"/);
+  assert.match(html,/beforeinstallprompt/);
+  assert.match(html,/id="install-guide"/);
+  assert.match(html,/prefers-reduced-motion/);
+  assert.match(html,/data-device="android"/);
+  assert.match(html,/data-device="desktop"/);
+  const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script,'A página deve conter código de instalação');
+  assert.doesNotThrow(()=>new Function(script));
 });
 
 test('service worker não guarda endpoints de dados de Firebase',()=>{
@@ -72,4 +82,17 @@ test('JS e TSX alterados sem erro de parser',()=>{
     assert.equal(errors.length,0,rel+': '+errors.map(e=>ts.flattenDiagnosticMessageText(e.messageText,' ')).join('; '));
   }
   for(const rel of ['public/sw.js']) new Function(read(rel));
+});
+
+test('tema colorido preserva a ficha A4 e o modo escuro',()=>{
+  const css=read('src/styles.css');
+  const sheet=read('src/SheetPrint.tsx');
+  assert.match(css,/Visual colorido, inspirado em quadros/);
+  assert.match(css,/@media screen \{/);
+  assert.match(css,/\.dark \.app-shell \.sidebar/);
+  assert.match(css,/--mb-purple/);
+  assert.match(css,/--mb-green/);
+  assert.match(css,/@media print/);
+  assert.match(sheet,/\['CORES','P','M','G','GG','XG','DETALHES'\]/);
+  assert.match(sheet,/sheet-paper-a4/);
 });

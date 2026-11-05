@@ -1,28 +1,174 @@
 <!doctype html>
-<html lang="pt-BR"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#ef7b1a"><meta name="robots" content="noindex,nofollow">
-<meta name="description" content="Instale o MB REFERÊNCIAS no Android ou no computador.">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" href="./icons/mb-192.png">
-<link rel="apple-touch-icon" href="./icons/mb-192.png">
-<title>Instalar MB REFERÊNCIAS</title>
-<style>
-:root{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#edf2fa;background:#101722;color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% -20%,#35445c 0%,#101722 62%)}main{width:min(100%,480px);background:#182232;border:1px solid #354054;border-radius:24px;padding:35px 28px;box-shadow:0 24px 70px #0006;text-align:center}img{width:138px;height:138px;object-fit:contain;display:block;margin:0 auto 8px}h1{font-size:1.65rem;letter-spacing:-.03em;margin:0 0 12px}p{line-height:1.6;color:#bdcadd;margin:0 0 24px}button,.link{display:flex;align-items:center;justify-content:center;width:100%;border-radius:13px;padding:15px;text-decoration:none;font-size:1rem;font-weight:700;cursor:pointer}button{border:0;background:#ff892c;color:#101722}button[hidden]{display:none}.link{margin-top:12px;border:1px solid #526079;background:transparent;color:#f2f5fa}section{margin-top:22px;padding:18px;border:1px solid #344154;border-radius:14px;background:#121b29;text-align:left}h2{font-size:1rem;margin:0 0 9px}ol{margin:0;padding-left:22px;color:#bdcadd;line-height:1.75}small{color:#aab8ca;display:block;margin-top:20px;line-height:1.5}#status{margin:16px 0 0;color:#c6d1df;font-size:.9rem;min-height:1.2em}
-</style></head><body><main>
-<img src="./icons/mb-512.png" alt="Logotipo MB DryFit">
-<h1>Instalar MB REFERÊNCIAS</h1>
-<p>Use o sistema como aplicativo no Android ou no PC. Quando instalado, ele abre em uma janela própria, sem barra de endereço.</p>
-<button id="install" type="button" hidden>Instalar aplicativo</button>
-<a class="link" href="./">Abrir MB REFERÊNCIAS</a>
-<div id="status" aria-live="polite"></div>
-<section><h2>Se o botão não aparecer</h2><ol id="steps"><li><strong>Android (Chrome):</strong> abra o menu ⋮ e escolha <em>Instalar app</em> ou <em>Adicionar à tela inicial</em>.</li><li><strong>PC (Chrome ou Edge):</strong> abra o menu do navegador e escolha <em>Instalar MB REFERÊNCIAS</em>, ou use o ícone de instalação na barra de endereços.</li></ol></section>
-<small>É um aplicativo web instalável, não um APK ou EXE. Para acessar os dados atualizados do Firebase, é necessária conexão com a internet.</small>
-</main><script>
-let pendingPrompt=null;const button=document.getElementById('install'),status=document.getElementById('status');
-window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();pendingPrompt=event;button.hidden=false;status.textContent='Instalação disponível neste dispositivo.'});
-button.addEventListener('click',async()=>{if(!pendingPrompt)return;const prompt=pendingPrompt;pendingPrompt=null;button.hidden=true;await prompt.prompt();const choice=await prompt.userChoice;status.textContent=choice.outcome==='accepted'?'Instalação solicitada. Confira seus aplicativos.':'Instalação cancelada. Você pode tentar pelo menu do navegador.'});
-window.addEventListener('appinstalled',()=>{status.textContent='MB REFERÊNCIAS instalado.';button.hidden=true});
-if(window.matchMedia('(display-mode: standalone)').matches)status.textContent='Você já está usando o aplicativo instalado.';
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
-</script></body></html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f9ff">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Instale o MB REFERÊNCIAS no Android ou computador e acompanhe fichas, produção, ordens de corte e amostras em uma janela própria.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" href="./icons/mb-192.png">
+  <link rel="apple-touch-icon" href="./icons/mb-192.png">
+  <title>Instalar o app | MB REFERÊNCIAS</title>
+  <style>
+    :root{font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;color:#252a46;background:#f8f9ff;font-synthesis:none;--purple:#6657e8;--purple-deep:#4f46bb;--ink:#252a46;--muted:#747b94;--line:#e7e9f5;--shadow:0 22px 70px rgba(52,50,115,.10)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;overflow-x:hidden}button,a{font:inherit}a{text-decoration:none;color:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #a39bff;outline-offset:3px}button:disabled{cursor:not-allowed;opacity:.6}
+    .container{width:min(1180px,calc(100% - 48px));margin-inline:auto}
+    .site-header{height:84px;background:rgba(255,255,255,.89);border-bottom:1px solid #eff0f7;position:sticky;top:0;z-index:20;backdrop-filter:blur(16px)}
+    .header-inner,.brand,.header-links,.hero-actions,.status-row,.feature-head,.steps-heading,.footer-inner{display:flex;align-items:center}
+    .header-inner{height:100%;justify-content:space-between;gap:22px}.brand{gap:11px;min-width:0}.brand img{width:43px;height:43px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:13px;padding:2px;box-shadow:0 4px 10px #1929660e}.brand strong{display:block;font-size:13px;letter-spacing:.02em}.brand small{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:650;letter-spacing:.06em}
+    .header-links{gap:28px;color:#59607d;font-size:12px;font-weight:700}.header-links a:hover{color:var(--purple)}.header-cta{background:#f1efff;padding:11px 17px;border-radius:12px;color:var(--purple-deep)!important}.header-cta:hover{background:#e9e6ff}
+    .hero{position:relative;isolation:isolate;overflow:hidden;padding:85px 0 95px;background:radial-gradient(ellipse at 85% 16%,#edeaff 0,transparent 43%),radial-gradient(ellipse at 16% 75%,#eafbf7 0,transparent 47%),linear-gradient(120deg,#fafbff,#f5f6ff 68%,#fbfaff)}
+    .hero::before{content:"";position:absolute;z-index:-1;right:-160px;top:-240px;width:580px;height:580px;border-radius:50%;border:100px solid rgba(106,91,244,.052)}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:65px;align-items:center}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid #e2defe;background:#f0edff;border-radius:999px;font-size:11px;letter-spacing:.075em;font-weight:850;color:#554ac8}.eyebrow .dot{width:7px;height:7px;border-radius:100%;background:#00c875;box-shadow:0 0 0 4px #00c87525}
+    h1,h2,h3,p{margin-top:0}h1{font-size:clamp(37px,4.6vw,66px);line-height:1.09;letter-spacing:-.061em;margin:24px 0 22px;font-weight:820;max-width:640px}.gradient-text{color:#6255e5}.hero-lead{max-width:520px;color:#69728f;font-size:16px;line-height:1.75;margin-bottom:27px}.hero-actions{gap:12px;flex-wrap:wrap}.btn{display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:50px;padding:13px 21px;border:1px solid transparent;border-radius:13px;font-size:13px;font-weight:800;transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease}.btn:hover{transform:translateY(-2px)}.btn-primary{background:#6657e8;color:#fff;box-shadow:0 10px 26px #6557e83b}.btn-primary:hover{background:#5546d2;box-shadow:0 14px 32px #6557e850}.btn-outline{background:#fff;border-color:#dedff0;color:#353955}.btn-outline:hover{border-color:#b8b0f7}.btn[hidden]{display:none!important}.status-row{gap:9px;min-height:28px;font-size:12px;color:#626a84;margin-top:21px}.status-row svg{color:#00a86b;flex-shrink:0}.hero-notice{font-size:11px;line-height:1.65;color:#7b829b;margin:9px 0 0;max-width:470px}
+    .preview-stage{position:relative;padding:30px 14px;animation:reveal .65s ease-out both}.preview-stage::before{content:"";width:85%;height:80%;background:linear-gradient(135deg,#b7b4ff80,#cbf9e870);filter:blur(45px);border-radius:50%;position:absolute;z-index:-1;left:9%;top:12%}
+    .dashboard{overflow:hidden;border-radius:23px;border:1px solid #e1e2f5;background:#fff;box-shadow:0 33px 80px #5555a729;transform:rotate(-1deg);animation:float 7s ease-in-out infinite}.dashboard-bar{height:46px;border-bottom:1px solid #edf0f7;display:flex;align-items:center;justify-content:space-between;padding:0 19px;background:#fff}.dots{display:flex;gap:6px}.dots i{width:7px;height:7px;border-radius:50%;background:#ff6a75}.dots i:nth-child(2){background:#ffbc42}.dots i:nth-child(3){background:#00c875}.dashboard-bar strong{font-size:10px;letter-spacing:.04em;color:#5d6380}.dashboard-body{display:grid;grid-template-columns:96px minmax(0,1fr);min-height:360px}.dashboard-sidebar{background:#f8f8ff;border-right:1px solid #e9e9f6;padding:17px 11px;display:flex;flex-direction:column;gap:9px}.mini-logo{width:40px;height:40px;border-radius:11px;object-fit:contain;background:white;padding:3px;border:1px solid #ececf7;margin-bottom:14px}.mini-nav{height:12px;border-radius:5px;background:#e4e5f3;width:90%}.mini-nav:nth-of-type(3){width:62%}.mini-nav.current{height:21px;background:#e7e3ff;border-left:3px solid #6557e8}.dashboard-work{padding:24px 19px}.preview-overline{font-size:9px;color:#6b5de0;font-weight:850;letter-spacing:.12em}.dashboard-work h3{margin:8px 0 15px;font-size:19px;letter-spacing:-.04em}.preview-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:19px}.preview-stat{padding:13px 12px;border-radius:11px;background:#f3f1ff}.preview-stat:nth-child(2){background:#edfbf6}.preview-stat:nth-child(3){background:#fff5e5}.preview-stat strong{display:block;font-size:21px;letter-spacing:-.03em;color:#5b4ad9}.preview-stat:nth-child(2) strong{color:#098a62}.preview-stat:nth-child(3) strong{color:#ba741c}.preview-stat small{display:block;font-size:9px;color:#666d89;margin-top:5px;font-weight:650}.board-label{font-size:11px;font-weight:850;margin:0 0 10px}.board-row{display:grid;grid-template-columns:6px minmax(0,1fr) 88px;align-items:center;gap:10px;padding:9px 12px;background:#fff;border:1px solid #e9eaf4;border-radius:9px;margin-bottom:8px;font-size:10px;font-weight:700;color:#525a7a}.board-row:before{content:"";display:block;height:22px;width:6px;border-radius:4px;background:#6c5ce7}.board-row:nth-child(2):before{background:#00c875}.board-row:nth-child(3):before{background:#ffb746}.tag{font-size:9px;text-align:center;padding:5px 6px;border-radius:5px;background:#edeaff;color:#6356cb}.board-row:nth-child(2) .tag{background:#ddf7eb;color:#17895c}.board-row:nth-child(3) .tag{background:#fff1d2;color:#96601c}.floating-card{position:absolute;right:-10px;bottom:-1px;background:#fff;border:1px solid #e8e9f4;box-shadow:0 14px 38px #464a9542;border-radius:14px;display:flex;align-items:center;gap:11px;padding:12px 14px;animation:float-alt 6s ease-in-out infinite}.floating-card .spark{width:33px;height:33px;display:grid;place-items:center;background:#daf8e9;border-radius:10px;font-size:19px}.floating-card strong{font-size:11px;display:block}.floating-card small{font-size:9px;color:#7a8199;display:block;margin-top:3px}
+    .section{padding:86px 0}.section-header{text-align:center;margin:0 auto 40px;max-width:710px}.kicker{font-size:11px;letter-spacing:.14em;color:#7466e6;font-weight:850;text-transform:uppercase}.section-header h2,.steps-heading h2{font-size:clamp(26px,3vw,39px);letter-spacing:-.048em;margin:12px 0}.section-header p,.steps-heading p{color:var(--muted);font-size:14px;line-height:1.75;margin:0}.feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}.feature-card{border:1px solid #ebebf7;background:#fff;border-radius:19px;padding:24px 20px;box-shadow:0 9px 34px #4343810a;transition:transform .22s,box-shadow .22s}.feature-card:hover{transform:translateY(-5px);box-shadow:0 18px 36px #43438118}.feature-icon{width:49px;height:49px;border-radius:15px;display:grid;place-items:center;font-size:25px;margin-bottom:22px;background:#f0edff}.feature-card:nth-child(2) .feature-icon{background:#e4faf0}.feature-card:nth-child(3) .feature-icon{background:#e9f8ff}.feature-card:nth-child(4) .feature-icon{background:#fff2e6}.feature-card h3{font-size:15px;margin-bottom:9px;letter-spacing:-.022em}.feature-card p{font-size:12px;color:var(--muted);line-height:1.7;margin:0}
+    .install-section{background:linear-gradient(135deg,#f1f0ff,#f8faff 52%,#f0fcf8);border-top:1px solid #eae9fa;border-bottom:1px solid #eae9fa}.steps-heading{justify-content:space-between;gap:30px;margin-bottom:27px}.steps-heading h2{max-width:600px}.device-chooser{display:flex;gap:5px;padding:5px;background:#fff;border:1px solid #e3e2f4;border-radius:14px;box-shadow:0 5px 16px #58549310;flex-shrink:0}.device-chooser button{padding:11px 20px;border:0;border-radius:10px;font-size:12px;color:#6e7490;font-weight:750;background:transparent}.device-chooser button[aria-selected="true"]{color:#fff;background:var(--purple);box-shadow:0 5px 12px #6557e830}.steps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.step-card{border:1px solid #e6e6f6;border-radius:18px;background:#fff;padding:25px 23px;min-height:173px;box-shadow:0 9px 26px #69629b0b}.step-num{display:inline-grid;place-items:center;background:#edeaff;border-radius:9px;width:32px;height:32px;color:#6154dc;font-size:13px;font-weight:850;margin-bottom:20px}.step-card h3{font-size:14px;margin-bottom:9px}.step-card p{font-size:12px;color:var(--muted);line-height:1.75;margin:0}.steps-panel[hidden]{display:none}.installation-callout{margin-top:22px;padding:19px 22px;border:1px solid #dbdaf7;border-radius:15px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px}.installation-callout div strong{display:block;font-size:13px;margin-bottom:5px}.installation-callout div p{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
+    .faq-list{max-width:820px;margin:0 auto;display:grid;gap:12px}.faq-list details{border:1px solid #e6e8f3;border-radius:14px;padding:17px 20px;background:#fff}.faq-list summary{font-size:13px;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between}.faq-list summary::-webkit-details-marker{display:none}.faq-list summary:after{content:"+";font-size:21px;font-weight:500;color:#8177e4}.faq-list details[open] summary:after{content:"−"}.faq-list details p{margin:12px 0 0;font-size:12px;color:var(--muted);line-height:1.75}
+    footer{background:#222843;color:#f5f6ff;padding:32px 0}.footer-inner{justify-content:space-between;gap:18px}.footer-inner .brand small{color:#bbc0d6}.footer-note{font-size:11px;line-height:1.6;color:#c7c9df}.footer-inner a:not(.brand){border:1px solid #555b72;padding:11px 16px;border-radius:10px;font-size:12px;font-weight:750}
+    @keyframes float{0%,100%{transform:rotate(-1deg) translateY(0)}50%{transform:rotate(-.5deg) translateY(-13px)}}@keyframes float-alt{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}@keyframes reveal{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:1000px){.hero-grid{gap:25px}.feature-grid{grid-template-columns:repeat(2,1fr)}.dashboard-body{min-height:320px}}
+    @media(max-width:760px){.container{width:min(100% - 32px,600px)}.site-header{height:69px}.header-links>a:not(.header-cta){display:none}.header-cta{padding:10px 12px}.brand strong{font-size:11px}.brand small{font-size:9px}.brand img{width:39px;height:39px}.hero{padding:56px 0 65px}.hero-grid{grid-template-columns:1fr;gap:27px}.hero h1{font-size:clamp(37px,8vw,53px)}.hero-lead{font-size:14px}.preview-stage{max-width:560px;width:100%;margin:auto;padding:15px 5px 22px}.floating-card{right:0}.section{padding:65px 0}.steps-heading{align-items:flex-start;flex-direction:column;gap:22px}.device-chooser{width:100%}.device-chooser button{flex:1}.installation-callout{flex-direction:column;align-items:stretch}.footer-inner{flex-wrap:wrap}.footer-note{order:3;width:100%}}
+    @media(max-width:460px){.feature-grid{grid-template-columns:1fr}.preview-stats{gap:5px}.preview-stat{padding:10px 7px}.dashboard-body{grid-template-columns:65px minmax(0,1fr);min-height:270px}.dashboard-sidebar{padding:12px 7px}.mini-logo{width:33px;height:33px}.dashboard-work{padding:18px 11px}.dashboard-work h3{font-size:15px}.board-row{grid-template-columns:5px minmax(0,1fr) 64px;gap:6px;padding:7px;font-size:9px}.tag{font-size:8px}.floating-card{padding:8px 10px}.floating-card .spark{width:27px;height:27px}.step-card{min-height:0}.steps-grid{grid-template-columns:1fr;gap:10px}.step-card{padding:22px}.header-cta{font-size:11px}.hero-actions .btn{width:100%}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.dashboard,.floating-card,.preview-stage{animation:none}.btn,.feature-card{transition:none}}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./" aria-label="Abrir MB REFERÊNCIAS">
+        <img src="./icons/mb-192.png" alt="" width="43" height="43">
+        <span><strong>MB REFERÊNCIAS</strong><small>GESTÃO DE PRODUÇÃO</small></span>
+      </a>
+      <nav class="header-links" aria-label="Navegação da página">
+        <a href="#recursos">Recursos</a>
+        <a href="#como-instalar">Como instalar</a>
+        <a href="#duvidas">Dúvidas</a>
+        <a href="./" class="header-cta">Abrir sistema ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow"><span class="dot" aria-hidden="true"></span> PRODUÇÃO MAIS CONECTADA</span>
+          <h1 id="hero-title">Seu trabalho, com cara de <span class="gradient-text">aplicativo de verdade.</span></h1>
+          <p class="hero-lead">Leve o MB REFERÊNCIAS para a tela inicial do Android ou para a área de trabalho do computador. Acesse fichas, ordens de corte e amostras em uma janela própria, sem precisar procurar uma aba no navegador.</p>
+          <div class="hero-actions">
+            <button id="install" type="button" class="btn btn-primary" hidden>Instalar MB REFERÊNCIAS <span aria-hidden="true">↗</span></button>
+            <a id="install-guide" class="btn btn-primary" href="#como-instalar">Ver como instalar <span aria-hidden="true">↗</span></a>
+            <a class="btn btn-outline" href="./">Abrir sistema <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="status-row" aria-live="polite">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+            <span id="status">Disponível para Android e computadores com navegador compatível.</span>
+          </div>
+          <p class="hero-notice">A instalação é gratuita. Para acessar informações atualizadas do Firebase, é necessário estar conectado e ter uma conta autorizada.</p>
+        </div>
+        <div class="preview-stage" aria-label="Prévia ilustrativa da organização do MB REFERÊNCIAS">
+          <div class="dashboard" aria-hidden="true">
+            <div class="dashboard-bar"><span class="dots"><i></i><i></i><i></i></span><strong>MB REFERÊNCIAS • ÁREA DE TRABALHO</strong><span style="color:#acafd0">●</span></div>
+            <div class="dashboard-body">
+              <div class="dashboard-sidebar"><img class="mini-logo" src="./icons/mb-192.png" alt=""><span class="mini-nav current"></span><span class="mini-nav"></span><span class="mini-nav"></span><span class="mini-nav"></span></div>
+              <div class="dashboard-work">
+                <span class="preview-overline">VISÃO GERAL</span><h3>Produção organizada.</h3>
+                <div class="preview-stats"><div class="preview-stat"><strong>OC</strong><small>Ordens de corte</small></div><div class="preview-stat"><strong>REF</strong><small>Referências</small></div><div class="preview-stat"><strong>✓</strong><small>Entregas</small></div></div>
+                <div class="board-label">Tudo no mesmo lugar</div>
+                <div class="board-row"><span>Fichas de produção</span><span class="tag">Organizadas</span></div>
+                <div class="board-row"><span>Ordens de corte</span><span class="tag">Acompanhamento</span></div>
+                <div class="board-row"><span>Amostras e oficinas</span><span class="tag">Centralizadas</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="floating-card" aria-hidden="true"><div class="spark">✓</div><div><strong>Um único espaço de trabalho</strong><small>Do cadastro ao acompanhamento</small></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="recursos" class="section" aria-labelledby="recursos-title">
+      <div class="container"><div class="section-header"><span class="kicker">O SISTEMA NO SEU DIA A DIA</span><h2 id="recursos-title">Tudo o que você usa, mais acessível.</h2><p>O mesmo MB REFERÊNCIAS, com as mesmas permissões e informações, agora com um acesso mais prático em diferentes dispositivos.</p></div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-icon" aria-hidden="true">📄</div><h3>Fichas de produção</h3><p>Consulte fichas, acompanhe distribuições e acesse os documentos da produção.</p></article>
+          <article class="feature-card"><div class="feature-icon" aria-hidden="true">📋</div><h3>Ordens de corte</h3><p>Acompanhe OCs, entregas e informações operacionais de cada peça.</p></article>
+          <article class="feature-card"><div class="feature-icon" aria-hidden="true">🧵</div><h3>Amostras e oficinas</h3><p>Encontre modelos, fotografias, referências e dados dos costureiros.</p></article>
+          <article class="feature-card"><div class="feature-icon" aria-hidden="true">💳</div><h3>Gestão e pagamentos</h3><p>Consulte gastos, valores e pagamentos conforme o seu nível de acesso.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-instalar" class="section install-section" aria-labelledby="instalar-title">
+      <div class="container">
+        <div class="steps-heading"><div><span class="kicker">INSTALAÇÃO SIMPLES</span><h2 id="instalar-title">Escolha onde quer instalar.</h2><p>Use os passos abaixo caso o botão de instalação do navegador não apareça.</p></div>
+          <div class="device-chooser" role="tablist" aria-label="Escolher dispositivo"><button id="tab-android" type="button" role="tab" aria-controls="steps-android" aria-selected="true" data-device="android">Android</button><button id="tab-desktop" type="button" role="tab" aria-controls="steps-desktop" aria-selected="false" data-device="desktop">PC / Notebook</button></div>
+        </div>
+        <div class="steps-panel" id="steps-android" role="tabpanel" aria-labelledby="tab-android"><div class="steps-grid">
+          <article class="step-card"><span class="step-num">01</span><h3>Abra no Chrome</h3><p>No Android, acesse esta página usando o Google Chrome.</p></article>
+          <article class="step-card"><span class="step-num">02</span><h3>Escolha instalar</h3><p>Toque em <strong>Instalar</strong>, se disponível, ou abra o menu ⋮ e selecione <strong>Instalar app</strong> / <strong>Adicionar à tela inicial</strong>.</p></article>
+          <article class="step-card"><span class="step-num">03</span><h3>Abra pelo ícone</h3><p>Procure o ícone MB REFERÊNCIAS na tela inicial e abra o aplicativo.</p></article>
+        </div></div>
+        <div class="steps-panel" id="steps-desktop" role="tabpanel" aria-labelledby="tab-desktop" hidden><div class="steps-grid">
+          <article class="step-card"><span class="step-num">01</span><h3>Use Chrome ou Edge</h3><p>No computador, abra esta página no Chrome ou no Microsoft Edge.</p></article>
+          <article class="step-card"><span class="step-num">02</span><h3>Instale o aplicativo</h3><p>Clique no ícone de instalação próximo à barra de endereço ou abra o menu do navegador e escolha <strong>Instalar MB REFERÊNCIAS</strong>.</p></article>
+          <article class="step-card"><span class="step-num">03</span><h3>Use como aplicativo</h3><p>Abra o MB REFERÊNCIAS pelo atalho da área de trabalho ou pelo menu de aplicativos, em uma janela própria.</p></article>
+        </div></div>
+        <div class="installation-callout"><div><strong>Já usa o MB REFERÊNCIAS no navegador?</strong><p>Você pode continuar usando a versão web normalmente. A instalação é apenas outra forma de abrir o mesmo sistema.</p></div><a href="./" class="btn btn-outline">Entrar no sistema →</a></div>
+      </div>
+    </section>
+
+    <section id="duvidas" class="section" aria-labelledby="duvidas-title"><div class="container"><div class="section-header"><span class="kicker">DÚVIDAS FREQUENTES</span><h2 id="duvidas-title">Tudo pronto para começar.</h2></div>
+      <div class="faq-list"><details><summary>É um APK para Android ou um programa .exe?</summary><p>Não. É um PWA (aplicativo web instalável), que utiliza o navegador para criar um atalho e abrir o sistema em uma janela própria. Não precisa baixar APK ou EXE.</p></details>
+      <details><summary>Preciso de internet?</summary><p>Sim, para entrar e consultar ou atualizar os dados do sistema armazenados no Firebase. Algumas partes da interface podem carregar do cache, mas a gestão de produção depende da conexão.</p></details>
+      <details><summary>Vou perder minhas OCs, fichas ou amostras?</summary><p>Não. O aplicativo instalado utiliza o mesmo MB REFERÊNCIAS e os mesmos dados da sua conta. As permissões dos usuários continuam sendo aplicadas.</p></details>
+      <details><summary>O botão de instalação não apareceu. E agora?</summary><p>Escolha Android ou PC acima e siga as instruções do seu navegador. Dependendo do dispositivo, navegador e modo de abertura, o botão direto de instalação pode não estar disponível.</p></details></div>
+    </div></section>
+  </main>
+  <footer><div class="container footer-inner"><a href="./" class="brand"><img src="./icons/mb-192.png" alt="" width="43" height="43"><span><strong>MB REFERÊNCIAS</strong><small>GESTÃO DE PRODUÇÃO</small></span></a><p class="footer-note">Aplicativo instalável para Android e PC.<br>Os dados permanecem no sistema MB REFERÊNCIAS.</p><a href="./">Abrir sistema ↗</a></div></footer>
+  <script>
+    (()=>{
+      'use strict';
+      let pendingPrompt=null;
+      const install=document.getElementById('install');
+      const guide=document.getElementById('install-guide');
+      const status=document.getElementById('status');
+      const tabAndroid=document.getElementById('tab-android');
+      const tabDesktop=document.getElementById('tab-desktop');
+      const panelAndroid=document.getElementById('steps-android');
+      const panelDesktop=document.getElementById('steps-desktop');
+      const selectDevice=(device)=>{
+        const android=device==='android';
+        tabAndroid.setAttribute('aria-selected',String(android));
+        tabDesktop.setAttribute('aria-selected',String(!android));
+        panelAndroid.hidden=!android;
+        panelDesktop.hidden=android;
+      };
+      tabAndroid.addEventListener('click',()=>selectDevice('android'));
+      tabDesktop.addEventListener('click',()=>selectDevice('desktop'));
+      selectDevice(/Android/i.test(navigator.userAgent)?'android':'desktop');
+      const installed=()=>window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+      const markInstalled=()=>{pendingPrompt=null;install.hidden=true;guide.hidden=false;status.textContent='O MB REFERÊNCIAS já está instalado neste dispositivo.';};
+      if(installed())markInstalled();
+      window.addEventListener('beforeinstallprompt',event=>{
+        event.preventDefault();
+        pendingPrompt=event;
+        if(!installed()){install.hidden=false;guide.hidden=true;status.textContent='Seu navegador permite a instalação direta do aplicativo.';}
+      });
+      install.addEventListener('click',async()=>{
+        if(!pendingPrompt){status.textContent='Use as instruções para instalar pelo menu do navegador.';return;}
+        const prompt=pendingPrompt;pendingPrompt=null;install.hidden=true;guide.hidden=false;
+        try{
+          await prompt.prompt();
+          const result=await prompt.userChoice;
+          status.textContent=result.outcome==='accepted'?'Instalação solicitada. Confira seus aplicativos.':'Instalação cancelada. Você ainda pode usar o menu do navegador.';
+        }catch{status.textContent='O navegador não iniciou a instalação. Use o menu do navegador.';}
+      });
+      window.addEventListener('appinstalled',markInstalled);
+      if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));}
+    })();
+  </script>
+</body>
+</html>
