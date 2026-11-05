@@ -22,6 +22,7 @@ const CutOrders = lazy(() => import('./CutOrders'));
 const ExpensesPage = lazy(() => import('./ExpensesPage'));
 const SettingsHub = lazy(() => import('./SettingsHub'));
 const ProductionSheets = lazy(() => import('./ProductionSheets'));
+const AssistantMB = lazy(() => import('./AssistantMB'));
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
@@ -356,6 +357,11 @@ export default function App(){
        <div className="mobile-more-account"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div><strong>{user.email}</strong><span>{roleLabel[role]} · {sync==='online'?'Sincronizado':'Offline'}</span></div><button className="outline-button" onClick={()=>{setMobileMoreOpen(false);setDark(value=>!value)}}>{dark?<Sun size={16}/>:<Moon size={16}/>} Tema</button><button className="outline-button" onClick={()=>auth&&signOut(auth)}><LogOut size={16}/> Sair</button></div>
      </section>
    </div>}
+ <Suspense fallback={null}><AssistantMB db={db!} user={user}
+   canReadOrders={permitted('orders')} canEditOrders={editor&&permitted('orders')}
+   canReadSamples={permitted('samples')} canEditSamples={editor&&(admin||access.includes('samples'))}
+   canReadPrices={permitted('orders')||permitted('workshops')||permitted('sheet_distribution')}
+   canEditPrices={editor&&permitted('workshops')}/></Suspense>
  {backupOpen&&<Suspense fallback={<div className="empty-state">Preparando backup...</div>}><BackupExport db={db!} models={models} admin={admin} onClose={()=>setBackupOpen(false)}/></Suspense>}
  {(error||info)&&<div className={`toast ${error?'error':'success'}`}><span>{error?<AlertCircle size={18}/>:<CheckCircle2 size={18}/>}</span>{error||info}<button onClick={()=>notify('')}><X size={16}/></button></div>}
  {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">
