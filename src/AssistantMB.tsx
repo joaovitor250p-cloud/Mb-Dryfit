@@ -81,6 +81,7 @@ export default function AssistantMB({
 
   const [aiNote,setAiNote]=useState('');
   const [aiReady,setAiReady]=useState(false);
+  const [aiMode,setAiMode]=useState<'gpu'|'cpu'|null>(null);
   const [loadingAI,setLoadingAI]=useState(false);
   const [aiProgress,setAiProgress]=useState('');
   const aiHistory=useRef<Array<{role:'user'|'assistant';text:string}>>([]);
@@ -96,10 +97,17 @@ export default function AssistantMB({
     if(loadingAI||aiReady)return;
     setLoadingAI(true);setAiProgress('Preparando IA local...');
     try{
-      await loadFreeAI(setAiProgress);
-      setAiReady(true);setAiProgress('IA local carregada. Pode escrever ou falar normalmente.');
-      notice('IA local pronta. Os dados reais continuam sendo buscados pelo aplicativo, com suas permissões.');
-    }catch(e){notice(`Não foi possível carregar a IA local: ${errorMessage(e)}`,true);setAiProgress('')}
+      const mode=await loadFreeAI(setAiProgress);
+      setAiMode(mode);
+      setAiReady(true);
+      setAiProgress(mode==='cpu'?'IA local em CPU pronta. Respostas podem ser mais lentas.':'IA local em GPU pronta.');
+      notice(mode==='cpu'
+        ?'IA local carregada na CPU, sem WebGPU. Perguntas livres podem ser lentas; comandos de OC e PIX continuam rápidos.'
+        :'IA local carregada na GPU. Os dados reais continuam protegidos pelas suas permissões.');
+    }catch(e){
+      notice(`Não foi possível iniciar o modelo neste aparelho. ${e instanceof Error?e.message:errorMessage(e)} Você ainda pode usar os comandos de OC, pagamentos e PIX.`,true);
+      setAiProgress('');
+    }
     finally{setLoadingAI(false)}
   };
   // A saída do modelo é texto NÃO CONFIÁVEL; só aceita ações explícitas do usuário.
@@ -334,8 +342,8 @@ export default function AssistantMB({
       <header className="mb-assistant-header"><div className="mb-assistant-avatar"><Bot size={22}/></div><div><strong>Assistente MB</strong><small>Voz e texto · IA local sem API paga</small></div><button type="button" onClick={()=>{recognition.current?.stop();setOpen(false)}} aria-label="Fechar assistente"><X size={18}/></button></header>
       <div className="mb-assistant-content" aria-live="polite">
         <p className="mb-assistant-intro">Fale ou digite. Os comandos conhecidos funcionam imediatamente. Para conversar com um modelo aberto, ative a IA local uma vez no seu dispositivo.</p>
-        <p className="mb-assistant-safety" aria-live="polite"><ShieldCheck size={14}/>{isFreeAIConfigured?(aiReady?'IA local pronta · sem custo por mensagem':'IA local disponível neste aparelho · toque para ativar'):'Este aparelho não oferece WebGPU · comandos locais disponíveis'}</p>
-        {isFreeAIConfigured&&!aiReady&&<div className="mb-assistant-ai-activation"><p><strong>IA local gratuita</strong> · Modelo aberto Qwen 0.5B. O primeiro download pode consumir centenas de MB; use Wi-Fi e um aparelho com memória disponível.</p><button type="button" disabled={loadingAI} onClick={()=>void activateAI()}>{loadingAI?'Carregando...':'Ativar IA local'}</button>{aiProgress&&<small aria-live="polite">{aiProgress}</small>}</div>}
+        <p className="mb-assistant-safety" aria-live="polite"><ShieldCheck size={14}/>{isFreeAIConfigured?(aiReady?`IA local pronta (${aiMode==='cpu'?'CPU':'GPU'}) · sem custo por mensagem`:'IA local disponível via GPU ou CPU · toque para ativar'):'IA local indisponível neste navegador · comandos locais disponíveis'}</p>
+        {isFreeAIConfigured&&!aiReady&&<div className="mb-assistant-ai-activation"><p><strong>IA local gratuita</strong> · Usa Qwen 0.5B na GPU ou SmolLM2 135M na CPU, sem WebGPU. O primeiro download pode consumir centenas de MB; use Wi-Fi. No modo CPU, as respostas podem ser lentas e menos precisas.</p><button type="button" disabled={loadingAI} onClick={()=>void activateAI()}>{loadingAI?'Carregando...':'Ativar IA local'}</button>{aiProgress&&<small aria-live="polite">{aiProgress}</small>}</div>}
         {!heard&&<div className="mb-assistant-suggestions"><button type="button" onClick={()=>void processCommand('Quanto devo ao Mauro?')}>Quanto devo ao Mauro?</button><button type="button" onClick={()=>void processCommand('Qual o PIX do Virgílio?')}>PIX do Virgílio</button><button type="button" onClick={()=>void processCommand('Quantas peças do Rodrigo estão em andamento?')}>Peças do Rodrigo</button><button type="button" onClick={()=>void processCommand('Ajuda')}>Ver comandos</button></div>}
         {heard&&<div className="mb-assistant-bubble mb-assistant-user"><small>{listening?'Ouvindo':'Você pediu'}</small>{heard}</div>}
         {aiNote&&<p className="mb-assistant-safety">{aiNote}</p>}

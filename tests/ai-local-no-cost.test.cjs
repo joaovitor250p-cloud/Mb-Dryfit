@@ -20,7 +20,7 @@ test('Não pague OC não vira pagamento',()=>assert.deepEqual(plain(context.pars
 test('IA não pode inventar outra OC',()=>assert.equal(context.validateGenerated('Pague a OC 707','OC 999 paga'),null));
 test('IA não pode pagar OC negada',()=>assert.equal(context.validateGenerated('Não pague a OC 707','OC 707 paga'),null));
 test('IA não pode excluir sem intenção clara',()=>assert.equal(context.validateGenerated('Veja a amostra da OC 303','Apagar amostra da OC 303'),null));
-test('Modelo nunca executa DOM ou Firestore',()=>{assert.doesNotMatch(core,/\b(?:deleteDoc|updateDoc|runTransaction|eval\s*\(|new Function)\b/);assert.match(core,/command: null/)});
+test('Modelo nunca executa DOM ou Firestore',()=>{assert.doesNotMatch(core,/\b(?:deleteDoc|updateDoc|runTransaction|eval\s*\(|new Function)\b/);assert.match(core,/(?:command:\s*null|\"command\":null)/)});
 test('IA não usa chaves pagas nem proxy',()=>{assert.doesNotMatch(core+client,/GEMINI_API_KEY|OPENAI_API_KEY|VITE_MB_AI_PROXY_URL|Authorization.*Bearer/);assert.match(core,/CreateMLCEngine/)});
 test('Confirmação no app real é mantida',()=>{assert.match(assistant,/const confirm=async/);assert.match(assistant,/runTransaction/);assert.match(assistant,/aiIntentMatches/)});
 test('Aplicação baixa modelo apenas após clique',()=>{assert.match(html,/id="loadAI"/);assert.match(html,/loadLocalModel\(text=>/);assert.match(assistant,/onClick=\{\(\)=>void activateAI\(\)\}/)});
