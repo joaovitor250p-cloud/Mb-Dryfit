@@ -139,7 +139,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const overdueCount=useMemo(()=>rows.filter(o=>overdue(o,currentDate)).length,[rows,currentDate]);
   const eligible=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt&&num(o.total)>0),[rows,fridayDate]);
   const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&(!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows]);
-  const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office),item=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
+  const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
   const open=(o?:Order)=>{if(!canEdit)return;setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
