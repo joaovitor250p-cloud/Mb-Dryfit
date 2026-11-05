@@ -360,6 +360,7 @@ export default function App(){
  <Suspense fallback={null}><AssistantMB db={db!} user={user}
    canReadOrders={permitted('orders')} canEditOrders={editor&&permitted('orders')}
    canReadSamples={permitted('samples')} canEditSamples={editor&&(admin||access.includes('samples'))}
+   canReadWorkshops={permitted('workshops')||permitted('sheet_distribution')||(editor&&permitted('orders'))}
    canReadPrices={permitted('orders')||permitted('workshops')||permitted('sheet_distribution')}
    canEditPrices={editor&&permitted('workshops')}/></Suspense>
  {backupOpen&&<Suspense fallback={<div className="empty-state">Preparando backup...</div>}><BackupExport db={db!} models={models} admin={admin} onClose={()=>setBackupOpen(false)}/></Suspense>}

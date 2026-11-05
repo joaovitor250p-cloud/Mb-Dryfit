@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import {
@@ -6,9 +7,11 @@ import {
   serverTimestamp, where,
   type DocumentData, type QueryDocumentSnapshot
 } from 'firebase/firestore';
-import { Bot, CheckCircle2, ClipboardList, Mic, MicOff, Send, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Bot, CheckCircle2, ClipboardList, Copy, Mic, MicOff, Send, ShieldCheck, Trash2, X } from 'lucide-react';
 import { fridayForDay, parseAssistantCommand } from './lib/assistantCommands';
 import { safeProviderMessage } from './lib/safeMessage';
+import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
+import { parseFinanceNumber } from './lib/financeNumbers';
 
 /** A voz só vira um comando de texto. Toda gravação exige confirmação visual. */
 type VoiceRecognizer = {
@@ -23,12 +26,16 @@ type VoiceRecognizer = {
 };
 type RecognizerConstructor = new()=>VoiceRecognizer;
 type Row = {id:string; data:DocumentData};
+type WorkshopReport = {kind:'workshop-debt'|'workshop-pending'|'workshop-production'|'workshop-paid-month'; name:string; orders:Row[]; total:number; qty:number; withoutPrice:number; period?:string};
+type WorkshopPix = {kind:'workshop-pix'; name:string; pix:string; phone:string};
 type Preview =
   | {kind:'pay'; row:Row; paymentDate:string}
   | {kind:'delete-sample'; row:Row}
   | {kind:'change-price'; rows:Row[]; amount:number; reference:string}
   | {kind:'show-order'; row:Row}
-  | {kind:'show-price'; rows:Row[]};
+  | {kind:'show-price'; rows:Row[]}
+  | WorkshopReport
+  | WorkshopPix;
 
 type Props = {
   db:Firestore;
@@ -38,35 +45,37 @@ type Props = {
   canReadSamples:boolean;
   canEditSamples:boolean;
   canReadPrices:boolean;
+  canReadWorkshops:boolean;
   canEditPrices:boolean;
 };
 
 const safe=(value:unknown)=>String(value??'').trim();
 const asRows=(snap:{docs:QueryDocumentSnapshot<DocumentData>[]}):Row[]=>snap.docs.map(doc=>({id:doc.id,data:doc.data()}));
-const amount=(value:unknown):number=>{
-  const raw=safe(value).replace(/\s|R\$/gi,'');
-  const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;
-  const n=Number(normalized);
-  return Number.isFinite(n)?n:NaN;
-};
+const amount=(value:unknown):number=>parseFinanceNumber(safe(value));
 const money=(value:unknown)=>{
   const n=amount(value);
   return Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
 };
+const displayName=(name:string)=>canonicalWorkshopName(name)||name.toLocaleUpperCase('pt-BR');
+const isPaid=(data:DocumentData)=>safe(data.paymentDone).toLocaleUpperCase('pt-BR')==='OK';
+const moneyValue=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
+const getMonth=(now:Date)=>`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+const paidMonth=(raw:unknown)=>{const date=safe(raw);const br=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(date);if(br)return `${br[3]}-${br[2].padStart(2,'0')}`;return /^\d{4}-\d{2}-\d{2}/.test(date)?date.slice(0,7):'';};
 const errorMessage=(error:unknown)=>safeProviderMessage(error,'Não foi possível executar o comando. Confira suas permissões e tente novamente.');
 
 export default function AssistantMB({
-  db,user,canReadOrders,canEditOrders,canReadSamples,canEditSamples,canReadPrices,canEditPrices
+  db,user,canReadOrders,canEditOrders,canReadSamples,canEditSamples,canReadPrices,canEditPrices,canReadWorkshops
 }:Props){
   const [open,setOpen]=useState(false);
   const [input,setInput]=useState('');
   const [heard,setHeard]=useState('');
-  const [status,setStatus]=useState('Escreva ou fale um comando para começar.');
+  const [status,setStatus]=useState('Pergunte pelo PIX, valores a pagar, OCs ou use um comando por voz.');
   const [preview,setPreview]=useState<Preview|null>(null);
   const [selectedPrice,setSelectedPrice]=useState('');
   const [busy,setBusy]=useState(false);
   const [listening,setListening]=useState(false);
   const [error,setError]=useState(false);
+  const [copied,setCopied]=useState(false);
   const recognition=useRef<VoiceRecognizer|null>(null);
   const busyRef=useRef(false);
   const inputRef=useRef<HTMLInputElement|null>(null);
@@ -86,10 +95,51 @@ export default function AssistantMB({
     if(busyRef.current)return;
     const raw=message.trim();
     if(!raw){notice('Digite ou fale um comando.',true);return;}
-    setHeard(raw);setPreview(null);setSelectedPrice('');setError(false);
+    setHeard(raw);setPreview(null);setSelectedPrice('');setError(false);setCopied(false);
     busyRef.current=true;setBusy(true);
     try{
       const command=parseAssistantCommand(raw);
+      if(command.kind==='help'){
+        notice('Posso consultar dívidas, PIX, OCs pendentes, peças em produção e pagamentos do mês. Também localizo OCs e referências. Para pagar, mudar preços ou excluir amostras, sempre peço confirmação.');
+        return;
+      }
+      if(command.kind==='workshop-pix'){
+        if(!canReadWorkshops)throw new Error('Seu acesso não permite consultar o PIX das Oficinas. Peça autorização ao administrador.');
+        const key=workshopKey(command.workshop);
+        const matches=asRows(await getDocs(collection(db,'workshops'))).filter(row=>workshopKey(row.data.name)===key);
+        if(!matches.length){notice(`Não encontrei uma oficina com nome “${command.workshop}”. Confira o cadastro em Configurações → Oficinas.`,true);return;}
+        const pixOptions=[...new Set(matches.map(row=>safe(row.data.pix)).filter(Boolean))];
+        if(pixOptions.length>1){notice(`Encontrei cadastros de ${displayName(command.workshop)} com chaves PIX diferentes. Confira em Oficinas antes de copiar.`,true);return;}
+        if(!pixOptions.length){notice(`${displayName(command.workshop)} está cadastrado, mas ainda não tem chave PIX informada.`,true);return;}
+        setPreview({kind:'workshop-pix',name:displayName(command.workshop),pix:pixOptions[0],phone:safe(matches.find(r=>r.data.phone)?.data.phone)});
+        notice('Chave PIX encontrada no cadastro de Oficinas. Confira e copie abaixo.');
+        return;
+      }
+      if(command.kind==='workshop-debt'||command.kind==='workshop-pending'||command.kind==='workshop-production'||command.kind==='workshop-paid-month'){
+        if(!canReadOrders)throw new Error('Seu acesso não permite consultar Ordens de Corte.');
+        const key=workshopKey(command.workshop);
+        const all=asRows(await getDocs(collection(db,'cut_orders'))).filter(r=>workshopKey(r.data.office)===key);
+        if(!all.length){notice(`Não encontrei OCs para ${displayName(command.workshop)}. Confira a grafia do costureiro.`,true);return;}
+        let found:Row[];
+        if(command.kind==='workshop-production')found=all.filter(r=>safe(r.data.status).toUpperCase()!=='ENTREGUE');
+        else if(command.kind==='workshop-paid-month'){
+          const month=command.month||getMonth(new Date());
+          found=all.filter(r=>isPaid(r.data)&&paidMonth(r.data.paidAt)===month);
+        } else found=all.filter(r=>!isPaid(r.data));
+        const total=found.reduce((sum,row)=>{const n=amount(row.data.total);return sum+(Number.isFinite(n)&&n>0?n:0)},0);
+        const qty=found.reduce((sum,row)=>{const n=amount(row.data.qty);return sum+(Number.isFinite(n)&&n>0?n:0)},0);
+        const withoutPrice=found.filter(row=>!Number.isFinite(amount(row.data.total))).length;
+        const name=displayName(command.workshop);
+        setPreview({kind:command.kind,name,orders:found,total,qty,withoutPrice,period:command.kind==='workshop-paid-month'?(command.month||getMonth(new Date())):undefined});
+        const labels={
+          'workshop-debt':`${found.length} OC(s) ainda não marcadas como pagas para ${name}.`,
+          'workshop-pending':`${found.length} OC(s) com pagamento pendente para ${name}.`,
+          'workshop-production':`${found.length} OC(s) em andamento para ${name}.`,
+          'workshop-paid-month':`${found.length} OC(s) pagas no período consultado para ${name}.`
+        };
+        notice(labels[command.kind]+(withoutPrice?' Algumas não têm total válido e não entraram na soma.':''));
+        return;
+      }
       if(command.kind==='pay-order'||command.kind==='find-order'){
         if(!canReadOrders)throw new Error('Seu usuário não tem permissão para consultar Ordens de Corte.');
         const row=await findUnique('cut_orders',command.oc);
@@ -128,7 +178,7 @@ export default function AssistantMB({
         notice(rows.length>1?`Esta REF tem ${rows.length} tipos de peça. Escolha qual preço deseja alterar.`:`Confira a mudança da REF ${command.reference} e confirme.`);
         return;
       }
-      notice('Não reconheci o comando. Exemplos: “OC 707 paga”, “consultar REF 10088”, “alterar preço da REF 10088 para 4,50” ou “apagar amostra da OC 303”.',true);
+      notice('Não reconheci essa frase. Tente: “quanto devo ao Mauro?”, “qual o PIX do Virgílio?”, “quantas peças do Rodrigo estão em andamento?”, “OC 707 paga” ou digite “ajuda”.',true);
     }catch(e){notice(errorMessage(e),true)}
     finally{busyRef.current=false;setBusy(false)}
   };
@@ -208,18 +258,24 @@ export default function AssistantMB({
     }catch(e){setListening(false);notice(errorMessage(e),true)}
   };
 
+  const copyPix=async()=>{
+    if(!preview||preview.kind!=='workshop-pix')return;
+    try{await navigator.clipboard.writeText(preview.pix);setCopied(true);notice(`PIX de ${preview.name} copiado.`)}
+    catch{notice('Não foi possível copiar automaticamente. Selecione a chave PIX abaixo para copiar manualmente.',true)}
+  };
   const cancel=()=>{setPreview(null);notice('Operação cancelada. Nenhum dado foi alterado.')};
   const selected=preview?.kind==='change-price'?preview.rows.find(row=>row.id===selectedPrice):null;
 
-  return <div className="mb-assistant-root">
+  return createPortal(<div className="mb-assistant-root">
     {!open&&<button type="button" className="mb-assistant-launcher" title="Abrir Assistente MB" aria-label="Abrir Assistente MB" onClick={()=>setOpen(true)}><Bot size={23}/><span>Assistente MB</span></button>}
     {open&&<section className="mb-assistant-panel" role="dialog" aria-label="Assistente MB — comandos por texto e voz" aria-modal="false">
       <header className="mb-assistant-header"><div className="mb-assistant-avatar"><Bot size={22}/></div><div><strong>Assistente MB</strong><small>Comandos por texto e voz</small></div><button type="button" onClick={()=>{recognition.current?.stop();setOpen(false)}} aria-label="Fechar assistente"><X size={18}/></button></header>
       <div className="mb-assistant-content" aria-live="polite">
         <p className="mb-assistant-intro">Fale ou digite o que precisa fazer. Vou localizar o registro, mostrar os dados e pedir confirmação antes de alterar.</p>
+        {!heard&&<div className="mb-assistant-suggestions"><button type="button" onClick={()=>void processCommand('Quanto devo ao Mauro?')}>Quanto devo ao Mauro?</button><button type="button" onClick={()=>void processCommand('Qual o PIX do Virgílio?')}>PIX do Virgílio</button><button type="button" onClick={()=>void processCommand('Quantas peças do Rodrigo estão em andamento?')}>Peças do Rodrigo</button><button type="button" onClick={()=>void processCommand('Ajuda')}>Ver comandos</button></div>}
         {heard&&<div className="mb-assistant-bubble mb-assistant-user"><small>{listening?'Ouvindo':'Você pediu'}</small>{heard}</div>}
         <div className={`mb-assistant-bubble mb-assistant-reply ${error?'is-error':''}`}><small><Bot size={13}/> Assistente MB</small>{status}</div>
-        {preview&&<div className="mb-assistant-preview"><h4><ClipboardList size={16}/>{preview.kind==='pay'?'Conferir pagamento':preview.kind==='delete-sample'?'Conferir exclusão':preview.kind==='change-price'?'Conferir alteração de preço':preview.kind==='show-price'?'Preços encontrados':'Ordem de Corte encontrada'}</h4>
+        {preview&&<div className="mb-assistant-preview"><h4><ClipboardList size={16}/>{preview.kind==='pay'?'Conferir pagamento':preview.kind==='delete-sample'?'Conferir exclusão':preview.kind==='change-price'?'Conferir alteração de preço':preview.kind==='show-price'?'Preços encontrados':preview.kind==='workshop-pix'?'Chave PIX':preview.kind.startsWith('workshop-')?'Resumo da oficina':'Ordem de Corte encontrada'}</h4>
           {(preview.kind==='pay'||preview.kind==='delete-sample'||preview.kind==='show-order')&&<dl>
             <div><dt>OC</dt><dd>{safe(preview.row.data.oc)}</dd></div>
             <div><dt>Modelo / peça</dt><dd>{safe(preview.row.data.model||preview.row.data.name)||'—'}</dd></div>
@@ -230,6 +286,15 @@ export default function AssistantMB({
           </dl>}
           {preview.kind==='show-price'&&<div className="mb-assistant-price-list">{preview.rows.map(row=><div key={row.id}><strong>{safe(row.data.reference)} · {safe(row.data.type)}</strong><span>{money(row.data.price)}</span></div>)}</div>}
           {preview.kind==='change-price'&&<><label className="mb-assistant-label">Qual tipo de roupa? <select value={selectedPrice} onChange={e=>setSelectedPrice(e.target.value)}><option value="">Escolha a categoria</option>{preview.rows.map(row=><option key={row.id} value={row.id}>{safe(row.data.reference)} · {safe(row.data.type)} · atual {money(row.data.price)}</option>)}</select></label>{selected&&<dl><div><dt>Preço atual</dt><dd>{money(selected.data.price)}</dd></div><div><dt>Novo preço</dt><dd>{money(preview.amount)}</dd></div></dl>}</>}
+          {preview.kind==='workshop-pix'&&<div className="mb-assistant-pix"><strong>{preview.name}</strong><label>PIX</label><div className="mb-assistant-pix-row"><code>{preview.pix}</code><button type="button" title="Copiar PIX" onClick={()=>void copyPix()}><Copy size={16}/>{copied?'Copiado':'Copiar'}</button></div>{preview.phone&&<small>WhatsApp: {preview.phone}</small>}</div>}
+          {(preview.kind==='workshop-debt'||preview.kind==='workshop-pending'||preview.kind==='workshop-production'||preview.kind==='workshop-paid-month')&&<div className="mb-assistant-report">
+            <strong>{preview.name}</strong>
+            {preview.period&&<small>Pagamentos no mês {preview.period.slice(5,7)}/{preview.period.slice(0,4)}</small>}
+            <div className="mb-assistant-report-total"><span>{preview.kind==='workshop-production'?'Peças em andamento':preview.kind==='workshop-paid-month'?'Total pago neste mês':'Total não marcado como pago'}</span><strong>{preview.kind==='workshop-production'?`${preview.qty.toLocaleString('pt-BR')} peças`:moneyValue(preview.total)}</strong></div>
+            <small>{preview.orders.length} OC(s) · {preview.kind==='workshop-production'?`Valor previsto: ${moneyValue(preview.total)}`:`${preview.qty.toLocaleString('pt-BR')} peças`}</small>
+            {preview.withoutPrice>0&&<small>Há {preview.withoutPrice} OC(s) sem total válido; elas não entraram no valor somado.</small>}
+            {preview.orders.length>0&&<div className="mb-assistant-order-list">{preview.orders.slice(0,12).map(r=><div key={r.id}><span>OC {safe(r.data.oc)||'—'}</span><small>{safe(r.data.ref)||'Sem REF'}</small><strong>{money(r.data.total)}</strong></div>)}{preview.orders.length>12&&<small>Mostrando 12 de {preview.orders.length} OCs. A soma acima considera todas.</small>}</div>}
+          </div>}
           {(preview.kind==='pay'||preview.kind==='delete-sample'||preview.kind==='change-price')&&<div className="mb-assistant-preview-actions"><button type="button" className="mb-assistant-cancel" disabled={busy} onClick={cancel}>Cancelar</button><button type="button" className={preview.kind==='delete-sample'?'mb-assistant-danger':'mb-assistant-confirm'} disabled={busy||(preview.kind==='change-price'&&!selectedPrice)} onClick={()=>void confirm()}>{preview.kind==='delete-sample'?<Trash2 size={15}/>:<CheckCircle2 size={15}/>} {busy?'Salvando...':preview.kind==='pay'?'Confirmar pagamento':preview.kind==='delete-sample'?'Excluir amostra':'Alterar preço'}</button></div>}
         </div>}
         <p className="mb-assistant-safety"><ShieldCheck size={14}/> Respeita as permissões do Firebase. Nenhuma mudança é realizada apenas por falar.</p>
@@ -237,5 +302,5 @@ export default function AssistantMB({
       <form className="mb-assistant-compose" onSubmit={event=>{event.preventDefault();void processCommand(input)}}><input ref={inputRef} aria-label="Comando para Assistente MB" value={input} maxLength={220} onChange={e=>setInput(e.target.value)} placeholder="Ex.: OC 707 paga" disabled={busy}/><button type="button" className={listening?'mb-assistant-mic is-listening':'mb-assistant-mic'} title={listening?'Parar de ouvir':'Falar comando'} aria-label={listening?'Parar de ouvir':'Falar comando'} onClick={startVoice} disabled={busy}>{listening?<MicOff size={19}/>:<Mic size={19}/>}</button><button className="mb-assistant-send" type="submit" title="Consultar comando" aria-label="Enviar comando" disabled={busy||!input.trim()}><Send size={17}/></button></form>
       {!voiceAvailable&&<small className="mb-assistant-hint">O microfone depende do suporte do navegador. Digitar funciona normalmente.</small>}
     </section>}
-  </div>;
+  </div>,document.body);
 }
