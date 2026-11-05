@@ -115,7 +115,7 @@ export default function AssistantMB({
     }
     if(command.kind==='find-order')return mentions(command.oc);
     if(command.kind==='price-lookup')return mentions(command.reference);
-    if(command.kind.startsWith('workshop-')){
+    if(command.kind==='workshop-debt'||command.kind==='workshop-pix'||command.kind==='workshop-pending'||command.kind==='workshop-production'||command.kind==='workshop-paid-month'){
       const key=workshopKey(command.workshop);
       return Boolean(key)&&workshopKey(raw).includes(key);
     }
@@ -140,7 +140,7 @@ export default function AssistantMB({
       if(command.kind==='unknown'&&isFreeAIConfigured&&aiReady){
         const ai=await askFreeAI(user,raw,aiHistory.current,setAiProgress);
 
-        aiHistory.current=[...aiHistory.current,{role:'user',text:raw},{role:'assistant',text:ai.reply}].slice(-6);
+        aiHistory.current=[...aiHistory.current,{role:'user' as const,text:raw},{role:'assistant' as const,text:ai.reply}].slice(-6);
         if(ai.command){
           const interpreted=parseAssistantCommand(ai.command);
           // Uma ação financeira com preço especial nunca vira alteração de preço geral.
