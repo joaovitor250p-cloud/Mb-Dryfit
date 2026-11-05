@@ -2,8 +2,8 @@ import { createPortal } from 'react-dom';
 import SheetPrint, { type PrintableSheet, type SheetColorRow } from './SheetPrint';
 import { useContext, useEffect, useMemo, useState, useRef, type MouseEvent } from 'react';
 import type { User } from 'firebase/auth';
-import type { Firestore, DocumentData } from 'firebase/firestore';
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import type { Firestore, DocumentData, UpdateData } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query as fsQuery, where, runTransaction, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Copy, Download, Edit3, Filter, Plus, Search, ShieldAlert, Trash2, UploadCloud, X } from 'lucide-react';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
@@ -67,6 +67,8 @@ const moneyKeys=new Set<DataField>(['piecePrice','discountPiece','discountTotal'
 // O fluxo automatico usa o mesmo ID na OC, sem alterar as regras do Firestore.
 // OCs manuais, importadas e fichas antigas nao mostram o botao de PDF.
 const hasNewProductionSheet=(o:Order)=>o.id.startsWith('ficha_')&&o.source==='manual';
+const normalizedOC=(oc:string)=>oc.trim().normalize('NFKC').toLocaleUpperCase('pt-BR').replace(/\s+/g,' ');
+const sampleIdForOc=(oc:string)=>`oc_${encodeURIComponent(normalizedOC(oc))}`;
 const PAGE=75;
 const monthOfPaid=(o:Order)=>monthOfPaidDate(o.paidAt);
 export default function CutOrders({db,user,canEdit,isAdmin}:Props){
@@ -150,7 +152,57 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     if(!editing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
     const id=editing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
     const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:editing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
-    setBusy(true);try{if(editing)await updateDoc(doc(db,'cut_orders',id),content);else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});setDraft(null);notify(`OC ${row.oc} salva com sucesso.`)}catch(e){notify(errorText(e),true)}finally{setBusy(false)}
+    const needsSample = row.status === 'ENTREGUE' && (!editing || editing.status !== 'ENTREGUE'
+      || editing.qty !== row.qty || editing.ref !== row.ref || editing.model !== row.model || editing.office !== row.office);
+    setBusy(true);
+    try {
+      if (needsSample) {
+        // Procura uma amostra manual/antiga da mesma OC antes de criar outra.
+        // Consulta só quando há uma entrega (ou mudança relevante), evitando lag na lista.
+        const targetOC = normalizedOC(row.oc);
+        const candidates = [...new Set([row.oc.trim(), targetOC])];
+        const snapshots = await Promise.all(candidates.map(ocValue => getDocs(fsQuery(collection(db, 'production_samples'), where('oc','==',ocValue)))));
+        const found = snapshots.flatMap(snapshot => snapshot.docs).find(sample => normalizedOC(String(sample.data().oc || '')) === targetOC);
+        const sampleRef = doc(db, 'production_samples', found?.id || sampleIdForOc(row.oc));
+        const orderRef = doc(db, 'cut_orders', id);
+        await runTransaction(db, async transaction => {
+          const [orderSnap, sampleSnap] = await Promise.all([transaction.get(orderRef), transaction.get(sampleRef)]);
+          if (!editing && orderSnap.exists()) throw new Error(`A OC ${row.oc} já existe. Atualize a lista antes de cadastrar.`);
+          const orderPayload = editing ? content : {...content,createdAt:serverTimestamp(),createdBy:user.uid};
+          if (editing) transaction.update(orderRef, orderPayload);
+          else transaction.set(orderRef, orderPayload);
+          if (sampleSnap.exists()) {
+            // Não apaga fotos ou conteúdo editado manualmente. Completa apenas metadados ausentes.
+            const saved = sampleSnap.data();
+            const patch: UpdateData<DocumentData> = {
+              quantity: row.qty.trim(), orderId: id,
+              updatedAt: serverTimestamp(), updatedBy: user.uid,
+            };
+            if (!String(saved.reference || '').trim() && row.ref.trim()) patch.reference = row.ref.trim();
+            if (String(saved.tailor || '').trim() === 'NÃO INFORMADO' && row.office.trim()) patch.tailor = row.office.trim();
+            transaction.update(sampleRef, patch);
+          } else {
+            transaction.set(sampleRef, {
+              oc: row.oc.trim(), name: row.model.trim(), reference: row.ref.trim(),
+              tailor: row.office.trim() || 'NÃO INFORMADO', quantity: row.qty.trim(),
+              orderId: id, imageData: '', status: 'done',
+              createdAt: serverTimestamp(), createdBy: user.uid,
+              updatedAt: serverTimestamp(), updatedBy: user.uid,
+              completedAt: serverTimestamp(), completedBy: user.uid,
+            });
+          }
+        });
+        notify(`OC ${row.oc} entregue e amostra vinculada. A foto poderá ser adicionada em Amostras.`);
+      } else {
+        if (editing) await updateDoc(doc(db,'cut_orders',id),content);
+        else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
+        notify(`OC ${row.oc} salva com sucesso.`);
+      }
+      setDraft(null);
+    } catch(e) {
+      const detail = errorText(e);
+      notify(needsSample ? `Entrega não concluída: a OC e a amostra precisam ser salvas juntas. ${detail} Confira se as novas regras do Firestore foram publicadas.` : detail,true);
+    } finally {setBusy(false)}
   };
   // Regras do Firestore: excluir cut_orders é permitido somente a administradores.
   // Usar o ID real do documento preserva OCs com número duplicado.

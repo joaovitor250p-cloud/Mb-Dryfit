@@ -274,6 +274,8 @@ service cloud.firestore {
           'name',
           'reference',
           'tailor',
+          'quantity',
+          'orderId',
           'imageData',
           'extraImages',
           'status',
@@ -305,6 +307,8 @@ service cloud.firestore {
         && data.tailor is string
         && data.tailor.size() > 0
         && data.tailor.size() <= 120
+        && (!('quantity' in data) || (data.quantity is string && data.quantity.size() <= 12 && data.quantity.matches('^[0-9]*$')))
+        && (!('orderId' in data) || (data.orderId is string && data.orderId.size() > 0 && data.orderId.size() <= 200))
         && validProductionPhoto(data.imageData)
         && validProductionExtraImages(data)
         && data.status in ['in_progress', 'done', 'store']
@@ -355,17 +359,51 @@ service cloud.firestore {
         );
     }
 
+    // Entrega de uma OC cria ou complementa a amostra na mesma transação.
+    // A operação só pode apontar para uma OC realmente ENTREGUE e gravada pelo usuário.
+    function deliveredOrderForSample(data) {
+      return ('orderId' in data)
+        && data.orderId is string
+        && data.orderId.size() > 0
+        && data.orderId.size() <= 200
+        && existsAfter(/databases/$(database)/documents/cut_orders/$(data.orderId))
+        && getAfter(/databases/$(database)/documents/cut_orders/$(data.orderId)).data.status == 'ENTREGUE'
+        && getAfter(/databases/$(database)/documents/cut_orders/$(data.orderId)).data.updatedBy == request.auth.uid
+        && data.quantity == getAfter(/databases/$(database)/documents/cut_orders/$(data.orderId)).data.qty;
+    }
+
+    function newSampleMatchesOrder(data) {
+      let order = getAfter(/databases/$(database)/documents/cut_orders/$(data.orderId)).data;
+      return data.oc == order.oc
+        && data.name == order.model
+        && data.reference == order.ref
+        && (data.tailor == order.office || (order.office == '' && data.tailor == 'NÃO INFORMADO'));
+    }
+
     match /production_samples/{sampleId} {
 
       allow get, list: if canView('samples')
-        || canView('cuts');
+        || canView('cuts')
+        || canView('orders');
 
-      allow create: if canWrite('samples')
+      allow create: if (
+        canWrite('samples')
         && validProduction()
         && !('extraImages' in request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && request.resource.data.status == 'in_progress';
+        && request.resource.data.status == 'in_progress'
+      ) || (
+        canWrite('orders')
+        && validProduction()
+        && !('extraImages' in request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'done'
+        && request.resource.data.imageData == ''
+        && deliveredOrderForSample(request.resource.data)
+        && newSampleMatchesOrder(request.resource.data)
+      );
 
       allow update: if (
 
@@ -380,6 +418,25 @@ service cloud.firestore {
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.status == resource.data.status
+      ) || (
+        canWrite('orders')
+        && validProduction()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'quantity', 'orderId', 'reference', 'tailor', 'updatedAt', 'updatedBy'
+        ])
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
+        && deliveredOrderForSample(request.resource.data)
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reference'])
+          || (resource.data.reference == ''
+            && request.resource.data.reference == getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.orderId)).data.ref)
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['tailor'])
+          || (resource.data.tailor == 'NÃO INFORMADO'
+            && request.resource.data.tailor == getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.orderId)).data.office)
+        )
       );
 
       allow delete: if canWrite('samples');

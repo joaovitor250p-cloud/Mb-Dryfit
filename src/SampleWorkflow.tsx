@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query as fsQuery, where, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
@@ -18,7 +18,7 @@ import { safeProviderMessage } from './lib/safeMessage';
 type Stage = 'in_progress' | 'done' | 'store';
 type VisibleStage = 'in_progress' | 'done';
 type Production = {
-  id: string; oc: string; name: string; reference: string; tailor: string;
+  id: string; oc: string; name: string; reference: string; tailor: string; quantity?: string;
   imageData: string; status: Stage; createdAt?: unknown; updatedAt?: unknown; completedAt?: unknown; completedBy?: string|null;
 };
 type View = 'samples' | 'cuts';
@@ -171,6 +171,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const [name, setName] = useState('');
   const [reference, setReference] = useState('');
   const [tailor, setTailor] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [orderQuantities, setOrderQuantities] = useState<Record<string, string>>({});
+  const requestedQuantityOcs = useRef<Set<string>>(new Set());
   const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
   const [galleryLoaded, setGalleryLoaded] = useState(true);
@@ -208,7 +211,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
   const finished = useMemo(() => items.filter(x => x.status === 'done' || x.status === 'store').length, [items]);
 
   const filtered = useMemo(() => items.filter(x => view === 'samples'
-    ? x.status === 'in_progress'
+    ? true
     : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
     .filter(x => matchesModelType(x.name,typeFilter))
     .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)) || matchesModelSearch(x.name, search))
@@ -223,6 +226,32 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
   useEffect(()=>setVisibleCount(48),[search,typeFilter,filter,view]);
   const displayed=useMemo(()=>filtered.slice(0,visibleCount),[filtered,visibleCount]);
+  // Só consulta as OCs dos cartões visíveis sem quantidade. Evita baixar todas
+  // as Ordens de Corte (e eventuais milhares de registros) ao abrir Amostras.
+  useEffect(() => {
+    if (!pageActive || view !== 'samples') return;
+    const missing = [...new Set(displayed.filter(item => !String(item.quantity || '').trim())
+      .map(item => normalizedOC(item.oc)).filter(ocKey => ocKey && !orderQuantities[ocKey] && !requestedQuantityOcs.current.has(ocKey)))];
+    if (!missing.length) return;
+    missing.forEach(ocKey => requestedQuantityOcs.current.add(ocKey));
+    let cancelled = false;
+    // Firestore suporta consultas 'in' de até 30 valores; limitar também evita lag.
+    const batches: string[][] = [];
+    for (let index = 0; index < missing.length; index += 30) batches.push(missing.slice(index, index + 30));
+    Promise.all(batches.map(values => getDocs(fsQuery(collection(db, 'cut_orders'), where('oc', 'in', values)))))
+      .then(results => {
+        if (cancelled) return;
+        const totals: Record<string, string> = {};
+        results.forEach(snapshot => snapshot.docs.forEach(order => {
+          const value = String(order.data().qty ?? '').trim();
+          const key = normalizedOC(String(order.data().oc || ''));
+          if (key && /^\d+$/.test(value)) totals[key] = value;
+        }));
+        if (Object.keys(totals).length) setOrderQuantities(current => ({...current, ...totals}));
+      }).catch(() => { /* Sem permissão para ver OCs: quantidade pode ser editada manualmente. */ });
+    return () => { cancelled = true; };
+  }, [db, pageActive, view, displayed, orderQuantities]);
+
   const selectedCuts=useMemo(()=>items.filter(x=>selectedCutIds.includes(x.id)),[items,selectedCutIds]);
   const visibleCutIds=useMemo(()=>displayed.map(x=>x.id),[displayed]);
   const allVisibleCutsSelected=useMemo(()=>visibleCutIds.length>0&&visibleCutIds.every(id=>selectedCutIds.includes(id)),[visibleCutIds,selectedCutIds]);
@@ -261,7 +290,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
 
   const openNew = () => {
     galleryRequestRef.current++;setGalleryFetching(false);
-    setEditing(null); setOc(''); setName(''); setReference(''); setTailor('');
+    setEditing(null); setOc(''); setName(''); setReference(''); setTailor(''); setQuantity('');
     setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setModal(true);
   };
 
@@ -276,6 +305,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     setName(p.name);
     setReference(p.reference);
     setTailor(p.tailor);
+    setQuantity(String(p.quantity || orderQuantities[normalizedOC(p.oc)] || ''));
     setImageGallery(p.imageData ? [p.imageData] : []);
     setPhotoError('');
     setGalleryLoaded(false);
@@ -333,6 +363,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
     if (!canEdit || busy) return;
     if (!galleryLoaded && !editing) return showMessage('A galeria ainda não foi carregada. Tente novamente antes de cadastrar uma nova amostra.', true);
     if (!oc.trim() || !name.trim() || !tailor.trim()) return showMessage('Informe OC, nome da peça e costureiro.', true);
+    if (quantity.trim() && !/^\d{1,12}$/.test(quantity.trim())) return showMessage('Quantidade total deve ser um número inteiro de até 12 dígitos.', true);
     if (imageGallery.some(image => image.length > MAX_DATA_LENGTH)) return showMessage('Uma das fotos ficou acima do limite. Selecione outra imagem.', true);
     const cleanedOC=normalizedOC(oc);
     if(cleanedOC.length>80)return showMessage('OC acima do limite de 80 caracteres.',true);
@@ -344,6 +375,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         name: name.trim(),
         reference: normalizeReference(reference),
         tailor: tailor.trim(),
+        quantity: quantity.trim(),
         // Se a galeria não foi lida, não sobrescreve nem remove a foto principal.
         imageData: galleryLoaded ? (imageGallery[0] || '') : (editing?.imageData || ''),
         updatedAt: serverTimestamp(),
@@ -468,7 +500,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
         {view==='cuts'&&canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
       </div></div>
 
-    {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade de amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Amostras</span><strong>{loading ? '—' : progress}</strong><small>Em andamento</small></div></div></section>}
+    {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade de amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Amostras</span><strong>{loading ? '—' : items.length}</strong><small>Registros cadastrados, com ou sem foto</small></div></div></section>}
 
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
 
@@ -502,10 +534,12 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
           <dl>
             <div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div>
             <div><dt>Costureiro</dt><dd>{p.tailor}</dd></div>
+            <div><dt>Quantidade total</dt><dd>{p.quantity || orderQuantities[normalizedOC(p.oc)] || 'A informar'}</dd></div>
             <div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>
             {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
           </dl>
 
+          {canEdit&&view==='samples'&&<div className="production-actions"><button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Adicionar foto ou editar os dados desta amostra"><Camera size={15}/> Editar / adicionar foto</button></div>}
           {canEdit&&view==='cuts'&&<div className="production-actions">
             {p.status==='in_progress'
               ? <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>
@@ -566,7 +600,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, model
             <small>Se escolher um modelo existente, a REF será preenchida automaticamente.</small>
           </label>
 
-          <label>Código Extra (REF)<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="REF.10359"/></label>
+          <div className="production-form-grid"><label>Código Extra (REF) — opcional<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="SEM REF quando não existir"/></label>
+          <label>Quantidade total de peças<input type="number" min="0" step="1" value={quantity} onChange={e=>setQuantity(e.target.value)} placeholder="Ex.: 420"/></label></div>
 
           <div className="modal-actions">
             <button type="button" className="outline-button" onClick={closeModal}>Cancelar</button>
