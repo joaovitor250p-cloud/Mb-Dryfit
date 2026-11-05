@@ -43,6 +43,20 @@ const toBR=(iso:string)=>/^\d{4}-\d\d-\d\d$/.test(iso)?`${iso.slice(8,10)}/${iso
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const after=(iso:string,days:number)=>{const y=+iso.slice(0,4),m=+iso.slice(5,7)-1,d=+iso.slice(8);if(!toISO(toBR(iso)))return '';const x=new Date(y,m,d+days);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')};
 const friday=(iso:string)=>{const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8));return after(iso,(5-d.getDay()+7)%7)};
+// Cada semana é identificada pela sexta-feira dentro do mês consultado.
+// Pode haver 4 ou 5 semanas; a segunda-feira da primeira pode cair no mês anterior.
+const paymentWeeks=(month:string):{friday:string;monday:string;label:string}[]=>{
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return [];
+  const year=Number(month.slice(0,4)),index=Number(month.slice(5,7))-1;
+  const result:{friday:string;monday:string;label:string}[]=[];
+  for(let day=1;day<=31;day++){
+    const d=new Date(year,index,day);
+    if(d.getMonth()!==index)break;
+    if(d.getDay()===5){const iso=`${year}-${String(index+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      result.push({friday:iso,monday:after(iso,-4),label:`Semana ${result.length+1}`});}
+  }
+  return result;
+};
 const norm=(s:string)=>s.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ');
 const officeLabel=(name:string)=>({victor:'Victor',dario:'Dário','dario medina':'Dario Medina','dario/denis':'Dario/Denis',herminia:'Herminia'} as Record<string,string>)[norm(name)]||name.trim()||'Sem costureiro';
 const done=(o:Order)=>o.status.trim().toUpperCase()==='ENTREGUE';
@@ -92,10 +106,10 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     window.addEventListener('afterprint',finish);
     return()=>window.removeEventListener('afterprint',finish);
   },[]);
-  const [paymentMonth,setPaymentMonth]=useState(monthNow());
+  const [paymentMonth,setPaymentMonth]=useState(()=>monthNow());
   useEffect(()=>{
     let last=monthNow();
-    const check=()=>{const next=monthNow();if(next!==last){setPaymentMonth(previous=>previous===last?next:previous);last=next;}};
+    const check=()=>{const next=monthNow();if(next!==last){setPaymentMonth(previous=>previous===last?next:previous);setFridayDate(previous=>previous.slice(0,7)===last?friday(today()):previous);last=next;}};
     document.addEventListener('visibilitychange',check);window.addEventListener('focus',check);
     const interval=window.setInterval(check,60000);
     return()=>{document.removeEventListener('visibilitychange',check);window.removeEventListener('focus',check);window.clearInterval(interval)};
@@ -104,6 +118,15 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [tableWidth,setTableWidth]=useState(1640);
   const [pixByOffice,setPixByOffice]=useState<Map<string,string>>(new Map());
   const [monthlyDetailsOpen,setMonthlyDetailsOpen]=useState(false);
+  const weeks=useMemo(()=>paymentWeeks(paymentMonth),[paymentMonth]);
+  const selectMonth=(month:string)=>{
+    setPaymentMonth(month);
+    const options=paymentWeeks(month);
+    if(!options.length)return;
+    const current=friday(today());
+    setFridayDate(options.find(w=>w.friday===current)?.friday||options[0].friday);
+    setMonthlyDetailsOpen(false);
+  };
   usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, count, fridayDate,showFriday }, !loading);
   useEffect(()=>{if(!pageActive)return;return onSnapshot(collection(db,'cut_orders'),s=>{setRows(s.docs.map(x=>fromData(x.id,x.data())).sort((a,b)=>(Number(b.oc)||0)-(Number(a.oc)||0)));setLoading(false);setAlert('')},e=>{setAlert(errorText(e));setLoading(false)})},[db,pageActive]);
   // Carrega chaves PIX apenas quando o editor abre o fechamento de sexta.
@@ -174,6 +197,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       }
       setPrintSheet({
         model:String(sheet.model||''),reference:String(sheet.reference||''),
+        pieceType:String(sheet.pieceType||''),fabric:String(sheet.fabric||''),
         composition:String(sheet.composition||''),trims:String(sheet.trims||''),
         officeInstructions:String(sheet.officeInstructions||''),oc:String(sheet.oc||''),
         withdrawalDate:String(sheet.withdrawalDate||''),
@@ -214,7 +238,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const amount=eligible.reduce((a,x)=>a+num(x.total),0);
   const paidThisFriday=useMemo(()=>rows.filter(o=>paid(o)&&toISO(o.paidAt)===fridayDate),[rows,fridayDate]);
   const monthlyPaid=useMemo(()=>rows.filter(o=>paid(o)&&monthOfPaid(o)===paymentMonth),[rows,paymentMonth]);
-  const monthOptions=useMemo(()=>[...new Set([monthNow(),...rows.filter(paid).map(monthOfPaid)])].sort((a,b)=>b.localeCompare(a)),[rows]);
+  const monthOptions=useMemo(()=>[...new Set([monthNow(),paymentMonth,...rows.flatMap(o=>[monthOfPaid(o),monthOfPaidDate(o.deliveredAt),monthOfPaidDate(o.sent)]).filter(x=>/^\d{4}-\d{2}$/.test(x))])].sort((a,b)=>b.localeCompare(a)),[rows,paymentMonth]);
   const monthlyTotal=useMemo(()=>monthlyPaid.reduce((sum,o)=>sum+(Number.isFinite(num(o.total))?num(o.total):0),0),[monthlyPaid]);
   return <div className="order-page">
     <header className="order-heading"><div><span className="order-eyebrow">MB REFERENCIAS / CONTROLE DAS OFICINAS</span><h1><ClipboardList size={26}/> Ordem de Corte</h1><p>Planilha compartilhada · 10 dias de prazo · pagamentos na sexta-feira</p></div><div className="order-buttons">{canEdit&&<button className="primary-button" onClick={()=>open()}><Plus size={17}/> Nova OC</button>}<button className="outline-button" onClick={()=>downloadCsv(filtered,'ORDEM_CORTE')}><Download size={15}/> CSV</button><button className="outline-button" onClick={downloadJson}>Backup</button></div></header>
@@ -222,9 +246,20 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     <div className="order-stats"><div><small>Ordens cadastradas</small><strong>{rows.length}</strong></div><div><small>Em andamento</small><strong>{rows.filter(o=>!done(o)).length}</strong></div><div className="order-stat-overdue"><small>Pedidos atrasados</small><strong>{overdueCount}</strong></div><div><small>Entregues</small><strong>{rows.filter(done).length}</strong></div><div><small>Pagamentos a conferir</small><strong>{review.length}</strong></div></div>
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
-    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Somente OCs entregues, pendentes e com data válida. Nenhum pagamento bancário é realizado pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>setFridayDate(friday(e.target.value))}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
+    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Selecione o mês e a semana (segunda a sexta) para consultar e registrar pagamentos. Nenhuma transferência bancária é realizada pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7))}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
       <div className="order-month-history">
-        <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>O mês atual começa automaticamente em zero; pagamentos anteriores continuam salvos na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>setPaymentMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
+        <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>O mês atual começa automaticamente em zero; pagamentos anteriores continuam salvos na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>selectMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
+        <div className="order-week-options" role="group" aria-label="Escolher semana do pagamento">
+          {weeks.map(week=>{const paidInWeek=rows.filter(o=>paid(o)&&toISO(o.paidAt)===week.friday);
+            const dueInWeek=rows.filter(o=>done(o)&&!paid(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=week.friday&&!o.paidAt&&num(o.total)>0);
+            const settled=paidInWeek.length>0&&dueInWeek.length===0;
+            return <button type="button" key={week.friday} className={`order-week-choice ${fridayDate===week.friday?'active':''}`} aria-pressed={fridayDate===week.friday} onClick={()=>setFridayDate(week.friday)}>
+              <strong>{week.label}</strong><small>{toBR(week.monday)} a {toBR(week.friday)}</small>
+              <span className={settled?'week-paid':dueInWeek.length?'week-pending':'week-empty'}>{settled?'Paga':dueInWeek.length?`${dueInWeek.length} OC(s) pendente(s)`:paidInWeek.length?'Pagamento parcial':'Sem pagamentos'}</span>
+              <small>{paidInWeek.length} OC(s) pagas</small>
+            </button>})}
+        </div>
+        <div className="order-week-current"><div><strong>{weeks.find(w=>w.friday===fridayDate)?.label||'Semana selecionada'}</strong><small>Pagamento previsto: {toBR(fridayDate)} · {paidThisFriday.length} OC(s) pagas · {eligible.length} pendentes elegíveis</small></div>{canEdit&&eligible.length>0&&<button type="button" className="primary-button" disabled={busy} onClick={()=>void markPaid(eligible)}><CheckCircle2 size={15}/> Marcar pendências da semana como pagas</button>}</div>
         <div className="order-month-history-numbers"><div><small>OCs pagas em {monthLabel(paymentMonth)}</small><strong>{monthlyPaid.length}</strong></div><div><small>Total registrado como pago</small><strong>{brl(monthlyTotal)}</strong></div></div>
         <details className="order-month-details" onToggle={e=>setMonthlyDetailsOpen(e.currentTarget.open)}><summary>Ver pagamentos registrados neste mês ({monthlyPaid.length})</summary>
           {monthlyDetailsOpen&&(monthlyPaid.length?monthlyPaid.map(o=><div className="order-office-line" key={o.id}><span>OC {o.oc} · {officeLabel(o.office)} · {o.paidAt}</span><strong>{money(o.total)}</strong></div>):<p>Nenhum pagamento registrado neste mês.</p>)}

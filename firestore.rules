@@ -700,10 +700,12 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
+      return d.keys().hasOnly(['model','reference','pieceType','fabric','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
+        && (!('pieceType' in d) || (d.pieceType is string && d.pieceType in ['', 'Camiseta', 'M.L.', 'Regata', 'Bermuda', 'Calça']))
+        && (!('fabric' in d) || (d.fabric is string && d.fabric.size() <= 250))
         && d.composition is string && d.composition.size() <= 2000
         && d.trims is string && d.trims.size() <= 4000
         && d.officeInstructions is string && d.officeInstructions.size() <= 4000

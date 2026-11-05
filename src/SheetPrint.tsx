@@ -2,7 +2,7 @@
 // Deve continuar idêntico ao documento original entregue ao costureiro.
 export type SheetColorRow = { cor: string; p: string; m: string; g: string; gg: string; xg: string; detalhes: string };
 export type PrintableSheet = {
-  model: string; reference: string; composition: string; trims: string;
+  model: string; reference: string; pieceType?: string; fabric?: string; composition: string; trims: string;
   officeInstructions: string; oc: string; withdrawalDate: string;
   tailorInstructions: string; finishingInstructions: string;
   colors: SheetColorRow[]; assignedTailor: string;
@@ -17,8 +17,8 @@ export default function SheetPrint({sheet}:{sheet:PrintableSheet}) {
   const total = filled.reduce((sum,row)=>sum+sizes.reduce((n,key)=>n+quantity(row[key]),0),0);
   return <div className="sheet-print-only"><div className="sheet-paper">
     <div className="sheet-top">
-      <div><div className="sheet-field"><strong>Modelo:</strong><span>{sheet.model}</span></div><div className="sheet-field"><strong>REF:</strong><span>{sheet.reference}</span></div></div>
-      <div className="sheet-field"><strong>Composição</strong><span>{sheet.composition}</span></div>
+      <div><div className="sheet-field"><strong>Modelo:</strong><span>{sheet.model}</span></div><div className="sheet-field"><strong>REF:</strong><span>{sheet.reference}</span></div><div className="sheet-field"><strong>Tipo de roupa:</strong><span>{sheet.pieceType||''}</span></div></div>
+      <div><div className="sheet-field"><strong>Composição</strong><span>{sheet.composition}</span></div><div className="sheet-field"><strong>Tecido:</strong><span>{sheet.fabric||''}</span></div></div>
     </div>
     <div className="sheet-middle">
       <div className="sheet-field"><strong>Aviamentos</strong><span>{sheet.trims}</span></div>

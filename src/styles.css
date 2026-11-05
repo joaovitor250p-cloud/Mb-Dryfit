@@ -1137,3 +1137,40 @@ body { background: var(--bg); color: var(--text); }
 .order-editcell .order-ficha-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;margin-left:6px;padding:7px 10px;border:1px solid #81a4b9;border-radius:7px;background:#eef6fb;color:#174765;font-weight:700;cursor:pointer;white-space:nowrap}
 .order-editcell .order-ficha-button:disabled{opacity:.5;cursor:wait}
 @media print{.order-ficha-button{display:none!important}}
+
+
+/* Ficha: tipo de roupa e tecido, com campo Detalhes amplo e fonte legível. */
+.sheet-top>div{display:flex;flex-direction:column;min-width:0}
+.sheet-top>div>.sheet-field{flex:1}
+.sheet-paper .sheet-field select{width:100%;min-height:28px;border:0;background:#fff;color:#c40000;-webkit-text-fill-color:#c40000;font:inherit;font-size:13px;padding:1px 3px}
+.sheet-paper .sheet-table{min-width:760px;table-layout:fixed}
+.sheet-paper .sheet-table th:first-child,.sheet-paper .sheet-table td:first-child{width:17%}
+.sheet-paper .sheet-table th:last-child,.sheet-paper .sheet-table td:last-child{width:28%}
+.sheet-paper .sheet-detail-input{box-sizing:border-box;display:block;width:100%;min-width:0;min-height:46px;resize:vertical;border:0;background:transparent;color:#c40000;-webkit-text-fill-color:#c40000;text-align:left;font:normal 12px/1.25 Arial,Helvetica,sans-serif;padding:4px;white-space:pre-wrap}
+@media print{
+ .sheet-print-only .sheet-paper{grid-template-rows:36mm 99mm auto minmax(32mm,1fr)!important;font-family:Arial,Helvetica,sans-serif!important}
+ .sheet-print-only .sheet-top>div{display:flex!important;flex-direction:column!important;min-height:0!important}
+ .sheet-print-only .sheet-top>div>.sheet-field{flex:1 1 0!important}
+ .sheet-print-only .sheet-top .sheet-field{padding:1mm!important}
+ .sheet-print-only .sheet-top .sheet-field strong{font-size:8.5px!important;margin-bottom:0!important}
+ .sheet-print-only .sheet-top .sheet-field span{font-size:10px!important}
+ .sheet-print-only .sheet-table th:first-child,.sheet-print-only .sheet-table td:first-child{width:17%!important}
+ .sheet-print-only .sheet-table th:last-child,.sheet-print-only .sheet-table td:last-child{width:28%!important;text-align:left!important;font:normal 9px/1.15 Arial,Helvetica,sans-serif!important;white-space:pre-wrap!important}
+}
+
+/* Pagamento de sexta: seleção por semana dentro de cada mês. */
+.order-week-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:9px;margin:13px 0;}
+.order-week-choice{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:6px;min-height:116px!important;padding:12px!important;background:var(--panel2)!important;border:1px solid var(--line)!important;border-radius:10px!important;color:var(--text)!important;text-align:left;cursor:pointer;}
+.order-week-choice:hover{border-color:var(--primary,#316a7a)!important;}
+.order-week-choice.active{outline:2px solid var(--primary,#316a7a)!important;outline-offset:1px;background:var(--panel)!important;}
+.order-week-choice strong{font-size:13px;}
+.order-week-choice small{font-size:11px;color:var(--muted);}
+.order-week-choice .week-paid,.order-week-choice .week-pending,.order-week-choice .week-empty{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:750;}
+.week-paid{background:#e0f3e8;color:#087447}.week-pending{background:#ffefca;color:#885708}.week-empty{background:var(--panel);color:var(--muted)}
+.order-week-current{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-top:1px solid var(--line);padding:12px 0 0;}
+.order-week-current>div{display:flex;flex-direction:column;gap:5px;}.order-week-current strong{font-size:14px}.order-week-current small{color:var(--muted);font-size:11px;}
+@media(max-width:680px){.order-week-options{grid-template-columns:repeat(2,minmax(0,1fr));}.order-week-choice{min-height:122px!important}}
+
+.sheet-top{grid-template-columns:minmax(0,60fr) minmax(0,40fr)}
+@media print{.sheet-print-only .sheet-top{grid-template-columns:minmax(0,60fr) minmax(0,40fr)!important}}
+@media(max-width:700px){.sheet-top{grid-template-columns:1fr}}
