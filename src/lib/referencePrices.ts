@@ -1,3 +1,4 @@
+import { workshopKey } from './workshopNames';
 export type ReferencePrice={reference:string;type:string;price:string};
 export const TYPES=['Camiseta','M.L.','Regata','Bermuda','Calça'];
 export const STARTER_PRICES:ReferencePrice[]=[
@@ -116,5 +117,28 @@ export const parsePrice=(raw:string):number=>{
   return Number.isFinite(amount)&&amount>0?amount:NaN;
 };
 export const currency=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-export const eligibleTypes=(name:string)=>['Mauro','Dario Medina','Jony','Rodrigo'].includes(name)?(name==='Rodrigo'?TYPES:TYPES.slice(0,3)):['Bermuda','Calça'];
+export const eligibleTypes=(name:string)=>['MAURO','DARIO MEDINA','JONY','RODRIGO'].includes(workshopKey(name))?(workshopKey(name)==='RODRIGO'?TYPES:TYPES.slice(0,3)):['Bermuda','Calça'];
 export const TAILORS=['Mauro','Dario Medina','Jony','Rodrigo','Dona Francisca','Ramiro','Vitor','Theodoro','Virgílio'];
+
+
+// Um costureiro só pode ser escolhido para tipos que produz.
+// Para os 9 costureiros iniciais, o cadastro conhecido funciona como
+// alternativa quando o campo "types" ainda não foi preenchido no Firebase.
+// Uma oficina nova sem tipos cadastrados não é liberada para todas as peças.
+export const normalizedGarmentType=(input:string):string=>{
+  const key=String(input||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
+  if(['CAMISA','CAMISETA','CAMISETA / CAMISA','CAMISA / CAMISETA'].includes(key))return 'Camiseta';
+  if(['M.L.','M.L','ML','MANGA LONGA','CAMISETA MANGA LONGA','CAMISA MANGA LONGA'].includes(key))return 'M.L.';
+  if(key==='REGATA')return 'Regata';
+  if(key==='BERMUDA')return 'Bermuda';
+  if(key==='CALCA')return 'Calça';
+  return '';
+};
+export const canSewType=(name:string,type:string,registeredTypes:string[]=[]):boolean=>{
+  const kind=normalizedGarmentType(type);
+  if(!kind)return false;
+  const listed=registeredTypes.map(normalizedGarmentType).filter(Boolean);
+  if(listed.length)return listed.includes(kind);
+  if(!TAILORS.some(t=>workshopKey(t)===workshopKey(name)))return false;
+  return eligibleTypes(name).includes(kind);
+};

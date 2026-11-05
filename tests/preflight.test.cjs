@@ -7,9 +7,16 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const root=path.resolve(__dirname,'..');
 function source(file){return fs.readFileSync(path.join(root,file),'utf8')}
+function evaluateWorkshopNamesModule(){
+  const code=ts.transpileModule(source('src/lib/workshopNames.ts'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
+  const exports={};vm.runInNewContext(code,{exports,module:{exports}},{timeout:2000});return exports;
+}
+const workshopNames=evaluateWorkshopNamesModule();
 function evaluatePriceModule(){
   const code=ts.transpileModule(source('src/lib/referencePrices.ts'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
-  const exports={}; vm.runInNewContext(code,{exports,module:{exports}},{timeout:2000});return exports;
+  const exports={};
+  const requireLocal=name=>{if(name==='./workshopNames')return workshopNames;throw Error('Import inesperado no teste: '+name)};
+  vm.runInNewContext(code,{exports,module:{exports},require:requireLocal},{timeout:2000});return exports;
 }
 const prices=evaluatePriceModule();
 test('conversão segura de preços com vírgula e ponto',()=>{
@@ -178,4 +185,64 @@ test('ficha de produção acessível diretamente pela OC, com PDF A4 e permissã
   assert.match(source('src/styles.css'),/body> :not\(\.sheet-print-only\)\{display:none!important\}/);
   assert.match(rules,/allow get: if canView\('sheets'\) \|\| canView\('sheet_distribution'\)[\s\S]*?canView\('orders'\) && resource\.data\.status == 'assigned'/);
   assert.match(rules,/allow list: if canView\('sheets'\) \|\| canView\('sheet_distribution'\)/);
+});
+
+
+test('costureiros com letras, acentos e grafias equivalentes usam o mesmo agrupamento',()=>{
+  const {workshopKey,canonicalWorkshopName}=workshopNames;
+  for(const value of ['VIGILIO','Vigilio','Virgilio','VIRGÍLIO','  virgílio  ','vigílio']) {
+    assert.equal(workshopKey(value),'VIRGILIO',value);
+    assert.equal(canonicalWorkshopName(value),'VIRGÍLIO',value);
+  }
+  assert.equal(workshopKey(' Mauro  '),workshopKey('MAURO'));
+  assert.equal(canonicalWorkshopName('dario medina'),'DARIO MEDINA');
+  assert.equal(canonicalWorkshopName('  Dona   Francisca '),'DONA FRANCISCA');
+  assert.notEqual(workshopKey('VITOR'),workshopKey('VICTOR')); // sem misturar homônimos
+  assert.equal(prices.eligibleTypes('MAURO').includes('Camiseta'),true);
+  assert.equal(prices.eligibleTypes('Rodrigo').includes('Bermuda'),true);
+  assert.equal(prices.eligibleTypes('VIGILIO').includes('Calça'),true);
+});
+
+test('ordens de corte, PIX, cadastro e fichas compartilham a mesma chave de oficina',()=>{
+  const orders=source('src/CutOrders.tsx'),workshops=source('src/WorkshopsPage.tsx'),sheets=source('src/ProductionSheets.tsx');
+  assert.match(orders,/const norm=\(s:string\)=>workshopKey\(s\)/);
+  assert.match(orders,/office:canonicalWorkshopName\(d.office\)/);
+  assert.match(orders,/pixByOffice\.get\(norm\(g.name\)\)/);
+  assert.match(workshops,/name:canonicalWorkshopName\(name\)/);
+  assert.match(workshops,/workshopKey\(w.name\)===workshopKey\(name\)/);
+  assert.match(sheets,/workshopKey\(w.name\)===workshopKey\(name\)/);
+  assert.match(sheets,/const name=canonicalWorkshopName\(tailor\[s.id\]\|\|''\)/);
+});
+
+test('a distribuição filtra costureiros pela peça e respeita os tipos cadastrados',()=>{
+  const {canSewType,normalizedGarmentType}=prices;
+  assert.equal(normalizedGarmentType('Camisa'),'Camiseta');
+  assert.equal(normalizedGarmentType('Manga Longa'),'M.L.');
+  assert.equal(normalizedGarmentType('Calça'),'Calça');
+  for(const type of ['Camiseta','M.L.','Regata']){
+    for(const name of ['Mauro','Dario Medina','Jony','Rodrigo'])assert.equal(canSewType(name,type),true,`${name} deve fazer ${type}`);
+    assert.equal(canSewType('Dona Francisca',type),false);
+  }
+  for(const type of ['Bermuda','Calça']){
+    for(const name of ['Rodrigo','Dona Francisca','Ramiro','Vitor','Theodoro','VIGILIO'])assert.equal(canSewType(name,type),true,`${name} deve fazer ${type}`);
+    for(const name of ['Mauro','Dario Medina','Jony'])assert.equal(canSewType(name,type),false,`${name} não faz ${type}`);
+  }
+  assert.equal(canSewType('Nova Oficina','Bermuda'),false,'cadastro desconhecido sem tipos não deve ser elegível');
+  assert.equal(canSewType('Nova Oficina','Bermuda',['Bermuda']),true,'novas oficinas com tipos devem ser selecionáveis');
+  assert.equal(canSewType('Nova Oficina','Calça',['Bermuda']),false,'não mostrar para outra categoria');
+  assert.equal(canSewType('Mauro','Bermuda',['Camiseta']),false);
+  const sheets=source('src/ProductionSheets.tsx');
+  assert.match(sheets,/available\.filter\(n=>canSewType\(n,type,/);
+  assert.match(sheets,/if\(!type\|\|!canSewType\(name,type,options\)\)/);
+  assert.match(sheets,/setTailor\(v=>\(\{\.\.\.v,\[s\.id\]:''\}\)\)/);
+  assert.match(sheets,/Selecione primeiro o tipo de roupa/);
+});
+
+test('pagamento de sexta fica por mês e data, sem a seleção visual de semanas',()=>{
+  const code=source('src/CutOrders.tsx');
+  assert.match(code,/Histórico de pagamentos por mês/);
+  assert.match(code,/Sexta-feira<input type="date"/);
+  assert.match(code,/firstFridayOfMonth\(month\)/);
+  assert.doesNotMatch(code,/order-week-options|order-week-choice|order-week-current|paymentWeeks/);
+  assert.match(code,/batch\.update\(doc\(db,'cut_orders',o\.id\)/);
 });

@@ -10,6 +10,7 @@ import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemo
 import { safeProviderMessage } from './lib/safeMessage';
 import { currentAccountingMonth as monthNow, accountingMonthLabel as monthLabel, paymentMonth as monthOfPaidDate } from './lib/monthlyAccounting';
 import { parseFinanceNumber as num } from './lib/financeNumbers';
+import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
 // Ordem de Corte: documentos separados de production_samples, sem alterar as OCs da tela Cortes.
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
@@ -28,7 +29,7 @@ const cols: Record<View,DataField[]> = {
   all:fields
 };
 const fresh = (): Order => ({...Object.fromEntries(fields.map(k=>[k,''])),id:'',source:'manual',manualTotal:false} as unknown as Order);
-const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt});
+const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,office:canonicalWorkshopName(d.office),source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt});
 const errorText=(e:unknown)=>{const x=e as {code?:string;message?:string};return x?.code?.includes('permission-denied')?'Permissão negada. Confira se seu perfil tem acesso à área Ordem de Corte.':safeProviderMessage(x?.message,'Falha ao salvar.')};
 const brl=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
 const money=(s:string)=>{const n=num(s);return Number.isFinite(n)?brl(n):'—'};
@@ -43,22 +44,11 @@ const toBR=(iso:string)=>/^\d{4}-\d\d-\d\d$/.test(iso)?`${iso.slice(8,10)}/${iso
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const after=(iso:string,days:number)=>{const y=+iso.slice(0,4),m=+iso.slice(5,7)-1,d=+iso.slice(8);if(!toISO(toBR(iso)))return '';const x=new Date(y,m,d+days);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')};
 const friday=(iso:string)=>{const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8));return after(iso,(5-d.getDay()+7)%7)};
-// Cada semana é identificada pela sexta-feira dentro do mês consultado.
-// Pode haver 4 ou 5 semanas; a segunda-feira da primeira pode cair no mês anterior.
-const paymentWeeks=(month:string):{friday:string;monday:string;label:string}[]=>{
-  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return [];
-  const year=Number(month.slice(0,4)),index=Number(month.slice(5,7))-1;
-  const result:{friday:string;monday:string;label:string}[]=[];
-  for(let day=1;day<=31;day++){
-    const d=new Date(year,index,day);
-    if(d.getMonth()!==index)break;
-    if(d.getDay()===5){const iso=`${year}-${String(index+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      result.push({friday:iso,monday:after(iso,-4),label:`Semana ${result.length+1}`});}
-  }
-  return result;
-};
-const norm=(s:string)=>s.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ');
-const officeLabel=(name:string)=>({victor:'Victor',dario:'Dário','dario medina':'Dario Medina','dario/denis':'Dario/Denis',herminia:'Herminia'} as Record<string,string>)[norm(name)]||name.trim()||'Sem costureiro';
+// A data do pagamento continua sendo uma sexta-feira, mas sem seletores
+// de semanas: o histórico é consultado por mês e a data pode ser escolhida diretamente.
+const firstFridayOfMonth=(month:string):string=>/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?friday(`${month}-01`):'';
+const norm=(s:string)=>workshopKey(s);
+const officeLabel=(name:string)=>canonicalWorkshopName(name)||'SEM COSTUREIRO';
 const done=(o:Order)=>o.status.trim().toUpperCase()==='ENTREGUE';
 // Atraso é calculado apenas para pedidos ainda não entregues e com prazo válido já vencido.
 // O campo due original nunca é alterado por esta regra.
@@ -118,13 +108,10 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [tableWidth,setTableWidth]=useState(1640);
   const [pixByOffice,setPixByOffice]=useState<Map<string,string>>(new Map());
   const [monthlyDetailsOpen,setMonthlyDetailsOpen]=useState(false);
-  const weeks=useMemo(()=>paymentWeeks(paymentMonth),[paymentMonth]);
   const selectMonth=(month:string)=>{
     setPaymentMonth(month);
-    const options=paymentWeeks(month);
-    if(!options.length)return;
     const current=friday(today());
-    setFridayDate(options.find(w=>w.friday===current)?.friday||options[0].friday);
+    setFridayDate(current.slice(0,7)===month?current:firstFridayOfMonth(month));
     setMonthlyDetailsOpen(false);
   };
   usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, count, fridayDate,showFriday }, !loading);
@@ -156,8 +143,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
   const open=(o?:Order)=>{if(!canEdit)return;setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
-  const fieldChange=(key:DataField,value:string)=>setDraft(current=>{if(!current)return current;const next={...current,[key]:value};if(key==='sent')next.due=value?toBR(after(toISO(value),10)):'';if(key==='total')next.manualTotal=true;if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());return next});
-  const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc(draft);if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
+  const fieldChange=(key:DataField,value:string)=>setDraft(current=>{if(!current)return current;const next={...current,[key]:value};if(key==='office')next.office=canonicalWorkshopName(value);if(key==='sent')next.due=value?toBR(after(toISO(value),10)):'';if(key==='total')next.manualTotal=true;if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());return next});
+  const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc({...draft,office:canonicalWorkshopName(draft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
     for(const key of [...numberKeys,...moneyKeys]){if(row[key]&&(!Number.isFinite(num(row[key]))||num(row[key])<0))return notify(`Confira ${names[key]}.`,true)}
     if(!editing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
@@ -246,27 +233,16 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     <div className="order-stats"><div><small>Ordens cadastradas</small><strong>{rows.length}</strong></div><div><small>Em andamento</small><strong>{rows.filter(o=>!done(o)).length}</strong></div><div className="order-stat-overdue"><small>Pedidos atrasados</small><strong>{overdueCount}</strong></div><div><small>Entregues</small><strong>{rows.filter(done).length}</strong></div><div><small>Pagamentos a conferir</small><strong>{review.length}</strong></div></div>
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
-    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Selecione o mês e a semana (segunda a sexta) para consultar e registrar pagamentos. Nenhuma transferência bancária é realizada pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7))}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
+    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Selecione o mês do histórico e a data da sexta-feira para consultar e registrar pagamentos. Nenhuma transferência bancária é realizada pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7))}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
       <div className="order-month-history">
         <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>O mês atual começa automaticamente em zero; pagamentos anteriores continuam salvos na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>selectMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
-        <div className="order-week-options" role="group" aria-label="Escolher semana do pagamento">
-          {weeks.map(week=>{const paidInWeek=rows.filter(o=>paid(o)&&toISO(o.paidAt)===week.friday);
-            const dueInWeek=rows.filter(o=>done(o)&&!paid(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=week.friday&&!o.paidAt&&num(o.total)>0);
-            const settled=paidInWeek.length>0&&dueInWeek.length===0;
-            return <button type="button" key={week.friday} className={`order-week-choice ${fridayDate===week.friday?'active':''}`} aria-pressed={fridayDate===week.friday} onClick={()=>setFridayDate(week.friday)}>
-              <strong>{week.label}</strong><small>{toBR(week.monday)} a {toBR(week.friday)}</small>
-              <span className={settled?'week-paid':dueInWeek.length?'week-pending':'week-empty'}>{settled?'Paga':dueInWeek.length?`${dueInWeek.length} OC(s) pendente(s)`:paidInWeek.length?'Pagamento parcial':'Sem pagamentos'}</span>
-              <small>{paidInWeek.length} OC(s) pagas</small>
-            </button>})}
-        </div>
-        <div className="order-week-current"><div><strong>{weeks.find(w=>w.friday===fridayDate)?.label||'Semana selecionada'}</strong><small>Pagamento previsto: {toBR(fridayDate)} · {paidThisFriday.length} OC(s) pagas · {eligible.length} pendentes elegíveis</small></div>{canEdit&&eligible.length>0&&<button type="button" className="primary-button" disabled={busy} onClick={()=>void markPaid(eligible)}><CheckCircle2 size={15}/> Marcar pendências da semana como pagas</button>}</div>
         <div className="order-month-history-numbers"><div><small>OCs pagas em {monthLabel(paymentMonth)}</small><strong>{monthlyPaid.length}</strong></div><div><small>Total registrado como pago</small><strong>{brl(monthlyTotal)}</strong></div></div>
         <details className="order-month-details" onToggle={e=>setMonthlyDetailsOpen(e.currentTarget.open)}><summary>Ver pagamentos registrados neste mês ({monthlyPaid.length})</summary>
           {monthlyDetailsOpen&&(monthlyPaid.length?monthlyPaid.map(o=><div className="order-office-line" key={o.id}><span>OC {o.oc} · {officeLabel(o.office)} · {o.paidAt}</span><strong>{money(o.total)}</strong></div>):<p>Nenhum pagamento registrado neste mês.</p>)}
         </details>
       </div>
       <p className="order-payment-guidance">Ao confirmar o pagamento, a OC é atualizada imediatamente com <strong>Pagamento: Pago</strong> e a data <strong>{toBR(fridayDate)||'—'}</strong>. Você pode quitar uma OC de cada vez ou todas as OCs de uma oficina.</p>
-      {groups.length===0&&<div className="order-empty">Nenhuma OC pendente elegível nesta sexta-feira.</div>}{groups.map(g=>{const pix=pixByOffice.get(norm(g.name))||'';return <details key={norm(g.name)} className="order-office"><summary><span><strong>{g.name}</strong><small>{g.list.length} OCs pendentes</small></span><b>{brl(g.total)}</b><ChevronDown size={16}/></summary><div>
+      {groups.length===0&&<div className="order-empty">Nenhuma OC pendente elegível na sexta-feira selecionada.</div>}{groups.map(g=>{const pix=pixByOffice.get(norm(g.name))||'';return <details key={norm(g.name)} className="order-office"><summary><span><strong>{g.name}</strong><small>{g.list.length} OCs pendentes</small></span><b>{brl(g.total)}</b><ChevronDown size={16}/></summary><div>
         <div className="order-friday-pix"><span><b>PIX da oficina</b><small>{pix||'Não cadastrado em Configurações → Oficinas'}</small></span>{pix&&<button className="outline-button" type="button" onClick={()=>void copyPix(pix,g.name)}><Copy size={14}/> Copiar PIX</button>}</div>
         {g.list.map(o=><div className="order-office-line order-payment-line" key={o.id}><span>OC {o.oc} — {o.model}</span><strong>{money(o.total)}</strong>{hasNewProductionSheet(o)&&<button type="button" className="order-ficha-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(o)}><Download size={14}/> Ficha</button>}{canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void markPaid([o])}><CheckCircle2 size={14}/> Pago</button>}</div>)}
         {canEdit&&<button disabled={busy} className="primary-button" onClick={()=>void markPaid(g.list)}>Confirmar pagamento de todas as OCs da oficina</button>}
