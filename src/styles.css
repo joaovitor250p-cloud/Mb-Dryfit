@@ -1547,3 +1547,29 @@ body { background: var(--bg); color: var(--text); }
     color:#c40000!important;-webkit-text-fill-color:#c40000!important;
   }
 }
+
+/* Seleção manual de OCs para pagamento de sexta, responsiva no celular. */
+.order-manual-select{margin:16px 0 20px;padding:17px;border:1px solid var(--line,#e4e7ee);border-radius:14px;background:var(--panel,#fff);display:grid;gap:12px}
+.order-manual-head{display:grid;gap:4px}
+.order-manual-head strong{display:flex;align-items:center;gap:8px;font-size:15px}
+.order-manual-head small,.order-selected-ocs>small{font-size:12px;color:var(--muted,#728096);line-height:1.45}
+.order-manual-search{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#cdd4e0);border-radius:10px;background:var(--panel2,#f7f8fc);padding:0 12px;min-height:46px}
+.order-manual-search input{border:0;outline:0;background:transparent;flex:1;min-width:0;width:100%;font-size:14px;color:var(--text,#222)}
+.order-manual-results,.order-selected-ocs{display:grid;gap:7px;max-height:320px;overflow-y:auto}
+.order-manual-results>p{margin:0;font-size:13px;color:var(--muted,#728096)}
+.order-selected-ocs{border-top:1px solid var(--line,#e4e7ee);padding-top:11px}
+.order-selected-ocs>strong{font-size:13px}
+.order-manual-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;padding:10px 12px;border:1px solid var(--line,#e4e7ee);border-radius:10px;background:var(--panel2,#f7f8fc)}
+.order-manual-row>div{display:grid;gap:5px;min-width:0}
+.order-manual-row strong,.order-manual-row span{font-size:13px;overflow-wrap:anywhere}
+.order-manual-row small{font-size:11px;color:var(--muted,#728096)}
+.order-manual-row button{flex:none;font-size:12px;padding:8px 10px}
+.order-unpay-inline{border:1px solid #e8b5ba!important;color:#a72941!important;background:#fff3f4!important}
+.order-payment-preparation{max-width:min(620px,calc(100vw - 20px))}
+.order-payment-preparation>p{padding:0 16px;font-size:13px;line-height:1.5}
+.order-payment-preparation>.order-fieldgrid{padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px}
+.order-payment-preparation>.order-fieldgrid label{display:grid;gap:7px;font-size:13px;font-weight:700}
+.order-payment-preparation>.order-fieldgrid input{padding:12px;border:1px solid var(--line,#ccc);border-radius:10px;background:var(--panel2,#fff);color:var(--text,#222);width:100%;min-width:0;box-sizing:border-box}
+.order-payment-preparation>.outline-button{margin:0 16px}
+.order-payment-preparation>small{display:block;margin:10px 16px;color:var(--muted,#728096)}
+@media(max-width:650px){.order-manual-select{padding:12px}.order-manual-row{align-items:stretch;flex-direction:column}.order-manual-row button{align-self:flex-start}.order-payment-preparation>.order-fieldgrid{grid-template-columns:1fr}}
