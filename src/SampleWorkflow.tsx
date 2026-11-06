@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { collection, doc, getDoc, getDocs, query as fsQuery, where, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query as fsQuery, where, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch, deleteField } from 'firebase/firestore';
 import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
@@ -481,7 +481,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
               if(canonical.exists())throw Error(`A OC ${cleanedOC} já está cadastrada. Não salvei duplicado.`);
             }
           }
-          transaction.update(ref,changingOC?{...data,orderId:null}:data);
+          transaction.update(ref,changingOC?{...data,orderId:deleteField()}:data);
         });
         auditAction = 'editou_oc';
         auditRecord = {...editing,...data};
