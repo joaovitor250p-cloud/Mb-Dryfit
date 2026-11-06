@@ -110,6 +110,25 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [tableWidth,setTableWidth]=useState(1640);
   const [pixByOffice,setPixByOffice]=useState<Map<string,string>>(new Map());
   const [monthlyDetailsOpen,setMonthlyDetailsOpen]=useState(false);
+  // Inclusões manuais ficam neste dispositivo e nesta sexta-feira; somente a confirmação
+  // de pagamento altera o Firestore e sincroniza com os outros usuários.
+  const paymentQueueStorageKey=`mb-referencias:${user.uid}:sexta-ocs-selecionadas-v1`;
+  const [paymentQueue,setPaymentQueue]=useState<Record<string,string[]>>(()=>{
+    try{
+      const cached=JSON.parse(window.localStorage.getItem(paymentQueueStorageKey)||'{}') as unknown;
+      if(!cached || typeof cached!=='object' || Array.isArray(cached))return {};
+      return Object.fromEntries(Object.entries(cached).filter(([key,ids])=>/^\d{4}-\d{2}-\d{2}$/.test(key)&&Array.isArray(ids))
+        .map(([key,ids])=>[key,(ids as unknown[]).filter((value):value is string=>typeof value==='string').slice(0,250)]));
+    }catch{return {}}
+  });
+  useEffect(()=>{try{window.localStorage.setItem(paymentQueueStorageKey,JSON.stringify(paymentQueue))}catch{/* armazenamento opcional */}},[paymentQueue,paymentQueueStorageKey]);
+  const [paymentSearch,setPaymentSearch]=useState('');
+  const [paymentPrepare,setPaymentPrepare]=useState<{order:Order;date:string}|null>(null);
+  const [paymentQty,setPaymentQty]=useState('');
+  const [paymentPiecePrice,setPaymentPiecePrice]=useState('');
+  const [paymentTotal,setPaymentTotal]=useState('');
+  const [paymentManualTotal,setPaymentManualTotal]=useState(false);
+
   const selectMonth=(month:string)=>{
     setPaymentMonth(month);
     const current=friday(today());
@@ -139,12 +158,120 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const offices=useMemo(()=>[...new Map(rows.map(x=>[norm(x.office),officeLabel(x.office)])).entries()].filter(([k])=>k).sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')),[rows]);
   const filtered=useMemo(()=>rows.filter(o=>matchesModelType(o.model,typeFilter)&&(!query||norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(norm(query))||matchesModelSearch(o.model,query))&&(office==='all'||norm(o.office)===office)&&(production==='all'||(production==='done'?done(o):production==='overdue'?overdue(o,currentDate):!done(o)))&&(payFilter==='all'||(payFilter==='paid'?paid(o):!paid(o)))),[rows,query,typeFilter,office,production,payFilter,currentDate]);
   const overdueCount=useMemo(()=>rows.filter(o=>overdue(o,currentDate)).length,[rows,currentDate]);
-  const eligible=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt&&num(o.total)>0),[rows,fridayDate]);
-  const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&(!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows]);
+  const isAutomaticallyEligible=(o:Order)=>done(o)&&!paid(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt&&num(o.total)>0;
+  const manualPaymentIds=paymentQueue[fridayDate]||[];
+  const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&num(o.total)>0&&(
+    (done(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt)
+    || (done(o)&&(paymentQueue[fridayDate]||[]).includes(o.id))
+  )),[rows,fridayDate,paymentQueue]);
+  const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!(paymentQueue[fridayDate]||[]).includes(o.id)&&
+    (!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows,fridayDate,paymentQueue]);
+  const paymentMatches=useMemo(()=>{
+    const search=norm(paymentSearch.trim());
+    if(!search)return [];
+    return rows.filter(o=>norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(search))
+      .sort((a,b)=>Number(b.oc)-Number(a.oc)).slice(0,14);
+  },[rows,paymentSearch]);
   const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
   const open=(o?:Order)=>{if(!canEdit)return;setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
+  const queuePayment=(o:Order,date=fridayDate)=>{
+    setPaymentQueue(previous=>({...previous,[date]:[...new Set([...(previous[date]||[]),o.id])]}));
+  };
+  const removeQueuedPayment=(id:string)=>{
+    setPaymentQueue(previous=>({...previous,[fridayDate]:(previous[fridayDate]||[]).filter(value=>value!==id)}));
+    notify('OC removida da seleção manual. Nenhum pagamento foi alterado.');
+  };
+  const estimatedPaymentTotal=(o:Order,qty:string,unit:string)=>{
+    const calculated=calcNet({...o,qty,piecePrice:unit,manualTotal:false});
+    return calculated!==null&&calculated>0?moneyText(calculated):'';
+  };
+  const preparePayment=(o:Order)=>{
+    setPaymentQty(o.qty);
+    setPaymentPiecePrice(o.piecePrice);
+    setPaymentTotal(o.total);
+    setPaymentManualTotal(o.manualTotal||!o.piecePrice.trim());
+    setPaymentPrepare({order:o,date:fridayDate});
+  };
+  const addPaymentOC=(o:Order)=>{
+    if(!canEdit||busy)return;
+    if(paid(o))return notify(`A OC ${o.oc} já está paga. Use “Desmarcar pagamento” antes de adicioná-la novamente.`,true);
+    if(!done(o)){
+      if(window.confirm(`A OC ${o.oc} está EM ANDAMENTO. Para incluí-la na sexta-feira, ela deve estar ENTREGUE. Abrir a edição para conferir a entrega?`))open(o);
+      return;
+    }
+    if(o.paidAt.trim()&&!window.confirm(`A OC ${o.oc} possui data antiga de pagamento (${o.paidAt}), mas não está marcada como paga. Ao confirmar um novo pagamento, essa data será substituída. Continuar?`))return;
+    setPaymentSearch('');
+    if(!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)||!(num(o.total)>0)){
+      preparePayment(o);
+      return;
+    }
+    queuePayment(o);
+    notify(`OC ${o.oc} adicionada à relação de pagamento de ${toBR(fridayDate)}. Ela ainda NÃO foi marcada como paga.`);
+  };
+  const savePaymentDetails=async()=>{
+    if(!canEdit||busy||!paymentPrepare)return;
+    const {order,date}=paymentPrepare;
+    const qty=paymentQty.trim(),piecePrice=paymentPiecePrice.trim(),total=paymentTotal.trim();
+    if(!/^\d{1,12}$/.test(qty)||!Number.isSafeInteger(Number(qty))||Number(qty)<=0)
+      return notify('Informe uma quantidade inteira maior que zero, com até 12 dígitos.',true);
+    if(piecePrice&&(!Number.isFinite(num(piecePrice))||num(piecePrice)<=0))
+      return notify('Confira o valor por peça ou deixe esse campo vazio e informe o valor total.',true);
+    if(!(Number.isFinite(num(total))&&num(total)>0))
+      return notify('Informe o valor total a pagar, maior que zero.',true);
+    if(!paymentManualTotal){
+      const calculated=estimatedPaymentTotal(order,qty,piecePrice);
+      if(!calculated)return notify('Informe um valor por peça válido ou preencha o total manualmente.',true);
+      if(Math.abs(num(calculated)-num(total))>0.02)return notify('O total calculado mudou. Clique em “Calcular pelo valor por peça” ou informe manualmente o total.',true);
+    }
+    setBusy(true);
+    try{
+      const ref=doc(db,'cut_orders',order.id);
+      await runTransaction(db,async transaction=>{
+        const current=await transaction.get(ref);
+        if(!current.exists())throw Error('A OC não existe mais. Atualize a planilha.');
+        const data=current.data();
+        if(String(data.paymentDone||'').trim().toUpperCase()==='OK')throw Error('Esta OC já foi paga por outro usuário.');
+        if(String(data.status||'').trim().toUpperCase()!=='ENTREGUE')throw Error('A OC não está mais marcada como ENTREGUE.');
+        if(String(data.qty??'')!==order.qty||String(data.piecePrice??'')!==order.piecePrice||String(data.total??'')!==order.total)
+          throw Error('A quantidade ou o valor desta OC mudou em outro dispositivo. Abra novamente para conferir.');
+        transaction.update(ref,{
+          qty,piecePrice,total,manualTotal:paymentManualTotal||!piecePrice,
+          updatedAt:serverTimestamp(),updatedBy:user.uid
+        });
+      });
+      queuePayment(order,date);
+      setPaymentPrepare(null);
+      notify(`Quantidade e valor da OC ${order.oc} salvos. OC incluída na relação de sexta-feira; pagamento ainda pendente.`);
+    }catch(e){notify('Não foi possível preparar a OC: '+errorText(e),true)}
+    finally{setBusy(false)}
+  };
+  const undoPaid=async(o:Order)=>{
+    if(!canEdit||busy||!paid(o))return;
+    if(!window.confirm(`DESMARCAR PAGAMENTO da OC ${o.oc} (${officeLabel(o.office)})?\\nValor registrado: ${money(o.total)}. Data: ${o.paidAt||'não informada'}.\\nO status voltará para PENDENTE e a data será apagada. Isso NÃO estorna nenhuma transferência bancária.`))return;
+    setBusy(true);
+    try{
+      const ref=doc(db,'cut_orders',o.id),audit=doc(collection(db,'audit_log'));
+      await runTransaction(db,async transaction=>{
+        const current=await transaction.get(ref);
+        if(!current.exists())throw Error('OC não encontrada. Atualize a planilha.');
+        const data=current.data();
+        if(String(data.paymentDone||'').trim().toUpperCase()!=='OK')throw Error('O pagamento já foi desmarcado em outro aparelho.');
+        if(String(data.paidAt||'')!==o.paidAt)throw Error('A data deste pagamento mudou. Atualize antes de desmarcar.');
+        transaction.update(ref,{paymentDone:'',paidAt:'',updatedAt:serverTimestamp(),updatedBy:user.uid});
+        transaction.set(audit,{
+          actorUid:user.uid,actorEmail:user.email||'',action:'desmarcou_pagamento_oc',
+          modelName:`OC ${o.oc} — ${officeLabel(o.office)}`,
+          before:{paymentDone:'OK',paidAt:o.paidAt,total:o.total},
+          after:{paymentDone:'',paidAt:''},at:serverTimestamp()
+        });
+      });
+      notify(`Pagamento da OC ${o.oc} desmarcado. A data foi apagada e a OC voltou a PENDENTE. Nenhuma transferência bancária foi realizada.`);
+    }catch(e){notify('Não foi possível desmarcar: '+errorText(e),true)}
+    finally{setBusy(false)}
+  };
+
   const fieldChange=(key:DataField,value:string)=>setDraft(current=>{if(!current)return current;const next={...current,[key]:value};if(key==='office')next.office=canonicalWorkshopName(value);if(key==='sent')next.due=value?toBR(after(toISO(value),10)):'';if(key==='total')next.manualTotal=true;if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());return next});
   const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc({...draft,office:canonicalWorkshopName(draft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
