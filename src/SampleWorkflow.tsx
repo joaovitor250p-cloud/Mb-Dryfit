@@ -438,7 +438,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     if (imageGallery.some(image => image.length > MAX_DATA_LENGTH)) return showMessage('Uma das fotos ficou acima do limite. Selecione outra imagem.', true);
     const cleanedOC=normalizedOC(oc);
     if(cleanedOC.length>80)return showMessage('OC acima do limite de 80 caracteres.',true);
-    if(editing && normalizedOC(editing.oc)!==cleanedOC)return showMessage('Não altere a OC de um registro existente. O identificador deve ser preservado.',true);
+    const changingOC=!!editing && normalizedOC(editing.oc)!==cleanedOC;
+    if(changingOC && !window.confirm(`Alterar a OC de ${editing!.oc} para ${cleanedOC}? Esta mudança atualiza somente esta Amostra/Corte, preservando as fotos. A Ordem de Corte, os pagamentos e as fichas NÃO serão modificados. Revise também a OC correspondente nessas áreas.`))return;
     setBusy(true);
     try {
       const data = {
@@ -452,6 +453,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       };
+      // Evita uma OC duplicada mesmo quando outro usuário a cadastrou após a abertura da tela.
+      if(changingOC){
+        const sameOC=await getDocs(fsQuery(collection(db,'production_samples'),where('oc','==',cleanedOC)));
+        if(sameOC.docs.some(d=>d.id!==editing?.id))throw Error(`A OC ${cleanedOC} já está cadastrada em outra amostra.`);
+      }
       const duplicate=items.find(p=>p.id!==editing?.id && normalizedOC(p.oc)===cleanedOC);
       if(duplicate)throw Error(`A OC ${cleanedOC} já está cadastrada. Abra o registro existente em Cortes.`);
       let auditAction: string;
@@ -460,7 +466,23 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       let auditAfter: unknown;
 
       if (editing){
-        await updateDoc(doc(db,'production_samples',editing.id),data);
+        // Mantém o ID e as subcoleções de fotos. Remove vínculo com a OC antiga
+        // apenas quando o número muda; as Ordens de Corte permanecem intactas.
+        await runTransaction(db,async transaction=>{
+          const ref=doc(db,'production_samples',editing.id);
+          const current=await transaction.get(ref);
+          if(!current.exists())throw Error('Esta amostra não existe mais. Atualize a página.');
+          if(normalizedOC(String(current.data().oc||''))!==normalizedOC(editing.oc))
+            throw Error('Esta OC foi alterada por outro usuário. Atualize antes de salvar.');
+          if(changingOC){
+            const nextId=ocDocId(cleanedOC);
+            if(nextId!==editing.id){
+              const canonical=await transaction.get(doc(db,'production_samples',nextId));
+              if(canonical.exists())throw Error(`A OC ${cleanedOC} já está cadastrada. Não salvei duplicado.`);
+            }
+          }
+          transaction.update(ref,changingOC?{...data,orderId:null}:data);
+        });
         auditAction = 'editou_oc';
         auditRecord = {...editing,...data};
         auditBefore = { oc: editing.oc, name: editing.name, reference: editing.reference, tailor: editing.tailor, status: editing.status, imageCount: galleryLoaded ? imageGallery.length : 'galeria preservada sem alteração' };
@@ -663,7 +685,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
           </div>
 
           <div className="production-form-grid">
-            <label>OC *<input required maxLength={80} readOnly={!!editing} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/></label>
+            <label>OC *<input required maxLength={80} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/>{editing&&<small>Você pode corrigir o número. Se alterar, confira também a Ordem de Corte e a ficha correspondente.</small>}</label>
             <label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label>
           </div>
 
