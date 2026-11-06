@@ -352,7 +352,13 @@ export default function App(){
   <button className="outline-button full" onClick={()=>auth&&signOut(auth)}>Sair da conta</button>
   </section></div>;
  if(!admin&&!access.length)return <div className="auth-shell"><section className="auth-card"><h1>Sem telas autorizadas</h1><p>Peça ao administrador para liberar seu acesso.</p><button onClick={()=>auth&&signOut(auth)} className="primary-button">Sair</button></section></div>;
- if(!permitted(view))return <BrandLoading label="Abrindo sua área..." />;
+ if(!permitted(view))return <div className="auth-shell"><section className="auth-card">
+   <img className="brand-logo auth-logo" src={brandLogo} alt="MB DryFit"/>
+   <h1>Área não disponível</h1>
+   <p>Seu acesso não inclui esta tela. Se acabou de receber uma nova permissão, atualize o aplicativo.</p>
+   {availableViews.length>0?<button type="button" className="primary-button full" onClick={()=>navigateView(availableViews[0])}>Abrir minha área</button>:<button type="button" className="primary-button full" onClick={()=>window.location.reload()}>Atualizar aplicativo</button>}
+   <button type="button" className="outline-button full" onClick={()=>auth&&signOut(auth)}>Sair da conta</button>
+ </section></div>;
  return <div className="app-shell" onTouchStartCapture={handleMainTouchStart} onTouchEndCapture={handleMainTouchEnd} onTouchCancelCapture={()=>{swipeStartRef.current=null;}}>
    <aside className="sidebar" aria-label="Menu principal">
      <div className="sidebar-brand"><img className="brand-logo sidebar-logo" src={brandLogo} alt="MB DryFit"/><div><strong>MB REFERENCIAS</strong><span>GESTÃO DE MODELOS E PRODUÇÃO</span></div></div>
