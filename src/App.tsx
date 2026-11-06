@@ -58,8 +58,35 @@ function BrandLoading({ label = 'Preparando seu espaço...' }: { label?: string 
   </div>;
 }
 
+/** Recuperação do carregamento mobile sem apagar login ou dados do Firebase. */
+function StartupRecovery({reason}:{reason:string}){
+ const [refreshing,setRefreshing]=useState(false);
+ const update=async()=>{
+  if(refreshing)return;
+  setRefreshing(true);
+  try{
+   if('caches' in window){
+    const names=await caches.keys();
+    await Promise.all(names.filter(name=>name.startsWith('mb-referencias-shell-')).map(name=>caches.delete(name)));
+   }
+  }catch{/* Alguns navegadores bloqueiam CacheStorage; ainda tentamos atualizar. */}
+  const url=new URL(window.location.href);
+  url.searchParams.set('mb_atualizar',String(Date.now()));
+  window.location.replace(url.toString());
+ };
+ return <div className="auth-shell"><section className="auth-card" role="alert">
+  <img className="brand-logo auth-logo" src={brandLogo} alt="MB DryFit"/>
+  <h1>Não foi possível concluir o carregamento</h1>
+  <p>{reason}</p>
+  <p>Se estiver no celular, confira a internet e toque em <strong>Atualizar aplicativo</strong>. Isso limpa somente o cache de arquivos do site: não apaga OCs, fichas, fotos ou sua conta.</p>
+  <button type="button" className="primary-button full" disabled={refreshing} onClick={()=>void update()}>{refreshing?'Atualizando…':'Atualizar aplicativo'}</button>
+  <button type="button" className="outline-button full" onClick={()=>window.location.reload()}>Tentar novamente</button>
+ </section></div>;
+}
+
 export default function App(){
  const [user,setUser]=useState<User|null>(null),[authReady,setAuthReady]=useState(false),[role,setRole]=useState<Role|null>(null),[roleChecked,setRoleChecked]=useState(false);
+ const [bootTimedOut,setBootTimedOut]=useState(false),[bootError,setBootError]=useState('');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[recover,setRecover]=useState(false),[signup,setSignup]=useState(false),[showPassword,setShowPassword]=useState(false);
  const [accessRequest,setAccessRequest]=useState<'loading'|'none'|'pending'|'approved'|'denied'>('loading'),[roleDisabled,setRoleDisabled]=useState(false),[verified,setVerified]=useState(false);
  const [models,setModels]=useState<Model[]>([]),[loaded,setLoaded]=useState(false),[sync,setSync]=useState<'online'|'offline'|'error'>('offline');
@@ -108,9 +135,15 @@ export default function App(){
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
  useEffect(()=>{setDark(localStorage.getItem('mb-theme')==='dark')},[]);
  useEffect(()=>{document.documentElement.classList.toggle('dark',dark);localStorage.setItem('mb-theme',dark?'dark':'light')},[dark]);
- useEffect(()=>{if(!auth){setAuthReady(true);return}return onAuthStateChanged(auth,u=>{setUser(u);setRole(null);setRoleChecked(false);setRoleDisabled(false);setVerified(!!u?.emailVerified);setAccessRequest('loading');setAuthReady(true)})},[]);
- useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'||x==='orders'||x==='expenses'||x==='info'||x==='workshops'||x==='sheets'||x==='sheet_distribution'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{notify(`Não foi possível verificar seu acesso: ${safeProviderMessage(e)}`,true);setRoleChecked(true)})},[user]);
+ useEffect(()=>{if(!auth){setAuthReady(true);return}return onAuthStateChanged(auth,u=>{setBootError('');setUser(u);setRole(null);setRoleChecked(false);setRoleDisabled(false);setVerified(!!u?.emailVerified);setAccessRequest('loading');setAuthReady(true)},e=>{setBootError('Não foi possível confirmar a sessão: '+safeProviderMessage(e));setAuthReady(true)})},[]);
+ useEffect(()=>{if(!user||!db){setRoleChecked(true);return}return onSnapshot(doc(db,'user_roles',user.uid),s=>{setBootError('');setRoleDisabled(s.exists()&&s.data().disabled===true);setRole(s.exists()&&s.data().disabled!==true?parseRole(s.data().role):null);setAccess(s.exists()&&Array.isArray(s.data().permissions)?s.data().permissions.filter((x:unknown)=>x==='catalog'||x==='samples'||x==='cuts'||x==='orders'||x==='expenses'||x==='info'||x==='workshops'||x==='sheets'||x==='sheet_distribution'):['catalog','samples','cuts']);setRoleChecked(true)},e=>{setBootError('Não foi possível verificar seu acesso: '+safeProviderMessage(e));setRoleChecked(true)})},[user]);
  useEffect(()=>{if(!db||!user){setAccessRequest('none');return}return onSnapshot(doc(db,'access_requests',user.uid),s=>{setAccessRequest(s.exists()?(s.data().status==='approved'?'approved':s.data().status==='denied'?'denied':'pending'):'none')},e=>{setAccessRequest('none');notify('Falha ao consultar sua solicitação: '+safeProviderMessage(e),true)})},[user]);
+ useEffect(()=>{
+  if(authReady&&(!user||roleChecked)){setBootTimedOut(false);return}
+  setBootTimedOut(false);
+  const timer=window.setTimeout(()=>setBootTimedOut(true),20000);
+  return()=>window.clearTimeout(timer);
+ },[authReady,user?.uid,roleChecked]);
  const needsModels = view==='catalog' || view==='samples' || view==='cuts';
  const navigateView=(next:View)=>{
    if(next===view||!permitted(next))return;
@@ -300,7 +333,8 @@ export default function App(){
  const loadAudit=async()=>{if(!db||!admin)return;setModal('history');try{const s=await getDocs(fsQuery(collection(db,'audit_log'),orderBy('at','desc')));setAudit(s.docs.slice(0,150).map(d=>({id:d.id,...d.data()} as Audit)))}catch(e){notify(safeError(e),true)}};
  const loadUsers=()=>{if(admin)setModal('users')};
  if(!serviceConfigured)return <div className="auth-shell"><div className="auth-card"><img className="brand-logo auth-logo" src={brandLogo} alt="MB DryFit" /><h1>MB REFERENCIAS</h1><p>O serviço de dados ainda não está configurado. Confira as configurações de publicação do site.</p><div className="notice warning"><AlertCircle size={18}/> O site não aceita cadastro sem uma conexão segura.</div></div></div>;
- if(!authReady||(user&&!roleChecked))return <BrandLoading label="Carregando MB REFERENCIAS..." />;
+ if(bootError)return <StartupRecovery reason={bootError} />;
+ if(!authReady||(user&&!roleChecked))return bootTimedOut?<StartupRecovery reason="O navegador não concluiu a entrada ou a leitura das permissões. A conexão pode estar instável ou o aplicativo pode estar usando arquivos antigos." />:<BrandLoading label="Carregando MB REFERENCIAS..." />;
  if(!user)return <div className="auth-shell"><section className="auth-card"><img className="brand-logo auth-logo" src={brandLogo} alt="MB DryFit" /><span className="eyebrow">CONTAS COM APROVAÇÃO</span><h1>MB REFERENCIAS</h1><p>{recover?'Recuperar senha':signup?'Crie sua conta. O administrador precisa aprová-la antes do acesso.':'Entre com e-mail e senha. Novas contas precisam de aprovação.'}</p><form onSubmit={submitAuth}>
   <label>E-mail<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></label>
   {!recover&&<label>Senha<div className="password-wrap"><input required minLength={signup?8:undefined} autoComplete={signup?'new-password':'current-password'} type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder={signup?'Mínimo 8 caracteres':'Sua senha'}/><button type="button" className="password-toggle" onClick={()=>setShowPassword(!showPassword)}>{showPassword?'Ocultar':'Mostrar'}</button></div></label>}
