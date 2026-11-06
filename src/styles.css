@@ -1489,3 +1489,61 @@ body { background: var(--bg); color: var(--text); }
     .app-shell .nav-item,.app-shell .primary-button,.app-shell .production-card {transition:none!important;transform:none!important}
   }
 }
+
+/* Ficha de produção: letras compactas e marcantes; somente VOL e número em destaque.
+   Impressão em caixa alta, inclusive fichas antigas já salvas. */
+.sheet-paper .sheet-volumes{
+  max-width:260px;min-height:58px;display:flex;flex-direction:row;
+  align-items:center;gap:14px;
+}
+.sheet-paper .sheet-volumes strong{
+  flex:none;font:800 17px/1.2 Arial,Helvetica,sans-serif;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.sheet-paper .sheet-volumes input{
+  width:105px;max-width:130px;min-width:76px;
+  text-align:center;font:800 23px/1.2 Arial,Helvetica,sans-serif;
+  color:#c40000;-webkit-text-fill-color:#c40000;
+}
+@media print {
+  .sheet-print-only .sheet-paper.sheet-paper-a4{
+    font-family:Arial,Helvetica,sans-serif!important;
+  }
+  .sheet-print-only .sheet-field strong{
+    font-size:8.5px!important;font-weight:800!important;
+    letter-spacing:.025em!important;text-transform:uppercase!important;
+  }
+  .sheet-print-only .sheet-field span{
+    font-size:9.5px!important;line-height:1.18!important;
+    font-weight:700!important;letter-spacing:.015em!important;
+    text-transform:uppercase!important;
+    overflow-wrap:anywhere!important;
+  }
+  .sheet-print-only .sheet-table th{
+    font-size:9px!important;font-weight:800!important;
+    letter-spacing:.025em!important;text-transform:uppercase!important;
+  }
+  .sheet-print-only .sheet-table td{
+    font-size:9.5px!important;font-weight:700!important;
+    line-height:1.18!important;text-transform:uppercase!important;
+    overflow-wrap:anywhere!important;
+  }
+  .sheet-print-only .sheet-color-table td:last-child{
+    font:700 9.5px/1.18 Arial,Helvetica,sans-serif!important;
+    text-transform:uppercase!important;text-align:left!important;
+  }
+  .sheet-print-only .sheet-volumes{
+    display:flex!important;flex-direction:row!important;
+    align-items:center!important;justify-content:flex-start!important;
+    gap:7mm!important;height:12mm!important;
+  }
+  .sheet-print-only .sheet-volumes strong{
+    font:800 15px/1.1 Arial,Helvetica,sans-serif!important;
+    letter-spacing:.05em!important;
+  }
+  .sheet-print-only .sheet-volumes span{
+    display:inline-block!important;
+    font:800 20px/1.1 Arial,Helvetica,sans-serif!important;
+    color:#c40000!important;-webkit-text-fill-color:#c40000!important;
+  }
+}
