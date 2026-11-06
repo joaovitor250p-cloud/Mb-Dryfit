@@ -35,6 +35,6 @@ export default function SheetPrint({sheet}:{sheet:PrintableSheet}) {
       </tbody>
     </table>
     <div className="sheet-field sheet-finishing"><strong>Informações acabamento:</strong><span>{sheet.finishingInstructions}</span></div>
-    <div className="sheet-field sheet-volumes"><strong>VOL.:</strong><span>{sheet.volumes||''}</span></div>
+    <div className="sheet-field sheet-volumes"><strong>VOL</strong><span>{sheet.volumes||''}</span></div>
   </div></div>;
 }
