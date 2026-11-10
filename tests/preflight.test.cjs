@@ -242,7 +242,7 @@ test('pagamento de sexta fica por mês e data, sem a seleção visual de semanas
   const code=source('src/CutOrders.tsx');
   assert.match(code,/Histórico de pagamentos por mês/);
   assert.match(code,/Sexta-feira<input type="date"/);
-  assert.match(code,/firstFridayOfMonth\(month\)/);
+  assert.doesNotMatch(code,/firstFridayOfMonth\(month\)/);
   assert.doesNotMatch(code,/order-week-options|order-week-choice|order-week-current|paymentWeeks/);
   assert.match(code,/batch\.update\(doc\(db,'cut_orders',o\.id\)/);
 });
