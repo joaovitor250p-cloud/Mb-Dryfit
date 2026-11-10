@@ -391,7 +391,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     finally{setBusy(false);}
   };
   const markPaid=async(items:Order[])=>{if(!canEdit||busy||!items.length)return;
-    const invalid=items.find(o=>!done(o)||paid(o)||!(num(o.total)>0)||!/^\\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0));
+    const invalid=items.find(o=>!done(o)||paid(o)||!(num(o.total)>0)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0));
     if(invalid){
       if(!done(invalid))return notify(`A OC ${invalid.oc} ainda não foi entregue. Confira na Ordem de Corte.`,true);
       if(paid(invalid))return notify(`A OC ${invalid.oc} já foi marcada como paga. Atualize a relação.`,true);
