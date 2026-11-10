@@ -44,9 +44,6 @@ const toBR=(iso:string)=>/^\d{4}-\d\d-\d\d$/.test(iso)?`${iso.slice(8,10)}/${iso
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const after=(iso:string,days:number)=>{const y=+iso.slice(0,4),m=+iso.slice(5,7)-1,d=+iso.slice(8);if(!toISO(toBR(iso)))return '';const x=new Date(y,m,d+days);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')};
 const friday=(iso:string)=>{const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8));return after(iso,(5-d.getDay()+7)%7)};
-// A data do pagamento continua sendo uma sexta-feira, mas sem seletores
-// de semanas: o histórico é consultado por mês e a data pode ser escolhida diretamente.
-const firstFridayOfMonth=(month:string):string=>/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?friday(`${month}-01`):'';
 const norm=(s:string)=>workshopKey(s);
 const officeLabel=(name:string)=>canonicalWorkshopName(name)||'SEM COSTUREIRO';
 const done=(o:Order)=>o.status.trim().toUpperCase()==='ENTREGUE';
@@ -83,7 +80,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [loadingFicha,setLoadingFicha]=useState<string|null>(null);
   const [query,setQuery]=useState(String(initialPageState.query || '')),[typeFilter,setTypeFilter]=useState<ModelType>((initialPageState.typeFilter as ModelType)||'all'),[office,setOffice]=useState(String(initialPageState.office||'all')),[production,setProduction]=useState(String(initialPageState.production||'all')),[payFilter,setPayFilter]=useState(String(initialPageState.payFilter||'all'));
   const [count,setCount]=useState(Number(initialPageState.count)||PAGE),[editing,setEditing]=useState<Order|null>(null),[draft,setDraft]=useState<Order|null>(null);
-  const [fridayDate,setFridayDate]=useState(String(initialPageState.fridayDate||friday(today()))),[showFriday,setShowFriday]=useState(!!initialPageState.showFriday);
+  const [fridayDate,setFridayDate]=useState(()=>friday(today())),[showFriday,setShowFriday]=useState(!!initialPageState.showFriday);
   // A impressão é renderizada em um portal diretamente no body, com o CSS A4
   // compartilhado por Fichas de Produção. O navegador oferece "Salvar como PDF".
   useEffect(()=>{
@@ -98,10 +95,27 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     window.addEventListener('afterprint',finish);
     return()=>window.removeEventListener('afterprint',finish);
   },[]);
+  // Cada nova semana abre a próxima sexta-feira, mesmo com a aba aberta ou em segundo plano.
+  const paymentWeekRef=useRef(friday(today()));
+  useEffect(()=>{
+    const check=()=>{
+      const next=friday(today());
+      if(next===paymentWeekRef.current)return;
+      paymentWeekRef.current=next;
+      setFridayDate(next);
+      setPaymentSearch('');
+      setPaymentPrepare(null);
+      setNotice('Nova semana de pagamentos. As OCs pagas continuam no histórico.');
+    };
+    check();
+    document.addEventListener('visibilitychange',check);window.addEventListener('focus',check);
+    const interval=window.setInterval(check,60000);
+    return()=>{document.removeEventListener('visibilitychange',check);window.removeEventListener('focus',check);window.clearInterval(interval)};
+  },[pageActive]);
   const [paymentMonth,setPaymentMonth]=useState(()=>monthNow());
   useEffect(()=>{
     let last=monthNow();
-    const check=()=>{const next=monthNow();if(next!==last){setPaymentMonth(previous=>previous===last?next:previous);setFridayDate(previous=>previous.slice(0,7)===last?friday(today()):previous);last=next;}};
+    const check=()=>{const next=monthNow();if(next!==last){setPaymentMonth(previous=>previous===last?next:previous);last=next;}};
     document.addEventListener('visibilitychange',check);window.addEventListener('focus',check);
     const interval=window.setInterval(check,60000);
     return()=>{document.removeEventListener('visibilitychange',check);window.removeEventListener('focus',check);window.clearInterval(interval)};
@@ -131,8 +145,6 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
 
   const selectMonth=(month:string)=>{
     setPaymentMonth(month);
-    const current=friday(today());
-    setFridayDate(current.slice(0,7)===month?current:firstFridayOfMonth(month));
     setMonthlyDetailsOpen(false);
   };
   usePageMemory(pageMemoryKey, { query, typeFilter, office, production, payFilter, count, fridayDate,showFriday }, !loading);
@@ -159,7 +171,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const filtered=useMemo(()=>rows.filter(o=>matchesModelType(o.model,typeFilter)&&(!query||norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(norm(query))||matchesModelSearch(o.model,query))&&(office==='all'||norm(o.office)===office)&&(production==='all'||(production==='done'?done(o):production==='overdue'?overdue(o,currentDate):!done(o)))&&(payFilter==='all'||(payFilter==='paid'?paid(o):!paid(o)))),[rows,query,typeFilter,office,production,payFilter,currentDate]);
   const overdueCount=useMemo(()=>rows.filter(o=>overdue(o,currentDate)).length,[rows,currentDate]);
   
-  const manualPaymentIds=paymentQueue[fridayDate]||[];
+  const manualPaymentIds=(paymentQueue[fridayDate]||[]).filter(id=>rows.some(o=>o.id===id&&!paid(o)));
   const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&num(o.total)>0&&(
     (done(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt)
     || (done(o)&&(paymentQueue[fridayDate]||[]).includes(o.id))
@@ -169,7 +181,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const paymentMatches=useMemo(()=>{
     const search=norm(paymentSearch.trim());
     if(!search)return [];
-    return rows.filter(o=>norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(search))
+    return rows.filter(o=>!paid(o)&&norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(search))
       .sort((a,b)=>Number(b.oc)-Number(a.oc)).slice(0,14);
   },[rows,paymentSearch]);
   const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
@@ -398,7 +410,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       preparePayment(invalid);
       return notify(`Confira quantidade e valor da OC ${invalid.oc} antes de pagar.`,true);
     }if(!toISO(toBR(fridayDate)))return notify('Selecione uma sexta-feira válida antes de pagar.',true);const sum=items.reduce((a,x)=>a+num(x.total),0);const paymentDate=toBR(fridayDate);if(!window.confirm(`Confirmar pagamento de ${items.length} OC(s) no valor total de ${brl(sum)}? A data ${paymentDate} será registrada em Ordem de Corte e as OCs ficarão com status PAGO.`))return;setBusy(true);
-    try{for(let i=0;i<items.length;i+=150){const batch=writeBatch(db);items.slice(i,i+150).forEach(o=>batch.update(doc(db,'cut_orders',o.id),{paymentDone:'OK',paidAt:paymentDate,updatedBy:user.uid,updatedAt:serverTimestamp()}));await batch.commit()}notify(`${items.length} OC(s) pagas em ${paymentDate}. Pagamento e data atualizados em Ordem de Corte.`)}catch(e){notify(errorText(e),true)}finally{setBusy(false)}
+    try{for(let i=0;i<items.length;i+=150){const batch=writeBatch(db);items.slice(i,i+150).forEach(o=>batch.update(doc(db,'cut_orders',o.id),{paymentDone:'OK',paidAt:paymentDate,updatedBy:user.uid,updatedAt:serverTimestamp()}));await batch.commit()}notify(`${items.length} OC(s) pagas em ${paymentDate}. Pagamento e data atualizados em Ordem de Corte. OCs pagas removidas da lista da semana e mantidas no histórico.`)}catch(e){notify(errorText(e),true)}finally{setBusy(false)}
   };
   const initialImport=async()=>{if(!isAdmin||busy)return;setBusy(true);try{const module=await import('./lib/cutOrderSeed.json');const original=(module.default as Record<string,unknown>[]).map(asSeed);const missing=original.filter(o=>!rows.some(x=>x.id===o.id||(!x.id.startsWith('legado_')&&x.oc.trim()===o.oc.trim())));
       if(!missing.length){notify('As 720 OCs da planilha já foram importadas. Nenhuma duplicação.');return}
@@ -409,7 +421,6 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const downloadCsv=(list:Order[],prefix:string)=>{const header=[...fields];download([header.map(k=>csvEsc(names[k])).join(';'),...list.map(o=>header.map(k=>csvEsc(o[k])).join(';'))].join('\r\n'),`${prefix}_${today()}.csv`)};
   const downloadJson=()=>download(JSON.stringify({version:1,exportedAt:new Date().toISOString(),rows},null,2),`BACKUP_ORDEM_DE_CORTE_${today()}.json`,'application/json;charset=utf-8');
   const amount=eligible.reduce((a,x)=>a+num(x.total),0);
-  const paidThisFriday=useMemo(()=>rows.filter(o=>paid(o)&&toISO(o.paidAt)===fridayDate),[rows,fridayDate]);
   const monthlyPaid=useMemo(()=>rows.filter(o=>paid(o)&&monthOfPaid(o)===paymentMonth),[rows,paymentMonth]);
   const monthOptions=useMemo(()=>[...new Set([monthNow(),paymentMonth,...rows.flatMap(o=>[monthOfPaid(o),monthOfPaidDate(o.deliveredAt),monthOfPaidDate(o.sent)]).filter(x=>/^\d{4}-\d{2}$/.test(x))])].sort((a,b)=>b.localeCompare(a)),[rows,paymentMonth]);
   const monthlyTotal=useMemo(()=>monthlyPaid.reduce((sum,o)=>sum+(Number.isFinite(num(o.total))?num(o.total):0),0),[monthlyPaid]);
@@ -419,7 +430,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     <div className="order-stats"><div><small>Ordens cadastradas</small><strong>{rows.length}</strong></div><div><small>Em andamento</small><strong>{rows.filter(o=>!done(o)).length}</strong></div><div className="order-stat-overdue"><small>Pedidos atrasados</small><strong>{overdueCount}</strong></div><div><small>Entregues</small><strong>{rows.filter(done).length}</strong></div><div><small>Pagamentos a conferir</small><strong>{review.length}</strong></div></div>
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
-    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>Selecione o mês do histórico e a data da sexta-feira para consultar e registrar pagamentos. Nenhuma transferência bancária é realizada pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7))}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Já pagas nesta sexta</small><strong>{paidThisFriday.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
+    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Fechamento por costureiro</h2><p>A lista mostra apenas OCs pendentes. A cada nova semana, a próxima sexta-feira é selecionada automaticamente. Nenhuma transferência bancária é realizada pelo aplicativo.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7))}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Para conferir</small><strong>{review.length}</strong></div></div>
       {canEdit&&<section className="order-manual-select" aria-label="Adicionar OC ao pagamento">
         <div className="order-manual-head"><strong><Plus size={17}/> Adicionar OC para pagar</strong><small>Busque pelo número da OC, modelo, REF ou costureiro. A seleção não marca como paga.</small></div>
         <label className="order-manual-search"><Search size={17}/><input aria-label="Buscar OC para incluir no pagamento" value={paymentSearch} onChange={e=>setPaymentSearch(e.target.value)} placeholder="Digite o número da OC para selecionar..." autoComplete="off"/></label>
@@ -433,12 +444,12 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         </div>}
         {!!manualPaymentIds.length&&<div className="order-selected-ocs">
           <strong>OCs adicionadas manualmente nesta sexta-feira ({manualPaymentIds.length})</strong>
-          {manualPaymentIds.map(id=>{const o=rows.find(row=>row.id===id);return o?<div key={id} className="order-manual-row"><span>OC {o.oc} · {officeLabel(o.office)} · {money(o.total)} {paid(o)?'(já paga)':''}</span><button type="button" className="outline-button" onClick={()=>removeQueuedPayment(id)} disabled={busy}>Remover seleção</button></div>:null})}
-          <small>Remover a seleção não desmarca pagamentos. OCs já elegíveis pela data de entrega continuam aparecendo normalmente.</small>
+          {manualPaymentIds.map(id=>{const o=rows.find(row=>row.id===id);return o?<div key={id} className="order-manual-row"><span>OC {o.oc} · {officeLabel(o.office)} · {money(o.total)}</span><button type="button" className="outline-button" onClick={()=>removeQueuedPayment(id)} disabled={busy}>Remover seleção</button></div>:null})}
+          <small>OCs pagas saem automaticamente da seleção. Pendências não pagas continuam disponíveis nas próximas semanas.</small>
         </div>}
       </section>}
       <div className="order-month-history">
-        <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>O mês atual começa automaticamente em zero; pagamentos anteriores continuam salvos na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>selectMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
+        <div className="order-month-history-heading"><div><strong>Histórico de pagamentos por mês</strong><small>Pagamentos concluídos saem da lista da semana e ficam salvos neste histórico e na OC original.</small></div><label>Consultar mês <select aria-label="Mês do histórico de pagamentos" value={paymentMonth} onChange={e=>selectMonth(e.target.value)}>{monthOptions.map(month=><option key={month} value={month}>{monthLabel(month)}{month===monthNow()?' · atual':''}</option>)}</select></label></div>
         <div className="order-month-history-numbers"><div><small>OCs pagas em {monthLabel(paymentMonth)}</small><strong>{monthlyPaid.length}</strong></div><div><small>Total registrado como pago</small><strong>{brl(monthlyTotal)}</strong></div></div>
         <details className="order-month-details" onToggle={e=>setMonthlyDetailsOpen(e.currentTarget.open)}><summary>Ver pagamentos registrados neste mês ({monthlyPaid.length})</summary>
           {monthlyDetailsOpen&&(monthlyPaid.length?monthlyPaid.map(o=><div className="order-office-line" key={o.id}><span>OC {o.oc} · {officeLabel(o.office)} · {o.paidAt}</span><strong>{money(o.total)}</strong>{canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void undoPaid(o)}>Desmarcar pagamento</button>}</div>):<p>Nenhum pagamento registrado neste mês.</p>)}
@@ -450,7 +461,6 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         {g.list.map(o=><div className="order-office-line order-payment-line" key={o.id}><span>OC {o.oc} — {o.model}</span><strong>{money(o.total)}</strong>{hasNewProductionSheet(o)&&<button type="button" className="order-ficha-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(o)}><Download size={14}/> Ficha</button>}{canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void markPaid([o])}><CheckCircle2 size={14}/> Pago</button>}</div>)}
         {canEdit&&<button disabled={busy} className="primary-button" onClick={()=>void markPaid(g.list)}>Confirmar pagamento de todas as OCs da oficina</button>}
       </div></details>})}
-      {!!paidThisFriday.length&&<details className="order-office order-paid-on-friday"><summary><span><strong>Pagas em {toBR(fridayDate)}</strong><small>{paidThisFriday.length} OCs atualizadas em Ordem de Corte</small></span><b>{brl(paidThisFriday.reduce((sum,item)=>sum+(Number.isFinite(num(item.total))?num(item.total):0),0))}</b><ChevronDown size={16}/></summary><div>{paidThisFriday.map(o=><div className="order-office-line" key={o.id}><span>OC {o.oc} — {officeLabel(o.office)}</span><strong>{money(o.total)}</strong>{canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void undoPaid(o)}>Desmarcar pagamento</button>}</div>)}</div></details>}
       <button className="outline-button" onClick={()=>downloadCsv(eligible,'PAGAMENTOS_SEXTA')}>Exportar relação desta sexta</button>
       {review.length>0&&<details className="order-review"><summary><ShieldAlert size={17}/> {review.length} registros para conferir (não entram na soma)</summary>{review.slice(0,150).map(o=><p key={o.id}>OC {o.oc} — {officeLabel(o.office)}: {o.paidAt?'já possui data de pagamento':!toISO(o.deliveredAt)?'data de entrega ausente ou inválida':'valor a pagar ausente ou zerado'}.</p>)}</details>}
     </section>:<>
