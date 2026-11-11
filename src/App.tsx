@@ -112,7 +112,7 @@ export default function App(){
  const modelSaveInFlight=useRef(false);
  const [modelSaveMessage,setModelSaveMessage]=useState('');
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
- const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution')[]>(['catalog','samples','cuts']);
+ const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution'|'purchases')[]>(['catalog','samples','cuts']);
  // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
  const admin=role==='admin',editor=admin||role==='editor';
  const permitted=(section:View)=>admin||(section==='settings'?access.some(x=>x==='info'||x==='workshops'):section==='samples'?access.includes('samples')||access.includes('cuts'):section==='prices'?access.includes('workshops'):access.includes(section));
