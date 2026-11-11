@@ -69,3 +69,28 @@ test('componentes passam permissão de OCs e sincronizam todos os registros some
   assert.match(workflow,/Completar dados pelas OCs/);
   assert.doesNotMatch(workflow,/transaction\.update\(snapshot\.ref,\{[^}]*imageData/);
 });
+
+test('pesquisa automática é exata, aceita OC com prefixos comuns e não repete variantes',()=>{
+  for(const value of ['729','OC 729','OC-729','OC: 729','O.C. 729','OC Nº 729','O.C. Nº 729']){
+    assert.equal(u.normalizeSampleOC(value),'729',value);
+  }
+  const variants=u.sampleOrderSearchValues('729');
+  assert.ok(variants.includes('729'));
+  assert.ok(variants.includes('OC 729'));
+  assert.ok(variants.includes('OC-729'));
+  assert.ok(variants.includes('O.C. 729'));
+  assert.ok(variants.length<=20);
+  assert.equal(new Set(variants).size,variants.length);
+  assert.deepEqual([...u.sampleOrderSearchValues('')],[]);
+});
+test('Amostras busca a OC ao digitar, respeita duplicidade e padroniza costureiro',()=>{
+  const workflow=read(path.join(root,'src/SampleWorkflow.tsx'));
+  assert.match(workflow,/onChange=\{e=>updateOCInput\(e\.target\.value\)\}/);
+  assert.match(workflow,/where\('oc','in',variants\)/);
+  assert.match(workflow,/matches\.length>1/);
+  assert.match(workflow,/window\.setTimeout\(async\(\)=>\{/);
+  assert.match(workflow,/quantityFromOrder\(order\.qty\)/);
+  assert.match(workflow,/canonicalWorkshopName\(order\.office\)/);
+  assert.match(workflow,/tailor:canonicalWorkshopName\(tailor\)/);
+  assert.match(workflow,/Corrigir nomes \(/);
+});
