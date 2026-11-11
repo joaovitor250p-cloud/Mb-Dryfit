@@ -23,7 +23,19 @@ export type MissingSampleInfo = Partial<Pick<SampleInfo,'name'|'reference'|'tail
 
 export const normalizeSampleOC = (value: unknown): string => String(value ?? '')
   .normalize('NFKC').trim().toLocaleUpperCase('pt-BR').replace(/\s+/g, ' ')
-  .replace(/^O\.?\s*C\.?\s*[-:#]?\s*(?=\d)/, '');
+  .replace(/^O\.?\s*C\.?\s*(?:N[º°O.]?\s*)?[-:#]?\s*(?=\d)/, '');
+
+/** Variações históricas, consultadas em uma única busca indexada.
+ * Nunca executa varredura em todas as OCs ao digitar um número.
+ */
+export function sampleOrderSearchValues(value: string): string[] {
+  const typed=String(value||'').trim().normalize('NFKC');
+  const key=normalizeSampleOC(typed);
+  if(!key)return [];
+  const variants=[typed,typed.toLocaleUpperCase('pt-BR'),key,
+    `OC ${key}`,`OC-${key}`,`OC: ${key}`,`OC. ${key}`,`O.C. ${key}`,`OC Nº ${key}`];
+  return [...new Set(variants)].slice(0,20);
+}
 
 const normalizedText = (value: unknown): string => String(value ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
