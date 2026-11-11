@@ -1573,3 +1573,30 @@ body { background: var(--bg); color: var(--text); }
 .order-payment-preparation>.outline-button{margin:0 16px}
 .order-payment-preparation>small{display:block;margin:10px 16px;color:var(--muted,#728096)}
 @media(max-width:650px){.order-manual-select{padding:12px}.order-manual-row{align-items:stretch;flex-direction:column}.order-manual-row button{align-self:flex-start}.order-payment-preparation>.order-fieldgrid{grid-template-columns:1fr}}
+
+/* Amostras: preenchimento automático por OC, sem custo extra de servidor. */
+@media screen {
+  .production-modal .sample-oc-refill{
+    display:inline-flex;align-items:center;justify-content:center;
+    align-self:flex-start;margin:8px 0 0;padding:8px 11px;
+    font-size:12px;font-weight:750;max-width:100%;
+  }
+  .production-modal .sample-oc-lookup{
+    display:block;margin-top:9px;padding:9px 11px;border-radius:9px;
+    border:1px solid var(--line,#e5e8f3);
+    background:var(--panel2,#f8f9fd);
+    color:var(--text,#242b42);font-size:12px;line-height:1.5;
+    font-weight:600;overflow-wrap:anywhere;
+  }
+  .production-modal .sample-oc-lookup.found{
+    border-color:#b1dfc3;background:#f0faf3;color:#176c42;
+  }
+  .production-modal .sample-oc-lookup.multiple,
+  .production-modal .sample-oc-lookup.permission,
+  .production-modal .sample-oc-lookup.error{
+    border-color:#ecc5ac;background:#fff7ef;color:#8a4b24;
+  }
+  .production-modal .sample-oc-lookup.loading{
+    color:var(--muted,#64748b);
+  }
+}
