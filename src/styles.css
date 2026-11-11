@@ -1625,19 +1625,8 @@ body { background: var(--bg); color: var(--text); }
   .order-payment-line .order-payment-net{font-size:18px}
 }
 
-/* OCs entregues aguardando seleção: visíveis mesmo em outro dispositivo. */
-.order-awaiting-delivered{margin:16px 0 20px;border:1px solid var(--line,#e3e7ee);background:var(--panel,#fff);border-radius:14px;padding:16px;display:grid;gap:12px}
-.order-awaiting-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
-.order-awaiting-head>div{display:grid;gap:5px;min-width:0;flex:1}
-.order-awaiting-head strong{font-size:15px;line-height:1.4}
-.order-awaiting-head small,.order-awaiting-foot{color:var(--muted,#728096);font-size:12px;line-height:1.5}
-.order-awaiting-head .outline-button{flex:none}
-.order-awaiting-list{display:grid;gap:7px;max-height:500px;overflow-y:auto;overscroll-behavior:contain}
-.order-awaiting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2,#f7f8fa);border:1px solid var(--line,#e4e7ef);border-radius:10px;padding:11px 13px}
-.order-awaiting-info{flex:1;min-width:0;display:grid;gap:5px}
-.order-awaiting-info strong{font-size:13px;overflow-wrap:anywhere}
-.order-awaiting-info small{font-size:12px;color:var(--muted,#728096);line-height:1.45;overflow-wrap:anywhere}
-.order-awaiting-info small b{font-weight:800;color:var(--text,#263342)}
-.order-awaiting-info .order-awaiting-warning{color:#a86114}
-.order-awaiting-row button{flex:none;display:inline-flex;align-items:center;gap:6px}
-@media(max-width:700px){.order-awaiting-delivered{padding:12px}.order-awaiting-head{align-items:stretch;flex-direction:column}.order-awaiting-head .outline-button{align-self:flex-start}.order-awaiting-row{align-items:stretch;flex-direction:column}.order-awaiting-row button{align-self:flex-start}.order-awaiting-list{max-height:540px}}
+/* Pagamento de sexta: busca recolhida; só aparecem as OCs da semana escolhida. */
+.order-picker-area{display:grid;gap:0;margin:12px 0 16px}
+.order-picker-toggle{justify-self:start;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:750}
+.order-picker-area .order-manual-select{margin:12px 0 0}
+@media(max-width:650px){.order-picker-toggle{width:100%;justify-content:center}}
