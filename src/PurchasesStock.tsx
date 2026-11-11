@@ -105,7 +105,8 @@ export default function PurchasesStock({db,user,canEdit,canConsume,companyId=DEF
        notify('NF-e XML lida. Confira tipo, unidade, cor, preços e quantidades antes de confirmar a entrada. A assinatura digital fiscal não é verificada.');
      }else if(file.name.toLowerCase().endsWith('.pdf')){
        const data=await pdfBase64(file);
-       const text=await extractPdfText(file);
+       let text='';
+       try{text=await extractPdfText(file)}catch{/* PDF sem texto compatível: permitir conferência manual. */}
        const amount=findAmount(text);
        setInvoice(old=>({...initialInvoice(),
          source:'pdf',supplier:guessSupplier(text),total:amount||'0',
@@ -123,7 +124,8 @@ export default function PurchasesStock({db,user,canEdit,canConsume,companyId=DEF
    try{
      await pdfBase64(file);
      setBillFile(file);
-     const text=await extractPdfText(file);
+     let text='';
+     try{text=await extractPdfText(file)}catch{/* boleto digitalizado ou PDF sem texto: campos manuais. */}
      setBillSupplier(guessSupplier(text));
      setBillAmount(findAmount(text));
      setBillDue(guessDue(text));
