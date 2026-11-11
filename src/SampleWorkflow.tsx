@@ -223,6 +223,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const progress = useMemo(() => items.filter(x => x.status === 'in_progress').length, [items]);
   // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
   const finished = useMemo(() => items.filter(x => x.status === 'done' || x.status === 'store').length, [items]);
+  const incorrectTailorNames=useMemo(()=>items.filter(p=>p.tailor?.trim()&&canonicalWorkshopName(p.tailor)!==p.tailor),[items]);
 
   const filtered = useMemo(() => items.filter(x => view === 'samples'
     ? true
@@ -711,10 +712,46 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     finally { setBusy(false); }
   };
 
+  // Corrige exclusivamente o nome do costureiro em amostras existentes.
+  // Fotos, REF, quantidade, vínculo, datas originais e status ficam intactos.
+  const standardizeExistingTailors=async()=>{
+    if(!canEdit||view!=='samples'||busy)return;
+    const candidates=items.filter(p=>p.tailor?.trim()&&canonicalWorkshopName(p.tailor)!==p.tailor);
+    if(!candidates.length)return showMessage('Todos os nomes de costureiros já estão padronizados.');
+    if(!window.confirm(`Padronizar os nomes de costureiros em ${candidates.length} amostra(s)? A alteração ajusta grafia, acentos e MAIÚSCULAS. Nenhuma foto, OC, REF ou quantidade será alterada.`))return;
+    setBusy(true);
+    let updated=0;
+    try{
+      for(let i=0;i<candidates.length;i+=80){
+        const group=candidates.slice(i,i+80);
+        const batch=writeBatch(db);
+        for(const p of group){
+          batch.update(doc(db,'production_samples',p.id),{
+            tailor:canonicalWorkshopName(p.tailor),
+            updatedAt:serverTimestamp(),
+            updatedBy:user.uid
+          });
+        }
+        batch.set(doc(collection(db,'audit_log')),{
+          actorUid:user.uid,actorEmail:user.email||'',
+          action:'padronizou_costureiros_amostras',
+          modelName:`Padronização de ${group.length} amostras`,
+          before:null,after:{count:group.length},
+          at:serverTimestamp()
+        });
+        await batch.commit();
+        updated+=group.length;
+      }
+      showMessage(`${updated} nome(s) de costureiros corrigido(s) nas Amostras. Fotos, OCs e outros dados preservados.`);
+    }catch(e){
+      showMessage(`Foram corrigidos ${updated} de ${candidates.length} registro(s). Falha nos restantes: ${productionError(e)}`,true);
+    }finally{setBusy(false)}
+  };
+
   return <div className="page-wrap production-page">
     <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte as fotos e informações das amostras. Cadastros novos podem ser feitos por Adicionar amostra.' : 'Gerencie os dados, fotos e exclusões das OCs; acompanhe o andamento e marque os cortes como prontos.'}</p></div>
       <div className="heading-actions">
-        {view==='samples'&&<>{canEdit&&canReadOrders&&<button type="button" className="outline-button" disabled={busy||syncing||loading} onClick={()=>void synchronizeSamples()} title="Completar REF, costureiro, quantidade e nome usando a OC correspondente, sem alterar fotos ou dados preenchidos"><RefreshCw size={16}/>{syncing?'Sincronizando...':'Completar dados pelas OCs'}</button>}<InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
+        {view==='samples'&&<>{canEdit&&canReadOrders&&<button type="button" className="outline-button" disabled={busy||syncing||loading} onClick={()=>void synchronizeSamples()} title="Completar REF, costureiro, quantidade e nome usando a OC correspondente, sem alterar fotos ou dados preenchidos"><RefreshCw size={16}/>{syncing?'Sincronizando...':'Completar dados pelas OCs'}</button>}{canEdit&&incorrectTailorNames.length>0&&<button type="button" className="outline-button" disabled={busy||loading} onClick={()=>void standardizeExistingTailors()} title="Corrigir grafia, acentos e caixa alta dos costureiros nas amostras existentes"><Check size={16}/>Corrigir nomes ({incorrectTailorNames.length})</button>}<InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
         {view==='cuts'&&canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
       </div></div>
 
