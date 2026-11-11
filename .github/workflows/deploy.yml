@@ -40,8 +40,8 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
-      - name: Testar compras, estoque e baixa de enfesto
-        run: node --test tests/purchases-inventory.test.cjs
+      - name: Testar compras, estoque, enfesto e regra de preço do Mauro
+        run: node --test tests/purchases-inventory.test.cjs tests/mauro-price.test.cjs
 
       - name: Compilar aplicação Vite
         run: npm run build
