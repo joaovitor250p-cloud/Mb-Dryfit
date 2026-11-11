@@ -1630,3 +1630,35 @@ body { background: var(--bg); color: var(--text); }
 .order-picker-toggle{justify-self:start;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:750}
 .order-picker-area .order-manual-select{margin:12px 0 0}
 @media(max-width:650px){.order-picker-toggle{width:100%;justify-content:center}}
+
+/* Menu lateral único — produção, financeiro, gestão e administração. */
+html,body,#root,.app-shell{touch-action:pan-x pan-y}
+.app-shell .sidebar{gap:0}
+.app-shell .sidebar-brand{flex-shrink:0}
+.app-shell .sidebar-brand>div{min-width:0;flex:1}
+.app-shell .sidebar-links{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 2px 16px;scrollbar-width:thin}
+.app-shell .sidebar-nav-group+.sidebar-nav-group{margin-top:18px}
+.app-shell .sidebar .sidebar-nav-group .nav-label{display:block;margin:0 0 6px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:.13em}
+.app-shell .sidebar .nav-admin-label{margin-top:0!important}
+.app-shell .sidebar .nav-item{display:flex;align-items:center;width:100%;text-align:left}
+.app-shell .sidebar .sidebar-bottom{flex-shrink:0}
+.mobile-menu-toggle,.sidebar-close,.sidebar-scrim{display:none}
+@media(max-width:800px){
+ .app-shell .sidebar{display:flex!important;position:fixed;inset:0 auto 0 0;width:min(315px,86vw);max-width:none;z-index:81;padding:calc(16px + env(safe-area-inset-top)) 15px calc(16px + env(safe-area-inset-bottom));visibility:hidden;pointer-events:none;transform:translateX(-105%);transition:transform .23s ease,visibility .23s ease;box-shadow:16px 0 44px rgba(16,24,52,.24);border-radius:0 19px 19px 0;overflow:hidden}
+ .app-shell .sidebar.mobile-open{visibility:visible;pointer-events:auto;transform:translateX(0)}
+ .sidebar-scrim{display:block;position:fixed;inset:0;z-index:80;border:0;border-radius:0;background:rgba(19,22,43,.55);backdrop-filter:blur(3px)}
+ .mobile-menu-toggle,.sidebar-close{display:grid;place-items:center;flex:none;width:39px;height:39px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text)}
+ .app-shell .sidebar-close{width:34px;height:34px;background:transparent;color:inherit;border-color:var(--line)}
+ .app-shell .sidebar-brand{gap:10px;margin-bottom:11px;padding:5px 1px 18px}
+ .app-shell .sidebar-brand .sidebar-logo{width:43px;height:43px}
+ .app-shell .sidebar-brand strong{font-size:12px}
+ .app-shell .sidebar-brand span{font-size:8px}
+ .app-shell .sidebar .nav-item{min-height:46px;font-size:12px}
+ .app-shell .main-content{padding-bottom:0}
+ .app-shell .mobile-bottom-nav,.app-shell .mobile-more-backdrop{display:none!important}
+ .app-shell .topbar{gap:10px}
+ .app-shell .mobile-brand{gap:8px}
+ .app-shell .mobile-brand strong{font-size:10px;white-space:normal}
+ .toast{bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.app-shell .sidebar{transition:none!important}}
