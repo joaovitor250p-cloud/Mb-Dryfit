@@ -81,8 +81,8 @@ export function validateInvoice(invoice:InvoiceDraft):void{
    }
  }
 }
-export async function stockId(material:string,color:string,unit:string){
- return (await sha256(code(material)+'|'+code(color||'SEM COR')+'|'+unit)).slice(0,40);
+export async function stockId(material:string,color:string,unit:string,kind='tecido'){
+ return (await sha256(kind+'|'+code(material)+'|'+code(color||'SEM COR')+'|'+unit)).slice(0,40);
 }
 type Delta = {id:string;material:string;color:string;kind:string;unit:StockUnit;amount:number;sourceId:string;sourceKind:'purchase_in'|'enfesto_out';oc:string};
 async function createInventoryMovement(db:Firestore,company:string,uid:string,sourceId:string,kind:'purchase_in'|'enfesto_out',deltas:Delta[],sourcePayload:Record<string,unknown>):Promise<void>{
@@ -123,7 +123,7 @@ export async function confirmInvoice(db:Firestore,company:string,uid:string,invo
  const aggregate=new Map<string,Delta>();
  for(const line of invoice.lines){
    const material=clean(line.description),color=line.kind==='tecido'?code(line.color):code(line.color||'SEM COR');
-   const id=await stockId(material,color,line.unit);
+   const id=await stockId(material,color,line.unit,line.kind);
    const existing=aggregate.get(id);
    if(existing)existing.amount+=qtyMilli(line.quantity);
    else aggregate.set(id,{id,material,color,unit:line.unit,kind:line.kind,amount:qtyMilli(line.quantity),sourceId:invoiceId,sourceKind:'purchase_in',oc:''});
