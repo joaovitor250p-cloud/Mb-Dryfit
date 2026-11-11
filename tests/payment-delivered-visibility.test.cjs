@@ -12,42 +12,51 @@ const order=(id,status='ENTREGUE',deliveredAt='11/11/2026',paymentDone='')=>({
   id,oc:id,model:'CAMISETA',office:'MAURO',status,deliveredAt,paymentDone,total:'120,00',
   qty:'20',defects:'',discountTotal:'',piecePrice:'6,00'
 });
-const toISO=(br)=>{
+const toISO=br=>{
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(String(br||'')))return '';
   return br.slice(6,10)+'-'+br.slice(3,5)+'-'+br.slice(0,2);
 };
-function visibleFor(rows,selection=[]){
-  const start=source.indexOf('const waitingDelivered=useMemo(');
-  const end=source.indexOf('  const deliveredTodayAwaiting=',start);
-  assert.ok(start>=0&&end>start,'encontrar computação das OCs entregues aguardando seleção');
+function selectedFor(rows,fridayDate,paymentQueue){
+  const start=source.indexOf('const manualPaymentIds=');
+  const end=source.indexOf('  const groups=',start);
+  assert.ok(start>=0&&end>start,'encontrar seleção separada por sexta-feira');
   const snippet=source.slice(start,end);
-  const code=ts.transpileModule(snippet+'\nexports.pending=waitingDelivered;',{
+  const code=ts.transpileModule(snippet+
+    '\nexports.selection=[...manualPaymentIds];exports.eligible=[...eligible];', {
     compilerOptions:{target:ts.ScriptTarget.ES2020}
   }).outputText;
-  const ctx={exports:{},useMemo:fn=>fn(),rows,
-    paymentQueue:{'2026-11-13':selection},fridayDate:'2026-11-13',
-    currentDate:'2026-11-11',done:o=>o.status==='ENTREGUE',
-    paid:o=>o.paymentDone==='OK',toISO};
+  const ctx={exports:{},rows,fridayDate,paymentQueue,paymentSearch:'',
+    useMemo:fn=>fn(),done:o=>o.status==='ENTREGUE',paid:o=>o.paymentDone==='OK',
+    num:Number,norm:String,toISO};
   vm.runInNewContext(code,ctx);
-  return [...ctx.exports.pending];
+  return {selection:[...ctx.exports.selection],eligible:[...ctx.exports.eligible].map(o=>o.id)};
 }
 
-test('OC entregue hoje não desaparece se ainda não foi selecionada para pagar',()=>{
-  const result=visibleFor([order('729'),order('730','EM ANDAMENTO'),order('731','ENTREGUE','10/11/2026')]);
-  assert.deepEqual(result.map(x=>x.id),['729','731']);
+test('sexta-feira atual contém apenas OCs selecionadas para essa mesma sexta',()=>{
+  const rows=[order('729'),order('730'),order('731')];
+  const queue={'2026-11-13':['729','731'],'2026-11-20':['730']};
+  assert.deepEqual(selectedFor(rows,'2026-11-13',queue).eligible,['729','731']);
+  assert.deepEqual(selectedFor(rows,'2026-11-20',queue).eligible,['730']);
 });
-test('OCs entregues continuam visíveis em outro celular sem seleção local',()=>{
-  assert.deepEqual(visibleFor([order('729'),order('730')],[]).map(x=>x.id),['730','729']);
-  assert.deepEqual(visibleFor([order('729'),order('730')],['729']).map(x=>x.id),['730']);
+test('próxima semana começa zerada e não herda OCs pendentes da semana anterior',()=>{
+  const rows=[order('729'),order('730')];
+  const queue={'2026-11-13':['729','730']};
+  assert.deepEqual(selectedFor(rows,'2026-11-20',queue).selection,[]);
+  assert.deepEqual(selectedFor(rows,'2026-11-20',queue).eligible,[]);
+  // Consultar a semana anterior preserva os dados sem reaproveitá-los na nova semana.
+  assert.deepEqual(selectedFor(rows,'2026-11-13',queue).eligible,['729','730']);
 });
-test('OCs pagas não aparecem como pendentes; entrega sem data pode ser recuperada',()=>{
-  const list=[order('729','ENTREGUE','11/11/2026','OK'),order('731','ENTREGUE','')];
-  assert.deepEqual(visibleFor(list).map(x=>x.id),['731']);
+test('OCs pagas ou em andamento não entram na lista selecionada para pagar',()=>{
+  const rows=[order('729','ENTREGUE','11/11/2026','OK'),order('730','EM ANDAMENTO'),order('731')];
+  const queue={'2026-11-13':['729','730','731']};
+  assert.deepEqual(selectedFor(rows,'2026-11-13',queue).eligible,['731']);
 });
-test('a interface possui lista visível, link para planilha sem filtros e seleção explícita',()=>{
-  assert.match(source,/OCs entregues aguardando seleção/);
-  assert.match(source,/waitingDelivered\.slice\(0,waitingDeliveredLimit\)/);
-  assert.match(source,/setProduction\('done'\);setCount\(PAGE\);setShowFriday\(false\)/);
-  assert.match(source,/onClick=\{\(\)=>addPaymentOC\(o\)\}/);
-  assert.match(source,/Apenas a confirmação em “Pago” altera o status financeiro/);
+test('busca Adicionar OC fica oculta, histórico permanece na Planilha e aguardando seleção sai da sexta',()=>{
+  assert.match(source,/aria-expanded=\{paymentPickerOpen\}/);
+  assert.match(source,/\{paymentPickerOpen&&<section id="order-picker-panel"/);
+  assert.match(source,/Adicionar ou ajustar OCs desta semana/);
+  assert.doesNotMatch(source,/order-awaiting-delivered/);
+  assert.doesNotMatch(source,/waitingDelivered/);
+  assert.match(source,/Histórico de pagamentos por mês/);
+  assert.match(source,/setPaymentPickerOpen\(false\)/);
 });
