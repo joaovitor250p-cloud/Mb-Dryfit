@@ -53,9 +53,9 @@ service cloud.firestore {
     function validSections(sections) {
       return sections is list
         && sections.size() >= 1
-        && sections.size() <= 9
+        && sections.size() <= 10
         && sections.hasOnly([
-          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution'
+          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'purchases'
         ]);
     }
 
@@ -824,6 +824,156 @@ service cloud.firestore {
         && request.resource.data.assignedBy == request.auth.uid
       );
       allow delete: if isAdmin();
+    }
+
+    function currentCompany() {
+      // Projetos legados MB já existentes pertencem à empresa principal.
+      // IDs diferentes têm isolamento real por user_roles.companyId.
+      return get(rolePath()).data.get('companyId', 'mb-principal');
+    }
+    function canCompanyView(companyId) {
+      return canView('purchases') && currentCompany() == companyId;
+    }
+    function canCompanyBuy(companyId) {
+      return canWrite('purchases') && currentCompany() == companyId;
+    }
+    function canCompanyConsume(companyId) {
+      return (canWrite('purchases') || canWrite('cuts')) && currentCompany() == companyId;
+    }
+    function validStock(d) {
+      return d.keys().hasOnly(['material','color','kind','unit','quantityMilli','lastMovementId','lastDeltaMilli','updatedAt','updatedBy','createdAt'])
+        && d.keys().hasAll(['material','color','kind','unit','quantityMilli','lastMovementId','lastDeltaMilli','updatedAt','updatedBy','createdAt'])
+        && d.material is string && d.material.size() > 0 && d.material.size() <= 250
+        && d.color is string && d.color.size() > 0 && d.color.size() <= 100
+        && d.kind in ['tecido', 'material'] && d.unit in ['KG','M','UN','PC','CX','L','OUT']
+        && (d.kind != 'tecido' || d.unit in ['KG','M'])
+        && d.quantityMilli is int && d.quantityMilli >= 0 && d.quantityMilli <= 1000000000000
+        && d.lastDeltaMilli is int && d.lastDeltaMilli != 0
+        && d.lastMovementId is string && d.lastMovementId.size() > 0 && d.lastMovementId.size() <= 80
+        && d.updatedBy == request.auth.uid && d.updatedAt == request.time
+        && d.createdAt is timestamp;
+    }
+    function stockMovementValid(companyId, stockId, previous) {
+      let d = request.resource.data;
+      let path = /databases/$(database)/documents/companies/$(companyId)/stock_movements/$(d.lastMovementId);
+      return existsAfter(path)
+        && getAfter(path).data.stockId == stockId
+        && getAfter(path).data.beforeMilli == previous
+        && getAfter(path).data.afterMilli == d.quantityMilli
+        && getAfter(path).data.deltaMilli == d.lastDeltaMilli
+        && getAfter(path).data.createdBy == request.auth.uid
+        && (
+          (getAfter(path).data.kind == 'purchase_in' && canCompanyBuy(companyId))
+          || (getAfter(path).data.kind == 'enfesto_out' && canCompanyConsume(companyId))
+        );
+    }
+    function validMovement(companyId, movementId) {
+      let d = request.resource.data;
+      let balancePath = /databases/$(database)/documents/companies/$(companyId)/inventory/$(d.stockId);
+      return d.keys().hasOnly(['stockId','kind','sourceId','oc','beforeMilli','deltaMilli','afterMilli','material','color','unit','createdAt','createdBy'])
+        && d.keys().hasAll(['stockId','kind','sourceId','oc','beforeMilli','deltaMilli','afterMilli','material','color','unit','createdAt','createdBy'])
+        && d.stockId is string && d.stockId.size() > 0 && d.stockId.size() <= 80
+        && d.sourceId is string && d.sourceId.size() > 0 && d.sourceId.size() <= 100
+        && d.kind in ['purchase_in','enfesto_out']
+        && d.oc is string && d.oc.size() <= 80
+        && d.material is string && d.material.size() <= 250
+        && d.color is string && d.color.size() <= 100
+        && d.unit in ['KG','M','UN','PC','CX','L','OUT']
+        && d.beforeMilli is int && d.beforeMilli >= 0
+        && d.deltaMilli is int && d.deltaMilli != 0
+        && d.afterMilli is int && d.afterMilli >= 0 && d.afterMilli == d.beforeMilli + d.deltaMilli
+        && d.createdAt == request.time && d.createdBy == request.auth.uid
+        && existsAfter(balancePath)
+        && getAfter(balancePath).data.lastMovementId == movementId
+        && getAfter(balancePath).data.quantityMilli == d.afterMilli
+        && (
+          (d.kind == 'purchase_in'
+            && d.deltaMilli > 0 && canCompanyBuy(companyId)
+            && existsAfter(/databases/$(database)/documents/companies/$(companyId)/purchases/$(d.sourceId))
+            && getAfter(/databases/$(database)/documents/companies/$(companyId)/purchases/$(d.sourceId)).data.status == 'confirmed')
+          || (d.kind == 'enfesto_out'
+            && d.deltaMilli < 0 && canCompanyConsume(companyId)
+            && existsAfter(/databases/$(database)/documents/companies/$(companyId)/enfesto_confirmations/$(d.sourceId))
+            && getAfter(/databases/$(database)/documents/companies/$(companyId)/enfesto_confirmations/$(d.sourceId)).data.status == 'confirmed')
+        );
+    }
+
+    match /companies/{companyId} {
+      allow read, write: if false;
+
+      match /purchases/{purchaseId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyBuy(companyId)
+          && request.resource.data.keys().hasOnly(['accessKey','xmlHash','supplier','supplierTaxId','number','date','totalCents','source','status','lines','pdfData','pdfName','createdAt','createdBy'])
+          && request.resource.data.supplier is string && request.resource.data.supplier.size() > 0 && request.resource.data.supplier.size() <= 250
+          && request.resource.data.supplierTaxId is string && request.resource.data.supplierTaxId.size() <= 40
+          && request.resource.data.number is string && request.resource.data.number.size() <= 80
+          && request.resource.data.date is string && request.resource.data.date.size() <= 30
+          && request.resource.data.accessKey is string && request.resource.data.accessKey.size() <= 44
+          && request.resource.data.xmlHash is string && request.resource.data.xmlHash.size() <= 100
+          && request.resource.data.totalCents is int && request.resource.data.totalCents >= 0
+          && request.resource.data.source in ['xml','pdf','manual']
+          && request.resource.data.status == 'confirmed'
+          && request.resource.data.lines is list && request.resource.data.lines.size() >= 1 && request.resource.data.lines.size() <= 25
+          && request.resource.data.get('pdfData','') is string && request.resource.data.get('pdfData','').size() <= 560000
+          && request.resource.data.get('pdfName','') is string && request.resource.data.get('pdfName','').size() <= 200
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /inventory/{stockId} {
+        allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
+        allow create: if canCompanyConsume(companyId)
+          && validStock(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.quantityMilli == request.resource.data.lastDeltaMilli
+          && stockMovementValid(companyId, stockId, 0);
+        allow update: if canCompanyConsume(companyId)
+          && validStock(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.material == resource.data.material
+          && request.resource.data.color == resource.data.color
+          && request.resource.data.unit == resource.data.unit
+          && request.resource.data.kind == resource.data.kind
+          && request.resource.data.quantityMilli == resource.data.quantityMilli + request.resource.data.lastDeltaMilli
+          && stockMovementValid(companyId, stockId, resource.data.quantityMilli);
+        allow delete: if false;
+      }
+
+      match /stock_movements/{movementId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyConsume(companyId) && validMovement(companyId, movementId);
+        allow update, delete: if false;
+      }
+
+      match /enfesto_confirmations/{confirmationId} {
+        allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
+        allow create: if canCompanyConsume(companyId)
+          && request.resource.data.keys().hasOnly(['oc','notes','status','lines','createdAt','createdBy'])
+          && request.resource.data.oc is string && request.resource.data.oc.size() > 0 && request.resource.data.oc.size() <= 80
+          && request.resource.data.notes is string && request.resource.data.notes.size() <= 500
+          && request.resource.data.lines is list && request.resource.data.lines.size() >= 1 && request.resource.data.lines.size() <= 20
+          && request.resource.data.status == 'confirmed'
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /bills/{billId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyBuy(companyId)
+          && request.resource.data.keys().hasOnly(['supplier','amountCents','dueDate','barcode','purchaseId','status','pdfName','pdfData','createdAt','createdBy'])
+          && request.resource.data.supplier is string && request.resource.data.supplier.size() > 0 && request.resource.data.supplier.size() <= 250
+          && request.resource.data.amountCents is int && request.resource.data.amountCents > 0
+          && request.resource.data.dueDate is string && request.resource.data.dueDate.size() == 10
+          && request.resource.data.barcode is string && request.resource.data.barcode.size() <= 100
+          && request.resource.data.purchaseId is string && request.resource.data.purchaseId.size() <= 100
+          && request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 560000
+          && request.resource.data.pdfData.matches('data:application/pdf;base64,.*')
+          && request.resource.data.pdfName is string && request.resource.data.pdfName.size() <= 200
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
     }
 
     match /{document=**} {
