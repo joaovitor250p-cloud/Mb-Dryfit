@@ -8,7 +8,7 @@ export type PurchaseLine = {
 export type InvoiceDraft = {
   accessKey:string; xmlHash:string; supplier:string; supplierTaxId:string;
   number:string; date:string; total:string; lines:PurchaseLine[];
-  source:'xml'|'pdf'|'manual';
+  source:'xml'|'pdf'|'manual'; pdfData?:string; pdfName?:string;
 };
 export type ConsumptionLine = {stockId:string; quantity:string};
 export type StockEntry = {id:string;material:string;color:string;unit:StockUnit;kind:string;quantityMilli:number};
@@ -114,7 +114,10 @@ async function createInventoryMovement(db:Firestore,company:string,uid:string,so
 }
 export async function confirmInvoice(db:Firestore,company:string,uid:string,invoice:InvoiceDraft):Promise<string>{
  validateInvoice(invoice);
- const invoiceId=invoice.accessKey&&/^\d{44}$/.test(invoice.accessKey)?invoice.accessKey:invoice.xmlHash||await sha256(JSON.stringify(invoice));
+ const invoiceId=invoice.accessKey&&/^\d{44}$/.test(invoice.accessKey)?invoice.accessKey:
+   invoice.supplierTaxId&&invoice.number
+    ? (await sha256(code(invoice.supplierTaxId)+'|'+code(invoice.number)+'|'+clean(invoice.date))).slice(0,48)
+    : invoice.xmlHash||await sha256(JSON.stringify(invoice));
  const aggregate=new Map<string,Delta>();
  for(const line of invoice.lines){
    const material=clean(line.description),color=line.kind==='tecido'?code(line.color):code(line.color||'SEM COR');
@@ -127,6 +130,7 @@ export async function confirmInvoice(db:Firestore,company:string,uid:string,invo
    accessKey:invoice.accessKey,xmlHash:invoice.xmlHash,supplier:clean(invoice.supplier),
    supplierTaxId:clean(invoice.supplierTaxId),number:clean(invoice.number),date:invoice.date,
    totalCents:cents(invoice.total),source:invoice.source,status:'confirmed',
+   ...(invoice.pdfData?{pdfData:invoice.pdfData,pdfName:invoice.pdfName||'nota.pdf'}:{}),
    lines:invoice.lines.map(line=>({...line,quantityMilli:qtyMilli(line.quantity),unitPriceCents:cents(line.unitPrice),totalCents:cents(line.total)}))
  });
  return invoiceId;
