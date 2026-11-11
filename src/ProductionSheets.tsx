@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
-import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency} from './lib/referencePrices';
+import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
 import { PageActiveContext } from './lib/pageMemory';
@@ -43,7 +43,16 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'reference_prices'),snap=>setPrices(snap.docs.map(x=>x.data() as {reference:string;type:string;price:string})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'workshops'),snap=>setWorkshops(snap.docs.map(x=>x.data() as {name:string;types:string[];specialPrices:{reference:string;type:string;price:string}[]})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>setTab(initialTab),[initialTab]);
- const getPrice=(sheet:Sheet,name:string,type:string)=>{const special=workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.specialPrices||[]).find(p=>p.reference.toUpperCase()===sheet.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);return special?.price??prices.find(p=>p.reference.toUpperCase()===sheet.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type)?.price??''};
+ const getPrice=(sheet:Sheet,name:string,type:string)=>{
+   const special=workshops
+     .filter(w=>workshopKey(w.name)===workshopKey(name))
+     .flatMap(w=>w.specialPrices||[])
+     .find(p=>p.reference.toUpperCase()===sheet.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
+   // Uma exceção cadastrada pelo usuário prevalece mesmo quando for menor que R$ 6.
+   if(special)return special.price;
+   const standard=prices.find(p=>p.reference.toUpperCase()===sheet.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
+   return priceWithMauroMinimum(name,standard?.price??'');
+ };
  const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>:<input value={form[key] as string} maxLength={250} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>}</label>;
  const save=async(status:'draft'|'pending')=>{if(!canEdit)return;if(status==='pending'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const payload={...form,model:form.model.trim(),reference:form.reference.trim().toUpperCase(),pieceType:form.pieceType||'',fabric:form.fabric?.trim()||'',volumes:form.volumes?.trim()||'',oc:form.oc.trim(),colors:form.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada para distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
  const editDraft=(s:Sheet)=>{setForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]});setEditingId(s.id);setTab('create');setError('');};
