@@ -68,7 +68,8 @@ service cloud.firestore {
           'permissions',
           'disabled',
           'approvedAt',
-          'approvedBy'
+          'approvedBy',
+          'companyId'
         ])
         && data.keys().hasAll([
           'email',
@@ -81,6 +82,7 @@ service cloud.firestore {
         && data.email is string
         && data.email.size() <= 320
         && data.role in ['viewer', 'editor']
+        && data.get('companyId','mb-principal') == currentCompany()
         && validSections(data.permissions)
         && data.disabled == false
         && data.approvedBy == request.auth.uid
