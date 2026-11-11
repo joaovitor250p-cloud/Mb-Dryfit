@@ -117,8 +117,8 @@ async function createInventoryMovement(db:Firestore,company:string,uid:string,so
 export async function confirmInvoice(db:Firestore,company:string,uid:string,invoice:InvoiceDraft):Promise<string>{
  validateInvoice(invoice);
  const invoiceId=invoice.accessKey&&/^\d{44}$/.test(invoice.accessKey)?invoice.accessKey:
-   invoice.supplierTaxId&&invoice.number
-    ? (await sha256(code(invoice.supplierTaxId)+'|'+code(invoice.number)+'|'+clean(invoice.date))).slice(0,48)
+   invoice.number&&(invoice.supplierTaxId||invoice.supplier)
+    ? (await sha256(code(invoice.supplierTaxId||invoice.supplier)+'|'+code(invoice.number)+'|'+clean(invoice.date))).slice(0,48)
     : invoice.xmlHash||await sha256(JSON.stringify(invoice));
  const aggregate=new Map<string,Delta>();
  for(const line of invoice.lines){
