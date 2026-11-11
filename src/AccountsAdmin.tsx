@@ -32,7 +32,7 @@ const asAccount = (uid: string, data: DocumentData): Account => ({
 
 // As contas são criadas pelo próprio usuário na tela inicial.
 // Somente um administrador existente aprova acessos e autoriza áreas.
-export default function AccountsAdmin({selfUid}: {selfUid: string}) {
+export default function AccountsAdmin({selfUid,companyId='mb-principal'}: {selfUid:string;companyId?:string}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [drafts, setDrafts] = useState<Record<string, {role: 'viewer' | 'editor'; permissions: Section[]}>>({});
@@ -81,7 +81,7 @@ export default function AccountsAdmin({selfUid}: {selfUid: string}) {
       const batch = writeBatch(database);
       batch.set(doc(database, 'user_roles', request.uid), {
         email: request.email, role: draft.role, permissions: draft.permissions,
-        disabled: false, approvedAt: serverTimestamp(), approvedBy: actorUid,
+        companyId,disabled: false, approvedAt: serverTimestamp(), approvedBy: actorUid,
       });
       batch.update(doc(database, 'access_requests', request.uid), {
         status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: actorUid,
