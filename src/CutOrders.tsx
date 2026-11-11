@@ -412,8 +412,27 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       }
       setDraft(null);
     } catch(e) {
-      const detail = errorText(e);
-      notify(needsSample ? `Entrega não concluída: a OC e a amostra precisam ser salvas juntas. ${detail} Confira se as novas regras do Firestore foram publicadas.` : detail,true);
+      const code=String((e as {code?:string})?.code||'');
+      // Quando o Firebase recusa somente a transação OC+Amostra, NÃO impede
+      // o cadastro da OC. Nunca altera as regras nem cria amostra sem autorização.
+      if(needsSample&&code.includes('permission-denied')){
+        try{
+          const ref=doc(db,'cut_orders',id);
+          await runTransaction(db,async transaction=>{
+            const current=await transaction.get(ref);
+            if(!editing&&current.exists())throw new Error('Esta OC já foi salva. Atualize a planilha antes de tentar novamente.');
+            if(editing&&!current.exists())throw new Error('A OC foi excluída em outro dispositivo. Atualize a planilha.');
+            if(editing)transaction.update(ref,content);
+            else transaction.set(ref,{...content,createdAt:serverTimestamp(),createdBy:user.uid});
+          });
+          setDraft(null);
+          notify(`OC ${row.oc} SALVA com sucesso como ENTREGUE. O Firebase recusou a sincronização automática com Amostras; a amostra NÃO foi criada ou atualizada. Confira a área Amostras e as regras publicadas antes de depender desse vínculo.`);
+        }catch(fallbackError){
+          notify(`O Firebase recusou o cadastro da OC ${row.oc} mesmo sem a Amostra: ${errorText(fallbackError)}. Verifique a permissão de escrita de Ordem de Corte e as regras efetivamente publicadas.`,true);
+        }
+      }else{
+        notify(`Não foi possível salvar a OC ${row.oc}: ${errorText(e)}`,true);
+      }
     } finally {setBusy(false)}
   };
   // Regras do Firestore: excluir cut_orders é permitido somente a administradores.
