@@ -6,10 +6,10 @@ import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lu
 import { safeProviderMessage } from './lib/safeMessage';
 
 type Role = 'admin' | 'editor' | 'viewer';
-type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution';
+type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution' | 'purchases';
 type Account = { uid: string; email: string; role: Role; permissions: Section[]; disabled: boolean };
 type Request = { uid: string; email: string; status: 'pending' | 'approved' | 'denied' };
-const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution'];
+const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'purchases'];
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'catalog', label: 'Catálogo de modelos' },
   { value: 'samples', label: 'Amostras' },
@@ -20,6 +20,7 @@ const SECTIONS: { value: Section; label: string }[] = [
   { value: 'workshops', label: 'Oficinas' },
   { value: 'sheets', label: 'Fichas de produção (criar e consultar)' },
   { value: 'sheet_distribution', label: 'Distribuir fichas (autorização individual)' },
+  { value: 'purchases', label: 'Compras e Estoque' },
 ];
 const errorText = (e: unknown) => safeProviderMessage(e, 'Não foi possível salvar.');
 const asSections = (value: unknown): Section[] => Array.isArray(value) ? value.filter((s): s is Section => ALL.includes(s as Section)) : ALL;
