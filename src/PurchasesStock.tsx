@@ -1,7 +1,7 @@
 import {useContext,useEffect,useMemo,useState} from 'react';
 import type {User} from 'firebase/auth';
 import type {Firestore} from 'firebase/firestore';
-import {collection,onSnapshot} from 'firebase/firestore';
+import {collection,onSnapshot,query,orderBy,limit} from 'firebase/firestore';
 import {FileCode2,FileText,PackagePlus,Boxes,Scissors,CheckCircle2,AlertTriangle,UploadCloud,Download} from 'lucide-react';
 import {PageActiveContext} from './lib/pageMemory';
 import {safeProviderMessage} from './lib/safeMessage';
@@ -81,10 +81,10 @@ export default function PurchasesStock({db,user,canEdit,canConsume,companyId=DEF
  useEffect(()=>{
    if(!active)return;
    const stop=[
-     onSnapshot(path('purchases'),snapshot=>setInvoices(snapshot.docs.map(d=>({id:d.id,...d.data()} as PurchaseRow)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))),e=>notify('Erro ao carregar notas: '+safeProviderMessage(e),true)),
-     onSnapshot(path('bills'),snapshot=>setBills(snapshot.docs.map(d=>({id:d.id,...d.data()} as BillRow)).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''))),e=>notify('Erro ao carregar boletos: '+safeProviderMessage(e),true)),
+     onSnapshot(query(path('purchases'),orderBy('createdAt','desc'),limit(80)),snapshot=>setInvoices(snapshot.docs.map(d=>({id:d.id,...d.data()} as PurchaseRow)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))),e=>notify('Erro ao carregar notas: '+safeProviderMessage(e),true)),
+     onSnapshot(query(path('bills'),orderBy('createdAt','desc'),limit(80)),snapshot=>setBills(snapshot.docs.map(d=>({id:d.id,...d.data()} as BillRow)).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''))),e=>notify('Erro ao carregar boletos: '+safeProviderMessage(e),true)),
      onSnapshot(path('inventory'),snapshot=>setStocks(snapshot.docs.map(d=>({id:d.id,...d.data()} as StockEntry)).sort((a,b)=>a.material.localeCompare(b.material,'pt-BR')||a.color.localeCompare(b.color,'pt-BR'))),e=>notify('Erro ao carregar estoque: '+safeProviderMessage(e),true)),
-     onSnapshot(path('stock_movements'),snapshot=>setMoves(snapshot.docs.map(d=>({id:d.id,...d.data()} as MovementRow)).sort((a,b)=>(b.createdAt?.toDate?.()?.getTime()||0)-(a.createdAt?.toDate?.()?.getTime()||0)).slice(0,80)),e=>notify('Erro ao carregar movimentações: '+safeProviderMessage(e),true))
+     onSnapshot(query(path('stock_movements'),orderBy('createdAt','desc'),limit(80)),snapshot=>setMoves(snapshot.docs.map(d=>({id:d.id,...d.data()} as MovementRow)).sort((a,b)=>(b.createdAt?.toDate?.()?.getTime()||0)-(a.createdAt?.toDate?.()?.getTime()||0)).slice(0,80)),e=>notify('Erro ao carregar movimentações: '+safeProviderMessage(e),true))
    ];return()=>stop.forEach(off=>off());
  },[db,companyId,active]);
  const totalInStock=useMemo(()=>stocks.filter(s=>s.kind==='tecido').length,[stocks]);
@@ -108,7 +108,7 @@ export default function PurchasesStock({db,user,canEdit,canConsume,companyId=DEF
        const text=await extractPdfText(file);
        const amount=findAmount(text);
        setInvoice(old=>({...initialInvoice(),
-         source:'pdf',supplier:guessSupplier(text),total:amount||old.total,
+         source:'pdf',supplier:guessSupplier(text),total:amount||'0',
          pdfData:data,pdfName:file.name,lines:[initialLine()]}));
        notify(text.trim()?
          'PDF lido. Identifique e confira manualmente os itens: DANFEs e PDFs variam de formato e nem sempre têm quantidades estruturadas.':
