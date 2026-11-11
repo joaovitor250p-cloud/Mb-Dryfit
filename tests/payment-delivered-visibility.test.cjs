@@ -27,7 +27,7 @@ function selectedFor(rows,fridayDate,paymentQueue){
   }).outputText;
   const ctx={exports:{},rows,fridayDate,paymentQueue,paymentSearch:'',
     useMemo:fn=>fn(),done:o=>o.status==='ENTREGUE',paid:o=>o.paymentDone==='OK',
-    num:Number,norm:String,toISO};
+    num:value=>Number(String(value).replace(',','.')),norm:String,toISO};
   vm.runInNewContext(code,ctx);
   return {selection:[...ctx.exports.selection],eligible:[...ctx.exports.eligible].map(o=>o.id)};
 }
