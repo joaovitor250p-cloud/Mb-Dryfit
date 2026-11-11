@@ -373,7 +373,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   // apenas as 48 visíveis. Transações relêem cada amostra antes de completar
   // somente os campos faltantes. Fotos, status e observações são preservados.
   const synchronizeSamples = async () => {
-    if (syncing || busy || !canEdit || !canReadOrders || view !== 'samples') return;
+    if (syncing || busy || !canEdit || !canReadOrders || view !== 'cuts') return;
     const candidates = items.filter(sampleHasMissingData).filter(item => normalizeSampleOC(item.oc));
     if (!candidates.length) return showMessage('Todas as amostras já têm os dados disponíveis preenchidos.');
     if (!window.confirm(`Conferir ${candidates.length} amostra(s) com dados incompletos pela OC? O sistema só preencherá campos vazios e manterá fotos e informações já cadastradas.`)) return;
@@ -715,7 +715,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   // Corrige exclusivamente o nome do costureiro em amostras existentes.
   // Fotos, REF, quantidade, vínculo, datas originais e status ficam intactos.
   const standardizeExistingTailors=async()=>{
-    if(!canEdit||view!=='samples'||busy)return;
+    if(!canEdit||view!=='cuts'||busy)return;
     const candidates=items.filter(p=>p.tailor?.trim()&&canonicalWorkshopName(p.tailor)!==p.tailor);
     if(!candidates.length)return showMessage('Todos os nomes de costureiros já estão padronizados.');
     if(!window.confirm(`Padronizar os nomes de costureiros em ${candidates.length} amostra(s)? A alteração ajusta grafia, acentos e MAIÚSCULAS. Nenhuma foto, OC, REF ou quantidade será alterada.`))return;
@@ -749,10 +749,15 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   };
 
   return <div className="page-wrap production-page">
-    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte as fotos e informações das amostras. Cadastros novos podem ser feitos por Adicionar amostra.' : 'Gerencie os dados, fotos e exclusões das OCs; acompanhe o andamento e marque os cortes como prontos.'}</p></div>
+    <div className="page-heading"><div><span className="eyebrow">PRODUÇÃO COMPARTILHADA</span><h1>{view === 'samples' ? 'Amostras' : 'Cortes'}</h1><p>{view === 'samples' ? 'Consulte fotos e informações das amostras. Para adicionar ou editar fotos, utilize a aba Cortes.' : 'Gerencie os dados, fotos e exclusões das OCs; acompanhe o andamento e marque os cortes como prontos.'}</p></div>
       <div className="heading-actions">
-        {view==='samples'&&<>{canEdit&&canReadOrders&&<button type="button" className="outline-button" disabled={busy||syncing||loading} onClick={()=>void synchronizeSamples()} title="Completar REF, costureiro, quantidade e nome usando a OC correspondente, sem alterar fotos ou dados preenchidos"><RefreshCw size={16}/>{syncing?'Sincronizando...':'Completar dados pelas OCs'}</button>}{canEdit&&incorrectTailorNames.length>0&&<button type="button" className="outline-button" disabled={busy||loading} onClick={()=>void standardizeExistingTailors()} title="Corrigir grafia, acentos e caixa alta dos costureiros nas amostras existentes"><Check size={16}/>Corrigir nomes ({incorrectTailorNames.length})</button>}<InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>{canEdit&&<button className="primary-button" onClick={openNew}><Plus size={17}/> Adicionar amostra</button>}</>}
-        {view==='cuts'&&canEdit&&<button className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
+        {view==='cuts'&&<>
+          {canEdit&&canReadOrders&&<button type="button" className="outline-button" disabled={busy||syncing||loading} onClick={()=>void synchronizeSamples()} title="Completar REF, costureiro, quantidade e nome usando a OC correspondente, sem alterar fotos ou dados preenchidos"><RefreshCw size={16}/>{syncing?'Sincronizando...':'Completar dados pelas OCs'}</button>}
+          {canEdit&&incorrectTailorNames.length>0&&<button type="button" className="outline-button" disabled={busy||loading} onClick={()=>void standardizeExistingTailors()} title="Corrigir grafia, acentos e caixa alta dos costureiros nas amostras existentes"><Check size={16}/>Corrigir nomes ({incorrectTailorNames.length})</button>}
+          {canEdit&&<InitialCutCsvImport db={db} user={user} isAdmin={isAdmin} models={models} alreadyOcs={items.map(p=>p.oc)}/>}
+          {canEdit&&<button type="button" className="primary-button" disabled={busy} onClick={openNew}><Plus size={17}/> Adicionar corte / foto</button>}
+          {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>selectionMode?cancelCutSelection():setSelectionMode(true)}><Trash2 size={16}/>{selectionMode?'Cancelar seleção':'Selecionar cartões'}</button>}
+        </>}
       </div></div>
 
     {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade de amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Amostras</span><strong>{loading ? '—' : items.length}</strong><small>Registros cadastrados, com ou sem foto</small></div></div></section>}
@@ -795,7 +800,6 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
             {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
           </dl>
 
-          {canEdit&&view==='samples'&&<div className="production-actions"><button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Adicionar foto ou editar os dados desta amostra"><Camera size={15}/> Editar / adicionar foto</button></div>}
           {canEdit&&view==='cuts'&&<div className="production-actions">
             {p.status==='in_progress'
               ? <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>
@@ -813,7 +817,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     {modal&&pageActive&&createPortal(<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)closeModal()}}>
       <section className="modal production-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
-          <div><span className="eyebrow">{editing?'CORTES / EDIÇÃO':'AMOSTRAS'}</span><h2>{editing?'Editar dados e fotos da OC':'Adicionar amostra'}</h2><p>{editing?'Altere as informações e gerencie as fotos desta OC.':'A mesma OC será exibida em Amostras e em Cortes, sem duplicação.'}</p></div>
+          <div><span className="eyebrow">{editing?'CORTES / EDIÇÃO':'CORTES / NOVO'}</span><h2>{editing?'Editar dados e fotos da OC':'Adicionar corte e fotos'}</h2><p>{editing?'Altere as informações e gerencie as fotos desta OC.':'Cadastre a OC e suas fotos em Cortes. A visualização aparecerá automaticamente em Amostras.'}</p></div>
           <button className="icon-button" onClick={closeModal}><X/></button>
         </div>
 
