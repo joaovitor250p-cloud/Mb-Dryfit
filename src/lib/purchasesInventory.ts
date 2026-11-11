@@ -87,6 +87,8 @@ export async function stockId(material:string,color:string,unit:string){
 type Delta = {id:string;material:string;color:string;kind:string;unit:StockUnit;amount:number;sourceId:string;sourceKind:'purchase_in'|'enfesto_out';oc:string};
 async function createInventoryMovement(db:Firestore,company:string,uid:string,sourceId:string,kind:'purchase_in'|'enfesto_out',deltas:Delta[],sourcePayload:Record<string,unknown>):Promise<void>{
  if(!deltas.length)throw Error('Nenhum material informado.');
+ // As regras do Spark limitam consultas getAfter por transação; até 7 saldos distintos.
+ if(deltas.length>7)throw Error('Esta operação contém mais de 7 combinações de material/cor/unidade. Divida a importação antes de confirmar; nenhuma entrada foi gravada.');
  const stocks=deltas.map(x=>doc(db,...coll(company,'inventory'),x.id));
  const movements=await Promise.all(deltas.map(async x=>doc(db,...coll(company,'stock_movements'),(await sha256(kind+'|'+sourceId+'|'+x.id)).slice(0,48))));
  const source=doc(db,...coll(company,kind==='purchase_in'?'purchases':'enfesto_confirmations'),sourceId);
