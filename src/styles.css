@@ -1600,3 +1600,27 @@ body { background: var(--bg); color: var(--text); }
     color:var(--muted,#64748b);
   }
 }
+
+/* Pagamentos de sexta: histórico recolhido na planilha e entrega/defeitos na OC. */
+.order-history-archive{border:1px solid var(--line);border-radius:14px;margin:14px 0;background:var(--panel);overflow:hidden}
+.order-history-archive>summary{cursor:pointer;display:flex;align-items:center;gap:9px;padding:16px 18px;font-weight:750;color:var(--text);list-style:none}
+.order-history-archive>summary::-webkit-details-marker{display:none}
+.order-history-archive>summary svg:last-child{margin-left:auto;transition:transform .2s ease}
+.order-history-archive[open]>summary svg:last-child{transform:rotate(180deg)}
+.order-history-archive .order-month-history{margin:0 14px 14px}
+.order-payment-info{display:grid;gap:5px;flex:1;min-width:190px}
+.order-payment-info>strong{font-size:14px;overflow-wrap:anywhere}
+.order-payment-info small{display:block;color:var(--muted);font-size:12px;line-height:1.4}
+.order-payment-info small b{color:var(--text);font-weight:750}
+.order-payment-line .order-payment-net{font-size:15px;font-weight:800;white-space:nowrap}
+.order-payment-preparation .order-discount-summary{display:grid;gap:4px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:13px}
+.order-payment-preparation .order-discount-summary>span{font-size:12px;font-weight:700;color:var(--muted)}
+.order-payment-preparation .order-discount-summary>strong{font-size:20px;font-weight:800}
+.order-payment-preparation .order-discount-summary>small{line-height:1.4;color:var(--muted)}
+@media(max-width:720px){
+  .order-history-archive>summary{padding:14px}
+  .order-history-archive .order-month-history{margin:0 8px 12px}
+  .order-payment-line{display:flex;flex-wrap:wrap;gap:11px;align-items:center}
+  .order-payment-info{flex:1 1 100%;min-width:0}
+  .order-payment-line .order-payment-net{font-size:18px}
+}
