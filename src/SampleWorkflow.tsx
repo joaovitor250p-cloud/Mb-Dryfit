@@ -316,8 +316,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
         }
         const order=matches[0];
         const fromOC={
-          name:order.model.trim().replace(/\s+/g,' ').toLocaleUpperCase('pt-BR'),
-          reference:order.ref.trim().toLocaleUpperCase('pt-BR'),
+          name:String(order.model||'').trim().replace(/\s+/g,' ').toLocaleUpperCase('pt-BR'),
+          reference:String(order.ref||'').trim().toLocaleUpperCase('pt-BR'),
           tailor:canonicalWorkshopName(order.office),
           quantity:quantityFromOrder(order.qty),
         };
