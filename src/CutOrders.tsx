@@ -11,6 +11,8 @@ import { safeProviderMessage } from './lib/safeMessage';
 import { currentAccountingMonth as monthNow, accountingMonthLabel as monthLabel, paymentMonth as monthOfPaidDate } from './lib/monthlyAccounting';
 import { parseFinanceNumber as num } from './lib/financeNumbers';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
+import type { ReferencePrice } from './lib/referencePrices';
+import { suggestOrderPiecePrice, type PriceWorkshop } from './lib/orderPriceSuggestion';
 
 // Ordem de Corte: documentos separados de production_samples, sem alterar as OCs da tela Cortes.
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
@@ -78,9 +80,61 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [deleteTarget,setDeleteTarget]=useState<Order|null>(null);
   const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
   const [loadingFicha,setLoadingFicha]=useState<string|null>(null);
+  // Preços são lidos apenas enquanto o formulário de OC estiver aberto.
+  // Nenhuma tabela é carregada repetidamente enquanto o usuário digita.
+  const [referencePrices,setReferencePrices]=useState<ReferencePrice[]>([]);
+  const [priceWorkshops,setPriceWorkshops]=useState<PriceWorkshop[]>([]);
+  const [priceDataLoading,setPriceDataLoading]=useState(false);
+  const [priceLookupWarning,setPriceLookupWarning]=useState('');
+  const priceEditedByUser=useRef(false);
   const [query,setQuery]=useState(String(initialPageState.query || '')),[typeFilter,setTypeFilter]=useState<ModelType>((initialPageState.typeFilter as ModelType)||'all'),[office,setOffice]=useState(String(initialPageState.office||'all')),[production,setProduction]=useState(String(initialPageState.production||'all')),[payFilter,setPayFilter]=useState(String(initialPageState.payFilter||'all'));
   const [count,setCount]=useState(Number(initialPageState.count)||PAGE),[editing,setEditing]=useState<Order|null>(null),[draft,setDraft]=useState<Order|null>(null);
   const [fridayDate,setFridayDate]=useState(()=>friday(today())),[showFriday,setShowFriday]=useState(!!initialPageState.showFriday);
+  const priceSuggestion=useMemo(()=>draft?suggestOrderPiecePrice(
+    draft.ref,draft.model,draft.office,referencePrices,priceWorkshops):null,
+    [draft?.ref,draft?.model,draft?.office,referencePrices,priceWorkshops]);
+  // Busca uma vez por abertura do formulário, respeitando permissões do Spark.
+  const pricePanelOpen=!!draft&&pageActive;
+  useEffect(()=>{
+    if(!pricePanelOpen)return;
+    let cancelled=false;
+    setPriceDataLoading(true);
+    setPriceLookupWarning('');
+    Promise.allSettled([
+      getDocs(collection(db,'reference_prices')),
+      getDocs(collection(db,'workshops'))
+    ]).then(([priceResult,workshopResult])=>{
+      if(cancelled)return;
+      if(priceResult.status==='fulfilled'){
+        setReferencePrices(priceResult.value.docs.map(d=>({
+          reference:String(d.data().reference||''),
+          type:String(d.data().type||''),
+          price:String(d.data().price||'')
+        })));
+      }else{
+        setReferencePrices([]);
+      }
+      if(workshopResult.status==='fulfilled'){
+        setPriceWorkshops(workshopResult.value.docs.map(d=>({
+          name:String(d.data().name||''),
+          specialPrices:Array.isArray(d.data().specialPrices)?d.data().specialPrices:[]
+        })));
+      }else{
+        setPriceWorkshops([]);
+      }
+      if(priceResult.status==='rejected'||workshopResult.status==='rejected')
+        setPriceLookupWarning('Não foi possível consultar todos os preços cadastrados. Confira o valor sugerido ou informe manualmente.');
+    }).finally(()=>{if(!cancelled)setPriceDataLoading(false)});
+    return()=>{cancelled=true};
+  },[db,pricePanelOpen]);
+  // Não substitui valores que a pessoa digitou manualmente nem preços de OCs antigas.
+  useEffect(()=>{
+    if(!draft||!priceSuggestion||priceEditedByUser.current)return;
+    setDraft(previous=>{
+      if(!previous||priceEditedByUser.current||previous.piecePrice===priceSuggestion.price)return previous;
+      return recalc({...previous,piecePrice:priceSuggestion.price,manualTotal:false});
+    });
+  },[draft?.ref,draft?.model,draft?.office,priceSuggestion?.price]);
   // A impressão é renderizada em um portal diretamente no body, com o CSS A4
   // compartilhado por Fichas de Produção. O navegador oferece "Salvar como PDF".
   useEffect(()=>{
@@ -186,7 +240,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   },[rows,paymentSearch]);
   const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
-  const open=(o?:Order)=>{if(!canEdit)return;setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
+  const open=(o?:Order)=>{if(!canEdit)return;priceEditedByUser.current=!!o?.piecePrice?.trim();setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
   const queuePayment=(o:Order,date=fridayDate)=>{
     setPaymentQueue(previous=>({...previous,[date]:[...new Set([...(previous[date]||[]),o.id])]}));
@@ -284,7 +338,26 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     finally{setBusy(false)}
   };
 
-  const fieldChange=(key:DataField,value:string)=>setDraft(current=>{if(!current)return current;const next={...current,[key]:value};if(key==='office')next.office=canonicalWorkshopName(value);if(key==='sent')next.due=value?toBR(after(toISO(value),10)):'';if(key==='total')next.manualTotal=true;if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());return next});
+  const fieldChange=(key:DataField,value:string)=>{
+    if(key==='piecePrice')priceEditedByUser.current=true;
+    if(key==='ref')priceEditedByUser.current=false;
+    setDraft(current=>{
+      if(!current)return current;
+      const next={...current,[key]:value};
+      if(key==='office')next.office=canonicalWorkshopName(value);
+      if(key==='sent')next.due=value?toBR(after(toISO(value),10)):'';
+      if(key==='total')next.manualTotal=true;
+      // A sugestão antiga não deve continuar quando a REF ou o tipo mudou.
+      if((key==='ref'||key==='model'||key==='office')&&!priceEditedByUser.current){
+        next.piecePrice='';
+        next.total='';
+        next.manualTotal=false;
+      }
+      if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);
+      if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());
+      return next;
+    });
+  };
   const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc({...draft,office:canonicalWorkshopName(draft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
     for(const key of [...numberKeys,...moneyKeys]){if(row[key]&&(!Number.isFinite(num(row[key]))||num(row[key])<0))return notify(`Confira ${names[key]}.`,true)}
@@ -490,7 +563,12 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     </div>,document.body)}
     {draft&&pageActive&&createPortal(<div className="order-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setDraft(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Editar Ordem de Corte"><header><div><span className="order-eyebrow">{editing?'EDIÇÃO AUTORIZADA':'NOVO CADASTRO'}</span><h2>{editing?`OC ${editing.oc}`:'Nova Ordem de Corte'}</h2><p>Edite os campos e clique em Salvar. Os descontos são calculados automaticamente.</p></div><button className="outline-button" onClick={()=>setDraft(null)}><X size={17}/></button></header>
       {alert&&<div className="production-alert" role="alert">{alert}</div>}
-      {([['Identificação',['oc','ref','model','office','qty','piecePrice']],['Produção e datas',['entry','sent','due','status','deliveredFlag','deliveredAt']],['Descontos e valores',['defects','discountPiece','discountTotal','total']],['Pagamento',['paymentDone','paidAt']]] as [string,DataField[]][]).map(([title,sectionFields])=><fieldset key={title} className="order-fieldset"><legend>{title}</legend><div className="order-fieldgrid">{sectionFields.map(k=><label key={k}>{names[k]}{k==='status'?<select value={draft[k]} onChange={e=>fieldChange(k,e.target.value)}><option value="EM ANDAMENTO">Em andamento</option><option value="ENTREGUE">Entregue</option></select>:k==='paymentDone'?<select value={draft[k]==='OK'?'OK':''} onChange={e=>fieldChange(k,e.target.value)}><option value="">Pendente</option><option value="OK">Pago</option></select>:k==='discountTotal'?<input readOnly title="Calculado por quantidade de defeitos × desconto por peça. Valores históricos são preservados se não há dados suficientes." value={draft[k]}/>:dateKeys.has(k)?<><input type="date" value={toISO(draft[k])} onChange={e=>fieldChange(k,toBR(e.target.value))}/>{!!draft[k]&&!toISO(draft[k])&&<small>Data da planilha a corrigir: {draft[k]} <button type="button" onClick={()=>fieldChange(k,'')}>Apagar</button></small>}</>:<input type={numberKeys.has(k)?'number':'text'} min={numberKeys.has(k)?0:undefined} value={draft[k]} onChange={e=>fieldChange(k,e.target.value)} placeholder={moneyKeys.has(k)?'Ex.: 8,50':''}/>}</label>)}</div></fieldset>)}
+      {([['Identificação',['oc','ref','model','office','qty','piecePrice']],['Produção e datas',['entry','sent','due','status','deliveredFlag','deliveredAt']],['Descontos e valores',['defects','discountPiece','discountTotal','total']],['Pagamento',['paymentDone','paidAt']]] as [string,DataField[]][]).map(([title,sectionFields])=><fieldset key={title} className="order-fieldset"><legend>{title}</legend><div className="order-fieldgrid">{sectionFields.map(k=><label key={k}>{names[k]}{k==='status'?<select value={draft[k]} onChange={e=>fieldChange(k,e.target.value)}><option value="EM ANDAMENTO">Em andamento</option><option value="ENTREGUE">Entregue</option></select>:k==='paymentDone'?<select value={draft[k]==='OK'?'OK':''} onChange={e=>fieldChange(k,e.target.value)}><option value="">Pendente</option><option value="OK">Pago</option></select>:k==='discountTotal'?<input readOnly title="Calculado por quantidade de defeitos × desconto por peça. Valores históricos são preservados se não há dados suficientes." value={draft[k]}/>:dateKeys.has(k)?<><input type="date" value={toISO(draft[k])} onChange={e=>fieldChange(k,toBR(e.target.value))}/>{!!draft[k]&&!toISO(draft[k])&&<small>Data da planilha a corrigir: {draft[k]} <button type="button" onClick={()=>fieldChange(k,'')}>Apagar</button></small>}</>:<input type={numberKeys.has(k)?'number':'text'} min={numberKeys.has(k)?0:undefined} value={draft[k]} onChange={e=>fieldChange(k,e.target.value)} placeholder={moneyKeys.has(k)?'Ex.: 8,50':''}/>}{k==='piecePrice'&&draft.ref.trim()&&<small className="order-price-hint">
+      {priceSuggestion
+        ?`Sugestão da REF ${draft.ref}: R$ ${priceSuggestion.price} (${priceSuggestion.source==='costureiro'?'preço especial da oficina':priceSuggestion.source==='referencia'?'tabela cadastrada':'lista inicial'} · ${priceSuggestion.type}). Pode editar.`
+        :priceDataLoading?'Consultando preço da referência...':'REF sem preço definido para este tipo de peça. Informe o valor por peça.'}
+      {priceLookupWarning&&<span> {priceLookupWarning}</span>}
+    </small>}</label>)}</div></fieldset>)}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
       <footer>{editing&&hasNewProductionSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
     {printSheet&&pageActive&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
