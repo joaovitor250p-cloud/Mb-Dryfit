@@ -1,9 +1,9 @@
 import { modelType } from './modelTypes';
-import { STARTER_PRICES, normalizedGarmentType, parsePrice, type ReferencePrice } from './referencePrices';
+import { STARTER_PRICES, normalizedGarmentType, parsePrice, priceWithMauroMinimum, type ReferencePrice } from './referencePrices';
 import { workshopKey } from './workshopNames';
 
 export type PriceWorkshop = { name:string; specialPrices?:ReferencePrice[] };
-export type PriceSuggestion = { price:string; type:string; source:'costureiro'|'referencia'|'lista_inicial' };
+export type PriceSuggestion = { price:string; type:string; source:'costureiro'|'referencia'|'lista_inicial'|'mauro_minimo' };
 
 const refKey=(value:string)=>String(value||'').trim().toUpperCase().replace(/^REF(?:ERENCIA)?\s*[.:\-#]?\s*/i,'');
 
@@ -55,8 +55,13 @@ export function suggestOrderPiecePrice(
     const found=source.list.find(p=>sameRef(p)&&normalizedGarmentType(p.type)===kind);
     if(!found)continue;
     const amount=parsePrice(String(found.price));
-    if(Number.isFinite(amount))
-      return {price:amount.toFixed(2).replace('.',','),type:kind,source:source.source};
+    if(Number.isFinite(amount)){
+      // Preço especial existente nunca é elevado para R$ 6.
+      const raw=amount.toFixed(2).replace('.',',');
+      const resolved=priceWithMauroMinimum(office,raw,source.source==='costureiro');
+      return {price:resolved,type:kind,
+        source:resolved!==raw?'mauro_minimo':source.source};
+    }
   }
   return null;
 }
