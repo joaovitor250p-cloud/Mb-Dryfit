@@ -195,6 +195,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [paymentQty,setPaymentQty]=useState('');
   const [paymentPiecePrice,setPaymentPiecePrice]=useState('');
   const [paymentTotal,setPaymentTotal]=useState('');
+  const [paymentDeliveredAt,setPaymentDeliveredAt]=useState('');
+  const [paymentDefects,setPaymentDefects]=useState('');
+  const [paymentDiscountPiece,setPaymentDiscountPiece]=useState('');
   const [paymentManualTotal,setPaymentManualTotal]=useState(false);
 
   const selectMonth=(month:string)=>{
@@ -226,10 +229,10 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const overdueCount=useMemo(()=>rows.filter(o=>overdue(o,currentDate)).length,[rows,currentDate]);
   
   const manualPaymentIds=(paymentQueue[fridayDate]||[]).filter(id=>rows.some(o=>o.id===id&&!paid(o)));
-  const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&num(o.total)>0&&(
-    (done(o)&&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate&&!o.paidAt)
-    || (done(o)&&(paymentQueue[fridayDate]||[]).includes(o.id))
-  )),[rows,fridayDate,paymentQueue]);
+  // Na sexta-feira só aparecem OCs escolhidas manualmente. O histórico fica na planilha.
+  const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&done(o)&&num(o.total)>0
+    &&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate
+    &&(paymentQueue[fridayDate]||[]).includes(o.id)),[rows,fridayDate,paymentQueue]);
   const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!(paymentQueue[fridayDate]||[]).includes(o.id)&&
     (!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows,fridayDate,paymentQueue]);
   const paymentMatches=useMemo(()=>{
@@ -249,16 +252,25 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     setPaymentQueue(previous=>({...previous,[fridayDate]:(previous[fridayDate]||[]).filter(value=>value!==id)}));
     notify('OC removida da seleção manual. Nenhum pagamento foi alterado.');
   };
-  const estimatedPaymentTotal=(o:Order,qty:string,unit:string)=>{
-    const calculated=calcNet({...o,qty,piecePrice:unit,manualTotal:false});
+  const estimatedPaymentTotal=(o:Order,qty:string,unit:string,defects=o.defects,discountPiece=o.discountPiece)=>{
+    const defectiveCount=defects.trim()?num(defects):0;
+    const defectiveValue=discountPiece.trim()?num(discountPiece):0;
+    if(!Number.isSafeInteger(defectiveCount)||defectiveCount<0||!Number.isFinite(defectiveValue)||defectiveValue<0)return '';
+    if(!/^\d{1,12}$/.test(qty.trim())||defectiveCount>Number(qty))return '';
+    const calculated=calcNet({...o,qty,piecePrice:unit,defects,discountPiece,
+      discountTotal:moneyText(defectiveCount*defectiveValue),manualTotal:false});
     return calculated!==null&&calculated>0?moneyText(calculated):'';
   };
   const preparePayment=(o:Order)=>{
     setPaymentQty(o.qty);
     setPaymentPiecePrice(o.piecePrice);
+    setPaymentDeliveredAt(toISO(o.deliveredAt));
+    setPaymentDefects(o.defects);
+    setPaymentDiscountPiece(o.discountPiece);
     setPaymentTotal(o.total);
     setPaymentManualTotal(o.manualTotal||!o.piecePrice.trim());
     setPaymentPrepare({order:o,date:fridayDate});
+    setAlert('');
   };
   const addPaymentOC=(o:Order)=>{
     if(!canEdit||busy)return;
@@ -269,7 +281,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     }
     if(o.paidAt.trim()&&!window.confirm(`A OC ${o.oc} possui data antiga de pagamento (${o.paidAt}), mas não está marcada como paga. Ao confirmar um novo pagamento, essa data será substituída. Continuar?`))return;
     setPaymentSearch('');
-    if(!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)||!(num(o.total)>0)){
+    if(!toISO(o.deliveredAt)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)||!(num(o.total)>0)
+      ||(num(o.defects)>0&&!(num(o.discountPiece)>0))){
       preparePayment(o);
       return;
     }
@@ -280,37 +293,65 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     if(!canEdit||busy||!paymentPrepare)return;
     const {order,date}=paymentPrepare;
     const qty=paymentQty.trim(),piecePrice=paymentPiecePrice.trim(),total=paymentTotal.trim();
+    const deliveredAt=toBR(paymentDeliveredAt);
+    const defects=paymentDefects.trim()||'0';
+    const discountPiece=paymentDiscountPiece.trim()||'0';
+    const defectsCount=num(defects),defectUnit=num(discountPiece);
+    if(!paymentDeliveredAt||!toISO(deliveredAt)||toISO(deliveredAt)>date)
+      return notify('Informe a data real da entrega. Ela não pode ser posterior à sexta-feira escolhida.',true);
     if(!/^\d{1,12}$/.test(qty)||!Number.isSafeInteger(Number(qty))||Number(qty)<=0)
       return notify('Informe uma quantidade inteira maior que zero, com até 12 dígitos.',true);
+    if(!Number.isSafeInteger(defectsCount)||defectsCount<0||defectsCount>Number(qty))
+      return notify('A quantidade com defeito deve ser inteira, não negativa e não pode passar da quantidade entregue.',true);
+    if(!Number.isFinite(defectUnit)||defectUnit<0)
+      return notify('Informe um valor de desconto válido por peça defeituosa.',true);
+    if(defectsCount>0&&defectUnit<=0)
+      return notify('Informe quanto será descontado por peça defeituosa.',true);
     if(piecePrice&&(!Number.isFinite(num(piecePrice))||num(piecePrice)<=0))
-      return notify('Confira o valor por peça ou deixe esse campo vazio e informe o valor total.',true);
+      return notify('Confira o valor por peça ou informe um total manual.',true);
+    const discountTotal=moneyText(defectsCount*defectUnit);
     if(!(Number.isFinite(num(total))&&num(total)>0))
       return notify('Informe o valor total a pagar, maior que zero.',true);
     if(!paymentManualTotal){
-      const calculated=estimatedPaymentTotal(order,qty,piecePrice);
-      if(!calculated)return notify('Informe um valor por peça válido ou preencha o total manualmente.',true);
-      if(Math.abs(num(calculated)-num(total))>0.02)return notify('O total calculado mudou. Clique em “Calcular pelo valor por peça” ou informe manualmente o total.',true);
+      const calculated=estimatedPaymentTotal(order,qty,piecePrice,defects,discountPiece);
+      if(!calculated)return notify('Confira quantidade, preço e descontos: o total calculado precisa ser maior que zero.',true);
+      if(Math.abs(num(calculated)-num(total))>0.02)
+        return notify('O total calculado mudou. Clique em “Calcular valor final” ou ajuste o total manualmente.',true);
+    }else if(!window.confirm('Você informou um valor total manual. Confirma que ele JÁ INCLUI o desconto das peças com defeito, para evitar desconto duplicado?')){
+      return;
     }
     setBusy(true);
     try{
       const ref=doc(db,'cut_orders',order.id);
+      const audit=doc(collection(db,'audit_log'));
       await runTransaction(db,async transaction=>{
         const current=await transaction.get(ref);
         if(!current.exists())throw Error('A OC não existe mais. Atualize a planilha.');
         const data=current.data();
-        if(String(data.paymentDone||'').trim().toUpperCase()==='OK')throw Error('Esta OC já foi paga por outro usuário.');
-        if(String(data.status||'').trim().toUpperCase()!=='ENTREGUE')throw Error('A OC não está mais marcada como ENTREGUE.');
-        if(String(data.qty??'')!==order.qty||String(data.piecePrice??'')!==order.piecePrice||String(data.total??'')!==order.total)
-          throw Error('A quantidade ou o valor desta OC mudou em outro dispositivo. Abra novamente para conferir.');
+        if(String(data.paymentDone||'').trim().toUpperCase()==='OK')
+          throw Error('Esta OC já foi paga. Desmarque o pagamento antes de ajustar a entrega e os defeitos.');
+        if(String(data.status||'').trim().toUpperCase()!=='ENTREGUE')
+          throw Error('A OC não está mais marcada como ENTREGUE.');
+        if(['qty','piecePrice','total','deliveredAt','defects','discountPiece','discountTotal'].some(k=>String(data[k]??'')!==String(order[k as DataField])))
+          throw Error('Os dados desta OC mudaram em outro dispositivo. Feche e abra novamente para conferir.');
         transaction.update(ref,{
-          qty,piecePrice,total,manualTotal:paymentManualTotal||!piecePrice,
+          qty,piecePrice,total,deliveredAt,defects,discountPiece,discountTotal,
+          manualTotal:paymentManualTotal||!piecePrice,
           updatedAt:serverTimestamp(),updatedBy:user.uid
+        });
+        transaction.set(audit,{
+          actorUid:user.uid,actorEmail:user.email||'',
+          action:'conferiu_entrega_defeitos_oc',
+          modelName:`OC ${order.oc} — ${officeLabel(order.office)}`,
+          before:{qty:order.qty,piecePrice:order.piecePrice,deliveredAt:order.deliveredAt,defects:order.defects,discountPiece:order.discountPiece,discountTotal:order.discountTotal,total:order.total},
+          after:{qty,piecePrice,deliveredAt,defects,discountPiece,discountTotal,total},
+          at:serverTimestamp()
         });
       });
       queuePayment(order,date);
       setPaymentPrepare(null);
-      notify(`Quantidade e valor da OC ${order.oc} salvos. OC incluída na relação de sexta-feira; pagamento ainda pendente.`);
-    }catch(e){notify('Não foi possível preparar a OC: '+errorText(e),true)}
+      notify(`Entrega, defeitos e valor da OC ${order.oc} salvos. OC adicionada à sexta-feira; pagamento continua PENDENTE.`);
+    }catch(e){notify('Não foi possível salvar a conferência: '+errorText(e),true)}
     finally{setBusy(false)}
   };
   const undoPaid=async(o:Order)=>{
@@ -353,6 +394,14 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         next.total='';
         next.manualTotal=false;
       }
+      if(key==='defects'||key==='discountPiece'){
+        next.manualTotal=false;
+        if(!next.defects.trim()||num(next.defects)===0){
+          next.discountTotal='0,00';
+        }else if(next.discountPiece.trim()&&Number.isFinite(num(next.discountPiece))){
+          next.discountTotal=moneyText(Math.max(0,integer(next.defects)*num(next.discountPiece)));
+        }else next.discountTotal='';
+      }
       if(key==='qty'||key==='piecePrice'||key==='defects'||key==='discountPiece')return recalc(next);
       if(key==='status'&&value==='ENTREGUE'&&!next.deliveredAt)next.deliveredAt=toBR(today());
       return next;
@@ -361,6 +410,10 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc({...draft,office:canonicalWorkshopName(draft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
     for(const key of [...numberKeys,...moneyKeys]){if(row[key]&&(!Number.isFinite(num(row[key]))||num(row[key])<0))return notify(`Confira ${names[key]}.`,true)}
+    if(row.defects.trim()&&(!Number.isSafeInteger(num(row.defects))||num(row.defects)>num(row.qty)))
+      return notify('A quantidade de defeitos não pode superar a quantidade de peças desta OC.',true);
+    if(num(row.defects)>0&&!(num(row.discountPiece)>0))
+      return notify('Informe o desconto por peça defeituosa antes de salvar.',true);
     if(!editing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
     const id=editing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
     const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:editing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
