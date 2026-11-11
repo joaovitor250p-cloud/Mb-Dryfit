@@ -117,6 +117,21 @@ export const parsePrice=(raw:string):number=>{
   return Number.isFinite(amount)&&amount>0?amount:NaN;
 };
 export const currency=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+/**
+ * MAURO: piso de R$ 6,00 apenas quando NÃO existir preço especial
+ * cadastrado para esta REF e tipo de peça.
+ *
+ * Os preços especiais do costureiro sempre têm prioridade, mesmo abaixo
+ * de R$ 6,00; preços padrão de R$ 6,00 ou acima permanecem intactos.
+ * Não inventa preço para REF sem preço padrão válido.
+ */
+export const priceWithMauroMinimum=(tailor:string,regularPrice:string,explicitSpecial=false):string=>{
+  if(explicitSpecial)return regularPrice;
+  const amount=parsePrice(regularPrice);
+  if(workshopKey(tailor)==='MAURO'&&Number.isFinite(amount)&&amount<6)return '6,00';
+  return regularPrice;
+};
+
 export const eligibleTypes=(name:string)=>['MAURO','DARIO MEDINA','JONY','RODRIGO'].includes(workshopKey(name))?(workshopKey(name)==='RODRIGO'?TYPES:TYPES.slice(0,3)):['Bermuda','Calça'];
 export const TAILORS=['Mauro','Dario Medina','Jony','Rodrigo','Dona Francisca','Ramiro','Vitor','Theodoro','Virgílio'];
 
