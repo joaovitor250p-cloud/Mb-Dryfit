@@ -56,12 +56,16 @@ test('OC entregue cria amostra na mesma transação, sem apagar foto existente',
   assert.doesNotMatch(orders,/transaction\.update\(sampleRef,\s*\{[^}]*imageData:/);
 });
 
-test('amostras antigas e sem REF são exibidas e permitem edição de foto e quantidade',()=>{
+test('amostras são apenas consulta e a edição/cadastro de fotos fica em Cortes',()=>{
   assert.match(samples,/view === 'samples'\s*\? true/);
   assert.match(samples,/Quantidade total/);
   assert.match(samples,/missingDataFromOrder/);
   assert.match(samples,/linkedOrders/);
-  assert.match(samples,/view==='samples'&&<div className="production-actions"/);
+  assert.doesNotMatch(samples,/view==='samples'&&<div className="production-actions"/);
+  assert.match(samples,/canEdit&&view==='cuts'&&<div className="production-actions"/);
+  assert.match(samples,/view==='cuts'&&<>[\s\S]*?Adicionar corte \/ foto/);
+  assert.match(samples,/canEdit&&<InitialCutCsvImport/);
+  assert.match(samples,/Para adicionar ou editar fotos, utilize a aba Cortes/);
   assert.match(samples,/SEM CÓDIGO|SEM REF/);
 });
 
