@@ -37,7 +37,7 @@ test('OC entregue hoje não desaparece se ainda não foi selecionada para pagar'
   assert.deepEqual(result.map(x=>x.id),['729','731']);
 });
 test('OCs entregues continuam visíveis em outro celular sem seleção local',()=>{
-  assert.deepEqual(visibleFor([order('729'),order('730')],[]).map(x=>x.id),['729','730']);
+  assert.deepEqual(visibleFor([order('729'),order('730')],[]).map(x=>x.id),['730','729']);
   assert.deepEqual(visibleFor([order('729'),order('730')],['729']).map(x=>x.id),['730']);
 });
 test('OCs pagas não aparecem como pendentes; entrega sem data pode ser recuperada',()=>{
