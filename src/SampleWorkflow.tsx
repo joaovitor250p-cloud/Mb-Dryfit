@@ -779,7 +779,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       </div>}
 
       {error&&<div className="production-alert" role="alert">{error}</div>}
-      {syncProgress&&view==='samples'&&<div className="production-ok" role="status">{syncProgress}</div>}
+      {syncProgress&&view==='cuts'&&<div className="production-ok" role="status">{syncProgress}</div>}
       {message&&<div className="production-ok">{message}</div>}
 
       {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
