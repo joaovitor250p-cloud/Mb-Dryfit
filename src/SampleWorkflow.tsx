@@ -11,7 +11,7 @@ import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 import { optimizePhoto } from './lib/photos';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
-import { buildOrderLookup, missingDataFromOrder, normalizeSampleOC, orderForSample, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
+import { buildOrderLookup, missingDataFromOrder, missingModel, missingReference, missingTailor, missingQuantity, normalizeSampleOC, orderForSample, quantityFromOrder, sampleOrderSearchValues, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
 import { canonicalWorkshopName } from './lib/workshopNames';
 import { safeProviderMessage } from './lib/safeMessage';
 
@@ -174,6 +174,15 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const [reference, setReference] = useState('');
   const [tailor, setTailor] = useState('');
   const [quantity, setQuantity] = useState('');
+  // Busca da OC somente enquanto o formulário estiver aberto e após digitar.
+  const [ocLookupStatus,setOcLookupStatus]=useState<'idle'|'loading'|'found'|'missing'|'multiple'|'permission'|'error'>('idle');
+  const [ocLookupMessage,setOcLookupMessage]=useState('');
+  const [ocLookupRevision,setOcLookupRevision]=useState(0);
+  const ocLookupRequested=useRef(false);
+  const ocLookupForce=useRef(false);
+  const manuallyEdited=useRef<Set<string>>(new Set());
+  const autoFilledValues=useRef<Record<string,string>>({});
+
   // Completa visualmente campos ausentes com dados da OC, sem sobrescrever informações da amostra.
   const [linkedOrders, setLinkedOrders] = useState<Record<string, OrderInfo|null>>({});
   const requestedOrderOcs = useRef<Set<string>>(new Set());
@@ -266,6 +275,92 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     return () => { cancelled = true; wanted.forEach(key => requestedOrderOcs.current.delete(key)); };
   }, [db, pageActive, view, canReadOrders, displayed]);
 
+  // Não carrega a coleção inteira: procura até 9 grafias da OC em uma única
+  // consulta indexada, com debounce, e descarta respostas de buscas antigas.
+  // Nunca escolhe automaticamente entre duas OCs com o mesmo número.
+  useEffect(()=>{
+    if(!modal||!pageActive||!ocLookupRequested.current)return;
+    const key=normalizeSampleOC(oc);
+    if(!key){setOcLookupStatus('idle');setOcLookupMessage('');return}
+    if(!canReadOrders){
+      setOcLookupStatus('permission');
+      setOcLookupMessage('Seu perfil não tem acesso à Ordem de Corte. Solicite permissão para usar o preenchimento automático ou preencha manualmente.');
+      return;
+    }
+    let cancelled=false;
+    setOcLookupStatus('loading');
+    setOcLookupMessage('Buscando OC na Ordem de Corte...');
+    const timer=window.setTimeout(async()=>{
+      try{
+        const variants=sampleOrderSearchValues(oc);
+        const result=await getDocs(fsQuery(collection(db,'cut_orders'),where('oc','in',variants)));
+        if(cancelled)return;
+        const found=new Map<string,OrderInfo>();
+        for(const snapshot of result.docs){
+          const d=snapshot.data();
+          const order:OrderInfo={id:snapshot.id,oc:String(d.oc||''),model:String(d.model||''),
+            ref:String(d.ref||''),office:String(d.office||''),qty:String(d.qty||'')};
+          if(normalizeSampleOC(order.oc)===key)found.set(order.id,order);
+        }
+        const matches=[...found.values()];
+        if(matches.length>1){
+          setOcLookupStatus('multiple');
+          setOcLookupMessage('Há mais de uma Ordem de Corte com esse número. Não completei os campos para evitar dados trocados; confira na área Ordem de Corte.');
+          return;
+        }
+        if(!matches.length){
+          setOcLookupStatus('missing');
+          setOcLookupMessage('OC não encontrada na Ordem de Corte. Você ainda pode preencher os dados manualmente.');
+          return;
+        }
+        const order=matches[0];
+        const fromOC={
+          name:order.model.trim().replace(/\s+/g,' ').toLocaleUpperCase('pt-BR'),
+          reference:order.ref.trim().toLocaleUpperCase('pt-BR'),
+          tailor:canonicalWorkshopName(order.office),
+          quantity:quantityFromOrder(order.qty),
+        };
+        // Em edição da mesma OC, completa somente campos ausentes.
+        // Ao digitar outra OC ou solicitar a substituição, usa os valores dela,
+        // exceto os que o usuário acabou de modificar manualmente.
+        const overwrite=!editing||normalizeSampleOC(editing.oc)!==key||ocLookupForce.current;
+        const apply=(field:string,value:string,current:string,missing:(v:string)=>boolean)=>{
+          if(!value)return current;
+          if(overwrite){
+            if(manuallyEdited.current.has(field)&&!ocLookupForce.current)return current;
+            if(!editing)autoFilledValues.current[field]=value;
+            return value;
+          }
+          return missing(current)?value:current;
+        };
+        setName(v=>apply('name',fromOC.name,v,missingModel));
+        setReference(v=>apply('reference',fromOC.reference,v,missingReference));
+        setTailor(v=>apply('tailor',fromOC.tailor,v,missingTailor));
+        setQuantity(v=>apply('quantity',fromOC.quantity,v,missingQuantity));
+        ocLookupForce.current=false;
+        setOcLookupStatus('found');
+        const missingFields=[
+          !fromOC.name?'nome da peça':'',
+          !fromOC.reference?'REF':'',
+          !fromOC.tailor?'costureiro':'',
+          !fromOC.quantity?'quantidade':'',
+        ].filter(Boolean);
+        const already=items.some(sample=>sample.id!==editing?.id&&normalizeSampleOC(sample.oc)===key);
+        setOcLookupMessage(`OC ${order.oc} encontrada. Dados disponíveis preenchidos automaticamente.`
+          +(missingFields.length?` Faltam na OC: ${missingFields.join(', ')}.`:'')
+          +(already?' Atenção: essa OC já possui uma amostra cadastrada; abra o registro existente em vez de criar outra.':''));
+      }catch(e){
+        if(cancelled)return;
+        setOcLookupStatus('error');
+        const code=String((e as {code?:string})?.code||'');
+        setOcLookupMessage(code.includes('permission-denied')
+          ?'O Firebase negou a consulta das Ordens de Corte. Verifique a permissão desta área.'
+          :'Não foi possível buscar essa OC agora. Confira sua conexão ou preencha os dados manualmente.');
+      }
+    },420);
+    return()=>{cancelled=true;window.clearTimeout(timer)};
+  },[db,modal,pageActive,oc,editing?.id,canReadOrders,ocLookupRevision]);
+
   const currentInfo = (sample: Production): Production => {
     const fromOrder = linkedOrders[normalizeSampleOC(sample.oc)];
     const patch = missingDataFromOrder(sample, fromOrder);
@@ -356,10 +451,38 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   };
 
   const showMessage = (s: string, bad = false) => { setError(bad ? s : ''); setMessage(bad ? '' : s); };
-  const closeModal = () => { galleryRequestRef.current++;setGalleryFetching(false);setModal(false); setPhotoError(''); setGalleryLoaded(true); };
+  const updateOCInput=(value:string)=>{
+    ocLookupRequested.current=true;
+    ocLookupForce.current=false;
+    const prior={...autoFilledValues.current};
+    autoFilledValues.current={};
+    if(!editing){
+      setName(v=>v===prior.name?'':v);
+      setReference(v=>v===prior.reference?'':v);
+      setTailor(v=>v===prior.tailor?'':v);
+      setQuantity(v=>v===prior.quantity?'':v);
+    }
+    setOcLookupStatus('idle');setOcLookupMessage('');setOc(value);
+  };
+  const reloadOCDetails=()=>{
+    if(!oc.trim())return;
+    if(editing&&!window.confirm('Substituir os dados preenchidos pelos dados da Ordem de Corte? Fotos e status serão preservados.'))return;
+    manuallyEdited.current.clear();
+    ocLookupRequested.current=true;
+    ocLookupForce.current=true;
+    setOcLookupRevision(v=>v+1);
+  };
+  const editSampleField=(field:string)=>{
+    manuallyEdited.current.add(field);
+    delete autoFilledValues.current[field];
+  };
+
+  const closeModal = () => { galleryRequestRef.current++;ocLookupRequested.current=false;setOcLookupStatus('idle');setOcLookupMessage('');setGalleryFetching(false);setModal(false); setPhotoError(''); setGalleryLoaded(true); };
 
   const openNew = () => {
     galleryRequestRef.current++;setGalleryFetching(false);
+    ocLookupRequested.current=false;ocLookupForce.current=false;manuallyEdited.current.clear();autoFilledValues.current={};
+    setOcLookupStatus('idle');setOcLookupMessage('');
     setEditing(null); setOc(''); setName(''); setReference(''); setTailor(''); setQuantity('');
     setImageGallery([]); setPhotoError(''); setGalleryLoaded(true); setModal(true);
   };
@@ -370,12 +493,14 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     // Mostra o formulário imediatamente com os dados já disponíveis no cartão.
     // A leitura da galeria extra é feita depois e nunca bloqueia a edição dos dados.
     const requestId=++galleryRequestRef.current;
+    ocLookupRequested.current=false;ocLookupForce.current=false;manuallyEdited.current.clear();autoFilledValues.current={};
+    setOcLookupStatus('idle');setOcLookupMessage('');
     const completed = currentInfo(p);
     setEditing(p);
     setOc(p.oc);
     setName(completed.name);
     setReference(completed.reference);
-    setTailor(completed.tailor);
+    setTailor(canonicalWorkshopName(completed.tailor));
     setQuantity(String(completed.quantity || ''));
     setImageGallery(p.imageData ? [p.imageData] : []);
     setPhotoError('');
@@ -409,9 +534,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   };
 
   const fillModel = (text: string) => {
-    setName(text);
+    editSampleField('name');setName(text);
     const existing = models.find(m => normalizeText(m.name) === normalizeText(text));
-    if (existing) setReference(existing.reference);
+    if (existing) {editSampleField('reference');setReference(existing.reference);}
   };
 
   const processFiles = async (files?: FileList | null) => {
@@ -444,9 +569,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     try {
       const data = {
         oc: cleanedOC,
-        name: name.trim(),
+        name: name.trim().replace(/\s+/g,' ').toLocaleUpperCase('pt-BR'),
         reference: normalizeReference(reference),
-        tailor: tailor.trim(),
+        tailor: canonicalWorkshopName(tailor),
         quantity: quantity.trim(),
         // Se a galeria não foi lida, não sobrescreve nem remove a foto principal.
         imageData: galleryLoaded ? (imageGallery[0] || '') : (editing?.imageData || ''),
@@ -627,7 +752,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
           <h3>{p.name}</h3>
           <dl>
             <div><dt>REF</dt><dd>{p.reference||'SEM CÓDIGO'}</dd></div>
-            <div><dt>Costureiro</dt><dd>{p.tailor}</dd></div>
+            <div><dt>Costureiro</dt><dd>{canonicalWorkshopName(p.tailor)}</dd></div>
             <div><dt>Quantidade total</dt><dd>{p.quantity || 'A informar'}</dd></div>
             <div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>
             {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
@@ -685,8 +810,12 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
           </div>
 
           <div className="production-form-grid">
-            <label>OC *<input required maxLength={80} value={oc} onChange={e=>setOc(e.target.value)} placeholder="Ex.: OC-125"/>{editing&&<small>Você pode corrigir o número. Se alterar, confira também a Ordem de Corte e a ficha correspondente.</small>}</label>
-            <label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>setTailor(e.target.value)} placeholder="Nome do responsável"/></label>
+            <label>OC *<input required maxLength={80} value={oc} onChange={e=>updateOCInput(e.target.value)} placeholder="Ex.: 729" autoComplete="off"/>
+              {canReadOrders&&<button type="button" className="outline-button sample-oc-refill" disabled={busy||!oc.trim()||ocLookupStatus==='loading'} onClick={reloadOCDetails}>Preencher pela OC</button>}
+              {ocLookupMessage&&<small className={`sample-oc-lookup ${ocLookupStatus}`} role="status">{ocLookupMessage}</small>}
+              {editing&&<small>Ao corrigir o número, confira também a Ordem de Corte e a ficha correspondente.</small>}
+            </label>
+            <label>Costureiro *<input required maxLength={120} value={tailor} onChange={e=>{editSampleField('tailor');setTailor(e.target.value)}} onBlur={()=>setTailor(current=>canonicalWorkshopName(current))} placeholder="Nome do responsável"/></label>
           </div>
 
           <label>Nome da peça *<input required maxLength={250} list="production-models" value={name} onChange={e=>fillModel(e.target.value)} placeholder="Pesquise ou digite o modelo"/>
@@ -694,8 +823,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
             <small>Se escolher um modelo existente, a REF será preenchida automaticamente.</small>
           </label>
 
-          <div className="production-form-grid"><label>Código Extra (REF) — opcional<input maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} placeholder="SEM REF quando não existir"/></label>
-          <label>Quantidade total de peças<input type="number" min="0" step="1" value={quantity} onChange={e=>setQuantity(e.target.value)} placeholder="Ex.: 420"/></label></div>
+          <div className="production-form-grid"><label>Código Extra (REF) — opcional<input maxLength={200} value={reference} onChange={e=>{editSampleField('reference');setReference(e.target.value)}} placeholder="SEM REF quando não existir"/></label>
+          <label>Quantidade total de peças<input type="number" min="0" step="1" value={quantity} onChange={e=>{editSampleField('quantity');setQuantity(e.target.value)}} placeholder="Ex.: 420"/></label></div>
 
           <div className="modal-actions">
             <button type="button" className="outline-button" onClick={closeModal}>Cancelar</button>
