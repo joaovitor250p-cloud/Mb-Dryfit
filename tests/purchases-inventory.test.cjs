@@ -50,7 +50,7 @@ test('integração de enfesto é uma operação transacional idempotente',()=>{
  assert.match(source,/export async function confirmEnfestoConsumption/);
  assert.match(source,/runTransaction\(db,async t=>/);
  assert.match(source,/if\(existing\.exists\(\)\)throw Error/);
- assert.match(source,/after<0/);
+ assert.match(source,/before\[i\]\+deltas\[i\]\.amount<0/);
  assert.match(source,/kind==='enfesto_out'/);
  const rules=fs.readFileSync(path.join(root,'firestore.rules'),'utf8');
  assert.match(rules,/match \/companies\/\{companyId\}/);
