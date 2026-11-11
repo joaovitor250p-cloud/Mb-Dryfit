@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp, type DocumentData } from 'firebase/firestore';
-import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, Settings2, ShoppingCart, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, Settings2, ShoppingCart, Menu, type LucideIcon } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
 import { publicCatalogPhoto } from './lib/photoCatalog';
 import { optimizePhoto } from './lib/photos';
@@ -99,11 +99,6 @@ export default function App(){
  const viewScroll=useRef<Partial<Record<View,number>>>({});
  const previousView=useRef<View>('catalog');
  const [transitionDirection,setTransitionDirection]=useState<'next'|'previous'>('next');
- const swipeStartRef=useRef<{x:number;y:number;startedAt:number}|null>(null);
- const suppressSwipeClickRef=useRef(false);
- const wheelSwipeRef=useRef(0);
- const wheelSwipeLockedRef=useRef(false);
- const wheelSwipeTimerRef=useRef<number|null>(null);
  const [backupOpen,setBackupOpen]=useState(false),[mobileMoreOpen,setMobileMoreOpen]=useState(false);
  const [dark,setDark]=useState(false),[search,setSearch]=useState(''),[filter,setFilter]=useState<'all'|'with'|'without'|'pending'>('all'),[sort,setSort]=useState<'reference'|'name'>('reference');
  const [modal,setModal]=useState<Mode>(null),[editing,setEditing]=useState<Model|null>(null),[name,setName]=useState(''),[reference,setReference]=useState(''),[pending,setPending]=useState(false),[busy,setBusy]=useState(false);
@@ -113,7 +108,7 @@ export default function App(){
  const [modelSaveMessage,setModelSaveMessage]=useState('');
  const [error,setError]=useState(''),[info,setInfo]=useState(''),[preview,setPreview]=useState<ImportRow[]>([]),[importMode,setImportMode]=useState<'add'|'update'>('add');
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution'|'purchases')[]>(['catalog','samples','cuts']);
- // O zoom nativo do navegador fica habilitado; o visualizador de fotos mantém seu próprio zoom.
+ // Bloqueia o zoom involuntário da página; as fotos mantêm seu zoom próprio.
  const admin=role==='admin',editor=admin||role==='editor';
  const permitted=(section:View)=>admin||(section==='settings'?access.some(x=>x==='info'||x==='workshops'):section==='samples'?access.includes('samples')||access.includes('cuts'):section==='prices'?access.includes('workshops'):access.includes(section));
  const viewOrder:View[]=['catalog','samples','orders','purchases','expenses','sheets','sheet_distribution','settings'];
@@ -132,8 +127,11 @@ export default function App(){
    sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList},
    settings:{label:'Configurações',short:'Config.',Icon:Settings2}
  };
- const mobilePrimaryViews=(['catalog','samples','orders','expenses'] as View[]).filter(permitted).slice(0,4);
- const mobileMoreViews=availableViews.filter(item=>!mobilePrimaryViews.includes(item));
+ const navGroups:{label:string;items:View[]}[]=[
+ {label:'PRODUÇÃO',items:['catalog','samples','orders','sheets','sheet_distribution']},
+ {label:'FINANCEIRO E ESTOQUE',items:['purchases','expenses']},
+ {label:'GERENCIAMENTO',items:['settings']}
+];
  useEffect(()=>{if(role&&!permitted(view)){const first=(viewOrder as View[]).find(x=>permitted(x));if(first){setVisitedViews(old=>old.includes(first)?old:[...old,first]);setView(first)}}},[role,access,view]);
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
  useEffect(()=>{setDark(localStorage.getItem('mb-theme')==='dark')},[]);
@@ -167,49 +165,24 @@ export default function App(){
    });
    return()=>window.cancelAnimationFrame(first);
  },[view]);
- const excludedSwipeTarget=(target:HTMLElement)=>!!target.closest('input,textarea,select,[contenteditable="true"],button,a,[role="button"],.photo-lightbox,.modal-backdrop,.mobile-bottom-nav,.mobile-more-backdrop,.mobile-more-sheet,.sample-gallery-grid,.production-photo,.image-zoom-trigger,.table-wrap,.table-scroll,.preview-list,.order-scroll,.order-scrollbar-top,.settings-tabs,.combined-work-tabs,.history-list,.horizontal-scroll');
- const handleMainTouchStart=(event:ReactTouchEvent<HTMLElement>)=>{
-   if(event.touches.length!==1||modal||backupOpen){swipeStartRef.current=null;return;}
-   const target=event.target as HTMLElement;
-   if(excludedSwipeTarget(target)){swipeStartRef.current=null;return;}
-   const touch=event.touches[0];
-   swipeStartRef.current={x:touch.clientX,y:touch.clientY,startedAt:Date.now()};
- };
- const handleMainTouchEnd=(event:ReactTouchEvent<HTMLElement>)=>{
-   const start=swipeStartRef.current;swipeStartRef.current=null;
-   if(!start||modal||backupOpen||!event.changedTouches.length)return;
-   const touch=event.changedTouches[0];
-   const dx=touch.clientX-start.x,dy=touch.clientY-start.y;
-   if(Math.abs(dx)<64||Math.abs(dx)<Math.abs(dy)*1.25||Date.now()-start.startedAt>1200)return;
-   const currentIndex=availableViews.indexOf(view);
-   const next=availableViews[currentIndex+(dx<0?1:-1)];
-   if(!next)return;
-   suppressSwipeClickRef.current=true;
-   window.setTimeout(()=>{suppressSwipeClickRef.current=false;},350);
-   navigateView(next);
- };
- const handleMainWheel=(event:ReactWheelEvent<HTMLElement>)=>{
-   if(modal||backupOpen||Math.abs(event.deltaX)<Math.abs(event.deltaY)*1.35||Math.abs(event.deltaX)<8)return;
-   if(excludedSwipeTarget(event.target as HTMLElement))return;
-   event.preventDefault();
-   wheelSwipeRef.current+=event.deltaX;
-   if(Math.abs(wheelSwipeRef.current)>=90&&!wheelSwipeLockedRef.current){
-     const currentIndex=availableViews.indexOf(view);
-     const next=availableViews[currentIndex+(wheelSwipeRef.current>0?1:-1)];
-     wheelSwipeRef.current=0;
-     if(next)navigateView(next);
-     wheelSwipeLockedRef.current=true;
-     if(wheelSwipeTimerRef.current!==null)window.clearTimeout(wheelSwipeTimerRef.current);
-     wheelSwipeTimerRef.current=window.setTimeout(()=>{wheelSwipeLockedRef.current=false;wheelSwipeRef.current=0;},520);
-   }
- };
- const handleMainClickCapture=(event:React.MouseEvent<HTMLElement>)=>{
-   if(!suppressSwipeClickRef.current)return;
-   suppressSwipeClickRef.current=false;
-   event.preventDefault();
-   event.stopPropagation();
- };
- useEffect(()=>()=>{if(wheelSwipeTimerRef.current!==null)window.clearTimeout(wheelSwipeTimerRef.current)},[]);
+ // Impede zoom por pinça sobre a página, sem bloquear gestos do visualizador de fotos.
+ useEffect(()=>{
+  const inViewer=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('.photo-lightbox');
+  const preventMultiTouch=(event:TouchEvent)=>{if(event.touches.length>1&&!inViewer(event.target)&&event.cancelable)event.preventDefault();};
+  const preventGesture=(event:Event)=>{if(!inViewer(event.target)&&event.cancelable)event.preventDefault();};
+  document.addEventListener('touchmove',preventMultiTouch,{passive:false});
+  document.addEventListener('gesturestart',preventGesture,{passive:false});
+  document.addEventListener('gesturechange',preventGesture,{passive:false});
+  return()=>{document.removeEventListener('touchmove',preventMultiTouch);document.removeEventListener('gesturestart',preventGesture);document.removeEventListener('gesturechange',preventGesture);};
+ },[]);
+ useEffect(()=>{
+  if(!mobileMoreOpen)return;
+  const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape')setMobileMoreOpen(false);};
+  const previousOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  window.addEventListener('keydown',onKeyDown);
+  return()=>{document.body.style.overflow=previousOverflow;window.removeEventListener('keydown',onKeyDown);};
+ },[mobileMoreOpen]);
  useEffect(()=>{
   if(!db||!user||!role||!needsModels||(!admin&&!access.some(x=>x==='catalog'||x==='samples'||x==='cuts'))){setModels([]);setLoaded(true);return}
   setLoaded(false);
@@ -362,17 +335,30 @@ export default function App(){
    {availableViews.length>0?<button type="button" className="primary-button full" onClick={()=>navigateView(availableViews[0])}>Abrir minha área</button>:<button type="button" className="primary-button full" onClick={()=>window.location.reload()}>Atualizar aplicativo</button>}
    <button type="button" className="outline-button full" onClick={()=>auth&&signOut(auth)}>Sair da conta</button>
  </section></div>;
- return <div className="app-shell" onTouchStartCapture={handleMainTouchStart} onTouchEndCapture={handleMainTouchEnd} onTouchCancelCapture={()=>{swipeStartRef.current=null;}}>
-   <aside className="sidebar" aria-label="Menu principal">
-     <div className="sidebar-brand"><img className="brand-logo sidebar-logo" src={brandLogo} alt="MB DryFit"/><div><strong>MB REFERENCIAS</strong><span>GESTÃO DE MODELOS E PRODUÇÃO</span></div></div>
-     <span className="nav-label">ESPAÇO DE TRABALHO</span>
-     {availableViews.map(item=>{const Icon=navMeta[item].Icon;return <button key={item} className={`nav-item ${view===item?'active':''}`} aria-current={view===item?'page':undefined} onClick={()=>navigateView(item)}><Icon size={18}/><span>{navMeta[item].label}</span>{view===item&&<i className="nav-active-indicator"/>}</button>})}
-     {admin&&<><span className="nav-label nav-admin-label">ADMINISTRAÇÃO</span><button className="nav-item" onClick={()=>void loadUsers()}><Users size={18}/><span>Usuários e acessos</span></button><button className="nav-item" onClick={()=>void loadAudit()}><History size={18}/><span>Histórico de alterações</span></button></>}
-     <div className="sidebar-bottom"><div className="sidebar-sync"><span className={`status-dot ${sync==='online'?'green':'red'}`}/><span>{sync==='online'?'Sincronizado':'Conexão indisponível'}</span></div><div className="user-mini"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email}</strong><span>{roleLabel[role]}</span></div><button onClick={()=>auth&&signOut(auth)} title="Sair da conta" aria-label="Sair da conta"><LogOut size={17}/></button></div></div>
-   </aside>
-   <main className="main-content" onWheel={handleMainWheel} onClickCapture={handleMainClickCapture}>
+ return <div className="app-shell">
+ {mobileMoreOpen&&<button type="button" className="sidebar-scrim" aria-label="Fechar menu lateral" onClick={()=>setMobileMoreOpen(false)}/>}
+ <aside id="app-navigation" className={`sidebar ${mobileMoreOpen?'mobile-open':''}`} aria-label="Menu principal">
+  <div className="sidebar-brand"><img className="brand-logo sidebar-logo" src={brandLogo} alt="MB DryFit"/><div><strong>MB REFERENCIAS</strong><span>GESTÃO DE MODELOS E PRODUÇÃO</span></div><button type="button" className="sidebar-close" aria-label="Fechar menu" onClick={()=>setMobileMoreOpen(false)}><X size={20}/></button></div>
+  <nav className="sidebar-links" aria-label="Áreas do sistema">
+   {navGroups.map(group=>{
+    const items=group.items.filter(item=>availableViews.includes(item));
+    if(!items.length)return null;
+    return <div key={group.label} className="sidebar-nav-group">
+     <span className="nav-label">{group.label}</span>
+     {items.map(item=>{const Icon=navMeta[item].Icon;return <button type="button" key={item} className={`nav-item ${view===item?'active':''}`} aria-current={view===item?'page':undefined} onClick={()=>navigateView(item)}><Icon size={19}/><span>{navMeta[item].label}</span>{view===item&&<i className="nav-active-indicator"/>}</button>})}
+    </div>;
+   })}
+   {admin&&<div className="sidebar-nav-group">
+    <span className="nav-label nav-admin-label">ADMINISTRAÇÃO</span>
+    <button type="button" className="nav-item" onClick={()=>{setMobileMoreOpen(false);void loadUsers();}}><Users size={19}/><span>Usuários e acessos</span></button>
+    <button type="button" className="nav-item" onClick={()=>{setMobileMoreOpen(false);void loadAudit();}}><History size={19}/><span>Histórico de alterações</span></button>
+   </div>}
+  </nav>
+  <div className="sidebar-bottom"><div className="sidebar-sync"><span className={`status-dot ${sync==='online'?'green':'red'}`}/><span>{sync==='online'?'Sincronizado':'Conexão indisponível'}</span></div><div className="user-mini"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email}</strong><span>{roleLabel[role]}</span></div><button onClick={()=>auth&&signOut(auth)} title="Sair da conta" aria-label="Sair da conta"><LogOut size={17}/></button></div></div>
+ </aside>
+ <main className="main-content">
      <header className="topbar">
-       <div className="mobile-brand"><img className="brand-logo mobile-logo" src={brandLogo} alt="MB DryFit"/><strong>MB REFERENCIAS</strong></div>
+       <div className="mobile-brand"><button type="button" className="mobile-menu-toggle" aria-label="Abrir menu lateral" aria-controls="app-navigation" aria-expanded={mobileMoreOpen} onClick={()=>setMobileMoreOpen(true)}><Menu size={22}/></button><img className="brand-logo mobile-logo" src={brandLogo} alt="MB DryFit"/><strong>MB REFERENCIAS</strong></div>
        <div className="breadcrumb"><span>Área de trabalho</span><i>/</i><strong>{navMeta[view].label}</strong></div>
        <div className="top-actions"><span className={`connection-pill ${sync==='online'?'ok':''}`}><Cloud size={15}/><span>{sync==='online'?'Tudo sincronizado':'Verificar conexão'}</span></span><button className="icon-button" onClick={()=>setDark(!dark)} title={dark?'Ativar tema claro':'Ativar tema escuro'} aria-label="Alternar tema">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button top-logout" title="Sair" aria-label="Sair" onClick={()=>auth&&signOut(auth)}><LogOut size={18}/></button></div>
      </header>
@@ -386,20 +372,7 @@ export default function App(){
        </PageActiveContext.Provider>
      </div>)}
    </main>
-   <nav className="mobile-bottom-nav" aria-label="Navegação principal">
-     {mobilePrimaryViews.map(item=>{const Icon=navMeta[item].Icon;return <button key={item} className={view===item?'selected':''} aria-current={view===item?'page':undefined} onClick={()=>navigateView(item)}><Icon size={19}/><span>{navMeta[item].short}</span></button>})}
-     <button className={mobileMoreOpen||mobileMoreViews.includes(view)?'selected':''} aria-expanded={mobileMoreOpen} aria-controls="mobile-more-sheet" onClick={()=>setMobileMoreOpen(open=>!open)}><MoreHorizontal size={20}/><span>Mais</span></button>
-   </nav>
-   {mobileMoreOpen&&<div className="mobile-more-backdrop" onClick={()=>setMobileMoreOpen(false)}>
-     <section id="mobile-more-sheet" className="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="Mais áreas" onClick={event=>event.stopPropagation()}>
-       <div className="mobile-more-handle"/><div className="mobile-more-heading"><div><span className="eyebrow">NAVEGAÇÃO</span><h2>Mais áreas</h2></div><button className="icon-button" onClick={()=>setMobileMoreOpen(false)} aria-label="Fechar menu"><X size={18}/></button></div>
-       <div className="mobile-more-grid">{mobileMoreViews.map(item=>{const Icon=navMeta[item].Icon;return <button key={item} className={view===item?'active':''} onClick={()=>navigateView(item)}><span><Icon size={20}/></span><strong>{navMeta[item].label}</strong></button>})}
-         {admin&&<><button onClick={()=>{setMobileMoreOpen(false);void loadUsers()}}><span><Users size={20}/></span><strong>Usuários e acessos</strong></button><button onClick={()=>{setMobileMoreOpen(false);void loadAudit()}}><span><History size={20}/></span><strong>Histórico de alterações</strong></button></>}
-       </div>
-       <div className="mobile-more-account"><div className="avatar">{user.email?.slice(0,1).toUpperCase()}</div><div><strong>{user.email}</strong><span>{roleLabel[role]} · {sync==='online'?'Sincronizado':'Offline'}</span></div><button className="outline-button" onClick={()=>{setMobileMoreOpen(false);setDark(value=>!value)}}>{dark?<Sun size={16}/>:<Moon size={16}/>} Tema</button><button className="outline-button" onClick={()=>auth&&signOut(auth)}><LogOut size={16}/> Sair</button></div>
-     </section>
-   </div>}
- {backupOpen&&<Suspense fallback={<div className="empty-state">Preparando backup...</div>}><BackupExport db={db!} models={models} admin={admin} onClose={()=>setBackupOpen(false)}/></Suspense>}
+   {backupOpen&&<Suspense fallback={<div className="empty-state">Preparando backup...</div>}><BackupExport db={db!} models={models} admin={admin} onClose={()=>setBackupOpen(false)}/></Suspense>}
  {(error||info)&&<div className={`toast ${error?'error':'success'}`}><span>{error?<AlertCircle size={18}/>:<CheckCircle2 size={18}/>}</span>{error||info}<button onClick={()=>notify('')}><X size={16}/></button></div>}
  {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)resetModal()}}><section className={`modal ${modal==='import'||modal==='users'||modal==='history'?'modal-wide':''}`} role="dialog" aria-modal="true">
  {(modal==='add'||modal==='edit')&&<><div className="modal-head"><div><span className="eyebrow">CADASTRO ONLINE</span><h2>{modal==='add'?'Novo modelo':'Editar modelo'}</h2><p>Nome, REF e foto no mesmo cadastro. A foto é opcional e pode ser adicionada depois.</p></div><button className="icon-button" onClick={resetModal}><X/></button></div><form className="modal-form" onSubmit={e=>{e.preventDefault();void save()}}>
