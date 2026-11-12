@@ -89,7 +89,7 @@ export type EnfestoCompletion={sheetId:string;oc:string;rows:Record<string,unkno
 async function createInventoryMovement(db:Firestore,company:string,uid:string,sourceId:string,kind:'purchase_in'|'enfesto_out',deltas:Delta[],sourcePayload:Record<string,unknown>,linkedSheet?:EnfestoCompletion):Promise<void>{
  if(!deltas.length)throw Error('Nenhum material informado.');
  // As regras do Spark limitam consultas getAfter por transação; até 7 saldos distintos.
- if(deltas.length>7)throw Error('Esta operação contém mais de 7 combinações de material/cor/unidade. Divida a importação antes de confirmar; nenhuma entrada foi gravada.');
+ if(deltas.length>(linkedSheet?5:7))throw Error('A operação ultrapassa o limite seguro de tecidos/cores distintos por transação. Revise as linhas antes de confirmar; nenhuma baixa foi realizada.');
  const stocks=deltas.map(x=>doc(db,...coll(company,'inventory'),x.id));
  const movements=await Promise.all(deltas.map(async x=>doc(db,...coll(company,'stock_movements'),(await sha256(kind+'|'+sourceId+'|'+x.id)).slice(0,48))));
  const source=doc(db,...coll(company,kind==='purchase_in'?'purchases':'enfesto_confirmations'),sourceId);
