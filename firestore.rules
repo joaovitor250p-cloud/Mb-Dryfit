@@ -565,6 +565,7 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.status == 'assigned'
           && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedBy == request.auth.uid
           && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status == 'pending'
+           && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.get('enfestoConfirmationId', '') == orderId
           && request.resource.data.oc == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.oc
           && request.resource.data.ref == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.reference
           && request.resource.data.office == getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedTailor))
@@ -822,7 +823,8 @@ service cloud.firestore {
       ) || (
         // Concluir o enfesto somente com a baixa do estoque na mesma transação.
         canWrite('enfesto') && validSheetFields(request.resource.data)
-        && resource.data.status == 'enfesto'
+        && resource.data.status in ['enfesto','pending']
+        && resource.data.get('enfestoConfirmationId', '') == ''
         && request.resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status','enfestoCompletedAt','enfestoCompletedBy','enfestoConfirmationId','updatedAt','updatedBy'])
@@ -836,6 +838,7 @@ service cloud.firestore {
       ) || (
         canWrite('sheet_distribution') && validSheetFields(request.resource.data)
         && resource.data.status == 'pending'
+        && resource.data.get('enfestoConfirmationId', '') == sheetId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','assignedTailor','assignedAt','assignedBy','updatedAt','updatedBy'])
         && request.resource.data.status == 'assigned'
         && request.resource.data.assignedTailor.size() > 0
@@ -977,7 +980,8 @@ service cloud.firestore {
           && (!('sheetId' in request.resource.data) || (
             canWrite('enfesto')
             && request.resource.data.sheetId == confirmationId
-            && get(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.status == 'enfesto'
+            && get(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.status in ['enfesto','pending']
+            && get(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.get('enfestoConfirmationId', '') == ''
             && getAfter(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.status == 'pending'
             && getAfter(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.enfestoConfirmationId == confirmationId
             && getAfter(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.enfestoCompletedBy == request.auth.uid
