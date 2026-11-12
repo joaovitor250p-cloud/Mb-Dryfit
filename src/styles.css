@@ -1900,3 +1900,17 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 @media(max-width:720px){.sheets-page .sheet-distribution-grid,.sheets-page .sheet-list-grid{grid-template-columns:1fr}.sheets-page .sheet-filters{display:grid;grid-template-columns:1fr}.sheets-page .sheet-office-filter,.sheets-page .sheet-quick-search{flex:auto;width:100%;max-width:100%}.sheets-page .sheet-office-group>summary{padding:13px;gap:10px;min-height:69px}.sheets-page .sheet-office-avatar{width:40px;height:40px}.sheets-page .sheet-office-inner{padding:12px}.sheets-page .sheet-distribution-stats{gap:8px}.sheets-page .sheet-distribution-stats>div{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;min-height:86px}.sheets-page .sheet-distribution-stats svg{width:28px;height:28px;padding:6px}.sheets-page .sheet-distribution-stats span{font-size:9px}.sheets-page .sheet-distribution-stats strong{font-size:20px}.sheets-page .sheet-send-fields{grid-template-columns:1fr}.sheets-page .sheet-send-fields label:first-child{grid-column:auto}.sheets-page .sheet-dispatched-banner button{width:100%}}
 @media(max-width:440px){.sheets-page .sheet-card-top{align-items:flex-start;flex-wrap:wrap}.sheets-page .sheet-card-actions button{width:100%}.sheets-page .sheet-status-pill{white-space:normal}.sheets-page .sheet-office-summary-title strong{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.sheets-page .sheet-card,.sheets-page .sheet-office-arrow,.sheets-page .sheet-tabs button{transition:none!important;transform:none!important}}
+
+
+/* Distribuição: um card por ficha; seletor de oficina dentro de cada card. */
+.sheets-page .sheet-pending-grid{align-items:start}
+.sheets-page .sheet-pending-grid .sheet-send-card{position:relative}
+.sheets-page .sheet-pending-grid .sheet-send-card .sheet-card-top{align-items:center}
+.sheets-page .sheet-send-fields select{display:block;width:100%;max-width:none;min-width:0;height:42px;margin:0;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);font-size:13px;outline:0;cursor:pointer}
+.sheets-page .sheet-send-fields select:focus{border-color:#9481ec;box-shadow:0 0 0 3px rgba(110,92,222,.1)}
+.sheets-page .sheet-send-fields select:disabled,.sheets-page .sheet-send-fields input:disabled{opacity:.6;cursor:not-allowed}
+.sheets-page .sheet-colors-hint{font-size:12px;font-weight:600;color:#506272;line-height:1.5;margin:6px 0 12px}
+.sheets-page .sheet-paper .sheet-colors-hint{color:#496075}
+.sheets-page .sheet-sent-view .sheet-office-list{gap:12px}
+.sheets-page .sheet-assigned-card .sheet-status-pill.is-assigned{color:#0d8969}
+@media(max-width:700px){.sheets-page .sheet-pending-grid{grid-template-columns:1fr}.sheets-page .sheet-send-fields select{min-height:44px}}
