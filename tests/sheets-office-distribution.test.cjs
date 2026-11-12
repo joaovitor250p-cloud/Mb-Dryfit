@@ -10,7 +10,7 @@ const sheets=fs.readFileSync(path.join(root,'src/ProductionSheets.tsx'),'utf8');
 const rules=fs.readFileSync(path.join(root,'firestore.rules'),'utf8');
 
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
- assert.match(sheets,/Fichas disponíveis para distribuição/);
+ assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
  assert.doesNotMatch(sheets,/groups\.map\(group=>/);
  assert.match(sheets,/const filteredPending=pending\.filter/);

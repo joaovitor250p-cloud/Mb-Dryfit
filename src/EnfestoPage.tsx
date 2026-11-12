@@ -2,7 +2,6 @@ import {useContext,useEffect,useMemo,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {createPortal} from 'react-dom';
 import SheetPrint,{type PrintableSheet} from './SheetPrint';
-import ProtectedEnfestoOcs from './ProtectedEnfestoOcs';
 import type {Firestore} from 'firebase/firestore';
 import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase/firestore';
 import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
@@ -14,16 +13,16 @@ import './enfesto.css';
 
 type Sheet={id:string;oc:string;model:string;reference:string;client?:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
 type Job={id:string;sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
-type Props={db:Firestore;user:User;companyId:string;canEdit:boolean;isAdmin:boolean};
+type Props={db:Firestore;user:User;companyId:string;canEdit:boolean};
 const empty:EnfestoDetails={rows:[],notes:''};
 const number=(v:number)=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(v);
 const localKey=(uid:string,id:string)=>'mb-enfesto-progress-'+uid+'-'+id;
 const normalizeSearch=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
-const ocOrder=(a:Sheet,b:Sheet)=>b.oc.localeCompare(a.oc,'pt-BR',{numeric:true});
+const ocOrder=(a:Sheet,b:Sheet)=>a.oc.localeCompare(b.oc,'pt-BR',{numeric:true});
 function readLocal(uid:string,id:string):EnfestoDetails|null{
  try{const data=JSON.parse(localStorage.getItem(localKey(uid,id))||'null');return data&&Array.isArray(data.rows)&&typeof data.notes==='string'?data:null}catch{return null}
 }
-export default function EnfestoPage({db,user,companyId,canEdit,isAdmin}:Props){
+export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const active=useContext(PageActiveContext);
  const [sheets,setSheets]=useState<Sheet[]>([]);
  const [jobs,setJobs]=useState<Record<string,Job>>({});
@@ -157,7 +156,6 @@ export default function EnfestoPage({db,user,companyId,canEdit,isAdmin}:Props){
   </div>
   {error&&<div className="production-alert" role="alert"><AlertTriangle size={17}/>{error}{error.toLowerCase().includes('permission')&&<span> O Firebase recusou esta operação. Verifique qual etapa aparece no início da mensagem (leitura, salvamento ou finalização); as mesmas regras podem permitir uma etapa e bloquear outra.</span>}</div>}
   {success&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{success}</div>}
-  {isAdmin&&<ProtectedEnfestoOcs db={db} user={user} isAdmin={isAdmin} sheets={sheets} jobs={jobs} onPrepared={id=>{setSection('waiting');setSelectedId(id);setSearch('');setSuccess('OC preparada para Enfesto. Abra a ficha e confirme as cores antes de concluir.')}}/>}
   <div className="enfesto-workspace">
    <aside className="enfesto-list">
     <div className="enfesto-list-head"><h2>{section==='waiting'?'Fichas para enfestar':'Enfestos concluídos'}</h2><span>{filtered.length} ficha(s)</span></div>

@@ -241,7 +241,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   {historical.length>historyLimit&&<button type="button" className="outline-button sheet-show-more" onClick={()=>setHistoryLimit(n=>n+50)}>Mostrar mais 50 fichas ({historical.length-historyLimit} restantes)</button>}
  </section>}
  {tab==='distribution'&&canDistribute&&<section className="sheet-list sheet-distribution-view">
-  <div className="sheet-view-head"><div><h2>Fichas disponíveis para distribuição</h2><p>Escolha uma ficha, selecione o costureiro e a data. Depois do envio a OC aparece em OCs e pagamentos.</p></div><span className="sheet-view-count">{pending.length} ficha(s) disponíveis</span></div>
+  <div className="sheet-view-head"><div><h2>Centro de Distribuição</h2><p>As fichas chegam automaticamente aqui após a confirmação do Enfesto. Abra a OC, escolha o costureiro e a data de envio: o sistema cria a OC em OCs e pagamentos ao confirmar, sem duplicar OCs já existentes.</p></div><span className="sheet-view-count">{pending.length} ficha(s) disponíveis</span></div>
   {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Envio em {lastAssigned.sentLabel}. Ficha em Costureiros e OC em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA ENVIADA</button></div>}
   <div className="sheet-distribution-stats">
    <div><Clock3 size={18}/><span>Fichas disponíveis</span><strong>{pending.length}</strong></div>
