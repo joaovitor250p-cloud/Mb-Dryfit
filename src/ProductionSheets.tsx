@@ -62,10 +62,6 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  };
  const [sheets,setSheets]=useState<Sheet[]>([]);
  const nextOc=useMemo(()=>nextProductionOc(sheets,orderOcs.map(oc=>({oc}))),[sheets,orderOcs]);
- useEffect(()=>{
-  if(!canEdit||editingId||!ocAuto)return;
-  setForm(current=>current.oc===nextOc?current:{...current,oc:nextOc});
- },[nextOc,ocAuto,canEdit,editingId]);
 
  const [pieceType,setPieceType]=useState<Record<string,string>>({});
  const [tailor,setTailor]=useState<Record<string,string>>({});
@@ -77,6 +73,11 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const [message,setMessage]=useState('');
  const [lastAssigned,setLastAssigned]=useState<(FormData & {assignedTailor:string;sentLabel:string})|null>(null);
  const [editingId,setEditingId]=useState<string|null>(null);
+ useEffect(()=>{
+  if(!canEdit||editingId||!ocAuto)return;
+  setForm(current=>current.oc===nextOc?current:{...current,oc:nextOc});
+ },[nextOc,ocAuto,canEdit,editingId]);
+
  const [historySearch,setHistorySearch]=useState('');
  const [historyOffice,setHistoryOffice]=useState('all');
  const [historyLimit,setHistoryLimit]=useState(50);
