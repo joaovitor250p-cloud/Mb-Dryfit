@@ -33,7 +33,6 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
  const print=(sheet:Sheet)=>{
   const colors=(sheet.colors||[]).map(row=>({...row,detalhes:String((row as FichaCor&{detalhes?:string}).detalhes||'')}));
-  if(colors.filter(row=>Object.values(row).some(v=>String(v).trim())).length>14){setError('A ficha tem mais de 14 linhas preenchidas. Confira o modelo A4 antes de imprimir.');return}
   setPrintSheet({
    oc:sheet.oc,reference:sheet.reference,model:sheet.model,client:sheet.client||'MB',pieceType:sheet.pieceType||'',
    fabric:sheet.fabric||'',composition:sheet.composition||'',trims:sheet.trims||'',
