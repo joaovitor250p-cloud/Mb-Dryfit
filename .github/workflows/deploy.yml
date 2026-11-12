@@ -41,7 +41,7 @@ jobs:
         run: npm install
 
       - name: Testar financeiro, preços e distribuição de fichas
-        run: node --test tests/purchases-inventory.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs tests/sheets-office-distribution.test.cjs tests/enfesto-workflow.test.cjs
+        run: node --test tests/purchases-inventory.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs tests/sheets-office-distribution.test.cjs tests/enfesto-workflow.test.cjs tests/sheet-autofill-print-ui.test.cjs
 
       - name: Compilar aplicação Vite
         run: npm run build
