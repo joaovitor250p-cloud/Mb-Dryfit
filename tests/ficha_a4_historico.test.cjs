@@ -9,8 +9,11 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('fichas enviadas visíveis na criação e na distribuição com opção de PDF',()=>{
   const s=read('src/ProductionSheets.tsx');
-  assert.match(s,/tab==='all'&&canEdit/);
-  assert.match(s,/tab==='history'&&canDistribute/);
+  assert.match(s,/tab==='all'&&\(canEdit\|\|canDistribute\)/);
+  assert.doesNotMatch(s,/tab==='history'&&canDistribute/);
+  assert.doesNotMatch(s,/tab==='tailors'&&canDistribute/);
+  assert.match(s,/Filtrar fichas por oficina/);
+  assert.match(s,/Pesquisar ficha por OC, REF ou modelo/);
   assert.match(s,/submitted\.filter|submitted=sheets\.filter/);
   assert.match(s,/Baixar PDF \/ Imprimir/);
   assert.match(s,/historical\.slice\(0,historyLimit\)/);
