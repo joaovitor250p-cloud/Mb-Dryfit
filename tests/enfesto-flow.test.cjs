@@ -22,7 +22,15 @@ test('ficha nova é enviada ao Enfesto antes de chegar à distribuição',()=>{
 test('concluir enfesto é uma transação única com liberação da ficha e baixa de estoque',()=>{
  assert.match(page,/confirmEnfestoConsumption\(\{db,company:companyId,uid:user\.uid/);
  assert.match(page,/confirmationId:s\.id,sheetId:s\.id,oc:s\.oc/);
- assert.match(page,/Marcar FEITO e liberar ficha/);
+ assert.match(page,/FINALIZAR ENFESTO — FEITO/);
+ assert.match(page,/const layersOf=/);
+ assert.match(page,/const consumptionMilli=/);
+ assert.match(page,/confirmColor\(opened,index,row\)/);
+ assert.match(page,/colorCuts:details/);
+ assert.match(page,/authorizeExcess:anyExcess/);
+ assert.match(page,/createPortal\(/);
+ assert.match(page,/ENFESTO \/ CORTE/);
+ assert.match(page,/FINALIZADOS/);
  assert.match(inventory,/const linkedSheet=sheetId\?doc\(db,'production_sheets',sheetId\):null/);
  assert.match(inventory,/if\(linkedSheet\)t\.update\(linkedSheet,\{status:'pending'/);
  assert.match(inventory,/const existing=await t\.get\(source\)/);
