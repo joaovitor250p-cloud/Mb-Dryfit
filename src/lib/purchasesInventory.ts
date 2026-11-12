@@ -11,6 +11,11 @@ export type InvoiceDraft = {
   source:'xml'|'pdf'|'manual'; pdfData?:string; pdfName?:string;
 };
 export type ConsumptionLine = {stockId:string; quantity:string};
+export type EnfestoColorAudit = {
+ cor:string;stockId:string;camadas:number;pesoFolhaMilli:number;consumoMilli:number;
+ quantidades:{p:number;m:number;g:number;gg:number;xg:number};
+ confirmadoPor:string;confirmadoEm:string;
+};
 export type StockEntry = {id:string;material:string;color:string;unit:StockUnit;kind:string;quantityMilli:number};
 export const DEFAULT_COMPANY='mb-principal';
 export const MAX_PDF_BYTES=390*1024;
@@ -148,12 +153,17 @@ export async function confirmInvoice(db:Firestore,company:string,uid:string,invo
  */
 export async function confirmEnfestoConsumption(args:{
  db:Firestore;company:string;uid:string;confirmationId:string;oc:string;
- lines:ConsumptionLine[];notes?:string;sheetId?:string
+ lines:ConsumptionLine[];notes?:string;sheetId?:string;colorCuts?:EnfestoColorAudit[];authorizeExcess?:boolean
 }):Promise<string>{
  const {db,company,uid,confirmationId,oc,lines}=args;
  const id=clean(confirmationId),number=clean(oc);
  if(!id||id.length>100||!number||number.length>80)throw Error('Informe identificação do enfesto e OC.');
  if(args.sheetId&&args.sheetId!==id)throw Error('A identificação do enfesto deve ser o ID da ficha para evitar baixas duplicadas.');
+ if(args.sheetId&&(!args.colorCuts?.length||args.colorCuts.length>50))throw Error('Registre a conferência e o consumo de cada cor antes de concluir o enfesto.');
+ if(args.colorCuts?.some(c=>!c.confirmadoEm||!c.confirmadoPor||!c.cor||!c.stockId||
+   !Number.isSafeInteger(c.camadas)||c.camadas<=0||!Number.isSafeInteger(c.pesoFolhaMilli)||
+   c.pesoFolhaMilli<=0||c.consumoMilli!==c.camadas*c.pesoFolhaMilli))
+   throw Error('Existem cores com conferência ou consumo inválido.');
  if(!lines.length||lines.length>20)throw Error('Selecione de 1 a 20 tecidos por enfesto.');
  const aggregate=new Map<string,number>();
  for(const line of lines){
@@ -173,7 +183,9 @@ export async function confirmEnfestoConsumption(args:{
      kind:'tecido',amount:-aggregate.get(snap.id)!,sourceId:id,sourceKind:'enfesto_out',oc:number});
  }
  await createInventoryMovement(db,company,uid,id,'enfesto_out',deltas,{oc:number,notes:clean(args.notes).slice(0,500),status:'confirmed',
-   lines:deltas.map(d=>({stockId:d.id,quantityMilli:-d.amount,unit:d.unit,color:d.color}))},args.sheetId);
+   lines:deltas.map(d=>({stockId:d.id,quantityMilli:-d.amount,unit:d.unit,color:d.color})),
+   ...(args.sheetId?{colorCuts:args.colorCuts,authorizeExcess:args.authorizeExcess===true}:{})
+ },args.sheetId);
  return id;
 }
 export async function saveBoleto(db:Firestore,company:string,uid:string,payload:{
