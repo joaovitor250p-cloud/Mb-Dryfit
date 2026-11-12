@@ -71,7 +71,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  const pending=sheets.filter(s=>s.status==='pending');
  const assigned=sheets.filter(s=>s.status==='assigned');
  const submitted=sheets.filter(s=>s.status!=='draft');
- const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
    const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
@@ -85,7 +85,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
    (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
  ).sort((a,b)=>Number(b.oc)-Number(a.oc));
- const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
+ const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
  return <section className="sheets-page">
  <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>Fichas de Produção</h1><p>Criação, distribuição por oficina e consulta das fichas enviadas.</p></div></div>
  <div className="sheet-tabs">
