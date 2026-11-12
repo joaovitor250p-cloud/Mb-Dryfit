@@ -223,6 +223,17 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const progress = useMemo(() => items.filter(x => x.status === 'in_progress').length, [items]);
   // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
   const finished = useMemo(() => items.filter(x => x.status === 'done' || x.status === 'store').length, [items]);
+  // O indicador de Amostras exibe PEÇAS informadas, não quantidade de cadastros/OCs.
+  // Campos vazios ou inválidos não são inventados: ficam sinalizados para correção.
+  const samplePieces=useMemo(()=>{
+    let total=0,missing=0;
+    for(const item of items){
+      const cleaned=String(item.quantity??'').trim().replace(/[.\\s]/g,'');
+      if(!/^\\d{1,12}$/.test(cleaned)){missing++;continue;}
+      total+=Number(cleaned);
+    }
+    return {total,missing};
+  },[items]);
   const incorrectTailorNames=useMemo(()=>items.filter(p=>p.tailor?.trim()&&canonicalWorkshopName(p.tailor)!==p.tailor),[items]);
 
   const filtered = useMemo(() => items.filter(x => view === 'samples'
@@ -760,7 +771,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
         </>}
       </div></div>
 
-    {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade de amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Amostras</span><strong>{loading ? '—' : items.length}</strong><small>Registros cadastrados, com ou sem foto</small></div></div></section>}
+    {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade total de peças nas amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Total de peças nas amostras</span><strong>{loading ? '—' : samplePieces.total.toLocaleString('pt-BR')}</strong><small>{samplePieces.missing>0?`${samplePieces.missing} amostra(s) sem quantidade informada`:'Soma das quantidades informadas nas OCs'}</small></div></div></section>}
 
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
 
