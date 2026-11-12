@@ -2,6 +2,7 @@ import {useContext,useEffect,useMemo,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {createPortal} from 'react-dom';
 import SheetPrint,{type PrintableSheet} from './SheetPrint';
+import ProtectedEnfestoOcs from './ProtectedEnfestoOcs';
 import type {Firestore} from 'firebase/firestore';
 import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase/firestore';
 import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
@@ -13,7 +14,7 @@ import './enfesto.css';
 
 type Sheet={id:string;oc:string;model:string;reference:string;client?:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
 type Job={id:string;sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
-type Props={db:Firestore;user:User;companyId:string;canEdit:boolean};
+type Props={db:Firestore;user:User;companyId:string;canEdit:boolean;isAdmin:boolean};
 const empty:EnfestoDetails={rows:[],notes:''};
 const number=(v:number)=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(v);
 const localKey=(uid:string,id:string)=>'mb-enfesto-progress-'+uid+'-'+id;
@@ -22,7 +23,7 @@ const ocOrder=(a:Sheet,b:Sheet)=>b.oc.localeCompare(a.oc,'pt-BR',{numeric:true})
 function readLocal(uid:string,id:string):EnfestoDetails|null{
  try{const data=JSON.parse(localStorage.getItem(localKey(uid,id))||'null');return data&&Array.isArray(data.rows)&&typeof data.notes==='string'?data:null}catch{return null}
 }
-export default function EnfestoPage({db,user,companyId,canEdit}:Props){
+export default function EnfestoPage({db,user,companyId,canEdit,isAdmin}:Props){
  const active=useContext(PageActiveContext);
  const [sheets,setSheets]=useState<Sheet[]>([]);
  const [jobs,setJobs]=useState<Record<string,Job>>({});
@@ -58,6 +59,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [section,setSection]=useState<'waiting'|'completed'>('waiting');
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[success,setSuccess]=useState('');
+ const [confirmFinish,setConfirmFinish]=useState<{sheetId:string;oc:string;noStock:boolean}|null>(null);
  useEffect(()=>{
   if(!active)return;
   const unsubscribe=[
@@ -112,14 +114,21 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   }catch(e){setError('Falha ao SALVAR o progresso da OC '+sheet.oc+': '+safeProviderMessage(e)+'. Nenhuma ficha foi liberada.');setSuccess('')}
   finally{setBusy(false)}
  };
- const finalize=async()=>{
+ const requestFinalize=()=>{
   if(!sheet||!canEdit||busy||sheet.status!=='enfesto')return;
   const noStock=!!skipStock[sheet.id];
   const warning=validateEnfesto(draft.rows,stocks,noStock);
   if(warning){setError(warning);setSuccess('');return}
-  if(!window.confirm(noStock
-   ?'Finalizar o enfesto da OC '+sheet.oc+' SEM baixar o estoque? Esta escolha ficará registrada no histórico da ficha.'
-   :'Finalizar o enfesto da OC '+sheet.oc+' e baixar o tecido do estoque por cor? A baixa é definitiva e não será repetida.'))return;
+  setError('');
+  setConfirmFinish({sheetId:sheet.id,oc:sheet.oc,noStock});
+ };
+ const finalize=async()=>{
+  if(!sheet||!canEdit||busy||sheet.status!=='enfesto'||!confirmFinish||confirmFinish.sheetId!==sheet.id||confirmFinish.oc!==sheet.oc)return;
+  const noStock=confirmFinish.noStock;
+  if(noStock!==!!skipStock[sheet.id]){setConfirmFinish(null);setError('A escolha de baixa de estoque mudou. Confirme novamente a OC '+sheet.oc+'.');return}
+  const warning=validateEnfesto(draft.rows,stocks,noStock);
+  if(warning){setConfirmFinish(null);setError(warning);setSuccess('');return}
+  setConfirmFinish(null);
   setBusy(true);setError('');setSuccess('');
   const notes=draft.notes.trim().slice(0,500);
   try{
@@ -135,7 +144,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    try{localStorage.removeItem(localKey(user.uid,sheet.id))}catch{/* progresso já está salvo no Firebase */}
    setEdits(old=>{const next={...old};delete next[sheet.id];return next});
    setSelectedId('');
-   setSuccess('Enfesto da OC '+sheet.oc+' concluído! A ficha está disponível para Distribuição. '+(noStock?'Sem baixa de estoque.':'Estoque atualizado por cor.'));
+   setSuccess('OC '+sheet.oc+' confirmada como ENFESTO CONCLUÍDO! Ficha liberada para o CENTRO DE DISTRIBUIÇÃO, em Distribuir fichas. '+(noStock?'Sem baixa de estoque.':'Estoque atualizado por cor.'));
   }catch(e){setError('Falha ao FINALIZAR o enfesto da OC '+sheet.oc+(noStock?' sem baixa de estoque: ': ' com baixa de estoque: ')+safeProviderMessage(e)+'. Confira o motivo antes de tentar novamente.');setSuccess('')}
   finally{setBusy(false)}
  };
@@ -148,6 +157,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   </div>
   {error&&<div className="production-alert" role="alert"><AlertTriangle size={17}/>{error}{error.toLowerCase().includes('permission')&&<span> O Firebase recusou esta operação. Verifique qual etapa aparece no início da mensagem (leitura, salvamento ou finalização); as mesmas regras podem permitir uma etapa e bloquear outra.</span>}</div>}
   {success&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{success}</div>}
+  {isAdmin&&<ProtectedEnfestoOcs db={db} user={user} isAdmin={isAdmin} sheets={sheets} jobs={jobs} onPrepared={id=>{setSection('waiting');setSelectedId(id);setSearch('');setSuccess('OC preparada para Enfesto. Abra a ficha e confirme as cores antes de concluir.')}}/>}
   <div className="enfesto-workspace">
    <aside className="enfesto-list">
     <div className="enfesto-list-head"><h2>{section==='waiting'?'Fichas para enfestar':'Enfestos concluídos'}</h2><span>{filtered.length} ficha(s)</span></div>
@@ -192,13 +202,23 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
      <label className="enfesto-notes">Observações do enfesto<textarea rows={3} maxLength={500} disabled={!canEdit||sheet.status!=='enfesto'} value={draft.notes} onChange={e=>saveEdit({...draft,notes:e.target.value})} placeholder="Detalhes do corte, aproveitamento, perda de tecido ou observações..."/></label>
      {sheet.status==='enfesto'&&<div className="enfesto-final-panel">
       <label className="enfesto-no-stock"><input type="checkbox" checked={!!skipStock[sheet.id]} onChange={e=>setSkipStock(old=>({...old,[sheet.id]:e.target.checked}))}/> Finalizar sem baixa de estoque <small>(use apenas se o tecido não estiver cadastrado; ficará registrado)</small></label>
-      <div className="enfesto-actions"><button type="button" className="outline-button" disabled={busy||!canEdit} onClick={()=>void saveDraft()}><Save size={17}/> Salvar progresso</button><button type="button" className="primary-button" disabled={busy||!canEdit} onClick={()=>void finalize()}><ShieldCheck size={17}/>{busy?'Salvando...':'Finalizar Enfesto e liberar ficha'}</button></div>
+      <div className="enfesto-actions"><button type="button" className="outline-button" disabled={busy||!canEdit} onClick={()=>void saveDraft()}><Save size={17}/> Salvar progresso</button><button type="button" className="primary-button" disabled={busy||!canEdit} onClick={requestFinalize}><ShieldCheck size={17}/>{busy?'Salvando...':'Finalizar Enfesto e liberar ficha'}</button></div>
       <p>Esta etapa não cria a OC de pagamento. A OC será criada quando o distribuidor escolher o costureiro e confirmar o envio da ficha.</p>
      </div>}
      {sheet.status!=='enfesto'&&<div className="enfesto-finished"><PackageCheck size={18}/> Enfesto concluído. Ficha liberada para a etapa de distribuição. {job?.stockConfirmed?'Baixa de tecido registrada no estoque.':'Sem baixa de estoque registrada.'}</div>}
     </>}
    </section>
   </div>
+  {confirmFinish&&active&&createPortal(<div className="enfesto-confirm-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setConfirmFinish(null)}}>
+   <section className="enfesto-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="enfesto-confirm-title" aria-describedby="enfesto-confirm-description">
+    <span className="enfesto-confirm-icon"><ShieldCheck size={27}/></span>
+    <span className="enfesto-confirm-kicker">CONFIRMAÇÃO DE ENFESTO</span>
+    <h2 id="enfesto-confirm-title">OC {confirmFinish.oc} — Confirmar como FEITO?</h2>
+    <p id="enfesto-confirm-description">Ao confirmar, o enfesto da <strong>OC {confirmFinish.oc}</strong> será marcado como <strong>CONCLUÍDO</strong> e sua ficha ficará disponível no <strong>CENTRO DE DISTRIBUIÇÃO → Distribuir fichas</strong>.</p>
+    <div className="enfesto-confirm-stock"><AlertTriangle size={17}/><span>{confirmFinish.noStock?'A conclusão será registrada SEM baixa de estoque.':'O tecido será baixado do estoque por cor. A baixa é definitiva e não será repetida.'}</span></div>
+    <div className="enfesto-confirm-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setConfirmFinish(null)}>Cancelar</button><button type="button" className="primary-button" disabled={busy||sheet?.id!==confirmFinish.sheetId} onClick={()=>void finalize()}><CheckCircle2 size={17}/>{busy?'Confirmando...':'Confirmar OC '+confirmFinish.oc+' e enviar à Distribuição'}</button></div>
+   </section>
+  </div>,document.body)}
   {printSheet&&active&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
  </div>;
 }
