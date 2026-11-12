@@ -6,10 +6,10 @@ import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lu
 import { safeProviderMessage } from './lib/safeMessage';
 
 type Role = 'admin' | 'editor' | 'viewer';
-type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution' | 'purchases';
+type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution' | 'enfesto' | 'purchases';
 type Account = { uid: string; email: string; role: Role; permissions: Section[]; disabled: boolean };
 type Request = { uid: string; email: string; status: 'pending' | 'approved' | 'denied' };
-const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'purchases'];
+const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'enfesto', 'purchases'];
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'catalog', label: 'Catálogo de modelos' },
   { value: 'samples', label: 'Amostras' },
@@ -19,6 +19,7 @@ const SECTIONS: { value: Section; label: string }[] = [
   { value: 'info', label: 'Informações MB' },
   { value: 'workshops', label: 'Oficinas' },
   { value: 'sheets', label: 'Fichas de produção (criar e consultar)' },
+  { value: 'enfesto', label: 'Enfesto (confirmar tecido e liberar fichas)' },
   { value: 'sheet_distribution', label: 'Distribuir fichas (autorização individual)' },
   { value: 'purchases', label: 'Compras e Estoque' },
 ];

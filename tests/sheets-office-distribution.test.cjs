@@ -14,7 +14,7 @@ test('a distribuição lista fichas disponíveis, não lista de costureiros',()=
  assert.match(sheets,/filteredPending\.map\(s=>/);
  assert.doesNotMatch(sheets,/groups\.map\(group=>/);
  assert.match(sheets,/const filteredPending=pending\.filter/);
- assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'\)\.sort\(compareOcDesc\)/);
+ assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'&&s\.enfestoConfirmationId===s\.id\)\.sort\(compareOcDesc\)/);
  assert.match(sheets,/sheet-pending-grid/);
 });
 
@@ -76,7 +76,7 @@ test('ordena OC numericamente da maior para a menor, inclusive com zeros à esqu
  vm.runInNewContext(compiled,context);
  const entries=['9','100','7','050','11','003','2'].map(oc=>({oc}));
  assert.deepEqual(entries.sort(context.exports.compare).map(o=>o.oc),['100','050','11','9','7','003','2']);
- assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'\)\.sort\(compareOcDesc\)/);
+ assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'&&s\.enfestoConfirmationId===s\.id\)\.sort\(compareOcDesc\)/);
  assert.match(sheets,/const assigned=sheets\.filter\(s=>s\.status==='assigned'\)\.sort\(compareOcDesc\)/);
  assert.match(sheets,/const submitted=sheets\.filter\(s=>s\.status!=='draft'\)\.sort\(compareOcDesc\)/);
 });
