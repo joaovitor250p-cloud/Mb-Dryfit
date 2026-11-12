@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, FileText, PackageCheck, Printer, Search, Send } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
@@ -17,13 +17,30 @@ const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] 
 const todayInputFromDate=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todayInput=()=>todayInputFromDate(new Date());
 const displayDate=(raw:string)=>/^\d{4}-\d{2}-\d{2}$/.test(raw)?`${raw.slice(8,10)}/${raw.slice(5,7)}/${raw.slice(0,4)}`:raw;
+const compareOcDesc=(a:{oc:string},b:{oc:string})=>{
+ const digits=(oc:string)=>(String(oc||'').match(/\d+/)?.[0]||'').replace(/^0+/,'')||'0';
+ const aHas=/\d/.test(a.oc||''),bHas=/\d/.test(b.oc||'');
+ if(aHas&&bHas){
+   const left=digits(a.oc),right=digits(b.oc);
+   if(left.length!==right.length)return right.length-left.length;
+   if(left!==right)return right.localeCompare(left);
+ }else if(aHas!==bHas)return aHas?-1:1;
+ return String(b.oc||'').localeCompare(String(a.oc||''),'pt-BR',{numeric:true,sensitivity:'base'});
+};
+const storedColorsKey=(uid:string)=>'mb-referencias-colors-'+uid;
+const readStoredColors=(uid:string):string[]=>{
+ try{const saved=JSON.parse(localStorage.getItem(storedColorsKey(uid))||'[]');return Array.isArray(saved)?saved.filter((v):v is string=>typeof v==='string').slice(0,200):[];}catch{return [];}
+};
 const blank=():FormData=>({model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
 export default function ProductionSheets({db,user,canEdit,canDistribute,initialTab}:{db:Firestore;user:User;canEdit:boolean;canDistribute:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
- const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'>(initialTab);
+ const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
  const [sheets,setSheets]=useState<Sheet[]>([]);
- const [pieceType,setPieceType]=useState<Record<string,string>>({});const [priceOverride,setPriceOverride]=useState<Record<string,string>>({});
+ const [pieceType,setPieceType]=useState<Record<string,string>>({});
+ const [tailor,setTailor]=useState<Record<string,string>>({});
+ const [priceOverride,setPriceOverride]=useState<Record<string,string>>({});
+ const [savedColors,setSavedColors]=useState<string[]>(()=>readStoredColors(user.uid));
  const [prices,setPrices]=useState<{reference:string;type:string;price:string}[]>([]);const [workshops,setWorkshops]=useState<{name:string;types:string[];specialPrices:{reference:string;type:string;price:string}[]}[]>([]);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -34,6 +51,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  const [historyOffice,setHistoryOffice]=useState('all');
  const [historyLimit,setHistoryLimit]=useState(50);
  const [distributionSearch,setDistributionSearch]=useState('');
+ const [sentSearch,setSentSearch]=useState('');
  const [sendDates,setSendDates]=useState<Record<string,string>>({});
  const [printSheet,setPrintSheet]=useState<FormData & {assignedTailor:string}|null>(null);
  const print=(sheet:FormData & {assignedTailor:string})=>{
@@ -47,6 +65,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'reference_prices'),snap=>setPrices(snap.docs.map(x=>x.data() as {reference:string;type:string;price:string})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'workshops'),snap=>setWorkshops(snap.docs.map(x=>x.data() as {name:string;types:string[];specialPrices:{reference:string;type:string;price:string}[]})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>setTab(initialTab),[initialTab]);
+ useEffect(()=>setSavedColors(readStoredColors(user.uid)),[user.uid]);
  const getPrice=(sheet:Sheet,name:string,type:string)=>{
    const special=workshops
      .filter(w=>workshopKey(w.name)===workshopKey(name))
@@ -57,20 +76,40 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
    const standard=prices.find(p=>p.reference.toUpperCase()===sheet.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
    return priceWithMauroMinimum(name,standard?.price??'');
  };
+ const colorOptions=useMemo(()=>{
+   const normalized=new Map<string,string>();
+   for(const value of [...sheets.flatMap(sheet=>(sheet.colors||[]).map(row=>row.cor)),...savedColors]){
+     const color=String(value||'').trim();
+     if(color&&color.length<=90){
+       const key=color.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+       if(!normalized.has(key))normalized.set(key,color);
+     }
+   }
+   return [...normalized.values()].sort((a,b)=>a.localeCompare(b,'pt-BR')).slice(0,250);
+ },[sheets,savedColors]);
+ const rememberColor=(input:string)=>{
+   const color=input.trim();
+   if(!color||color.length>90)return;
+   const key=color.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+   if(savedColors.some(item=>item.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR')===key))return;
+   const next=[...savedColors,color].slice(-200);
+   setSavedColors(next);
+   try{localStorage.setItem(storedColorsKey(user.uid),JSON.stringify(next));}catch{ /* armazenamento local pode estar indisponível */ }
+ };
  const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>:<input value={form[key] as string} maxLength={250} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>}</label>;
  const save=async(status:'draft'|'pending')=>{if(!canEdit)return;if(status==='pending'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const payload={...form,model:form.model.trim(),reference:form.reference.trim().toUpperCase(),pieceType:form.pieceType||'',fabric:form.fabric?.trim()||'',volumes:form.volumes?.trim()||'',oc:form.oc.trim(),colors:form.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada para distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
  const editDraft=(s:Sheet)=>{setForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]});setEditingId(s.id);setTab('create');setError('');};
  const quantity=(v:string)=>{const n=Number(v.trim());return Number.isSafeInteger(n)&&n>=0?n:0;};
  const tableRows=(rows:ColorRow[],editable:boolean)=> <div className="sheet-table-wrap"><table className="sheet-table"><thead><tr>{['CORES','P','M','G','GG','XG','DETALHES'].map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{(['cor','p','m','g','gg','xg','detalhes'] as const).map(k=><td key={k}>{editable?(k==='detalhes'?<textarea className="sheet-detail-input" aria-label={`Detalhes linha ${i+1}`} rows={2} maxLength={240} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:e.target.value}:r)}))}/>:<input aria-label={`${k} linha ${i+1}`} type={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?'number':'text'} min={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?0:undefined} step="1" value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:e.target.value}:r)}))}/>):row[k]}</td>)}</tr>)}<tr className="sheet-total-row"><th>TOTAL</th>{(['p','m','g','gg','xg'] as const).map(k=><td key={k}>{rows.reduce((sum,r)=>sum+quantity(r[k]),0)}</td>)}<td>GERAL: {rows.reduce((sum,r)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(r[k]),0),0)}</td></tr></tbody></table></div>;
- const assign=async(s:Sheet,officeName:string)=>{if(!canDistribute||busy)return;const name=canonicalWorkshopName(officeName),type=normalizedGarmentType(pieceType[s.id]||s.pieceType||'');if(!name){setError('Selecione o costureiro.');return;}const matches=workshops.filter(w=>workshopKey(w.name)===workshopKey(name));const options=matches.flatMap(w=>w.types||[]);if(!type||!canSewType(name,type,options)){setError('Este costureiro não produz o tipo de roupa selecionado. Confira o cadastro em Configurações → Oficinas.');return;}const suggested=getPrice(s,name,type),value=priceOverride[`${s.id}:${workshopKey(name)}`]??suggested,amount=parsePrice(value);if(!Number.isFinite(amount)){setError('VERIFIQUE SE A REFERÊNCIA ESTÁ CORRETA. SE FOR UMA REF NOVA, INFORME O VALOR POR PEÇA ANTES DE DISTRIBUIR.');return;}if(!validQuantities(s.colors)){setError('Esta ficha tem quantidades inválidas. Corrija os tamanhos antes de distribuir.');return;}const qty=s.colors.reduce((n,r)=>n+(['p','m','g','gg','xg'] as const).reduce((sum,k)=>sum+quantity(r[k]),0),0);if(!Number.isSafeInteger(qty)||qty<=0){setError('Informe quantidades válidas antes de distribuir.');return;}
+ const assign=async(s:Sheet)=>{if(!canDistribute||busy||s.status!=='pending')return;const name=canonicalWorkshopName(tailor[s.id]||''),type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');if(!name){setError('Selecione o costureiro.');return;}const matches=workshops.filter(w=>workshopKey(w.name)===workshopKey(name));const options=matches.flatMap(w=>w.types||[]);if(!type||!canSewType(name,type,options)){setError('Este costureiro não produz o tipo de roupa selecionado. Confira o cadastro em Configurações → Oficinas.');return;}const suggested=getPrice(s,name,type),value=priceOverride[`${s.id}:${workshopKey(name)}`]??suggested,amount=parsePrice(value);if(!Number.isFinite(amount)){setError('VERIFIQUE SE A REFERÊNCIA ESTÁ CORRETA. SE FOR UMA REF NOVA, INFORME O VALOR POR PEÇA ANTES DE DISTRIBUIR.');return;}if(!validQuantities(s.colors)){setError('Esta ficha tem quantidades inválidas. Corrija os tamanhos antes de distribuir.');return;}const qty=s.colors.reduce((n,r)=>n+(['p','m','g','gg','xg'] as const).reduce((sum,k)=>sum+quantity(r[k]),0),0);if(!Number.isSafeInteger(qty)||qty<=0){setError('Informe quantidades válidas antes de distribuir.');return;}
  const sentISO=sendDates[s.id]??todayInput();
  const sentDate=new Date(`${sentISO}T12:00:00`);
  if(!/^\d{4}-\d{2}-\d{2}$/.test(sentISO)||Number.isNaN(sentDate.getTime())||todayInputFromDate(sentDate)!==sentISO){setError('Escolha uma data de envio válida para a ficha.');return;}
  setBusy(true);setError('');try{const orderRef=doc(db,'cut_orders',s.id);/* A gravação em lote usa ID fixo da ficha: uma segunda tentativa é negada pelas regras de criação. */const br=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,due=new Date(sentDate.getFullYear(),sentDate.getMonth(),sentDate.getDate()+10),money=(n:number)=>currency(n);const fields=['oc','ref','model','office','qty','piecePrice','entry','sent','due','status','deliveredFlag','deliveredAt','defects','discountPiece','discountTotal','total','paidAt','paymentDone'];const order={...Object.fromEntries(fields.map(k=>[k,''])),oc:s.oc,ref:s.reference,model:s.model,office:name,qty:String(qty),piecePrice:money(amount),sent:br(sentDate),due:br(due),status:'EM ANDAMENTO',total:money(qty*amount),source:'manual',manualTotal:false,createdBy:user.uid,createdAt:serverTimestamp(),updatedBy:user.uid,updatedAt:serverTimestamp()};const batch=writeBatch(db);batch.update(doc(db,'production_sheets',s.id),{status:'assigned',assignedTailor:name,assignedAt:serverTimestamp(),assignedBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});batch.set(orderRef,order);await batch.commit();setMessage(`Ficha OC ${s.oc} enviada para ${name} em ${displayDate(sentISO)}. A OC foi criada em OCs e pagamentos.`);setLastAssigned({...s,pieceType:type,assignedTailor:name,sentLabel:displayDate(sentISO)});}catch(e){const code=String((e as {code?:string})?.code||'');setError((code?`Firebase (${code}): `:'')+safeProviderMessage(e)+(code==='permission-denied'?' — Confirme a permissão sheet_distribution, as regras publicadas e a configuração do projeto Firebase.':''));}finally{setBusy(false);}};
- const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid);
- const pending=sheets.filter(s=>s.status==='pending');
- const assigned=sheets.filter(s=>s.status==='assigned');
- const submitted=sheets.filter(s=>s.status!=='draft');
+ const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid).sort(compareOcDesc);
+ const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
+ const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
+ const submitted=sheets.filter(s=>s.status!=='draft').sort(compareOcDesc);
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
@@ -79,13 +118,15 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  };
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
- const groups=officeNames.map(name=>({name,items:filteredPending.filter(s=>compatibleOffices(s).some(office=>workshopKey(office)===workshopKey(name)))})).filter(g=>g.items.length);
- const unclassified=filteredPending.filter(s=>compatibleOffices(s).length===0);
  const historical=submitted.filter(s=>
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
    (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
- ).sort((a,b)=>Number(b.oc)-Number(a.oc));
+ );
  const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
+ const sentFiltered=assigned.filter(s=>!sentSearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||''].join(' ')).includes(normSearch(sentSearch)));
+ const sentGroups=[...new Map(sentFiltered.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()]
+   .sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'))
+   .map(([key,name])=>({name,items:sentFiltered.filter(s=>workshopKey(s.assignedTailor)===key)}));
  return <section className="sheets-page">
  <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>Fichas de Produção</h1><p>Criação, distribuição por oficina e consulta das fichas enviadas.</p></div></div>
  <div className="sheet-tabs">
