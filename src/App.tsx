@@ -117,7 +117,7 @@ export default function App(){
  const availableViews=viewOrder.filter(permitted);
  const navMeta:Record<View,{label:string;short:string;Icon:LucideIcon}>={
    catalog:{label:'Catálogo de modelos',short:'Modelos',Icon:Search},
-   samples:{label:'Amostras e cortes',short:'Amostras',Icon:Camera},
+   samples:{label:'Amostras',short:'Amostras',Icon:Camera},
    cuts:{label:'Cortes e fotos',short:'Cortes',Icon:Scissors},
    orders:{label:'OCs e pagamentos',short:'OCs',Icon:ClipboardList},
    purchases:{label:'Compras e estoque',short:'Estoque',Icon:ShoppingCart},

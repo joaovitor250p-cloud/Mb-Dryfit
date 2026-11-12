@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, doc, getDoc, getDocs, query as fsQuery, where, onSnapshot, runTransaction, serverTimestamp, updateDoc, setDoc, writeBatch, deleteField } from 'firebase/firestore';
-import { Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
+import { Layers3, Camera, Check, CheckCircle2, Clock3, Filter, ImagePlus, Plus, RefreshCw, RotateCcw, Search, Scissors, Trash2, X } from 'lucide-react';
 import { normalizeReference, normalizeText, type Model } from './lib/catalog';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, modelType, type ModelType } from './lib/modelTypes';
 import PhotoLightbox from './PhotoLightbox';
@@ -771,7 +771,10 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
         </>}
       </div></div>
 
-    {view === 'samples' && <section className="samples-count-strip" aria-label="Quantidade total de peças nas amostras"><div className="stat-card samples-count-card"><div className="stat-icon amber"><Camera/></div><div><span>Total de peças nas amostras</span><strong>{loading ? '—' : samplePieces.total.toLocaleString('pt-BR')}</strong><small>{samplePieces.missing>0?`${samplePieces.missing} amostra(s) sem quantidade informada`:'Soma das quantidades informadas nas OCs'}</small></div></div></section>}
+    {view === 'samples' && <section className="samples-count-strip" aria-label="Resumo de amostras e peças">
+      <div className="stat-card samples-count-card samples-count-pieces"><div className="stat-icon amber"><Camera/></div><div><span>Total de peças nas amostras</span><strong>{loading ? '—' : samplePieces.total.toLocaleString('pt-BR')}</strong><small>{samplePieces.missing>0?`${samplePieces.missing} amostra(s) sem quantidade informada`:'Soma das quantidades informadas nas OCs'}</small></div></div>
+      <div className="stat-card samples-count-card samples-count-records"><div className="stat-icon teal"><Layers3/></div><div><span>Total de cards (cortes)</span><strong>{loading ? '—' : items.length.toLocaleString('pt-BR')}</strong><small>{filtered.length===items.length?'Cortes cadastrados':'Exibindo '+filtered.length.toLocaleString('pt-BR')+' após filtros'}</small></div></div>
+    </section>}
 
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
 

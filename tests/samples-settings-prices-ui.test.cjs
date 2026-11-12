@@ -28,6 +28,9 @@ test('Amostras destaca soma de peças e não total de cadastros',()=>{
  const records=[{quantity:'420'},{quantity:'80'},{quantity:'1.200'},{quantity:''},{quantity:'inválida'}];
  assert.deepEqual(sampleSummary(records),{total:1700,missing:2});
  assert.match(samples,/samplePieces\.total\.toLocaleString\('pt-BR'\)/);
+ assert.match(samples,/Total de cards \(cortes\)/);
+ assert.match(samples,/items\.length\.toLocaleString\('pt-BR'\)/);
+ assert.match(app,/samples:\{label:'Amostras',short:'Amostras'/);
  assert.doesNotMatch(samples,/Registros cadastrados, com ou sem foto/);
 });
 
@@ -46,7 +49,7 @@ test('Configurações reúne Informações, Oficinas e Preços como telas indepe
 });
 
 test('rótulos do menu identificam as funções existentes',()=>{
- for(const text of ['Amostras e cortes','OCs e pagamentos','Fichas de produção','Distribuir fichas','Compras e estoque','Controle de gastos','Informações e PIX','Oficinas e costureiros','Preços padrão por REF']){
+ for(const text of ['Amostras','OCs e pagamentos','Fichas de produção','Distribuir fichas','Compras e estoque','Controle de gastos','Informações e PIX','Oficinas e costureiros','Preços padrão por REF']){
   assert.ok(app.includes(text),'menu precisa identificar '+text);
  }
 });
