@@ -38,7 +38,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    onSnapshot(collection(db,'production_sheets'),snapshot=>{
     setSheets(snapshot.docs.map(x=>({...(x.data() as Omit<Sheet,'id'>),id:x.id})));
     setLoading(false);
-   },e=>{setError(safeProviderMessage(e));setLoading(false)}),
+   },e=>{setError('Falha ao ler fichas no Firebase: '+safeProviderMessage(e));setLoading(false)}),
    onSnapshot(collection(db,'enfesto_jobs'),snapshot=>{
     setJobs(Object.fromEntries(snapshot.docs.map(x=>[x.id,{...(x.data() as Omit<Job,'id'>),id:x.id}])));
    },e=>setError('Não foi possível carregar o progresso do enfesto: '+safeProviderMessage(e))),
@@ -83,7 +83,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
     },{merge:true});
    });
    setSuccess('Progresso salvo no Firebase. Você pode continuar depois, inclusive em outro aparelho.');
-  }catch(e){setError(safeProviderMessage(e))}
+  }catch(e){setError('Falha ao SALVAR o progresso da OC '+sheet.oc+': '+safeProviderMessage(e)+'. Nenhuma ficha foi liberada.');setSuccess('')}
   finally{setBusy(false)}
  };
  const finalize=async()=>{
@@ -110,7 +110,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    setEdits(old=>{const next={...old};delete next[sheet.id];return next});
    setSelectedId('');
    setSuccess('Enfesto da OC '+sheet.oc+' concluído! A ficha está disponível para Distribuição. '+(noStock?'Sem baixa de estoque.':'Estoque atualizado por cor.'));
-  }catch(e){setError(safeProviderMessage(e))}
+  }catch(e){setError('Falha ao FINALIZAR o enfesto da OC '+sheet.oc+(noStock?' sem baixa de estoque: ': ' com baixa de estoque: ')+safeProviderMessage(e)+'. Confira o motivo antes de tentar novamente.');setSuccess('')}
   finally{setBusy(false)}
  };
  return <div className="enfesto-page">
@@ -120,7 +120,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    <button type="button" onClick={()=>{setSection('waiting');setSelectedId('')}}><Layers3/><span>Com progresso salvo</span><strong>{completedCount}</strong></button>
    <button type="button" className={section==='completed'?'active':''} onClick={()=>{setSection('completed');setSelectedId('')}}><FileCheck2/><span>Enfestos finalizados</span><strong>{completed.length}</strong></button>
   </div>
-  {error&&<div className="production-alert" role="alert"><AlertTriangle size={17}/>{error}{error.toLowerCase().includes('permission')&&<span> Confira se a permissão Enfesto e as regras do Firestore estão publicadas.</span>}</div>}
+  {error&&<div className="production-alert" role="alert"><AlertTriangle size={17}/>{error}{error.toLowerCase().includes('permission')&&<span> O Firebase recusou esta operação. Verifique qual etapa aparece no início da mensagem (leitura, salvamento ou finalização); as mesmas regras podem permitir uma etapa e bloquear outra.</span>}</div>}
   {success&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{success}</div>}
   <div className="enfesto-workspace">
    <aside className="enfesto-list">
