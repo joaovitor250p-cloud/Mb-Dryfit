@@ -86,7 +86,9 @@ test('permissão de Enfesto é independente e transição é protegida por docum
  assert.match(rules,/match \/enfesto_jobs\/\{sheetId\}/);
  assert.match(rules,/data\.status in \['draft','completed'\]/);
  assert.match(rules,/resource\.data\.status == 'enfesto'/);
- assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/enfesto_jobs\/\$\(sheetId\)\)\.data\.status == 'completed'/);
+ assert.match(rules,/function validEnfestoHandoff\(sheetId\)/);
+ assert.match(rules,/job\.status == 'completed'/);
+ assert.match(rules,/job\.completedBy == request\.auth\.uid/);
  assert.match(rules,/canWrite\('enfesto'\)/);
  assert.match(admin,/value: 'enfesto'/);
  assert.match(app,/item==='enfesto' \? <EnfestoPage/);
