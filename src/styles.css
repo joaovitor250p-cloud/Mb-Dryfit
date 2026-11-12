@@ -1687,3 +1687,96 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
  .order-pending-row>.outline-button{align-self:stretch}
  .order-pending-selected{white-space:normal}
 }
+
+
+/* Configurações: nomes mais claros e linhas responsivas no menu lateral. */
+.app-shell .sidebar .nav-item span{white-space:normal;line-height:1.3}
+.app-shell .sidebar-links{scrollbar-gutter:stable}
+.app-shell .sidebar .sidebar-nav-group .nav-label{font-weight:850;letter-spacing:.14em}
+
+/* Preços por REF: pesquisa rápida com filtros visuais e feedback em tempo real. */
+.ref-price-page{display:grid;gap:18px;padding-bottom:46px}
+.ref-price-page>.page-heading{margin-bottom:0}
+.ref-price-heading{gap:20px}
+.ref-price-heading .page-heading-copy{max-width:770px}
+.ref-price-total{display:flex;align-items:center;gap:14px;padding:13px 19px;border-radius:16px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);min-width:190px}
+.ref-price-total>svg{width:40px;height:40px;padding:9px;background:#f0edff;color:#6654d9;border-radius:13px;flex-shrink:0}
+.ref-price-total span{display:block;color:var(--muted);font-size:11px;font-weight:700}
+.ref-price-total strong{display:block;color:var(--text);font-size:24px;font-weight:850;line-height:1.3}
+.ref-price-search-panel{position:relative;display:grid;gap:14px;padding:24px;border-radius:20px;overflow:hidden;background:linear-gradient(118deg,var(--panel) 0%,var(--panel) 67%,rgba(105,83,235,.08) 100%);border:1px solid var(--line);box-shadow:0 13px 35px rgba(52,49,116,.06);animation:ref-search-arrive .42s ease both}
+.ref-price-search-panel::before{content:'';position:absolute;right:-75px;top:-125px;width:285px;height:285px;border-radius:50%;background:radial-gradient(circle,rgba(114,96,244,.12),transparent 68%);pointer-events:none}
+.ref-price-search-panel>*{position:relative;z-index:1}
+.ref-price-search-intro{display:flex;align-items:center;gap:12px}
+.ref-price-spark{width:45px;height:45px;display:grid;place-items:center;flex-shrink:0;border-radius:14px;background:linear-gradient(145deg,#7366e9,#4e8fe9);color:#fff;box-shadow:0 8px 20px rgba(87,83,215,.2)}
+.ref-price-search-intro h2{font-size:18px;font-weight:850;color:var(--text);margin:0 0 4px;line-height:1.35}
+.ref-price-search-intro p{color:var(--muted);margin:0;font-size:12px;line-height:1.4}
+.ref-price-search-field{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 15px;border:1.5px solid #c8c2f3;border-radius:16px;background:var(--panel);box-shadow:0 5px 20px rgba(77,72,171,.065);transition:border-color .2s,box-shadow .2s,transform .2s}
+.ref-price-search-field>svg{color:#6e5fd7;flex-shrink:0}
+.ref-price-search-field:focus-within{border-color:#735fea;box-shadow:0 0 0 4px rgba(115,95,234,.11),0 9px 25px rgba(67,63,152,.11);transform:translateY(-1px)}
+.ref-price-search-field input{flex:1;min-width:0;width:100%;padding:13px 0;min-height:52px;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;color:var(--text);font-size:15px;font-weight:600}
+.ref-price-search-field input::placeholder{color:var(--muted);font-size:13px;font-weight:500}
+.ref-price-search-field input::-webkit-search-cancel-button{display:none}
+.ref-price-clear{display:flex;align-items:center;gap:5px;flex-shrink:0;border:0;border-radius:9px;background:var(--panel2);color:var(--muted);font-size:11px;font-weight:750;padding:9px 11px;transition:background .18s,color .18s}
+.ref-price-clear:hover{background:#eeeaff;color:#6251c8}
+.ref-price-filter-group{display:grid;gap:9px}
+.ref-price-filter-label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:750}
+.ref-price-filter-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ref-price-filter-chips button{border:1px solid var(--line);padding:8px 14px;border-radius:100px;font-size:12px;font-weight:750;background:var(--panel);color:var(--text);transition:transform .16s,background-color .16s,border-color .16s}
+.ref-price-filter-chips button:hover{transform:translateY(-2px);border-color:#bfb4f7;background:var(--panel2)}
+.ref-price-filter-chips button.selected{background:#6959dc;color:#fff;border-color:#6959dc;box-shadow:0 5px 13px rgba(105,89,220,.17)}
+.ref-price-result-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;font-weight:700}
+.ref-price-result-status button{border:0;background:transparent;color:var(--teal2);font-size:12px;font-weight:750;cursor:pointer}
+.ref-price-edit-panel,.ref-price-results-panel{padding:22px;border-radius:17px;border:1px solid var(--line)}
+.ref-price-edit-panel{scroll-margin-top:90px}
+.ref-price-section-title{display:flex;align-items:center;gap:11px;margin-bottom:17px}
+.ref-price-section-title>span{display:grid;place-items:center;width:40px;height:40px;background:#eeeaff;color:#6b55db;border-radius:12px}
+.ref-price-section-title h2,.ref-price-results-heading h2{font-size:17px;font-weight:850;margin:0 0 5px;color:var(--text)}
+.ref-price-section-title p,.ref-price-results-heading p{font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.ref-price-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;gap:13px;align-items:end}
+.ref-price-form label{display:grid;gap:7px;min-width:0;color:var(--text);font-size:12px;font-weight:750}
+.ref-price-form input{height:44px;min-width:0;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;outline:none;transition:border-color .17s,box-shadow .17s}
+.ref-price-form input:focus{border-color:#8471eb;box-shadow:0 0 0 3px rgba(112,93,221,.11)}
+.ref-price-form button{height:44px;white-space:nowrap}
+.ref-price-edit-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.ref-price-edit-footer small{color:var(--muted);font-size:11px;line-height:1.5}
+.ref-price-results-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.ref-price-results-heading>strong{flex-shrink:0;color:#6959dc;background:#f1eeff;border-radius:9px;padding:8px 10px;font-size:11px}
+.ref-price-table-scroll{width:100%;overflow:auto;max-height:650px}
+.ref-price-table{width:100%;border-collapse:separate;border-spacing:0}
+.ref-price-table th{position:sticky;top:0;background:var(--panel2);z-index:1}
+.ref-price-table td{padding:13px 16px}
+.ref-price-table tbody tr{transition:background .15s ease}
+.ref-price-table tbody tr:hover{background:var(--panel2)}
+.ref-price-code{display:inline-block;padding:6px 10px;border-radius:8px;background:rgba(111,94,229,.11);color:#6852d4;font-weight:850;font-size:12px;letter-spacing:.03em}
+.ref-price-amount{font-size:14px;color:var(--text);white-space:nowrap}
+.ref-price-edit-button{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ref-price-empty{display:grid;place-items:center;gap:7px;text-align:center;padding:44px 20px;color:var(--muted);font-size:12px}
+.ref-price-empty strong{color:var(--text);font-size:15px}
+.ref-price-empty svg{color:#8678ea}
+.dark .ref-price-total>svg,.dark .ref-price-section-title>span{background:#39315f;color:#cec2ff}
+.dark .ref-price-search-field{border-color:#554d88}
+.dark .ref-price-filter-chips button.selected{background:#6657cb;border-color:#8375f1}
+.dark .ref-price-results-heading>strong,.dark .ref-price-code{background:#35305a;color:#c8baff}
+@keyframes ref-search-arrive{from{opacity:.6;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1050px){.ref-price-form{grid-template-columns:repeat(2,minmax(0,1fr))}.ref-price-form button{grid-column:1/-1;justify-self:start}}
+@media(max-width:650px){
+ .ref-price-page{gap:13px}
+ .ref-price-heading{align-items:stretch}
+ .ref-price-total{width:100%}
+ .ref-price-search-panel{padding:15px;border-radius:16px}
+ .ref-price-search-intro h2{font-size:15px}
+ .ref-price-search-field{min-height:56px;padding:0 12px;gap:9px;border-radius:12px}
+ .ref-price-search-field input{font-size:14px}
+ .ref-price-search-field input::placeholder{font-size:11px}
+ .ref-price-filter-chips{flex-wrap:nowrap;overflow-x:auto;padding:0 0 6px;scrollbar-width:thin;overscroll-behavior-x:contain}
+ .ref-price-filter-chips button{flex-shrink:0;font-size:11px;padding:9px 12px}
+ .ref-price-edit-panel,.ref-price-results-panel{padding:14px}
+ .ref-price-form{grid-template-columns:1fr}
+ .ref-price-form button{grid-column:auto;width:100%}
+ .ref-price-edit-footer{align-items:stretch;flex-direction:column}
+ .ref-price-edit-footer button{width:100%}
+ .ref-price-results-heading{align-items:flex-start;flex-direction:column}
+ .ref-price-results-heading>strong{flex-shrink:1}
+ .ref-price-table{min-width:480px}
+}
+@media(prefers-reduced-motion:reduce){.ref-price-search-panel,.ref-price-search-field,.ref-price-filter-chips button,.ref-price-table tbody tr{animation:none!important;transition:none!important;transform:none!important}}

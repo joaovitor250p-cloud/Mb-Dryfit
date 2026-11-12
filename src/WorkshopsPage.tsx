@@ -73,7 +73,7 @@ export default function WorkshopsPage({db,user,canEdit}:Props){
     }catch(e){notify(safeProviderMessage(e),true)}finally{setBusy(false)}
   };
   return <div className="page-wrap extra-page workshops-page workshops-simple">
-    <div className="page-heading"><div className="page-heading-copy"><span className="eyebrow">CONFIGURAÇÕES / PARCEIROS</span><h1>Oficinas</h1><p>Contatos, PIX, endereço e condições por referência, em um cadastro simples e rápido.</p></div>
+    <div className="page-heading"><div className="page-heading-copy"><span className="eyebrow">CADASTRO DE OFICINAS E COSTUREIROS</span><h1>Oficinas e costureiros</h1><p>Gerencie costureiros, tipos de peça, WhatsApp, endereços, PIX e preços especiais por referência.</p></div>
       {canEdit&&<div className="heading-actions"><button className="outline-button" onClick={()=>void importTailors()} disabled={busy}>Importar costureiros</button><button className="primary-button" onClick={add} disabled={busy}><Plus size={16}/> Nova oficina</button></div>}</div>
     {error&&<div className="production-alert" role="alert">{error}</div>}{notice&&<div className="production-ok"><CheckCircle2 size={16}/>{notice}</div>}
     <section className="catalog-panel workshops-directory"><div className="production-toolbar"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar oficina, telefone, endereço ou PIX..."/></label><span className="office-result-count">{filtered.length} oficina(s)</span></div>

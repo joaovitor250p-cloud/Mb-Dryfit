@@ -17,6 +17,6 @@ export default function SamplesAndCuts({db,user,models,isAdmin,canViewSamples,ca
   usePageMemory(key,{tab});
   return <div className="combined-work-area"><div className="combined-work-tabs" aria-label="Amostras e cortes">
     {canViewSamples&&<button className={tab==='samples'?'active':''} onClick={()=>{setTab('samples');setVisited(old=>old.includes('samples')?old:[...old,'samples'])}}><Camera size={17}/> Amostras</button>}
-    {canViewCuts&&<button className={tab==='cuts'?'active':''} onClick={()=>{setTab('cuts');setVisited(old=>old.includes('cuts')?old:[...old,'cuts'])}}><Scissors size={17}/> Cortes</button>}
+    {canViewCuts&&<button className={tab==='cuts'?'active':''} onClick={()=>{setTab('cuts');setVisited(old=>old.includes('cuts')?old:[...old,'cuts'])}}><Scissors size={17}/> Cortes e fotos</button>}
   </div>{visited.filter(x=>available.includes(x)).map(item=><div key={item} hidden={item!==tab} className="combined-work-content"><PageActiveContext.Provider value={outerActive&&item===tab}><Suspense fallback={<div className="empty-state">Carregando...</div>}><SampleWorkflow view={item} db={db} user={user} models={models} isAdmin={isAdmin} canReadOrders={canReadOrders} canEdit={item==='samples'?canEditSamples:canEditCuts}/></Suspense></PageActiveContext.Provider></div>)}</div>;
 }
