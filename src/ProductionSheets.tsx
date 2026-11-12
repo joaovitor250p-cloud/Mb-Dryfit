@@ -10,7 +10,7 @@ import { PageActiveContext } from './lib/pageMemory';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
 type ColorRow = {cor:string;p:string;m:string;g:string;gg:string;xg:string;detalhes:string};
-type Sheet = {id:string;createdBy:string;model:string;reference:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
+type Sheet = {id:string;createdBy:string;model:string;reference:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';enfestoConfirmationId?:string;assignedTailor:string};
 type FormData = Omit<Sheet,'id'|'status'|'assignedTailor'|'createdBy'>;
 const blankRow=():ColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
 const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] as const).every(k=>!r[k].trim()||(/^\d+$/.test(r[k].trim())&&Number.isSafeInteger(Number(r[k])))));
@@ -107,7 +107,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  if(!/^\d{4}-\d{2}-\d{2}$/.test(sentISO)||Number.isNaN(sentDate.getTime())||todayInputFromDate(sentDate)!==sentISO){setError('Escolha uma data de envio válida para a ficha.');return;}
  setBusy(true);setError('');try{const orderRef=doc(db,'cut_orders',s.id);/* A gravação em lote usa ID fixo da ficha: uma segunda tentativa é negada pelas regras de criação. */const br=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,due=new Date(sentDate.getFullYear(),sentDate.getMonth(),sentDate.getDate()+10),money=(n:number)=>currency(n);const fields=['oc','ref','model','office','qty','piecePrice','entry','sent','due','status','deliveredFlag','deliveredAt','defects','discountPiece','discountTotal','total','paidAt','paymentDone'];const order={...Object.fromEntries(fields.map(k=>[k,''])),oc:s.oc,ref:s.reference,model:s.model,office:name,qty:String(qty),piecePrice:money(amount),sent:br(sentDate),due:br(due),status:'EM ANDAMENTO',total:money(qty*amount),source:'manual',manualTotal:false,createdBy:user.uid,createdAt:serverTimestamp(),updatedBy:user.uid,updatedAt:serverTimestamp()};const batch=writeBatch(db);batch.update(doc(db,'production_sheets',s.id),{status:'assigned',assignedTailor:name,assignedAt:serverTimestamp(),assignedBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});batch.set(orderRef,order);await batch.commit();setMessage(`Ficha OC ${s.oc} enviada para ${name} em ${displayDate(sentISO)}. A OC foi criada em OCs e pagamentos.`);setLastAssigned({...s,pieceType:type,assignedTailor:name,sentLabel:displayDate(sentISO)});}catch(e){const code=String((e as {code?:string})?.code||'');setError((code?`Firebase (${code}): `:'')+safeProviderMessage(e)+(code==='permission-denied'?' — Confirme a permissão sheet_distribution, as regras publicadas e a configuração do projeto Firebase.':''));}finally{setBusy(false);}};
  const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid).sort(compareOcDesc);
- const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
+ const pending=sheets.filter(s=>s.status==='pending'&&s.enfestoConfirmationId===s.id).sort(compareOcDesc);
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
  const submitted=sheets.filter(s=>s.status!=='draft').sort(compareOcDesc);
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -120,7 +120,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
  const historical=submitted.filter(s=>
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
-   (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':historyOffice==='enfesto'?s.status==='enfesto':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
+   (historyOffice==='all'||(historyOffice==='pending'?(s.status==='pending'&&!!s.enfestoConfirmationId):historyOffice==='enfesto'?(s.status==='enfesto'||(s.status==='pending'&&!s.enfestoConfirmationId)):s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
  );
  const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
  const sentFiltered=assigned.filter(s=>!sentSearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||''].join(' ')).includes(normSearch(sentSearch)));
@@ -156,7 +156,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
   </div>
   {!historical.length&&<div className="sheet-no-results"><FileText size={27}/><strong>Nenhuma ficha encontrada</strong><span>Experimente outra OC ou selecione outra oficina.</span></div>}
   <div className="sheet-list-grid">{historical.slice(0,historyLimit).map(s=><article className="sheet-card sheet-history-card sheet-overview-card" key={s.id}>
-   <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc||'—'}</span><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'Enviada':s.status==='enfesto'?'Em enfesto':'Aguardando distribuição'}</span></div>
+   <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc||'—'}</span><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'Enviada':s.status==='enfesto'||!s.enfestoConfirmationId?'Em enfesto':'Aguardando distribuição'}</span></div>
    <h3>{s.model||'Modelo não informado'}</h3>
    <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · {sheetQuantity(s).toLocaleString('pt-BR')} peças</p>
    <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'Oficina não informada':'Ainda sem oficina definida'}</span></div>
