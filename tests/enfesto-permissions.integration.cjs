@@ -43,6 +43,33 @@ test('administrador lê fichas, enfesto e estoque nas regras atuais',async()=>{
   assert.ok(got,'Consulta à coleção '+col);
  }
 });
+test('não permite liberar uma ficha sem job Enfesto concluído',async()=>{
+ const {db,uid,sheetId}=await setup();
+ await assert.rejects(
+  db.doc('production_sheets/'+sheetId).update({
+   status:'pending',enfestoCompletedAt:stamp(),enfestoCompletedBy:uid,
+   updatedAt:stamp(),updatedBy:uid
+  }),
+  e=>e.code==='permission-denied'
+ );
+ assert.equal((await db.doc('production_sheets/'+sheetId).get()).data().status,'enfesto');
+});
+test('não permite acesso de gravação a pessoa sem permissão Enfesto',async()=>{
+ const uid='sem_enfesto';
+ const {sheetId}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>ctx.firestore().doc('user_roles/'+uid).update({
+  role:'editor',permissions:['catalog','sheets'],disabled:false
+ }));
+ const db=env.authenticatedContext(uid).firestore();
+ await assert.rejects(
+  db.doc('enfesto_jobs/'+sheetId).set({
+   sheetId,oc:'1212',status:'draft',rows:[{cor:'BRANCO',expected:66,layers:'12',weightPerLayer:'1',cutPieces:'66',stockId:'',consumption:'',checked:true}],
+   notes:'',stockConfirmed:false,createdAt:stamp(),createdBy:uid,
+   updatedAt:stamp(),updatedBy:uid
+  }),
+  e=>e.code==='permission-denied'
+ );
+});
 test('salvar progresso no enfesto não gera PERMISSION_DENIED',async()=>{
  const {db,uid,sheetId}=await setup();
  await db.runTransaction(async t=>{
