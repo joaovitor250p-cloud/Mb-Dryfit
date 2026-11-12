@@ -1662,3 +1662,28 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
  .toast{bottom:12px}
 }
 @media(prefers-reduced-motion:reduce){.app-shell .sidebar{transition:none!important}}
+
+
+/* Relação de OCs entregues e ainda não pagas — acessível em todas as semanas. */
+.order-pending-deliveries{display:grid;gap:13px;padding:18px;border:1px solid var(--line);background:var(--panel);border-radius:16px;box-shadow:0 6px 24px rgba(41,46,91,.035)}
+.order-pending-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.order-pending-header h3{display:flex;align-items:center;gap:9px;font-size:16px;margin:0 0 6px;font-weight:800;color:var(--text)}
+.order-pending-header h3 svg{color:var(--teal2)}
+.order-pending-header p{font-size:12px;line-height:1.55;color:var(--muted);margin:0;max-width:710px}
+.order-pending-count{flex:none;border-radius:100px;background:var(--panel2);border:1px solid var(--line);padding:7px 11px;font-size:11px;font-weight:800;color:var(--text)}
+.order-pending-list{display:grid;gap:8px;max-height:420px;overflow-y:auto;overscroll-behavior:contain}
+.order-pending-row{min-width:0;background:var(--panel2)}
+.order-pending-row>div{flex:1;min-width:0}
+.order-pending-row>.outline-button{flex:none}
+.order-pending-selected{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:750;color:#187e5b;white-space:nowrap}
+.order-pending-warning{color:#a46b17!important}
+.order-pending-empty{font-size:12px;color:var(--muted);padding:8px 0;margin:0}
+.order-pending-more{justify-self:start}
+@media(max-width:650px){
+ .order-pending-deliveries{padding:12px;gap:10px}
+ .order-pending-header{flex-direction:column;gap:9px}
+ .order-pending-header h3{font-size:14px}
+ .order-pending-count{align-self:flex-start}
+ .order-pending-row>.outline-button{align-self:stretch}
+ .order-pending-selected{white-space:normal}
+}

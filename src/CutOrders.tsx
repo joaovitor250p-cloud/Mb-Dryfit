@@ -194,6 +194,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   });
   useEffect(()=>{try{window.localStorage.setItem(paymentQueueStorageKey,JSON.stringify(paymentQueue))}catch{/* armazenamento opcional */}},[paymentQueue,paymentQueueStorageKey]);
   const [paymentSearch,setPaymentSearch]=useState('');
+  const [pendingSearch,setPendingSearch]=useState(''),[pendingLimit,setPendingLimit]=useState(30);
   const [paymentPickerOpen,setPaymentPickerOpen]=useState(false);
   const [paymentPrepare,setPaymentPrepare]=useState<{order:Order;date:string}|null>(null);
   const [paymentQty,setPaymentQty]=useState('');
@@ -233,7 +234,13 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const overdueCount=useMemo(()=>rows.filter(o=>overdue(o,currentDate)).length,[rows,currentDate]);
   
   const manualPaymentIds=(paymentQueue[fridayDate]||[]).filter(id=>rows.some(o=>o.id===id&&!paid(o)));
-  // Na sexta-feira só aparecem OCs escolhidas manualmente. O histórico fica na planilha.
+  // Histórico pendente sempre visível a partir do Firestore, independente da seleção semanal.
+  const awaitingPayment=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)),[rows]);
+  const pendingPaymentResults=useMemo(()=>{
+    const search=norm(pendingSearch.trim());
+    return awaitingPayment.filter(o=>!search||norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(search));
+  },[awaitingPayment,pendingSearch]);
+  // Seleção de pagamento de sexta continua manual, sem marcar automaticamente como PAGO.
   const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&done(o)&&num(o.total)>0
     &&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate
     &&(paymentQueue[fridayDate]||[]).includes(o.id)),[rows,fridayDate,paymentQueue]);
@@ -283,6 +290,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       if(window.confirm(`A OC ${o.oc} está EM ANDAMENTO. Para incluí-la na sexta-feira, ela deve estar ENTREGUE. Abrir a edição para conferir a entrega?`))open(o);
       return;
     }
+    if(toISO(o.deliveredAt)&&toISO(o.deliveredAt)>fridayDate)return notify(`A OC ${o.oc} foi entregue depois da sexta-feira escolhida. Selecione a sexta-feira correta para incluí-la.`,true);
     if(o.paidAt.trim()&&!window.confirm(`A OC ${o.oc} possui data antiga de pagamento (${o.paidAt}), mas não está marcada como paga. Ao confirmar um novo pagamento, essa data será substituída. Continuar?`))return;
     setPaymentSearch('');
     if(!toISO(o.deliveredAt)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)||!(num(o.total)>0)
@@ -463,7 +471,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             });
           }
         });
-        notify(`OC ${row.oc} entregue e amostra vinculada. A foto poderá ser adicionada em Amostras.`);
+        notify(`OC ${row.oc} entregue e amostra vinculada! A OC aparece em Pagamentos → Entregues aguardando pagamento.`);
       } else {
         if (editing) await updateDoc(doc(db,'cut_orders',id),content);
         else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
@@ -485,7 +493,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             else transaction.set(ref,{...content,createdAt:serverTimestamp(),createdBy:user.uid});
           });
           setDraft(null);
-          notify(`OC ${row.oc} SALVA com sucesso como ENTREGUE. O Firebase recusou a sincronização automática com Amostras; a amostra NÃO foi criada ou atualizada. Confira a área Amostras e as regras publicadas antes de depender desse vínculo.`);
+          notify(`OC ${row.oc} SALVA com sucesso como ENTREGUE. A OC aparece em Entregues aguardando pagamento. O Firebase recusou a sincronização automática com Amostras; a amostra NÃO foi criada ou atualizada. Confira a área Amostras e as regras publicadas antes de depender desse vínculo.`);
         }catch(fallbackError){
           notify(`O Firebase recusou o cadastro da OC ${row.oc} mesmo sem a Amostra: ${errorText(fallbackError)}. Verifique a permissão de escrita de Ordem de Corte e as regras efetivamente publicadas.`,true);
         }
@@ -578,10 +586,40 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   return <div className="order-page">
     <header className="order-heading"><div><span className="order-eyebrow">MB REFERENCIAS / CONTROLE DAS OFICINAS</span><h1><ClipboardList size={26}/> Ordem de Corte</h1><p>Planilha compartilhada · 10 dias de prazo · pagamentos na sexta-feira</p></div><div className="order-buttons">{canEdit&&<button className="primary-button" onClick={()=>open()}><Plus size={17}/> Nova OC</button>}<button className="outline-button" onClick={()=>downloadCsv(filtered,'ORDEM_CORTE')}><Download size={15}/> CSV</button><button className="outline-button" onClick={downloadJson}>Backup</button></div></header>
     {alert&&<div className="production-alert" role="alert">{alert}</div>}{notice&&<div className="production-ok"><CheckCircle2 size={16}/>{notice}</div>}
-    <div className="order-stats"><div><small>Ordens cadastradas</small><strong>{rows.length}</strong></div><div><small>Em andamento</small><strong>{rows.filter(o=>!done(o)).length}</strong></div><div className="order-stat-overdue"><small>Pedidos atrasados</small><strong>{overdueCount}</strong></div><div><small>Entregues</small><strong>{rows.filter(done).length}</strong></div><div><small>Pagamentos a conferir</small><strong>{review.length}</strong></div></div>
+    <div className="order-stats"><div><small>Ordens cadastradas</small><strong>{rows.length}</strong></div><div><small>Em andamento</small><strong>{rows.filter(o=>!done(o)).length}</strong></div><div className="order-stat-overdue"><small>Pedidos atrasados</small><strong>{overdueCount}</strong></div><div><small>Entregues</small><strong>{rows.filter(done).length}</strong></div><div><small>Entregues a pagar</small><strong>{awaitingPayment.length}</strong></div></div>
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
     {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Pagamento da semana</h2><p>Somente as OCs selecionadas para a sexta-feira de <strong>{toBR(fridayDate)}</strong> aparecem abaixo. Cada semana começa sem OCs selecionadas; as semanas anteriores não se misturam.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7));setPaymentPickerOpen(false);setPaymentSearch('');}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>OCs selecionadas</small><strong>{manualPaymentIds.length}</strong></div></div>
+      
+      <section className="order-pending-deliveries" aria-label="Entregues aguardando pagamento">
+        <div className="order-pending-header">
+          <div><h3><ClipboardList size={18}/> Entregues aguardando pagamento</h3>
+            <p>Todas as OCs entregues e não pagas aparecem aqui automaticamente, inclusive as de outras semanas e aparelhos. Selecionar não confirma pagamento.</p>
+          </div><span className="order-pending-count">{awaitingPayment.length} pendente(s)</span>
+        </div>
+        {!awaitingPayment.length
+          ? <p className="order-pending-empty">{loading?'Carregando OCs...':'Nenhuma OC entregue aguardando pagamento.'}</p>
+          : <>
+            <label className="order-manual-search"><Search size={17}/><input aria-label="Buscar entregue aguardando pagamento" value={pendingSearch} onChange={e=>{setPendingSearch(e.target.value);setPendingLimit(30)}} placeholder="Buscar OC, REF, modelo ou costureiro..." autoComplete="off"/></label>
+            <div className="order-pending-list">
+              {pendingPaymentResults.slice(0,pendingLimit).map(o=><div className="order-manual-row order-pending-row" key={o.id}>
+                <div><strong>OC {o.oc} — {o.model}</strong>
+                  <small>{officeLabel(o.office)} · Entregue: {o.deliveredAt||'sem data'} · {o.qty||'—'} peças · {money(o.total)}</small>
+                  {(!toISO(o.deliveredAt)||!(num(o.total)>0)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0))&&<small className="order-pending-warning">Conferir data, quantidade ou valor antes de pagar.</small>}
+                  {toISO(o.deliveredAt)>fridayDate&&<small className="order-pending-warning">Entrega posterior à sexta-feira selecionada; escolha uma sexta-feira posterior.</small>}
+                  {o.paidAt.trim()&&<small className="order-pending-warning">Data antiga de pagamento sem confirmação de PAGO: confira.</small>}
+                </div>
+                {manualPaymentIds.includes(o.id)
+                  ? eligible.some(selected=>selected.id===o.id)
+                    ? <span className="order-pending-selected"><CheckCircle2 size={15}/> Selecionada nesta sexta</span>
+                    : canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>preparePayment(o)}>Conferir OC selecionada</button>
+                  : canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>addPaymentOC(o)}><Plus size={15}/> Adicionar à sexta</button>}
+              </div>)}
+              {!pendingPaymentResults.length&&<p className="order-pending-empty">Nenhuma pendência corresponde à busca.</p>}
+            </div>
+            {pendingPaymentResults.length>pendingLimit&&<button type="button" className="outline-button order-pending-more" onClick={()=>setPendingLimit(n=>n+30)}>Mostrar mais 30 OCs ({pendingPaymentResults.length-pendingLimit} restantes)</button>}
+          </>}
+      </section>
       {canEdit&&<div className="order-picker-area">
         <button type="button" className="outline-button order-picker-toggle" aria-expanded={paymentPickerOpen}
           aria-controls="order-picker-panel"

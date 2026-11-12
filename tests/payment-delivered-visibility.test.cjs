@@ -22,14 +22,14 @@ function selectedFor(rows,fridayDate,paymentQueue){
   assert.ok(start>=0&&end>start,'encontrar seleção separada por sexta-feira');
   const snippet=source.slice(start,end);
   const code=ts.transpileModule(snippet+
-    '\nexports.selection=[...manualPaymentIds];exports.eligible=[...eligible];', {
+    '\nexports.selection=[...manualPaymentIds];exports.eligible=[...eligible];exports.waiting=[...awaitingPayment];', {
     compilerOptions:{target:ts.ScriptTarget.ES2020}
   }).outputText;
-  const ctx={exports:{},rows,fridayDate,paymentQueue,paymentSearch:'',
+  const ctx={exports:{},rows,fridayDate,paymentQueue,paymentSearch:'',pendingSearch:'',
     useMemo:fn=>fn(),done:o=>o.status==='ENTREGUE',paid:o=>o.paymentDone==='OK',
     num:value=>Number(String(value).replace(',','.')),norm:String,toISO};
   vm.runInNewContext(code,ctx);
-  return {selection:[...ctx.exports.selection],eligible:[...ctx.exports.eligible].map(o=>o.id)};
+  return {selection:[...ctx.exports.selection],eligible:[...ctx.exports.eligible].map(o=>o.id),waiting:[...ctx.exports.waiting].map(o=>o.id)};
 }
 
 test('sexta-feira atual contém apenas OCs selecionadas para essa mesma sexta',()=>{
@@ -57,6 +57,25 @@ test('busca Adicionar OC fica oculta, histórico permanece na Planilha e aguarda
   assert.match(source,/Adicionar ou ajustar OCs desta semana/);
   assert.doesNotMatch(source,/order-awaiting-delivered/);
   assert.doesNotMatch(source,/waitingDelivered/);
+  assert.match(source,/Entregues aguardando pagamento/);
+  assert.match(source,/pendingPaymentResults\.slice\(0,pendingLimit\)/);
   assert.match(source,/Histórico de pagamentos por mês/);
   assert.match(source,/setPaymentPickerOpen\(false\)/);
+});
+
+test('todas as OCs entregues e não pagas aparecem na pendência independentemente da sexta-feira',()=>{
+ const rows=[order('729','ENTREGUE','05/11/2026'),order('730','ENTREGUE','11/11/2026'),order('731','ENTREGUE','10/11/2026','OK'),order('732','EM ANDAMENTO')];
+ assert.deepEqual(selectedFor(rows,'2026-11-13',{}).waiting,['729','730']);
+ assert.deepEqual(selectedFor(rows,'2026-11-20',{}).waiting,['729','730']);
+ assert.deepEqual(selectedFor(rows,'2026-11-13',{}).eligible,[]);
+});
+test('entregas incompletas continuam visíveis para conferência antes do pagamento',()=>{
+ const invalid=order('733','ENTREGUE','');invalid.total='';
+ assert.deepEqual(selectedFor([invalid],'2026-11-13',{}).waiting,['733']);
+ assert.deepEqual(selectedFor([invalid],'2026-11-13',{}).eligible,[]);
+});
+test('entrega não marca pagamento como pago e seleção de semana errada é rejeitada',()=>{
+ assert.match(source,/const awaitingPayment=useMemo\(\(\)=>rows\.filter\(o=>done\(o\)&&!paid\(o\)\)/);
+ assert.match(source,/const markPaid=async\(items:Order\[\]\)/);
+ assert.match(source,/toISO\(o\.deliveredAt\)>fridayDate/);
 });
