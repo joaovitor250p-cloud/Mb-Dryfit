@@ -8,7 +8,7 @@
 4. Abra o arquivo [firestore.rules da branch de Enfesto](https://github.com/joaovitor250p-cloud/Mb-Dryfit/blob/feat/enfesto-fichas-producao-20261112/firestore.rules), copie o conteúdo integral e substitua as regras no Console. Antes de clicar Publicar, confira que este é o projeto correto.
 5. Clique em **Publicar** e aguarde o aviso de confirmação das regras. **Não publique a interface antes desse passo.**
 6. Mescle o PR de Enfesto na branch `main` para acionar o GitHub Pages.
-7. Abra **Configurações → Usuários e acessos** e conceda a permissão **Enfesto e corte** somente aos editores responsáveis.
+7. Abra **Menu lateral → Administração → Usuários e acessos** e conceda a permissão **Enfesto e corte** somente aos editores responsáveis.
 8. Teste com uma ficha nova de pequeno porte:
    - Criar ficha → **Enviar para Enfesto**;
    - Conferir que ela não aparece em Distribuição antes de concluir;
