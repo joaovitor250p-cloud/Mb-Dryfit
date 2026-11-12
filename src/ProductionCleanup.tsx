@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import type {Firestore} from 'firebase/firestore';
-import {collection,deleteDoc,doc,getDocs,writeBatch} from 'firebase/firestore';
+import {collection,doc,getDocs,writeBatch} from 'firebase/firestore';
 import {AlertTriangle,Download,RefreshCcw,ShieldCheck,Trash2} from 'lucide-react';
 import {isProtectedProductionOc} from './lib/sheetOcSequence';
 import {safeProviderMessage} from './lib/safeMessage';
