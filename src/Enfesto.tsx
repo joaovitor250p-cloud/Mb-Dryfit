@@ -87,19 +87,18 @@ export default function Enfesto({db,user,canEdit,companyId}:Props){
    <h1>Enfesto</h1>
    <p>Receba as fichas da produção, confira o consumo de tecido por cor e marque como FEITO. Somente fichas concluídas aparecem na distribuição.</p>
   </header>
-  <div className="enfesto-summary">
-   <div><span><ClipboardList size={19}/> Aguardando enfesto</span><strong>{waiting.length}</strong></div>
-   <div><span><CheckCircle2 size={19}/> Enfestos concluídos</span><strong>{completed.length}</strong></div>
-   <div><span><Boxes size={19}/> Tecidos disponíveis</span><strong>{fabrics.length}</strong></div>
+  <div className="enfesto-summary" role="group" aria-label="Situação do enfesto">
+   <button type="button" className={!showCompleted?'active':''} aria-pressed={!showCompleted} onClick={()=>setShowCompleted(false)}><span><ClipboardList size={19}/> ENFESTO / CORTE</span><strong>{waiting.length}</strong><small>Fichas aguardando conclusão</small></button>
+   <button type="button" className={showCompleted?'active':''} aria-pressed={showCompleted} onClick={()=>setShowCompleted(true)}><span><CheckCircle2 size={19}/> FINALIZADOS</span><strong>{completed.length}</strong><small>Fichas liberadas ou distribuídas</small></button>
   </div>
   {error&&<div className="production-alert" role="alert">{error}</div>}
   {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
   <div className="enfesto-controls">
    <label className="enfesto-search"><Search size={18}/><input aria-label="Pesquisar fichas no enfesto" placeholder="Pesquisar OC, REF, modelo ou tecido..." value={search} onChange={e=>setSearch(e.target.value)}/></label>
-   <button type="button" className="outline-button" onClick={()=>setShowCompleted(v=>!v)}>{showCompleted?'Ver pendentes':'Ver concluídas'}</button>
+
   </div>
   {!showCompleted&&<div className="enfesto-list">
-   {!matching(waiting).length&&<div className="enfesto-empty"><Scissors size={30}/><strong>Nenhuma ficha aguardando enfesto</strong><span>As novas fichas enviadas pela produção aparecerão aqui.</span></div>}
+   {!matching(waiting).length&&<div className="enfesto-empty"><Scissors size={30}/><strong>Nenhuma ficha pendente ou em andamento.</strong><span>As novas fichas enviadas pela produção aparecerão aqui.</span></div>}
    {matching(waiting).map(s=><article className="enfesto-card" key={s.id}>
     <div className="enfesto-card-head"><div><span className="enfesto-oc">OC {s.oc}</span><h2>{s.model}</h2><p>REF {s.reference} · {s.pieceType||'Tipo não informado'}</p></div><span className="enfesto-waiting">Aguardando enfesto</span></div>
     <div className="enfesto-facts"><span><b>Peças:</b> {sumPieces(s).toLocaleString('pt-BR')}</span><span><b>Tecido:</b> {s.fabric||'Não informado na ficha'}</span><span><b>VOL:</b> {s.volumes||'—'}</span></div>
@@ -128,7 +127,7 @@ export default function Enfesto({db,user,canEdit,companyId}:Props){
    </article>)}
   </div>}
   {showCompleted&&<div className="enfesto-list">
-   {!matching(completed).length&&<div className="enfesto-empty"><CheckCircle2 size={30}/><strong>Nenhum enfesto concluído encontrado</strong></div>}
+   {!matching(completed).length&&<div className="enfesto-empty"><CheckCircle2 size={30}/><strong>Nenhuma ficha com enfesto e corte concluídos.</strong></div>}
    {matching(completed).map(s=><article key={s.id} className="enfesto-card enfesto-complete"><div className="enfesto-card-head"><div><span className="enfesto-oc">OC {s.oc}</span><h2>{s.model}</h2><p>REF {s.reference} · {sumPieces(s).toLocaleString('pt-BR')} peças</p></div><span className="enfesto-done"><CheckCircle2 size={15}/> FEITO</span></div><p>{s.status==='assigned'?'Ficha já distribuída ao costureiro.':'Ficha liberada, aguardando distribuição.'}</p></article>)}
   </div>}
  </section>;
