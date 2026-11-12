@@ -436,7 +436,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       return next;
     });
   };
-  const save=async(override?:Order)=>{const activeDraft=override||draft,activeEditing=override||activeEditing;if(!activeDraft||!canEdit||busy)return;const row=recalc({...activeDraft,office:canonicalWorkshopName(activeDraft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
+  const save=async(override?:Order)=>{const activeDraft=override||draft,activeEditing=override||editing;if(!activeDraft||!canEdit||busy)return;const row=recalc({...activeDraft,office:canonicalWorkshopName(activeDraft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
     for(const key of [...numberKeys,...moneyKeys]){if(row[key]&&(!Number.isFinite(num(row[key]))||num(row[key])<0))return notify(`Confira ${names[key]}.`,true)}
     if(row.defects.trim()&&(!Number.isSafeInteger(num(row.defects))||num(row.defects)>num(row.qty)))
