@@ -81,3 +81,20 @@
 .enfesto-color-title strong{text-transform:uppercase}
 .enfesto-notes textarea{text-transform:uppercase}
 @media(max-width:550px){.enfesto-editor-tools{width:100%;justify-content:flex-start}.enfesto-editor-tools .enfesto-print-button{width:100%}}
+
+
+/* FICHAS PARA ENFESTAR: cartões mais amplos e PDF direto para finalizadas. */
+@media(min-width:1101px){.enfesto-workspace{grid-template-columns:minmax(345px,445px) minmax(0,1fr)}}
+@media(min-width:791px) and (max-width:1100px){.enfesto-workspace{grid-template-columns:minmax(280px,370px) minmax(0,1fr)}}
+.enfesto-list{padding:20px;gap:15px}
+.enfesto-sheet-list{gap:12px}
+.enfesto-sheet-row{display:flex;align-items:stretch;gap:9px;min-width:0}
+.enfesto-sheet-row .enfesto-sheet{flex:1;min-width:0;min-height:122px;padding:18px 17px;align-content:center;gap:8px}
+.enfesto-sheet-row .enfesto-sheet strong{font-size:15px;line-height:1.42}
+.enfesto-sheet-row .enfesto-sheet small{font-size:12px}
+.enfesto-sheet-row .enfesto-sheet .enfesto-oc{font-size:12px;padding:8px 11px}
+.enfesto-list-print{border:1px solid #cec6f5;background:rgba(104,91,218,.075);color:#6755c2;border-radius:13px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;padding:12px 10px;min-width:87px;max-width:99px;cursor:pointer;font-size:10px;font-weight:850;text-align:center}
+.enfesto-list-print:hover{background:rgba(104,91,218,.14);border-color:#8b7ceb}
+.enfesto-list-print:focus-visible{outline:3px solid #a699ff;outline-offset:2px}
+.enfesto-list-print svg{flex:none}
+@media(max-width:790px){.enfesto-list{padding:15px}.enfesto-sheet-list{max-height:410px}.enfesto-sheet-row .enfesto-sheet{min-height:106px;padding:14px}.enfesto-list-print{min-width:76px;font-size:9px;padding:8px}}

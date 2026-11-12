@@ -154,10 +154,13 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
     <div className="enfesto-list-head"><h2>{section==='waiting'?'Fichas para enfestar':'Enfestos concluídos'}</h2><span>{filtered.length} ficha(s)</span></div>
     <label className="enfesto-search"><Search size={18}/><input type="search" aria-label="Pesquisar OC do enfesto" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, REF ou modelo..."/></label>
     <div className="enfesto-sheet-list">
-     {filtered.map(item=><button type="button" key={item.id} className={selectedId===item.id?'enfesto-sheet selected':'enfesto-sheet'} onClick={()=>setSelectedId(item.id)}>
-      <span className="enfesto-oc">OC {item.oc}</span><strong>{item.model}</strong><small>REF {item.reference} · {item.fabric||'Tecido não informado'}</small>
-      <span className="enfesto-sheet-footer">{item.status==='enfesto'?jobs[item.id]?.status==='draft'?'Progresso salvo':'Aguardando conferência':'Enfesto finalizado'}<ChevronDown size={15}/></span>
-     </button>)}
+     {filtered.map(item=><div className="enfesto-sheet-row" key={item.id}>
+      <button type="button" className={selectedId===item.id?'enfesto-sheet selected':'enfesto-sheet'} onClick={()=>setSelectedId(item.id)}>
+       <span className="enfesto-oc">OC {item.oc}</span><strong>{item.model}</strong><small>REF {item.reference} · {item.fabric||'Tecido não informado'}</small>
+       <span className="enfesto-sheet-footer">{item.status==='enfesto'?jobs[item.id]?.status==='draft'?'Progresso salvo':'Aguardando conferência':'Enfesto finalizado'}<ChevronDown size={15}/></span>
+      </button>
+      {section==='completed'&&<button type="button" className="enfesto-list-print" title={`Baixar ou imprimir ficha OC ${item.oc}`} aria-label={`Baixar ficha PDF da OC ${item.oc}`} onClick={()=>print(item)}><Printer size={18}/><span>FICHA PDF</span></button>}
+     </div>)}
      {!filtered.length&&<div className="enfesto-empty"><ClipboardList size={25}/>{loading?'Carregando fichas...':section==='waiting'?'Nenhuma ficha aguardando enfesto.':'Nenhum enfesto finalizado encontrado.'}</div>}
     </div>
    </aside>

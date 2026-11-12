@@ -19,7 +19,7 @@ const context={exports:{},require(id){
  throw Error('Unexpected require '+id);
 }};
 vm.runInNewContext(js.outputText,context);
-const {upperField,normalizeColorName,garmentNameWithoutColorOrSize,lookupReference,garmentTypeFromCatalog}=context.exports;
+const {upperField,normalizeColorName,garmentNameWithoutColorOrSize,lookupReference,garmentTypeFromCatalog,normalizeReferenceNumber}=context.exports;
 
 test('REF seleciona modelo único removendo cor e tamanho no catálogo',()=>{
  const models=[
@@ -28,8 +28,8 @@ test('REF seleciona modelo único removendo cor e tamanho no catálogo',()=>{
   {reference:'10089',name:'CAMISETA UV BRANCA GG'}
  ];
  const found=lookupReference(models,'10030');
- assert.deepEqual([...found.names],['BERM DRY NIKE']);
- assert.equal(found.suggestedName,'BERM DRY NIKE');
+ assert.deepEqual([...found.names],['BERM DRY']);
+ assert.equal(found.suggestedName,'BERM DRY');
  assert.equal(found.suggestedType,'BERMUDA');
  const top=lookupReference(models,'10089');
  assert.equal(top.suggestedName,'CAMISETA UV');
@@ -50,6 +50,21 @@ test('não remove descrições da peça, somente tokens completos de cores e tam
  assert.equal(upperField('camiseta composição algodão'),'CAMISETA COMPOSIÇÃO ALGODÃO');
  assert.equal(normalizeColorName('  azul    marinho  '),'AZUL MARINHO');
  assert.equal(garmentTypeFromCatalog('BERM DRY'),'BERMUDA');
+ assert.equal(garmentTypeFromCatalog('CAM UV M.LON'),'M.L.');
+});
+test('REF 10162 fica numérica e usa só o nome técnico comum, sem marca ou símbolos',()=>{
+ const models=[
+  {reference:'REF.10162',name:'CAM UV M.LON ADIDAS SIMB CEN C/ TRAN S/R'},
+  {reference:'10162',name:'CAM UV M.LON NIKE FACÃO VAZ T.UNI.F.L R.D'},
+  {reference:'10162',name:'CAM UV M.LON NIKE SIMB BAS C/ T.F.L'}
+ ];
+ const result=lookupReference(models,'REF.10162');
+ assert.equal(normalizeReferenceNumber('REF.10162'),'10162');
+ assert.equal(result.suggestedName,'CAM UV M.LON');
+ assert.equal(result.suggestedType,'M.L.');
+ assert.equal(result.names.length,3);
+ assert.ok(result.names.every(s=>!/NIKE|ADIDAS|SIMB|FACÃO|VAZ|\bBAS\b|\bCEN\b/.test(s)));
+ assert.equal(garmentNameWithoutColorOrSize('CAM UV M.LON NIKE FACÃO VAZ T.UNI.F.L R.D'),'CAM UV M.LON T.UNI.F.L R.D');
 });
 test('ficha pega catálogo, normaliza campos e oferece impressão nas três etapas',()=>{
  const app=read('src/App.tsx'),sheets=read('src/ProductionSheets.tsx'),enfesto=read('src/EnfestoPage.tsx');
@@ -62,8 +77,14 @@ test('ficha pega catálogo, normaliza campos e oferece impressão nas três etap
  assert.match(sheets,/normalizeColorName\(input\)/);
  assert.match(sheets,/sheet-reference-options/);
  assert.match(sheets,/referenceMatch\.names\.length>1/);
+ assert.match(sheets,/inputMode=\{key==='reference'\?'numeric'/);
+ assert.match(sheets,/normalizeReferenceNumber\(raw\)/);
+ assert.match(sheets,/const submitted=sheets\.filter\(s=>s\.status==='pending'\|\|s\.status==='assigned'\)/);
+ assert.match(sheets,/className="sheet-distribution-item"/);
  assert.match(sheets,/BAIXAR \/ IMPRIMIR PDF/);
  assert.match(enfesto,/enfesto-print-button/);
+ assert.match(enfesto,/enfesto-list-print/);
+ assert.match(enfesto,/section==='completed'&&<button/);
  assert.match(enfesto,/createPortal\(<SheetPrint sheet=\{printSheet\}/);
 });
 test('Fichas de Produção compactas: somente OC no cabeçalho; conteúdo ao expandir',()=>{

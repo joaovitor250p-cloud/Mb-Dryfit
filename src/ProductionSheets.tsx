@@ -6,7 +6,7 @@ import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeB
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
-import {garmentTypeFromCatalog,lookupReference,normalizeColorName,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
+import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
@@ -32,22 +32,22 @@ const storedColorsKey=(uid:string)=>'mb-referencias-colors-'+uid;
 const readStoredColors=(uid:string):string[]=>{
  try{const saved=JSON.parse(localStorage.getItem(storedColorsKey(uid))||'[]');return Array.isArray(saved)?saved.filter((v):v is string=>typeof v==='string').slice(0,200):[];}catch{return [];}
 };
-const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:upperField(sheet.reference),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
+const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
 export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
- const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>upperField(m.reference).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
+ const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>normalizeReferenceNumber(m.reference)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
  const referenceMatch=lookupReference(catalogModels,form.reference);
  // O catálogo carrega assincronamente: preencher uma REF digitada antes da leitura.
  useEffect(()=>{
   const match=lookupReference(catalogModels,form.reference);
-  if(match.names.length!==1)return;
+  if(!match.suggestedName)return;
   setForm(old=>old.model?old:{...old,model:match.suggestedName,pieceType:old.pieceType||match.suggestedType});
  },[catalogModels,form.reference]);
  const changeReference=(raw:string)=>{
-   const reference=upperField(raw);
+   const reference=normalizeReferenceNumber(raw);
    const matched=lookupReference(catalogModels,reference);
    setForm(old=>({...old,reference,model:matched.suggestedName,pieceType:matched.suggestedType}));
  };
@@ -115,7 +115,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    setSavedColors(next);
    try{localStorage.setItem(storedColorsKey(user.uid),JSON.stringify(next));}catch{ /* armazenamento local pode estar indisponível */ }
  };
- const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>:<input value={form[key] as string} maxLength={250} list={key==='reference'?'sheet-reference-options':undefined} onChange={e=>key==='reference'?changeReference(e.target.value):setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>}</label>;
+ const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>:<input value={form[key] as string} maxLength={key==='reference'?12:250} inputMode={key==='reference'?'numeric':undefined} pattern={key==='reference'?'[0-9]*':undefined} list={key==='reference'?'sheet-reference-options':undefined} onChange={e=>key==='reference'?changeReference(e.target.value):setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>}</label>;
  const save=async(status:'draft'|'enfesto')=>{if(!canEdit)return;if(status==='enfesto'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const normalized=uppercaseSheetForm(form);const payload={...normalized,model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
  const editDraft=(s:Sheet)=>{setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]}));setEditingId(s.id);setTab('create');setError('');};
  const quantity=(v:string)=>{const n=Number(v.trim());return Number.isSafeInteger(n)&&n>=0?n:0;};
@@ -128,7 +128,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid).sort(compareOcDesc);
  const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
- const submitted=sheets.filter(s=>s.status!=='draft').sort(compareOcDesc);
+ const submitted=sheets.filter(s=>s.status==='pending'||s.status==='assigned').sort(compareOcDesc);
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
@@ -139,7 +139,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
  const historical=submitted.filter(s=>
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
-   (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':historyOffice==='enfesto'?s.status==='enfesto':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
+   (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
  );
  const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
  const sentFiltered=assigned.filter(s=>!sentSearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||''].join(' ')).includes(normSearch(sentSearch)));
@@ -159,19 +159,19 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
  {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('model','Nome da peça:')}{field('reference','REF:')}
  <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
- {!!form.reference.trim()&&referenceMatch.names.length===1&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
- {referenceMatch.names.length>1&&<label className="sheet-ref-select"><strong>Esta REF tem mais de um modelo. Escolha o nome correto:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
+ {!!form.reference.trim()&&!!referenceMatch.suggestedName&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
+ {referenceMatch.names.length>1&&!referenceMatch.suggestedName&&<label className="sheet-ref-select"><strong>Não há um nome técnico único para esta REF. Escolha a peça correta:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
  <datalist id="sheet-color-suggestions">{colorOptions.map(color=><option value={color} key={color}/>)}</datalist>
  <p className="sheet-colors-hint">Cores já usadas ficam salvas como sugestões para a próxima ficha. Toque no campo CORES para selecionar ou digitar uma nova.</p>
  <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></div></div>}
  {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}</div>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
-  <div className="sheet-view-head"><div><h2>Todas as fichas</h2><p>Fichas aguardando envio e fichas distribuídas, sempre disponíveis para consulta e impressão.</p></div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
+  <div className="sheet-view-head"><div><h2>Todas as fichas</h2><p>Somente fichas concluídas no enfesto ou enviadas às oficinas. Clique na OC para abrir os detalhes e o PDF.</p></div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
   <div className="sheet-filters">
    <label className="sheet-quick-search"><Search size={18}/><input aria-label="Pesquisar ficha por OC, REF ou modelo" type="search" value={historySearch} onChange={e=>{setHistorySearch(e.target.value);setHistoryLimit(50)}} placeholder="Pesquisar OC, REF ou modelo..."/></label>
    <label className="sheet-office-filter"><Building2 size={18}/><select aria-label="Filtrar fichas por oficina" value={historyOffice} onChange={e=>{setHistoryOffice(e.target.value);setHistoryLimit(50)}}>
     <option value="all">Todas as oficinas</option>
-    <option value="enfesto">Em enfesto</option><option value="pending">Prontas para distribuição</option>
+    <option value="pending">Prontas para distribuição</option>
     {historyOffices.map(([key,name])=><option key={key} value={key}>{name}</option>)}
    </select></label>
   </div>
@@ -198,7 +198,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   <label className="sheet-quick-search sheet-distribution-search"><Search size={18}/><input aria-label="Pesquisar OC para distribuir" type="search" value={distributionSearch} onChange={e=>setDistributionSearch(e.target.value)} placeholder="Buscar ficha disponível por OC, REF ou modelo..."/></label>
   {!pending.length&&<div className="sheet-no-results"><CheckCircle2 size={30}/><strong>Nenhuma ficha aguardando distribuição.</strong><span>Fichas enviadas estão na aba Costureiros.</span></div>}
   {!!pending.length&&!filteredPending.length&&<div className="sheet-no-results"><Search size={27}/><strong>Nenhuma ficha corresponde à pesquisa.</strong></div>}
-  <div className="sheet-distribution-grid sheet-pending-grid">
+  <div className="sheet-distribution-grid sheet-pending-grid sheet-pending-compact">
    {filteredPending.map(s=>{
     const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
     const candidates=compatibleOffices(s);
@@ -207,8 +207,9 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     const priceId=`${s.id}:${workshopKey(selectedOffice)}`;
     const value=selectedOffice?(priceOverride[priceId]??suggested):'';
     const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
-    return <article className="sheet-card sheet-send-card" key={s.id}>
-     <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">Aguardando envio</span></div>
+    return <details className="sheet-distribution-item" key={s.id}>
+     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
+     <div className="sheet-distribution-body">
      <h3>{s.model||'Modelo não informado'}</h3>
      <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
      <div className="sheet-send-fields">
@@ -227,7 +228,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <button type="button" className="primary-button" disabled={busy||!selectedOffice||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button>
       <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>
      </div>
-    </article>;
+     </div>
+    </details>;
    })}
   </div>
  </section>}
