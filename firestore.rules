@@ -846,6 +846,23 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && validEnfestoHandoff(sheetId)
       ) || (
+        // Somente o administrador pode preparar as três OCs protegidas
+        // para Enfesto, sem alterar a ficha e sem repetir cortes concluídos.
+        isAdmin()
+        && canWrite('enfesto')
+        && resource.data.oc in ['752','753','754']
+        && resource.data.status in ['draft','pending']
+        && request.resource.data.status == 'enfesto'
+        && resource.data.get('enfestoCompletedAt',null) == null
+        && resource.data.get('assignedTailor','') == ''
+        && resource.data.get('assignedAt',null) == null
+        && (!exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
+          || get(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status != 'completed')
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status','updatedAt','updatedBy'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+      ) || (
         resource.data.status == 'pending'
         && request.resource.data.status == 'assigned'
         && canWrite('sheet_distribution')
