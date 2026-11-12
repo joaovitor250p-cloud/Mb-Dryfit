@@ -73,3 +73,11 @@
 @media(max-width:790px){.enfesto-workspace{grid-template-columns:1fr}.enfesto-sheet-list{max-height:310px}.enfesto-kpis{gap:8px}.enfesto-kpis button{padding:12px 9px;grid-template-columns:1fr;gap:7px}.enfesto-kpis svg{grid-row:auto;width:30px;height:30px;padding:7px}.enfesto-kpis button span{font-size:10px}.enfesto-kpis button strong{font-size:22px}}
 @media(max-width:500px){.enfesto-page{gap:14px}.enfesto-editor{padding:13px}.enfesto-color-card{padding:12px}.enfesto-fields{grid-template-columns:1fr}.enfesto-totals{gap:6px}.enfesto-totals>div{padding:9px}.enfesto-totals strong{font-size:18px}.enfesto-totals small{font-size:9px}.enfesto-editor-head{flex-wrap:wrap}.enfesto-actions button{flex:1 1 100%}}
 @media(prefers-reduced-motion:reduce){.enfesto-kpis button,.enfesto-sheet,.enfesto-color-card{transition:none!important;transform:none!important}}
+
+
+/* Botão A4 disponível em Enfesto pendente ou concluído. */
+.enfesto-editor-tools{display:flex;align-items:flex-end;justify-content:flex-end;flex-wrap:wrap;gap:9px;min-width:0}
+.enfesto-editor-tools .enfesto-print-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:39px;border-radius:10px;font-size:11px;font-weight:800;max-width:100%;white-space:normal;text-align:center}
+.enfesto-color-title strong{text-transform:uppercase}
+.enfesto-notes textarea{text-transform:uppercase}
+@media(max-width:550px){.enfesto-editor-tools{width:100%;justify-content:flex-start}.enfesto-editor-tools .enfesto-print-button{width:100%}}

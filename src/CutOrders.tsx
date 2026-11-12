@@ -258,6 +258,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&done(o)&&num(o.total)>0
     &&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate
     &&(paymentQueue[fridayDate]||[]).includes(o.id)),[rows,fridayDate,paymentQueue]);
+
   const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!(paymentQueue[fridayDate]||[]).includes(o.id)&&
     (!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows,fridayDate,paymentQueue]);
   const paymentMatches=useMemo(()=>{
@@ -520,8 +521,29 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   // Usar o ID real do documento preserva OCs com número duplicado.
   // O ID da OC criada automaticamente é o ID da ficha de produção.
   // OCs importadas/manuais não possuem ficha vinculada e recebem um aviso claro.
+  // Verifica a existência da ficha vinculada por ID. OCs históricas e manuais
+  // não ganham um botão de PDF apenas por coincidência de número.
+  // A consulta pontual respeita as regras: quem vê OCs só lê fichas já distribuídas.
+  const [verifiedSheetIds,setVerifiedSheetIds]=useState<Set<string>>(()=>new Set());
+  const sheetLookupCache=useRef(new Map<string,boolean>());
+  const sheetCandidates=useMemo(()=>[...new Set([...filtered.slice(0,count),...eligible].filter(hasNewProductionSheet).map(o=>o.id))],[filtered,count,eligible]);
+  useEffect(()=>{
+    if(!pageActive){return;}
+    let canceled=false;
+    const unknown=sheetCandidates.filter(id=>!sheetLookupCache.current.has(id));
+    const publish=()=>{if(!canceled)setVerifiedSheetIds(new Set(sheetCandidates.filter(id=>sheetLookupCache.current.get(id)===true)))};
+    publish();
+    if(unknown.length)void Promise.all(unknown.map(async id=>{
+      try{
+        const snapshot=await getDoc(doc(db,'production_sheets',id));
+        sheetLookupCache.current.set(id,snapshot.exists()&&snapshot.data().status==='assigned');
+      }catch{sheetLookupCache.current.set(id,false)}
+    })).then(publish);
+    return()=>{canceled=true};
+  },[db,pageActive,sheetCandidates]);
+  const hasVerifiedSheet=(o:Order)=>hasNewProductionSheet(o)&&verifiedSheetIds.has(o.id);
   const abrirFicha=async(o:Order)=>{
-    if(!hasNewProductionSheet(o))return;
+    if(!hasVerifiedSheet(o))return;
     if(loadingFicha)return;
     setLoadingFicha(o.id);
     setAlert('');setNotice('');
@@ -656,7 +678,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
           </div>
           <strong className="order-payment-net">{money(o.total)}</strong>
           {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>preparePayment(o)}>Editar entrega / defeitos</button>}
-          {hasNewProductionSheet(o)&&<button type="button" className="order-ficha-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(o)}><Download size={14}/> Ficha</button>}
+          {hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(o)}><Download size={14}/> Ficha</button>}
           {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void markPaid([o])}><CheckCircle2 size={14}/> Pago</button>}
         </div>)}
         {canEdit&&<button disabled={busy} className="primary-button" onClick={()=>void markPaid(g.list)}>Confirmar pagamento de todas as OCs da oficina</button>}
@@ -678,7 +700,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       <div className="order-summary-head"><strong>Resumo das OCs</strong><span>Role a barra horizontal para consultar as informações à direita.</span></div>
       <div className="order-helper"><span>{filtered.length} OCs encontradas · exibindo {Math.min(count,filtered.length)} {loading?'· carregando...':''}</span><span><Edit3 size={14}/> Para editar: <strong>3 cliques/toques</strong> no registro ou <strong>Editar</strong> com um toque</span></div>
       <div className="order-scrollbar-top" ref={railRef} tabIndex={0} role="region" onScroll={e=>scrollRail(e.currentTarget.scrollLeft)} aria-label="Barra horizontal para navegar nas colunas"><div style={{width:tableWidth,height:1}}/></div>
-      <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit&&paid(o)&&<button type="button" className="order-unpay-inline" title="Desmarcar pagamento registrado" disabled={busy} onClick={e=>{e.stopPropagation();void undoPaid(o)}}>Desmarcar pago</button>}{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{hasNewProductionSheet(o)&&<button type="button" className="order-ficha-button" title={`Abrir ficha enviada ao costureiro da OC ${o.oc} para salvar em PDF`} aria-label={`Ficha OC ${o.oc}`} disabled={!!loadingFicha} onClick={e=>{e.stopPropagation();void abrirFicha(o)}}><Download size={13}/> {loadingFicha===o.id?'Abrindo...':'Ficha'}</button>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
+      <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit&&paid(o)&&<button type="button" className="order-unpay-inline" title="Desmarcar pagamento registrado" disabled={busy} onClick={e=>{e.stopPropagation();void undoPaid(o)}}>Desmarcar pago</button>}{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" title={`Abrir ficha enviada ao costureiro da OC ${o.oc} para salvar em PDF`} aria-label={`Ficha OC ${o.oc}`} disabled={!!loadingFicha} onClick={e=>{e.stopPropagation();void abrirFicha(o)}}><Download size={13}/> {loadingFicha===o.id?'Abrindo...':'Ficha'}</button>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
       <div className="order-foot"><span>Você pode rolar a tabela para ver todas as colunas.</span>{count<filtered.length&&<div><button className="outline-button" onClick={()=>setCount(n=>n+PAGE)}>Mostrar mais 75</button><button className="outline-button" onClick={()=>setCount(filtered.length)}>Mostrar todas ({filtered.length})</button></div>}</div>
     </>}
     {paymentPrepare&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setPaymentPrepare(null)}}>
@@ -711,7 +733,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       {priceLookupWarning&&<span> {priceLookupWarning}</span>}
     </small>}</label>)}</div></fieldset>)}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
-      <footer>{editing&&hasNewProductionSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
+      <footer>{editing&&hasVerifiedSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
     {printSheet&&pageActive&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
     {deleteTarget&&isAdmin&&pageActive&&createPortal(<div className="order-delete-overlay" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)setDeleteTarget(null)}}><section className="order-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-oc-title" aria-describedby="delete-oc-description"><div className="order-delete-icon"><Trash2 size={23}/></div><h2 id="delete-oc-title">Excluir a OC {deleteTarget.oc}?</h2><p id="delete-oc-description">Tem certeza que deseja excluir a <strong>OC {deleteTarget.oc}</strong> — {deleteTarget.model || 'sem modelo'}?</p><p>Esta ação apaga o registro da Ordem de Corte do Firebase e não pode ser desfeita. A Ficha de Produção vinculada não será apagada.</p><div className="order-delete-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button type="button" className="order-delete-button order-delete-confirm-button" disabled={busy} onClick={()=>void removeOrder()}>{busy?'Excluindo...':`Sim, excluir OC ${deleteTarget.oc}`}</button></div></section></div>,document.body)}
   </div>;

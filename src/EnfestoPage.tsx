@@ -1,15 +1,17 @@
 import {useContext,useEffect,useMemo,useState} from 'react';
 import type {User} from 'firebase/auth';
+import {createPortal} from 'react-dom';
+import SheetPrint,{type PrintableSheet} from './SheetPrint';
 import type {Firestore} from 'firebase/firestore';
 import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase/firestore';
-import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
+import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
 import {PageActiveContext} from './lib/pageMemory';
 import {safeProviderMessage} from './lib/safeMessage';
 import {calculatedKg,calculateConsumption,makeEnfestoRows,normalizeColor,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
 import {confirmEnfestoConsumption,finishEnfestoWithoutStock,quantityText,type StockEntry} from './lib/purchasesInventory';
 import './enfesto.css';
 
-type Sheet={id:string;oc:string;model:string;reference:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;enfestoCompletedAt?:{toDate?:()=>Date}};
+type Sheet={id:string;oc:string;model:string;reference:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
 type Job={id:string;sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
 type Props={db:Firestore;user:User;companyId:string;canEdit:boolean};
 const empty:EnfestoDetails={rows:[],notes:''};
@@ -28,6 +30,31 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [edits,setEdits]=useState<Record<string,EnfestoDetails>>({});
  const [skipStock,setSkipStock]=useState<Record<string,boolean>>({});
  const [selectedId,setSelectedId]=useState('');
+ const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
+ const print=(sheet:Sheet)=>{
+  const colors=(sheet.colors||[]).map(row=>({...row,detalhes:String((row as FichaCor&{detalhes?:string}).detalhes||'')}));
+  if(colors.filter(row=>Object.values(row).some(v=>String(v).trim())).length>14){setError('A ficha tem mais de 14 linhas preenchidas. Confira o modelo A4 antes de imprimir.');return}
+  setPrintSheet({
+   oc:sheet.oc,reference:sheet.reference,model:sheet.model,pieceType:sheet.pieceType||'',
+   fabric:sheet.fabric||'',composition:sheet.composition||'',trims:sheet.trims||'',
+   officeInstructions:sheet.officeInstructions||'',withdrawalDate:sheet.withdrawalDate||'',
+   volumes:sheet.volumes||'',tailorInstructions:sheet.tailorInstructions||'',
+   finishingInstructions:sheet.finishingInstructions||'',assignedTailor:sheet.assignedTailor||'',
+   colors
+  });
+ };
+ useEffect(()=>{
+  if(!printSheet||!active)return;
+  const previousTitle=document.title;
+  document.title='Ficha_OC_'+(printSheet.oc||'sem_numero').replace(/[^a-zA-Z0-9_-]/g,'_');
+  const id=window.setTimeout(()=>window.print(),350);
+  return()=>{window.clearTimeout(id);document.title=previousTitle};
+ },[printSheet,active]);
+ useEffect(()=>{
+  const finish=()=>setPrintSheet(null);
+  window.addEventListener('afterprint',finish);
+  return()=>window.removeEventListener('afterprint',finish);
+ },[]);
  const [search,setSearch]=useState('');
  const [section,setSection]=useState<'waiting'|'completed'>('waiting');
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
@@ -136,7 +163,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    </aside>
    <section className="enfesto-editor">
     {!sheet?<div className="enfesto-placeholder"><Scissors size={34}/><strong>Selecione uma ficha</strong><p>Escolha uma OC na lista para começar a conferência do enfesto.</p></div>:<>
-     <div className="enfesto-editor-head"><div><span className="enfesto-oc">OC {sheet.oc}</span><h2>{sheet.model}</h2><p>REF {sheet.reference} · {sheet.pieceType||'Tipo não informado'} · Tecido: {sheet.fabric||'Não informado'}</p></div><span className={sheet.status==='enfesto'?'enfesto-state':'enfesto-state done'}>{sheet.status==='enfesto'?'Em enfesto':'Enfesto concluído'}</span></div>
+     <div className="enfesto-editor-head"><div><span className="enfesto-oc">OC {sheet.oc}</span><h2>{sheet.model}</h2><p>REF {sheet.reference} · {sheet.pieceType||'Tipo não informado'} · Tecido: {sheet.fabric||'Não informado'}</p></div><div className="enfesto-editor-tools"><span className={sheet.status==='enfesto'?'enfesto-state':'enfesto-state done'}>{sheet.status==='enfesto'?'Em enfesto':'Enfesto concluído'}</span><button type="button" className="outline-button enfesto-print-button" onClick={()=>print(sheet)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA PDF</button></div></div>
      <div className="enfesto-totals">
       <div><small>Peças previstas</small><strong>{number(totalExpected(draft.rows))}</strong></div>
       <div><small>Peças cortadas</small><strong>{number(totalCut(draft.rows))}</strong></div>
@@ -170,5 +197,6 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
     </>}
    </section>
   </div>
+  {printSheet&&active&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
  </div>;
 }

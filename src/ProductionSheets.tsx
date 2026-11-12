@@ -6,6 +6,7 @@ import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeB
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
+import {garmentTypeFromCatalog,lookupReference,normalizeColorName,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
@@ -31,11 +32,29 @@ const storedColorsKey=(uid:string)=>'mb-referencias-colors-'+uid;
 const readStoredColors=(uid:string):string[]=>{
  try{const saved=JSON.parse(localStorage.getItem(storedColorsKey(uid))||'[]');return Array.isArray(saved)?saved.filter((v):v is string=>typeof v==='string').slice(0,200):[];}catch{return [];}
 };
+const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:upperField(sheet.reference),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,canEdit,canDistribute,initialTab}:{db:Firestore;user:User;canEdit:boolean;canDistribute:boolean;initialTab:'create'|'distribution'}) {
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
+ const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>upperField(m.reference).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
+ const referenceMatch=lookupReference(catalogModels,form.reference);
+ // O catálogo carrega assincronamente: preencher uma REF digitada antes da leitura.
+ useEffect(()=>{
+  const match=lookupReference(catalogModels,form.reference);
+  if(match.names.length!==1)return;
+  setForm(old=>old.model?old:{...old,model:match.suggestedName,pieceType:old.pieceType||match.suggestedType});
+ },[catalogModels,form.reference]);
+ const changeReference=(raw:string)=>{
+   const reference=upperField(raw);
+   const matched=lookupReference(catalogModels,reference);
+   setForm(old=>({...old,reference,model:matched.suggestedName,pieceType:matched.suggestedType}));
+ };
+ const chooseCatalogModel=(name:string)=>{
+   const model=upperField(name);
+   setForm(old=>({...old,model,pieceType:garmentTypeFromCatalog(model)}));
+ };
  const [sheets,setSheets]=useState<Sheet[]>([]);
  const [pieceType,setPieceType]=useState<Record<string,string>>({});
  const [tailor,setTailor]=useState<Record<string,string>>({});
@@ -79,7 +98,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  const colorOptions=useMemo(()=>{
    const normalized=new Map<string,string>();
    for(const value of [...sheets.flatMap(sheet=>(sheet.colors||[]).map(row=>row.cor)),...savedColors]){
-     const color=String(value||'').trim();
+     const color=normalizeColorName(String(value||''));
      if(color&&color.length<=90){
        const key=color.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
        if(!normalized.has(key))normalized.set(key,color);
@@ -88,7 +107,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
    return [...normalized.values()].sort((a,b)=>a.localeCompare(b,'pt-BR')).slice(0,250);
  },[sheets,savedColors]);
  const rememberColor=(input:string)=>{
-   const color=input.trim();
+   const color=normalizeColorName(input);
    if(!color||color.length>90)return;
    const key=color.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
    if(savedColors.some(item=>item.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR')===key))return;
@@ -96,11 +115,11 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
    setSavedColors(next);
    try{localStorage.setItem(storedColorsKey(user.uid),JSON.stringify(next));}catch{ /* armazenamento local pode estar indisponível */ }
  };
- const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>:<input value={form[key] as string} maxLength={250} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>}</label>;
- const save=async(status:'draft'|'enfesto')=>{if(!canEdit)return;if(status==='enfesto'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const payload={...form,model:form.model.trim(),reference:form.reference.trim().toUpperCase(),pieceType:form.pieceType||'',fabric:form.fabric?.trim()||'',volumes:form.volumes?.trim()||'',oc:form.oc.trim(),colors:form.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
- const editDraft=(s:Sheet)=>{setForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]});setEditingId(s.id);setTab('create');setError('');};
+ const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>:<input value={form[key] as string} maxLength={250} list={key==='reference'?'sheet-reference-options':undefined} onChange={e=>key==='reference'?changeReference(e.target.value):setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>}</label>;
+ const save=async(status:'draft'|'enfesto')=>{if(!canEdit)return;if(status==='enfesto'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const normalized=uppercaseSheetForm(form);const payload={...normalized,model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
+ const editDraft=(s:Sheet)=>{setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]}));setEditingId(s.id);setTab('create');setError('');};
  const quantity=(v:string)=>{const n=Number(v.trim());return Number.isSafeInteger(n)&&n>=0?n:0;};
- const tableRows=(rows:ColorRow[],editable:boolean)=> <div className="sheet-table-wrap"><table className="sheet-table"><thead><tr>{['CORES','P','M','G','GG','XG','DETALHES'].map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{(['cor','p','m','g','gg','xg','detalhes'] as const).map(k=><td key={k}>{editable?(k==='detalhes'?<textarea className="sheet-detail-input" aria-label={`Detalhes linha ${i+1}`} rows={2} maxLength={240} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:e.target.value}:r)}))}/>:<input aria-label={`${k} linha ${i+1}`} type={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?'number':'text'} min={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?0:undefined} step="1" list={k==='cor'?'sheet-color-suggestions':undefined} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:e.target.value}:r)}))} onBlur={k==='cor'?e=>rememberColor(e.currentTarget.value):undefined}/>):row[k]}</td>)}</tr>)}<tr className="sheet-total-row"><th>TOTAL</th>{(['p','m','g','gg','xg'] as const).map(k=><td key={k}>{rows.reduce((sum,r)=>sum+quantity(r[k]),0)}</td>)}<td>GERAL: {rows.reduce((sum,r)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(r[k]),0),0)}</td></tr></tbody></table></div>;
+ const tableRows=(rows:ColorRow[],editable:boolean)=> <div className="sheet-table-wrap"><table className="sheet-table"><thead><tr>{['CORES','P','M','G','GG','XG','DETALHES'].map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{(['cor','p','m','g','gg','xg','detalhes'] as const).map(k=><td key={k}>{editable?(k==='detalhes'?<textarea className="sheet-detail-input" aria-label={`Detalhes linha ${i+1}`} rows={2} maxLength={240} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:upperField(e.target.value)}:r)}))}/>:<input aria-label={`${k} linha ${i+1}`} type={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?'number':'text'} min={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?0:undefined} step="1" list={k==='cor'?'sheet-color-suggestions':undefined} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:upperField(e.target.value)}:r)}))} onBlur={k==='cor'?e=>rememberColor(e.currentTarget.value):undefined}/>):row[k]}</td>)}</tr>)}<tr className="sheet-total-row"><th>TOTAL</th>{(['p','m','g','gg','xg'] as const).map(k=><td key={k}>{rows.reduce((sum,r)=>sum+quantity(r[k]),0)}</td>)}<td>GERAL: {rows.reduce((sum,r)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(r[k]),0),0)}</td></tr></tbody></table></div>;
  const assign=async(s:Sheet)=>{if(!canDistribute||busy||s.status!=='pending')return;const name=canonicalWorkshopName(tailor[s.id]||''),type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');if(!name){setError('Selecione o costureiro.');return;}const matches=workshops.filter(w=>workshopKey(w.name)===workshopKey(name));const options=matches.flatMap(w=>w.types||[]);if(!type||!canSewType(name,type,options)){setError('Este costureiro não produz o tipo de roupa selecionado. Confira o cadastro em Configurações → Oficinas.');return;}const suggested=getPrice(s,name,type),value=priceOverride[`${s.id}:${workshopKey(name)}`]??suggested,amount=parsePrice(value);if(!Number.isFinite(amount)){setError('VERIFIQUE SE A REFERÊNCIA ESTÁ CORRETA. SE FOR UMA REF NOVA, INFORME O VALOR POR PEÇA ANTES DE DISTRIBUIR.');return;}if(!validQuantities(s.colors)){setError('Esta ficha tem quantidades inválidas. Corrija os tamanhos antes de distribuir.');return;}const qty=s.colors.reduce((n,r)=>n+(['p','m','g','gg','xg'] as const).reduce((sum,k)=>sum+quantity(r[k]),0),0);if(!Number.isSafeInteger(qty)||qty<=0){setError('Informe quantidades válidas antes de distribuir.');return;}
  const sentISO=sendDates[s.id]??todayInput();
  const sentDate=new Date(`${sentISO}T12:00:00`);
@@ -138,11 +157,14 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
  </div>
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
- {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('model','Modelo:')}{field('reference','REF:')}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:e.target.value}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
+ {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('model','Nome da peça:')}{field('reference','REF:')}
+ <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
+ {!!form.reference.trim()&&referenceMatch.names.length===1&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
+ {referenceMatch.names.length>1&&<label className="sheet-ref-select"><strong>Esta REF tem mais de um modelo. Escolha o nome correto:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
  <datalist id="sheet-color-suggestions">{colorOptions.map(color=><option value={color} key={color}/>)}</datalist>
  <p className="sheet-colors-hint">Cores já usadas ficam salvas como sugestões para a próxima ficha. Toque no campo CORES para selecionar ou digitar uma nova.</p>
- <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...form,assignedTailor:''})}>Baixar PDF / Imprimir</button><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></div></div>}
- {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><article className="sheet-card" key={s.id}><h3>{s.oc?'OC '+s.oc:'Sem OC'} — {s.model||'Sem modelo'}</h3><button className="outline-button" onClick={()=>editDraft(s)}>Continuar preenchimento</button></article>)}</div>}
+ <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></div></div>}
+ {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}</div>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
   <div className="sheet-view-head"><div><h2>Todas as fichas</h2><p>Fichas aguardando envio e fichas distribuídas, sempre disponíveis para consulta e impressão.</p></div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
   <div className="sheet-filters">
@@ -154,18 +176,20 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
    </select></label>
   </div>
   {!historical.length&&<div className="sheet-no-results"><FileText size={27}/><strong>Nenhuma ficha encontrada</strong><span>Experimente outra OC ou selecione outra oficina.</span></div>}
-  <div className="sheet-list-grid">{historical.slice(0,historyLimit).map(s=><article className="sheet-card sheet-history-card sheet-overview-card" key={s.id}>
-   <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc||'—'}</span><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'Enviada':s.status==='enfesto'?'Em enfesto':'Pronta para distribuição'}</span></div>
-   <h3>{s.model||'Modelo não informado'}</h3>
-   <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · {sheetQuantity(s).toLocaleString('pt-BR')} peças</p>
-   <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'Oficina não informada':s.status==='enfesto'?'Aguardando corte':'Ainda sem oficina definida'}</span></div>
-   <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/>{s.status==='assigned'?'Imprimir ficha enviada':'Prévia / imprimir PDF'}</button></div>
-  </article>)}</div>
+  <div className="sheet-compact-list">{historical.slice(0,historyLimit).map(s=><details className="sheet-compact-item" key={s.id}>
+   <summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary>
+   <div className="sheet-compact-detail">
+    <div className="sheet-card-top"><strong className="sheet-detail-name">{s.model||'MODELO NÃO INFORMADO'}</strong><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'ENVIADA':s.status==='enfesto'?'EM ENFESTO':'PRONTA PARA DISTRIBUIÇÃO'}</span></div>
+    <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'TIPO NÃO INFORMADO'} · {sheetQuantity(s).toLocaleString('pt-BR')} PEÇAS</p>
+    <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'OFICINA NÃO INFORMADA':s.status==='enfesto'?'AGUARDANDO CORTE':'AINDA SEM OFICINA DEFINIDA'}</span></div>
+    <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
+   </div>
+  </details>)}</div>
   {historical.length>historyLimit&&<button type="button" className="outline-button sheet-show-more" onClick={()=>setHistoryLimit(n=>n+50)}>Mostrar mais 50 fichas ({historical.length-historyLimit} restantes)</button>}
  </section>}
  {tab==='distribution'&&canDistribute&&<section className="sheet-list sheet-distribution-view">
   <div className="sheet-view-head"><div><h2>Fichas disponíveis para distribuição</h2><p>Escolha uma ficha, selecione o costureiro e a data. Depois do envio a OC aparece em OCs e pagamentos.</p></div><span className="sheet-view-count">{pending.length} ficha(s) disponíveis</span></div>
-  {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Envio em {lastAssigned.sentLabel}. Ficha em Costureiros e OC em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> Imprimir ficha enviada</button></div>}
+  {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Envio em {lastAssigned.sentLabel}. Ficha em Costureiros e OC em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA ENVIADA</button></div>}
   <div className="sheet-distribution-stats">
    <div><Clock3 size={18}/><span>Fichas disponíveis</span><strong>{pending.length}</strong></div>
    <div><FileText size={18}/><span>Peças disponíveis</span><strong>{pending.reduce((total,s)=>total+sheetQuantity(s),0).toLocaleString('pt-BR')}</strong></div>
@@ -201,7 +225,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
      {selectedOffice&&known&&<small className="sheet-price-note">Valor sugerido para {selectedOffice}: {Number.isFinite(parsePrice(suggested))?currency(parsePrice(suggested)):'A informar'}</small>}
      <div className="sheet-card-actions">
       <button type="button" className="primary-button" disabled={busy||!selectedOffice||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button>
-      <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> Prévia da ficha</button>
+      <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>
      </div>
     </article>;
    })}
@@ -220,7 +244,7 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
       <h3>{s.model||'Modelo não informado'}</h3>
       <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
       <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
-      <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> Imprimir ficha enviada</button></div>
+      <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button></div>
      </article>)}
     </div></div>
    </details>)}
