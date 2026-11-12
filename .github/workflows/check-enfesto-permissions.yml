@@ -1,0 +1,30 @@
+name: Diagnosticar permissões do Enfesto
+
+on:
+  push:
+    branches:
+      - fix/enfesto-permissions-diagnostico-20261112
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Instalar dependências para testes de regras
+        run: |
+          npm install
+          npm install --no-save --package-lock=false @firebase/rules-unit-testing@4.0.1
+      - name: Testar permissões e transações reais no emulador Firestore
+        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias-enfesto --only firestore 'node --test tests/enfesto-permissions.integration.cjs'
+      - name: Compilar site
+        run: npm run build
