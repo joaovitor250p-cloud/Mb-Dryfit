@@ -26,6 +26,13 @@ jobs:
         with:
           node-version: '20'
       - run: npm install
+      - name: Preparar Java para validar regras Firestore
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Validar regras Firestore no emulador sem publicar
+        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'echo Regras-Firestore-validas'
       - name: Testes de Enfesto e regressão
         run: node --test tests/enfesto-workflow.test.cjs tests/purchases-inventory.test.cjs tests/sheets-office-distribution.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs
       - name: Verificar TypeScript e compilar
