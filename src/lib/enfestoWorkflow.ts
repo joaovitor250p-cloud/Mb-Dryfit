@@ -56,7 +56,7 @@ export function validateEnfesto(rows:EnfestoColor[],stocks:StockEntry[],skipStoc
    const stock=stocks.find(item=>item.id===id)!;
    if(amount>stock.quantityMilli)return 'Estoque insuficiente para '+stock.material+' / '+stock.color+'.';
   }
-  if(totals.size>7)return 'É possível baixar até 7 tecidos/cores distintos por finalização. Revise a ficha antes de concluir.';
+  if(totals.size>5)return 'É possível baixar até 5 tecidos/cores distintos por finalização integrada, respeitando as verificações do Firestore. Revise a ficha antes de concluir.';
  }
  return '';
 }
