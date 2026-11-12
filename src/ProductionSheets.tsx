@@ -38,7 +38,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
+ const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>upperField(m.reference).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
  const referenceMatch=lookupReference(catalogModels,form.reference);
+ // O catálogo carrega assincronamente: preencher uma REF digitada antes da leitura.
+ useEffect(()=>{
+  const match=lookupReference(catalogModels,form.reference);
+  if(match.names.length!==1)return;
+  setForm(old=>old.model?old:{...old,model:match.suggestedName,pieceType:old.pieceType||match.suggestedType});
+ },[catalogModels,form.reference]);
  const changeReference=(raw:string)=>{
    const reference=upperField(raw);
    const matched=lookupReference(catalogModels,reference);
@@ -151,7 +158,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
  {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('model','Nome da peça:')}{field('reference','REF:')}
- <datalist id="sheet-reference-options">{[...new Set(catalogModels.map(m=>upperField(m.reference).trim()).filter(Boolean))].map(ref=><option key={ref} value={ref}/>)}</datalist>
+ <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
  {!!form.reference.trim()&&referenceMatch.names.length===1&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
  {referenceMatch.names.length>1&&<label className="sheet-ref-select"><strong>Esta REF tem mais de um modelo. Escolha o nome correto:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
  <datalist id="sheet-color-suggestions">{colorOptions.map(color=><option value={color} key={color}/>)}</datalist>
