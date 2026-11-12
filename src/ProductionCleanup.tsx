@@ -49,7 +49,7 @@ export default function ProductionCleanup({db,isAdmin}:Props){
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='backup-fichas-enfesto-'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),5000);
   setDownloaded(true);
  };
  const execute=async()=>{
