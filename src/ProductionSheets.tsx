@@ -2,16 +2,17 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, FileText, PackageCheck, Printer, Search, Send } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query as firestoreQuery, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
 import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
+import {nextProductionOc} from './lib/sheetOcSequence';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 
 type ColorRow = {cor:string;p:string;m:string;g:string;gg:string;xg:string;detalhes:string};
-type Sheet = {id:string;createdBy:string;model:string;reference:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
+type Sheet = {id:string;createdBy:string;model:string;reference:string;client?:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
 type FormData = Omit<Sheet,'id'|'status'|'assignedTailor'|'createdBy'>;
 const blankRow=():ColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
 const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] as const).every(k=>!r[k].trim()||(/^\d+$/.test(r[k].trim())&&Number.isSafeInteger(Number(r[k])))));
@@ -32,12 +33,16 @@ const storedColorsKey=(uid:string)=>'mb-referencias-colors-'+uid;
 const readStoredColors=(uid:string):string[]=>{
  try{const saved=JSON.parse(localStorage.getItem(storedColorsKey(uid))||'[]');return Array.isArray(saved)?saved.filter((v):v is string=>typeof v==='string').slice(0,200):[];}catch{return [];}
 };
-const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
-const blank=():FormData=>({model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;initialTab:'create'|'distribution'}) {
+const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),client:upperField(sheet.client||'MB'),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
+const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canViewOrders,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canViewOrders:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
+ const [ocAuto,setOcAuto]=useState(true);
+ const [orderOcs,setOrderOcs]=useState<string[]>([]);
+ const [orderStatuses,setOrderStatuses]=useState<Record<string,string>>({});
+ const [phaseFilter,setPhaseFilter]=useState<'all'|'enfesto'|'office'|'done'>('all');
  const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>normalizeReferenceNumber(m.reference)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
  const referenceMatch=lookupReference(catalogModels,form.reference);
  // O catálogo carrega assincronamente: preencher uma REF digitada antes da leitura.
@@ -56,6 +61,12 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    setForm(old=>({...old,model,pieceType:garmentTypeFromCatalog(model)}));
  };
  const [sheets,setSheets]=useState<Sheet[]>([]);
+ const nextOc=useMemo(()=>nextProductionOc(sheets,orderOcs.map(oc=>({oc}))),[sheets,orderOcs]);
+ useEffect(()=>{
+  if(!canEdit||editingId||!ocAuto)return;
+  setForm(current=>current.oc===nextOc?current:{...current,oc:nextOc});
+ },[nextOc,ocAuto,canEdit,editingId]);
+
  const [pieceType,setPieceType]=useState<Record<string,string>>({});
  const [tailor,setTailor]=useState<Record<string,string>>({});
  const [priceOverride,setPriceOverride]=useState<Record<string,string>>({});
@@ -81,6 +92,13 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  useEffect(()=>{if(!printSheet||!active)return;const previousTitle=document.title;document.title=`Ficha_OC_${(printSheet.oc||'sem_numero').replace(/[^a-zA-Z0-9_-]/g,'_')}`;const timeout=window.setTimeout(()=>window.print(),350);return()=>{window.clearTimeout(timeout);document.title=previousTitle};},[printSheet,active]);
  useEffect(()=>{const clear=()=>setPrintSheet(null);window.addEventListener('afterprint',clear);return()=>window.removeEventListener('afterprint',clear);},[]);
  useEffect(()=>{if(!active||(!canEdit && !canDistribute))return;return onSnapshot(collection(db,'production_sheets'),snap=>setSheets(snap.docs.map(d=>({...(d.data() as Omit<Sheet,'id'>),id:d.id,assignedTailor:canonicalWorkshopName(d.data().assignedTailor)}))),e=>setError(safeProviderMessage(e)));},[db,active,canEdit,canDistribute]);
+ useEffect(()=>{
+  if(!active||!canViewOrders)return;
+  return onSnapshot(collection(db,'cut_orders'),snapshot=>{
+   setOrderOcs(snapshot.docs.map(item=>String(item.data().oc||'')));
+   setOrderStatuses(Object.fromEntries(snapshot.docs.map(item=>[item.id,String(item.data().status||'').trim().toUpperCase()])));
+  },e=>setError('Não foi possível conferir o andamento das OCs: '+safeProviderMessage(e)));
+ },[db,active,canViewOrders]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'reference_prices'),snap=>setPrices(snap.docs.map(x=>x.data() as {reference:string;type:string;price:string})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'workshops'),snap=>setWorkshops(snap.docs.map(x=>x.data() as {name:string;types:string[];specialPrices:{reference:string;type:string;price:string}[]})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>setTab(initialTab),[initialTab]);
@@ -115,9 +133,20 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    setSavedColors(next);
    try{localStorage.setItem(storedColorsKey(user.uid),JSON.stringify(next));}catch{ /* armazenamento local pode estar indisponível */ }
  };
- const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>:<input value={form[key] as string} maxLength={key==='reference'?12:250} inputMode={key==='reference'?'numeric':undefined} pattern={key==='reference'?'[0-9]*':undefined} list={key==='reference'?'sheet-reference-options':undefined} onChange={e=>key==='reference'?changeReference(e.target.value):setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>}</label>;
- const save=async(status:'draft'|'enfesto')=>{if(!canEdit)return;if(status==='enfesto'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{const normalized=uppercaseSheetForm(form);const payload={...normalized,model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm(blank());setEditingId(null);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
- const editDraft=(s:Sheet)=>{setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()]}));setEditingId(s.id);setTab('create');setError('');};
+ const field=(key:Exclude<keyof FormData,'colors'>,label:string,large=false)=> <label className="sheet-field"><strong>{label}</strong>{large?<textarea value={form[key] as string} maxLength={4000} onChange={e=>setForm(v=>({...v,[key]:upperField(e.target.value)}))}/>:<input value={form[key] as string} maxLength={key==='reference'?12:250} inputMode={key==='reference'?'numeric':undefined} pattern={key==='reference'?'[0-9]*':undefined} list={key==='reference'?'sheet-reference-options':undefined} onChange={e=>{if(key==='reference')changeReference(e.target.value);else{if(key==='oc')setOcAuto(false);setForm(v=>({...v,[key]:upperField(e.target.value)}));}}}/>}</label>;
+ const save=async(status:'draft'|'enfesto')=>{if(!canEdit)return;if(status==='enfesto'&&(!form.model.trim()||!form.oc.trim()||!form.reference.trim()||!form.pieceType?.trim())){setError('Preencha o modelo, a REF, a OC e selecione o tipo de roupa antes de enviar.');return;}if(!validQuantities(form.colors)){setError('Confira as quantidades: use apenas números inteiros, sem valores negativos.');return;}if(form.volumes?.trim()&&!/^\d{1,6}$/.test(form.volumes.trim())){setError('Em VOL, digite somente a quantidade (até 6 dígitos).');return;}setBusy(true);setError('');setMessage('');try{
+ if(!editingId){
+  const [existingSheets,existingOrders]=await Promise.all([
+    getDocs(firestoreQuery(collection(db,'production_sheets'),where('oc','==',form.oc.trim()))),
+    canViewOrders?getDocs(firestoreQuery(collection(db,'cut_orders'),where('oc','==',form.oc.trim()))):Promise.resolve(null)
+  ]);
+  if(!existingSheets.empty||(existingOrders&&!existingOrders.empty)){
+   setError('A OC '+form.oc+' já existe. Use a próxima OC disponível antes de criar outra ficha.');
+   setBusy(false);return;
+  }
+ }
+ const normalized=uppercaseSheetForm(form);const payload={...normalized,model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setForm({...blank(),oc:String(Number(nextOc)+1)});setOcAuto(true);setEditingId(null);setMessage(status='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError(safeProviderMessage(e));}finally{setBusy(false);}};
+ const editDraft=(s:Sheet)=>{setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()],client:s.client||'MB'}));setOcAuto(false);setEditingId(s.id);setTab('create');setError('');};
  const quantity=(v:string)=>{const n=Number(v.trim());return Number.isSafeInteger(n)&&n>=0?n:0;};
  const tableRows=(rows:ColorRow[],editable:boolean)=> <div className="sheet-table-wrap"><table className="sheet-table"><thead><tr>{['CORES','P','M','G','GG','XG','DETALHES'].map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{(['cor','p','m','g','gg','xg','detalhes'] as const).map(k=><td key={k}>{editable?(k==='detalhes'?<textarea className="sheet-detail-input" aria-label={`Detalhes linha ${i+1}`} rows={2} maxLength={240} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:upperField(e.target.value)}:r)}))}/>:<input aria-label={`${k} linha ${i+1}`} type={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?'number':'text'} min={k==='p'||k==='m'||k==='g'||k==='gg'||k==='xg'?0:undefined} step="1" list={k==='cor'?'sheet-color-suggestions':undefined} value={row[k]} onChange={e=>setForm(v=>({...v,colors:v.colors.map((r,j)=>j===i?{...r,[k]:upperField(e.target.value)}:r)}))} onBlur={k==='cor'?e=>rememberColor(e.currentTarget.value):undefined}/>):row[k]}</td>)}</tr>)}<tr className="sheet-total-row"><th>TOTAL</th>{(['p','m','g','gg','xg'] as const).map(k=><td key={k}>{rows.reduce((sum,r)=>sum+quantity(r[k]),0)}</td>)}<td>GERAL: {rows.reduce((sum,r)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(r[k]),0),0)}</td></tr></tbody></table></div>;
  const assign=async(s:Sheet)=>{if(!canDistribute||busy||s.status!=='pending')return;const name=canonicalWorkshopName(tailor[s.id]||''),type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');if(!name){setError('Selecione o costureiro.');return;}const matches=workshops.filter(w=>workshopKey(w.name)===workshopKey(name));const options=matches.flatMap(w=>w.types||[]);if(!type||!canSewType(name,type,options)){setError('Este costureiro não produz o tipo de roupa selecionado. Confira o cadastro em Configurações → Oficinas.');return;}const suggested=getPrice(s,name,type),value=priceOverride[`${s.id}:${workshopKey(name)}`]??suggested,amount=parsePrice(value);if(!Number.isFinite(amount)){setError('VERIFIQUE SE A REFERÊNCIA ESTÁ CORRETA. SE FOR UMA REF NOVA, INFORME O VALOR POR PEÇA ANTES DE DISTRIBUIR.');return;}if(!validQuantities(s.colors)){setError('Esta ficha tem quantidades inválidas. Corrija os tamanhos antes de distribuir.');return;}const qty=s.colors.reduce((n,r)=>n+(['p','m','g','gg','xg'] as const).reduce((sum,k)=>sum+quantity(r[k]),0),0);if(!Number.isSafeInteger(qty)||qty<=0){setError('Informe quantidades válidas antes de distribuir.');return;}
