@@ -568,13 +568,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         setNotice(`Esta OC foi alterada depois da distribuição. A ficha impressa preserva o número original ${String(sheet.oc||'—')}.`);
       }
       const colors=Array.isArray(sheet.colors)?sheet.colors as SheetColorRow[]:[];
-      const filled=colors.filter(row=>Object.values(row||{}).some(v=>String(v??'').trim()));
-      if(filled.length>14){
-        notify(`A ficha da OC ${o.oc} tem ${filled.length} linhas de cores. Para não cortar informações na folha A4, faça a impressão pela área de Fichas de Produção após ajustar o documento.`,true);
-        return;
-      }
       setPrintSheet({
-        model:String(sheet.model||''),reference:String(sheet.reference||''),
+        model:String(sheet.model||''),reference:String(sheet.reference||''),client:String(sheet.client||'MB'),
         pieceType:String(sheet.pieceType||''),fabric:String(sheet.fabric||''),
         composition:String(sheet.composition||''),trims:String(sheet.trims||''),
         officeInstructions:String(sheet.officeInstructions||''),oc:String(sheet.oc||''),
