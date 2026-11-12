@@ -102,6 +102,27 @@ test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>
  assert.match(page,/runTransaction\(db,async transaction=>/);
  assert.match(page,/confirmEnfestoConsumption/);
 });
+test('Enfesto mostra apenas a lista normal e ordena OCs do menor para o maior',()=>{
+ const page=read('src/EnfestoPage.tsx'),app=read('src/App.tsx');
+ assert.match(page,/const ocOrder=\(a:Sheet,b:Sheet\)=>a\.oc\.localeCompare\(b\.oc,'pt-BR',\{numeric:true\}\)/);
+ assert.match(page,/const waiting=useMemo\(\(\)=>sheets\.filter\(x=>x\.status==='enfesto'\)\.sort\(ocOrder\)/);
+ assert.match(page,/const completed=useMemo\(\(\)=>sheets\.filter\(x=>!!x\.enfestoCompletedAt&&x\.status!=='enfesto'\)\.sort\(ocOrder\)/);
+ assert.doesNotMatch(page,/ProtectedEnfestoOcs/);
+ assert.doesNotMatch(page,/OCs 752, 753 e 754/);
+ assert.match(app,/item==='enfesto' \? <EnfestoPage/);
+});
+test('Ao confirmar Enfesto, ficha vai à distribuição e cria OC quando enviada ao costureiro',()=>{
+ const inventory=read('src/lib/purchasesInventory.ts'),sheets=read('src/ProductionSheets.tsx'),page=read('src/EnfestoPage.tsx');
+ assert.match(page,/confirmFinish\.sheetId!==sheet\.id/);
+ assert.match(page,/CENTRO DE DISTRIBUIÇÃO → Distribuir fichas/);
+ assert.match(inventory,/t\.update\(sheetRef,\{status:'pending'/);
+ assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'\)/);
+ assert.match(sheets,/const assign=async\(s:Sheet\)/);
+ assert.match(sheets,/batch\.update\(doc\(db,'production_sheets',s\.id\),\{status:'assigned'/);
+ assert.match(sheets,/if\(!legacy\)batch\.set\(orderRef,order\);await batch\.commit\(\)/);
+ assert.match(sheets,/A OC foi criada em OCs e pagamentos/);
+ assert.match(sheets,/OC financeira já existente foi preservada/);
+});
 test('os arquivos TSX do fluxo não têm erro de sintaxe',()=>{
  for(const path of ['src/EnfestoPage.tsx','src/ProductionSheets.tsx','src/App.tsx']){
   const src=read(path);
