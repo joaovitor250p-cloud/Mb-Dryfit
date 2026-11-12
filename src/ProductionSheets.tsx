@@ -6,6 +6,7 @@ import { collection, doc, getDocs, onSnapshot, query as firestoreQuery, serverTi
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
+import ProductionCleanup from './ProductionCleanup';
 import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
 import {nextProductionOc} from './lib/sheetOcSequence';
@@ -35,7 +36,7 @@ const readStoredColors=(uid:string):string[]=>{
 };
 const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),client:upperField(sheet.client||'MB'),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canViewOrders,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canViewOrders:boolean;initialTab:'create'|'distribution'}) {
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canViewOrders,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canViewOrders:boolean;isAdmin:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
@@ -287,6 +288,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    </details>)}
   </div>
  </section>}
+ {isAdmin&&initialTab==='create'&&<ProductionCleanup db={db} isAdmin={isAdmin}/>}
  {printSheet&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
  </section>;
 }
