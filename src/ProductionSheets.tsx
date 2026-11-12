@@ -198,7 +198,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   <label className="sheet-quick-search sheet-distribution-search"><Search size={18}/><input aria-label="Pesquisar OC para distribuir" type="search" value={distributionSearch} onChange={e=>setDistributionSearch(e.target.value)} placeholder="Buscar ficha disponível por OC, REF ou modelo..."/></label>
   {!pending.length&&<div className="sheet-no-results"><CheckCircle2 size={30}/><strong>Nenhuma ficha aguardando distribuição.</strong><span>Fichas enviadas estão na aba Costureiros.</span></div>}
   {!!pending.length&&!filteredPending.length&&<div className="sheet-no-results"><Search size={27}/><strong>Nenhuma ficha corresponde à pesquisa.</strong></div>}
-  <div className="sheet-distribution-grid sheet-pending-grid">
+  <div className="sheet-distribution-grid sheet-pending-grid sheet-pending-compact">
    {filteredPending.map(s=>{
     const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
     const candidates=compatibleOffices(s);
@@ -207,8 +207,9 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     const priceId=`${s.id}:${workshopKey(selectedOffice)}`;
     const value=selectedOffice?(priceOverride[priceId]??suggested):'';
     const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
-    return <article className="sheet-card sheet-send-card" key={s.id}>
-     <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">Aguardando envio</span></div>
+    return <details className="sheet-distribution-item" key={s.id}>
+     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
+     <div className="sheet-distribution-body">
      <h3>{s.model||'Modelo não informado'}</h3>
      <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
      <div className="sheet-send-fields">
@@ -227,7 +228,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <button type="button" className="primary-button" disabled={busy||!selectedOffice||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button>
       <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>
      </div>
-    </article>;
+     </div>
+    </details>;
    })}
   </div>
  </section>}
