@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, query as fsQuery, orderBy, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp, type DocumentData } from 'firebase/firestore';
-import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, Settings2, ShoppingCart, Menu, type LucideIcon } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, Cloud, Copy, Download, FileSpreadsheet, Filter, History, LogOut, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, Upload, Users, X, Camera, Scissors, ImagePlus, ClipboardList, Wallet, FileText, Building2, ShoppingCart, Menu, type LucideIcon } from 'lucide-react';
 import { normalizeReference, normalizeText, sameModel, sortModels, type Model } from './lib/catalog';
 import { publicCatalogPhoto } from './lib/photoCatalog';
 import { optimizePhoto } from './lib/photos';
@@ -20,13 +20,15 @@ const BackupExport = lazy(() => import('./BackupExport'));
 const AccountsAdmin = lazy(() => import('./AccountsAdmin'));
 const CutOrders = lazy(() => import('./CutOrders'));
 const ExpensesPage = lazy(() => import('./ExpensesPage'));
-const SettingsHub = lazy(() => import('./SettingsHub'));
+const InfoPage = lazy(() => import('./InfoPage'));
+const WorkshopsPage = lazy(() => import('./WorkshopsPage'));
+const ReferencePrices = lazy(() => import('./ReferencePrices'));
 const ProductionSheets = lazy(() => import('./ProductionSheets'));
 const PurchasesStock = lazy(() => import('./PurchasesStock'));
 
 type Role='admin'|'editor'|'viewer';
 type Mode='add'|'edit'|'delete'|'import'|'users'|'history'|null;
-type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'prices' | 'sheets' | 'sheet_distribution' | 'settings' | 'purchases';
+type View = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'prices' | 'sheets' | 'sheet_distribution' | 'purchases';
 type ImportRow={name:string;reference:string;pendingReview:boolean;exists:boolean;action:'add'|'update'|'skip'};
 type Audit={id:string;actorEmail:string;action:string;modelName:string;before:any;after:any;at?:any};
 const roleLabel:Record<Role,string>={admin:'Administrador',editor:'Editor',viewer:'Consulta'};
@@ -110,27 +112,26 @@ export default function App(){
  const [audit,setAudit]=useState<Audit[]>([]),[access,setAccess]=useState<('catalog'|'samples'|'cuts'|'orders'|'expenses'|'info'|'workshops'|'sheets'|'sheet_distribution'|'purchases')[]>(['catalog','samples','cuts']);
  // Bloqueia o zoom involuntário da página; as fotos mantêm seu zoom próprio.
  const admin=role==='admin',editor=admin||role==='editor';
- const permitted=(section:View)=>admin||(section==='settings'?access.some(x=>x==='info'||x==='workshops'):section==='samples'?access.includes('samples')||access.includes('cuts'):section==='prices'?access.includes('workshops'):access.includes(section));
- const viewOrder:View[]=['catalog','samples','orders','purchases','expenses','sheets','sheet_distribution','settings'];
+ const permitted=(section:View)=>admin||(section==='samples'?access.includes('samples')||access.includes('cuts'):section==='prices'?access.includes('workshops'):access.includes(section));
+ const viewOrder:View[]=['catalog','samples','orders','sheets','sheet_distribution','purchases','expenses','info','workshops','prices'];
  const availableViews=viewOrder.filter(permitted);
  const navMeta:Record<View,{label:string;short:string;Icon:LucideIcon}>={
    catalog:{label:'Catálogo de modelos',short:'Modelos',Icon:Search},
-   samples:{label:'Amostras',short:'Amostras',Icon:Camera},
-   cuts:{label:'Cortes',short:'Cortes',Icon:Scissors},
-   orders:{label:'Ordem de corte',short:'OCs',Icon:ClipboardList},
-   purchases:{label:'Compras e Estoque',short:'Compras',Icon:ShoppingCart},
-   expenses:{label:'Gastos',short:'Gastos',Icon:Wallet},
-   info:{label:'Informações MB',short:'Info MB',Icon:FileText},
-   workshops:{label:'Oficinas',short:'Oficinas',Icon:Building2},
-   prices:{label:'Preços de REF',short:'Preços',Icon:Wallet},
+   samples:{label:'Amostras e cortes',short:'Amostras',Icon:Camera},
+   cuts:{label:'Cortes e fotos',short:'Cortes',Icon:Scissors},
+   orders:{label:'OCs e pagamentos',short:'OCs',Icon:ClipboardList},
+   purchases:{label:'Compras e estoque',short:'Estoque',Icon:ShoppingCart},
+   expenses:{label:'Controle de gastos',short:'Gastos',Icon:Wallet},
+   info:{label:'Informações e PIX',short:'Dados e PIX',Icon:FileText},
+   workshops:{label:'Oficinas e costureiros',short:'Oficinas',Icon:Building2},
+   prices:{label:'Preços padrão por REF',short:'Preços REF',Icon:Wallet},
    sheets:{label:'Fichas de produção',short:'Fichas',Icon:FileText},
-   sheet_distribution:{label:'Distribuir fichas',short:'Distribuir',Icon:ClipboardList},
-   settings:{label:'Configurações',short:'Config.',Icon:Settings2}
+   sheet_distribution:{label:'Distribuir fichas',short:'Distribuição',Icon:ClipboardList}
  };
  const navGroups:{label:string;items:View[]}[]=[
  {label:'PRODUÇÃO',items:['catalog','samples','orders','sheets','sheet_distribution']},
  {label:'FINANCEIRO E ESTOQUE',items:['purchases','expenses']},
- {label:'GERENCIAMENTO',items:['settings']}
+ {label:'CONFIGURAÇÕES',items:['info','workshops','prices']}
 ];
  useEffect(()=>{if(role&&!permitted(view)){const first=(viewOrder as View[]).find(x=>permitted(x));if(first){setVisitedViews(old=>old.includes(first)?old:[...old,first]);setView(first)}}},[role,access,view]);
  const notify=(message:string,isError=false)=>{setError(isError?message:'');setInfo(isError?'':message)};
@@ -365,7 +366,7 @@ export default function App(){
      {visitedViews.filter(permitted).map(item=><div key={item} className={`view-transition ${view===item?`view-transition-${transitionDirection}`:'view-parked'}`} hidden={view!==item} aria-hidden={view!==item}>
        <PageActiveContext.Provider value={view===item}>
          <Suspense fallback={view===item?<BrandLoading label="Preparando esta área..." />:null}>
-           {item==='sheets'||item==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={item==='sheet_distribution'?'distribution':'create'}/> : item==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : item==='purchases' ? <PurchasesStock db={db!} user={user} canEdit={editor&&permitted('purchases')} canConsume={editor&&(permitted('purchases')||permitted('cuts'))} companyId={companyId}/> : item==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : item==='settings' ? <SettingsHub db={db!} user={user} canViewInfo={permitted('info')} canViewOffices={permitted('workshops')} canEditInfo={editor&&permitted('info')} canEditOffices={editor&&permitted('workshops')}/> : item==='samples' ? <SamplesAndCuts db={db!} user={user} models={models} isAdmin={admin} canViewSamples={admin||access.includes('samples')} canViewCuts={admin||access.includes('cuts')} canEditSamples={editor&&(admin||access.includes('samples'))} canEditCuts={editor&&(admin||access.includes('cuts'))} canReadOrders={permitted('orders')}/> : item==='catalog' ?
+           {item==='sheets'||item==='sheet_distribution' ? <ProductionSheets db={db!} user={user} canEdit={editor&&permitted('sheets')} canDistribute={editor&&permitted('sheet_distribution')} initialTab={item==='sheet_distribution'?'distribution':'create'}/> : item==='orders' ? <CutOrders db={db!} user={user} canEdit={editor&&permitted('orders')} isAdmin={admin}/> : item==='purchases' ? <PurchasesStock db={db!} user={user} canEdit={editor&&permitted('purchases')} canConsume={editor&&(permitted('purchases')||permitted('cuts'))} companyId={companyId}/> : item==='expenses' ? <ExpensesPage db={db!} user={user} canEdit={editor&&permitted('expenses')}/> : item==='info' ? <InfoPage db={db!} user={user} canEdit={editor&&permitted('info')}/> : item==='workshops' ? <WorkshopsPage db={db!} user={user} canEdit={editor&&permitted('workshops')}/> : item==='prices' ? <ReferencePrices db={db!} user={user} canEdit={editor&&permitted('prices')}/> : item==='samples' ? <SamplesAndCuts db={db!} user={user} models={models} isAdmin={admin} canViewSamples={admin||access.includes('samples')} canViewCuts={admin||access.includes('cuts')} canEditSamples={editor&&(admin||access.includes('samples'))} canEditCuts={editor&&(admin||access.includes('cuts'))} canReadOrders={permitted('orders')}/> : item==='catalog' ?
              <ModelPhotos db={db!} user={user} canEdit={editor&&permitted('catalog')} models={models} loaded={loaded} onAddModel={add} onEditModel={edit} onDeleteModel={m=>{setEditing(m);setModal('delete')}} onBackup={()=>setBackupOpen(true)} onBulkDeleteModels={bulkDeleteModels}/>
              : null}
          </Suspense>
