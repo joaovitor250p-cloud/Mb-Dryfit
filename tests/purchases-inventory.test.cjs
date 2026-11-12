@@ -66,5 +66,5 @@ test('layout tem dois indicadores e controle de estoque por cor',()=>{
  assert.match(component,/Importar Boleto/);
  assert.match(component,/confirmEnfestoConsumption/);
  assert.match(component,/Estoque por tecido e cor/);
- assert.match(app,/Compras e Estoque/);
+ assert.match(app,/purchases:\{label:'Compras e estoque'/);
 });
