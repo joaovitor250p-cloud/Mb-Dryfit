@@ -855,7 +855,8 @@ service cloud.firestore {
         && request.resource.data.assignedAt == request.time
         && request.resource.data.assignedBy == request.auth.uid
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
     }
 
     // Dados e conferências por cor do Enfesto.
@@ -906,7 +907,10 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
           (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
-      allow delete: if false;
+      // Limpeza de registros operacionais, somente administrador.
+      // As OCs protegidas não podem ser apagadas nem em limpezas gerais.
+      allow delete: if isAdmin()
+        && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
     }
 
     function currentCompany() {
