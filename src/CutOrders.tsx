@@ -7,6 +7,7 @@ import { collection, doc, getDoc, getDocs, query as fsQuery, where, runTransacti
 import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Clock3, Copy, Download, Edit3, Filter, Plus, Search, ShieldAlert, Trash2, UploadCloud, Wallet, X } from 'lucide-react';
 import { MODEL_TYPE_OPTIONS, matchesModelSearch, matchesModelType, type ModelType } from './lib/modelTypes';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
+import {isProtectedProductionOc} from './lib/sheetOcSequence';
 import { safeProviderMessage } from './lib/safeMessage';
 import { currentAccountingMonth as monthNow, accountingMonthLabel as monthLabel, paymentMonth as monthOfPaidDate } from './lib/monthlyAccounting';
 import { parseFinanceNumber as num } from './lib/financeNumbers';
@@ -65,7 +66,7 @@ const moneyKeys=new Set<DataField>(['piecePrice','discountPiece','discountTotal'
 // Somente fichas criadas a partir desta versao recebem ID `ficha_...`.
 // O fluxo automatico usa o mesmo ID na OC, sem alterar as regras do Firestore.
 // OCs manuais, importadas e fichas antigas nao mostram o botao de PDF.
-const hasNewProductionSheet=(o:Order)=>o.id.startsWith('ficha_')&&o.source==='manual';
+const hasNewProductionSheet=(o:Order)=>(o.id.startsWith('ficha_')&&o.source==='manual')||isProtectedProductionOc(o.oc);
 const normalizedOC=(oc:string)=>oc.trim().normalize('NFKC').toLocaleUpperCase('pt-BR').replace(/\s+/g,' ');
 const sampleIdForOc=(oc:string)=>`oc_${encodeURIComponent(normalizedOC(oc))}`;
 const PAGE=75;

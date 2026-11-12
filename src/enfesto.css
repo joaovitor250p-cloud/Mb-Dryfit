@@ -98,3 +98,41 @@
 .enfesto-list-print:focus-visible{outline:3px solid #a699ff;outline-offset:2px}
 .enfesto-list-print svg{flex:none}
 @media(max-width:790px){.enfesto-list{padding:15px}.enfesto-sheet-list{max-height:410px}.enfesto-sheet-row .enfesto-sheet{min-height:106px;padding:14px}.enfesto-list-print{min-width:76px;font-size:9px;padding:8px}}
+
+
+/* OCs protegidas: preparação das fichas existentes e das OCs históricas. */
+.enfesto-protected{display:grid;gap:13px;margin:14px 0 20px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 28px rgba(46,51,96,.06)}
+.enfesto-protected-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.enfesto-protected-head h2{margin:0;font-size:16px;font-weight:850;color:var(--text)}
+.enfesto-protected-head p{font-size:12px;color:var(--muted);margin:5px 0 0}
+.enfesto-protected-head>svg{color:#6e62d3;flex:none}
+.enfesto-protected-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;align-items:start}
+.enfesto-protected-card{display:grid;align-content:start;gap:11px;min-width:0;min-height:132px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel2)}
+.enfesto-protected-title{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.enfesto-protected-title strong{font-size:18px;color:var(--text)}
+.enfesto-protected-title span{font-size:10px;font-weight:750;color:#6c59bc;background:rgba(113,96,219,.1);padding:5px 8px;border-radius:9px;line-height:1.4}
+.enfesto-protected-card p,.enfesto-protected-card small{margin:0;font-size:11px;line-height:1.6;color:var(--muted)}
+.enfesto-protected-card>.outline-button,.enfesto-protected-card>.primary-button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;min-height:40px}
+.enfesto-protected-missing{display:grid;gap:10px}
+.enfesto-protected-missing>.outline-button{min-height:40px;display:flex;justify-content:center;align-items:center;gap:6px}
+.enfesto-protected-form{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.enfesto-protected-form label{display:grid;gap:5px;font-size:11px;font-weight:750;color:var(--text)}
+.enfesto-protected-form input{box-sizing:border-box;width:100%;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;min-height:38px;padding:8px}
+.enfesto-protected-color{display:grid;gap:7px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.enfesto-protected-color>div{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.enfesto-protected-color>div input{padding:5px;text-align:center}
+.enfesto-protected-actions{display:flex;gap:7px;flex-wrap:wrap}
+.enfesto-protected-actions button{flex:1;min-height:39px;font-size:11px}
+.enfesto-confirm-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(17,23,46,.66);display:flex;align-items:center;justify-content:center;padding:18px;overscroll-behavior:contain}
+.enfesto-confirm-dialog{width:min(100%,510px);display:grid;justify-items:start;gap:15px;padding:24px;max-height:90vh;overflow-y:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:19px;box-shadow:0 28px 85px rgba(0,0,0,.25)}
+.enfesto-confirm-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;color:#0f896d;background:rgba(25,160,114,.12)}
+.enfesto-confirm-kicker{font-size:10px;font-weight:900;letter-spacing:.12em;color:#6658c2}
+.enfesto-confirm-dialog h2{font-size:21px;line-height:1.4;margin:0}
+.enfesto-confirm-dialog p{font-size:13px;line-height:1.7;margin:0;color:var(--muted)}
+.enfesto-confirm-dialog p strong{font-weight:850;color:var(--text)}
+.enfesto-confirm-stock{display:flex;gap:10px;align-items:flex-start;background:rgba(226,156,70,.1);border:1px solid rgba(206,139,55,.26);padding:12px;border-radius:11px;color:var(--text);font-size:12px;line-height:1.6;width:100%;box-sizing:border-box}
+.enfesto-confirm-stock>svg{flex:none;color:#bc8131}
+.enfesto-confirm-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;width:100%}
+.enfesto-confirm-actions button{display:inline-flex;gap:6px;justify-content:center;align-items:center;min-height:44px;font-size:12px}
+@media(max-width:900px){.enfesto-protected-grid{grid-template-columns:1fr}.enfesto-protected-card{min-height:0}.enfesto-confirm-dialog{padding:17px}.enfesto-confirm-actions button{width:100%}}
+@media print{.enfesto-confirm-overlay,.enfesto-protected{display:none!important}}

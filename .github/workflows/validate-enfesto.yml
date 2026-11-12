@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - 'src/EnfestoPage.tsx'
+      - 'src/ProtectedEnfestoOcs.tsx'
+      - 'tests/protected-enfesto-ocs.test.cjs'
       - 'src/ProductionSheets.tsx'
       - 'src/ProductionCleanup.tsx'
       - 'src/SheetPrint.tsx'
@@ -41,6 +43,6 @@ jobs:
       - name: Validar regras Firestore no emulador sem publicar
         run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'echo Regras-Firestore-validas'
       - name: Testes de Enfesto e regressão
-        run: node --test tests/enfesto-workflow.test.cjs tests/purchases-inventory.test.cjs tests/sheets-office-distribution.test.cjs tests/sheet-autofill-print-ui.test.cjs tests/sheet-oc-workflow.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs
+        run: node --test tests/enfesto-workflow.test.cjs tests/purchases-inventory.test.cjs tests/sheets-office-distribution.test.cjs tests/sheet-autofill-print-ui.test.cjs tests/sheet-oc-workflow.test.cjs tests/protected-enfesto-ocs.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs
       - name: Verificar TypeScript e compilar
         run: npm run build
