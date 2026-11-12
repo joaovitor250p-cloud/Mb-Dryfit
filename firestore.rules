@@ -795,6 +795,16 @@ service cloud.firestore {
         && (!('enfestoCompletedBy' in d) || (d.enfestoCompletedBy is string && d.enfestoCompletedBy.size() <= 128));
     }
 
+    // Confere uma única vez o documento concluído: a mesma transação deve
+    // gravar o job e liberar exatamente a ficha correspondente.
+    function validEnfestoHandoff(sheetId) {
+      let job = getAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data;
+      return job.status == 'completed'
+        && job.completedBy == request.auth.uid
+        && job.sheetId == sheetId
+        && job.oc == resource.data.oc;
+    }
+
     match /production_sheets/{sheetId} {
       // Quem acessa Ordens de Corte pode baixar somente fichas já distribuídas,
       // pelo ID específico da OC; não libera listagem de fichas nem rascunhos.
@@ -809,9 +819,12 @@ service cloud.firestore {
         && request.resource.data.assignedAt == null
         && request.resource.data.assignedBy == null;
       allow update: if (
-        canWrite('sheets') && validSheetFields(request.resource.data)
-        && resource.data.status == 'draft'
+        // Avalie primeiro a etapa: não processe a validação completa de uma
+        // ficha para as outras duas operações (evita o limite de 1000 expressões).
+        resource.data.status == 'draft'
         && request.resource.data.status in ['draft','enfesto']
+        && canWrite('sheets')
+        && validSheetFields(request.resource.data)
         && request.auth.uid == resource.data.createdBy
         && request.resource.data.assignedTailor == ''
         && request.resource.data.assignedAt == null
@@ -819,21 +832,24 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
       ) || (
-        canWrite('enfesto') && validSheetFields(request.resource.data)
-        && resource.data.status == 'enfesto'
+        resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
+        && canWrite('enfesto')
+        // Ao finalizar, apenas estes cinco campos podem mudar.
+        // Os campos da ficha já foram validados na criação.
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status','enfestoCompletedAt','enfestoCompletedBy','updatedAt','updatedBy'])
         && request.resource.data.enfestoCompletedAt == request.time
         && request.resource.data.enfestoCompletedBy == request.auth.uid
-        && existsAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
-        && getAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status == 'completed'
-        && getAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.completedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && validEnfestoHandoff(sheetId)
       ) || (
-        canWrite('sheet_distribution') && validSheetFields(request.resource.data)
-        && resource.data.status == 'pending'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','assignedTailor','assignedAt','assignedBy','updatedAt','updatedBy'])
+        resource.data.status == 'pending'
         && request.resource.data.status == 'assigned'
+        && canWrite('sheet_distribution')
+        && validSheetFields(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','assignedTailor','assignedAt','assignedBy','updatedAt','updatedBy'])
         && request.resource.data.assignedTailor.size() > 0
         && request.resource.data.assignedAt == request.time
         && request.resource.data.assignedBy == request.auth.uid
@@ -922,15 +938,16 @@ service cloud.firestore {
     function stockMovementValid(companyId, stockId, previous) {
       let d = request.resource.data;
       let path = /databases/$(database)/documents/companies/$(companyId)/stock_movements/$(d.lastMovementId);
+      let movement = getAfter(path).data;
       return existsAfter(path)
-        && getAfter(path).data.stockId == stockId
-        && getAfter(path).data.beforeMilli == previous
-        && getAfter(path).data.afterMilli == d.quantityMilli
-        && getAfter(path).data.deltaMilli == d.lastDeltaMilli
-        && getAfter(path).data.createdBy == request.auth.uid
+        && movement.stockId == stockId
+        && movement.beforeMilli == previous
+        && movement.afterMilli == d.quantityMilli
+        && movement.deltaMilli == d.lastDeltaMilli
+        && movement.createdBy == request.auth.uid
         && (
-          (getAfter(path).data.kind == 'purchase_in' && canCompanyBuy(companyId))
-          || (getAfter(path).data.kind == 'enfesto_out' && canCompanyConsume(companyId))
+          (movement.kind == 'purchase_in' && canCompanyBuy(companyId))
+          || (movement.kind == 'enfesto_out' && canCompanyConsume(companyId))
         );
     }
     function validMovement(companyId, movementId) {
