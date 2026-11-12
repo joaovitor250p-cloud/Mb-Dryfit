@@ -610,7 +610,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
                   {o.paidAt.trim()&&<small className="order-pending-warning">Data antiga de pagamento sem confirmação de PAGO: confira.</small>}
                 </div>
                 {manualPaymentIds.includes(o.id)
-                  ? <span className="order-pending-selected"><CheckCircle2 size={15}/> Selecionada nesta sexta</span>
+                  ? eligible.some(selected=>selected.id===o.id)
+                    ? <span className="order-pending-selected"><CheckCircle2 size={15}/> Selecionada nesta sexta</span>
+                    : canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>preparePayment(o)}>Conferir OC selecionada</button>
                   : canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>addPaymentOC(o)}><Plus size={15}/> Adicionar à sexta</button>}
               </div>)}
               {!pendingPaymentResults.length&&<p className="order-pending-empty">Nenhuma pendência corresponde à busca.</p>}
