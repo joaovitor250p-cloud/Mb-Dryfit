@@ -52,7 +52,7 @@ test('enviadas vão para Costureiros e ficam disponíveis para impressão A4',()
  assert.match(sheets,/const sentFiltered=assigned\.filter/);
  assert.match(sheets,/group\.items\.map\(s=>/);
  assert.match(sheets,/print\(lastAssigned\)/);
- assert.match(sheets,/Imprimir ficha enviada/);
+ assert.match(sheets,/BAIXAR \/ IMPRIMIR FICHA ENVIADA/);
  assert.match(sheets,/print\(\{\.\.\.s,assignedTailor:s\.assignedTailor\|\|''\}\)/);
 });
 
@@ -62,7 +62,7 @@ test('Todas as fichas mantém pesquisa e filtro de oficinas',()=>{
  assert.match(sheets,/Pesquisar ficha por OC, REF ou modelo/);
  assert.match(sheets,/historyOffice==='pending'/);
  assert.match(sheets,/s\.status==='assigned'&&workshopKey\(s\.assignedTailor\)===historyOffice/);
- assert.match(sheets,/sheet-history-card/);
+ assert.match(sheets,/sheet-compact-list/);
 });
 
 test('ordena OC numericamente da maior para a menor, inclusive com zeros à esquerda',()=>{
@@ -94,9 +94,9 @@ test('cores usadas em fichas anteriores ficam disponíveis nas novas e também n
  const compiled=ts.transpileModule(sheets.slice(start,end)+'\nexports.options=colorOptions;',{
   compilerOptions:{target:ts.ScriptTarget.ES2020}
  }).outputText;
- const ctx={exports:{},sheets:[{colors:[{cor:'Preto'},{cor:'AZUL'},{cor:'preto'}]}],savedColors:['azul','Verde'],useMemo:fn=>fn()};
+ const ctx={exports:{},sheets:[{colors:[{cor:'Preto'},{cor:'AZUL'},{cor:'preto'}]}],savedColors:['azul','Verde'],normalizeColorName:v=>String(v).toLocaleUpperCase('pt-BR').trim(),useMemo:fn=>fn()};
  vm.runInNewContext(compiled,ctx);
- assert.deepEqual([...ctx.exports.options],['AZUL','Preto','Verde']);
+ assert.deepEqual([...ctx.exports.options],['AZUL','PRETO','VERDE']);
 });
 
 test('JSX da tela de fichas não contém erros de sintaxe',()=>{
