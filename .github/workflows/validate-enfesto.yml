@@ -1,0 +1,32 @@
+name: Validar Enfesto antes de publicar
+
+on:
+  push:
+    branches:
+      - feat/enfesto-fichas-producao-20261112
+  pull_request:
+    paths:
+      - 'src/EnfestoPage.tsx'
+      - 'src/ProductionSheets.tsx'
+      - 'src/lib/enfestoWorkflow.ts'
+      - 'src/lib/purchasesInventory.ts'
+      - 'firestore.rules'
+      - 'tests/enfesto-workflow.test.cjs'
+      - '.github/workflows/validate-enfesto.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Testes de Enfesto e regressão
+        run: npm run test:preflight
+      - name: Verificar TypeScript e compilar
+        run: npm run build
