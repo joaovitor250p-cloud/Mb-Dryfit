@@ -18,7 +18,7 @@ vm.runInNewContext(compiled.outputText,ctx);
 
 test('as OCs 752, 753 e 754 são protegidas e a próxima é 755 após limpeza',()=>{
  assert.equal(ctx.exports.nextProductionOc([{oc:'752'},{oc:'753'},{oc:'754'}]),'755');
- for(const oc of ['752','753','754','0752','0753','0754']){
+ for(const oc of ['752','753','754','0752','0753','0754','OC 752','OC 753','O.C. 754']){
   assert.equal(ctx.exports.isProtectedProductionOc(oc),true,oc);
  }
  assert.equal(ctx.exports.isProtectedProductionOc('755'),false);
@@ -37,6 +37,8 @@ test('criação já mostra próxima OC e cliente MB editável',()=>{
  assert.match(page,/if\(key==='oc'\)setOcAuto\(false\)/);
  assert.match(page,/getDocs\(firestoreQuery\(collection\(db,'production_sheets'\),where\('oc','==',form\.oc\.trim\(\)\)\)\)/);
  assert.match(page,/getDocs\(firestoreQuery\(collection\(db,'cut_orders'\),where\('oc','==',form\.oc\.trim\(\)\)\)/);
+ assert.match(page,/ficha_oc_\$\{Number\(normalized\.oc\)\}/);
+ assert.match(page,/setLastCreatedOc\(previous=>String\(Math\.max/);
  assert.match(page,/client:'MB'/);
  assert.match(page,/field\('client','CLIENTE:'\)/);
  assert.match(page,/setMessage\(status==='draft'/);
