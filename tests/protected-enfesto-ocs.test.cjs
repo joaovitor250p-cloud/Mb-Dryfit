@@ -62,8 +62,9 @@ test('conclusão troca o status para pending sem criar uma segunda OC',()=>{
 test('distribuir ficha de OC histórica nunca sobrescreve OC e pagamentos existentes',()=>{
  const source=read('src/ProductionSheets.tsx');
  assert.match(source,/isProtectedProductionOc\(s\.oc\)/);
- assert.match(source,/where\('oc','==',s\.oc\)/);
- assert.match(source,/if\(legacyOrders&&legacyOrders\.size>1\)/);
+ assert.match(source,/getDocs\(collection\(db,'cut_orders'\)\)/);
+ assert.match(source,/normalizeOcNumber\(item\.data\(\)\.oc\)===normalizeOcNumber\(s\.oc\)/);
+ assert.match(source,/if\(legacyOrders\.length>1\)/);
  assert.match(source,/if\(oldStatus==='ENTREGUE'\)/);
  assert.match(source,/if\(!legacy\)batch\.set\(orderRef,order\)/);
  assert.match(source,/OC financeira já existente foi preservada/);
