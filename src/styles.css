@@ -1969,3 +1969,28 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
  .sheets-page .sheet-distribution-body{padding:14px}
  .sheets-page .sheet-distribution-body .sheet-send-fields{grid-template-columns:1fr}
 }
+
+
+/* Fluxo das Fichas: três cartões clicáveis com status de produção. */
+.sheets-page .sheet-phase-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.sheets-page .sheet-phase-cards button{display:grid;grid-template-columns:38px 1fr;gap:5px 12px;align-items:center;padding:16px;background:var(--panel);color:var(--text);text-align:left;border:1px solid var(--line);border-radius:16px;min-width:0;cursor:pointer;box-shadow:0 6px 21px rgba(36,41,84,.045);transition:border-color .15s,transform .15s}
+.sheets-page .sheet-phase-cards button:hover{transform:translateY(-2px);border-color:#aaa0e9}
+.sheets-page .sheet-phase-cards button.selected{border-color:#8572e8;background:linear-gradient(120deg,var(--panel),rgba(110,96,220,.07))}
+.sheets-page .sheet-phase-cards button>svg{grid-row:1/4;color:#6558cb;background:rgba(113,96,210,.12);border-radius:11px;width:38px;height:38px;padding:9px}
+.sheets-page .sheet-phase-cards button.phase-office>svg{color:#178a77;background:rgba(24,150,119,.09)}
+.sheets-page .sheet-phase-cards button.phase-done>svg{color:#1d8a5a;background:rgba(25,150,91,.1)}
+.sheets-page .sheet-phase-cards button span{font-size:11px;font-weight:800}
+.sheets-page .sheet-phase-cards button strong{font-size:27px;font-weight:850;line-height:1.2;font-variant-numeric:tabular-nums}
+.sheets-page .sheet-phase-cards button small{font-size:10px;color:var(--muted);line-height:1.4}
+@media(max-width:800px){.sheets-page .sheet-phase-cards{gap:8px}.sheets-page .sheet-phase-cards button{padding:10px;grid-template-columns:1fr}.sheets-page .sheet-phase-cards button>svg{grid-row:auto;width:32px;height:32px;padding:7px}.sheets-page .sheet-phase-cards button strong{font-size:22px}}
+@media(max-width:480px){.sheets-page .sheet-phase-cards{grid-template-columns:1fr}.sheets-page .sheet-phase-cards button{grid-template-columns:38px 1fr;gap:3px 12px}.sheets-page .sheet-phase-cards button>svg{grid-row:1/4;width:38px;height:38px;padding:9px}}
+/* PDF: uma ficha completa, inclusive a grade vazia. Com mais linhas permite páginas adicionais. */
+@media print{
+ .sheet-print-only .sheet-paper{break-inside:auto!important;page-break-inside:auto!important;max-height:none!important}
+ .sheet-print-only .sheet-table{break-inside:auto!important;page-break-inside:auto!important}
+ .sheet-print-only .sheet-table tr{break-inside:avoid!important}
+}
+.order-editcell .order-delivered-inline{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;background:#e4f6ed;color:#0e7b50;border:1px solid #9ecfb9;border-radius:9px;padding:8px 9px;margin:2px;cursor:pointer}
+.order-editcell .order-delivered-inline:hover:not(:disabled){background:#c8edda}
+.order-editcell .order-delivered-inline.is-done{color:#177e5b;background:#eaf8f1;border-color:#d1eadc;cursor:default}
+@media(max-width:700px){.order-editcell .order-delivered-inline{min-height:35px}}
