@@ -971,15 +971,19 @@ service cloud.firestore {
       match /enfesto_confirmations/{confirmationId} {
         allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
         allow create: if canCompanyConsume(companyId)
-          && request.resource.data.keys().hasOnly(['oc','notes','status','lines','sheetId','createdAt','createdBy'])
+          && request.resource.data.keys().hasOnly(['oc','notes','status','lines','sheetId','colorCuts','authorizeExcess','createdAt','createdBy'])
           && request.resource.data.oc is string && request.resource.data.oc.size() > 0 && request.resource.data.oc.size() <= 80
           && request.resource.data.notes is string && request.resource.data.notes.size() <= 500
           && request.resource.data.lines is list && request.resource.data.lines.size() >= 1 && request.resource.data.lines.size() <= 20
+          && (!('colorCuts' in request.resource.data) || (request.resource.data.colorCuts is list && request.resource.data.colorCuts.size() >= 1 && request.resource.data.colorCuts.size() <= 50))
+          && (!('authorizeExcess' in request.resource.data) || request.resource.data.authorizeExcess is bool)
           && request.resource.data.status == 'confirmed'
           && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time
           && (!('sheetId' in request.resource.data) || (
             canWrite('enfesto')
             && request.resource.data.sheetId == confirmationId
+            && request.resource.data.colorCuts is list
+            && request.resource.data.colorCuts.size() >= 1
             && get(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.status in ['enfesto','pending']
             && get(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.get('enfestoConfirmationId', '') == ''
             && getAfter(/databases/$(database)/documents/production_sheets/$(confirmationId)).data.status == 'pending'
