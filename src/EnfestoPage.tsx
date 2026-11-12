@@ -55,7 +55,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const job=sheet?jobs[sheet.id]:null;
  const draft=sheet
   ?(edits[sheet.id]||(()=>{
-    const saved=job?.status==='draft'?{rows:job.rows,notes:job.notes}:readLocal(user.uid,sheet.id);
+    const saved=job?{rows:job.rows,notes:job.notes}:readLocal(user.uid,sheet.id);
     return {rows:makeEnfestoRows(sheet.colors||[],saved?.rows||[]),notes:saved?.notes||''};
    })())
   :empty;
@@ -166,7 +166,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
       <div className="enfesto-actions"><button type="button" className="outline-button" disabled={busy||!canEdit} onClick={()=>void saveDraft()}><Save size={17}/> Salvar progresso</button><button type="button" className="primary-button" disabled={busy||!canEdit} onClick={()=>void finalize()}><ShieldCheck size={17}/>{busy?'Salvando...':'Finalizar Enfesto e liberar ficha'}</button></div>
       <p>Esta etapa não cria a OC de pagamento. A OC será criada quando o distribuidor escolher o costureiro e confirmar o envio da ficha.</p>
      </div>}
-     {sheet.status!=='enfesto'&&<div className="enfesto-finished"><PackageCheck size={18}/> Enfesto concluído. Ficha liberada para a etapa de distribuição.</div>}
+     {sheet.status!=='enfesto'&&<div className="enfesto-finished"><PackageCheck size={18}/> Enfesto concluído. Ficha liberada para a etapa de distribuição. {job?.stockConfirmed?'Baixa de tecido registrada no estoque.':'Sem baixa de estoque registrada.'}</div>}
     </>}
    </section>
   </div>
