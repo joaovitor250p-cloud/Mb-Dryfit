@@ -35,12 +35,12 @@ test('concluir enfesto é uma transação única com liberação da ficha e baix
 test('as permissões garantem que uma ficha não é distribuída sem conclusão válida',()=>{
  assert.match(rules,/request\.resource\.data\.status in \['draft','enfesto'\]/);
  assert.match(rules,/resource\.data\.get\('enfestoConfirmationId', ''\) == sheetId/);
- assert.match(rules,/getAfter\([^)]*enfesto_confirmations/);
- assert.match(rules,/getAfter\([^)]*production_sheets/);
- assert.match(rules,/get\([^)]*production_sheets/);
+ assert.ok(rules.includes('getAfter(/databases/$(database)/documents/companies/$(currentCompany())/enfesto_confirmations/$(sheetId))'));
+ assert.ok(rules.includes('getAfter(/databases/$(database)/documents/production_sheets/$(confirmationId))'));
+ assert.ok(rules.includes('get(/databases/$(database)/documents/production_sheets/$(confirmationId))'));
  assert.match(rules,/canWrite\('enfesto'\)/);
  assert.match(rules,/canWrite\('sheet_distribution'\)/);
- assert.match(rules,/get\([^)]*production_sheets[^)]*\)\.data\.get\('enfestoConfirmationId', ''\) == orderId/);
+ assert.ok(rules.includes(".data.get('enfestoConfirmationId', '') == orderId"));
  assert.match(source('src/AccountsAdmin.tsx'),/Enfesto \(confirmar tecido e liberar fichas\)/);
  assert.match(source('functions/index.js'),/'enfesto'/);
  assert.match(app,/enfesto:\{label:'Enfesto'/);
