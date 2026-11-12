@@ -124,3 +124,56 @@ test('finalizar com baixa atômica de tecido e criar histórico de movimentos',a
  assert.equal((await db.doc('production_sheets/'+sheetId).get()).data().status,'pending');
  assert.equal((await stock.get()).data().quantityMilli,488000);
 });
+
+test('finalizar com três cores no mesmo Enfesto sem estourar limite de regras',async()=>{
+ const {db,uid,sheetId}=await setup();
+ const colors=['BRANCO','PRETO','AZUL'];
+ const ids=['stockBranco','stockPreto','stockAzul'];
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  await privileged.doc('production_sheets/'+sheetId).update({colors:colors.map(c=>({cor:c,p:'66',m:'0',g:'0',gg:'0',xg:'0'}))});
+  for(let i=1;i<3;i++){
+   await privileged.doc('companies/mb-principal/inventory/'+ids[i]).set({
+    material:'DRYFIT',color:colors[i],kind:'tecido',unit:'KG',quantityMilli:500000,
+    lastMovementId:'seed'+(i+1),lastDeltaMilli:500000,
+    updatedAt:timestamp(),updatedBy:'admin',createdAt:timestamp()
+   });
+  }
+ });
+ const source=db.doc('companies/mb-principal/enfesto_confirmations/'+sheetId);
+ const sheet=db.doc('production_sheets/'+sheetId);
+ const job=db.doc('enfesto_jobs/'+sheetId);
+ const stockRefs=ids.map(id=>db.doc('companies/mb-principal/inventory/'+id));
+ const movementRefs=ids.map((_,i)=>db.doc('companies/mb-principal/stock_movements/oc1212_cor'+i));
+ await db.runTransaction(async t=>{
+  const snapshots=await Promise.all([t.get(source),t.get(sheet),t.get(job),...stockRefs.map(ref=>t.get(ref))]);
+  assert.equal(snapshots[0].exists,false);
+  assert.equal(snapshots[1].data().status,'enfesto');
+  t.set(source,{
+   oc:'1212',status:'confirmed',notes:'',
+   lines:ids.map((id,i)=>({stockId:id,quantityMilli:12000,unit:'KG',color:colors[i]})),
+   createdAt:stamp(),createdBy:uid
+  });
+  t.set(job,{
+   sheetId,oc:'1212',status:'completed',rows:colors.map((c,i)=>({
+    cor:c,expected:66,layers:'12',weightPerLayer:'1',cutPieces:'66',
+    stockId:ids[i],consumption:'12',checked:true
+   })),
+   notes:'',stockConfirmed:true,createdAt:stamp(),createdBy:uid,completedAt:stamp(),completedBy:uid,updatedAt:stamp(),updatedBy:uid
+  },{merge:true});
+  t.update(sheet,{status:'pending',enfestoCompletedAt:stamp(),enfestoCompletedBy:uid,updatedAt:stamp(),updatedBy:uid});
+  for(let i=0;i<3;i++){
+   t.set(movementRefs[i],{
+    stockId:ids[i],kind:'enfesto_out',sourceId:sheetId,oc:'1212',
+    beforeMilli:500000,deltaMilli:-12000,afterMilli:488000,
+    material:'DRYFIT',color:colors[i],unit:'KG',createdAt:stamp(),createdBy:uid
+   });
+   t.update(stockRefs[i],{
+    quantityMilli:488000,lastMovementId:movementRefs[i].id,lastDeltaMilli:-12000,
+    updatedAt:stamp(),updatedBy:uid
+   });
+  }
+ });
+ assert.equal((await sheet.get()).data().status,'pending');
+ for(const stock of stockRefs)assert.equal((await stock.get()).data().quantityMilli,488000);
+});
