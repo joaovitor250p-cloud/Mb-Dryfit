@@ -1994,3 +1994,20 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .order-editcell .order-delivered-inline:hover:not(:disabled){background:#c8edda}
 .order-editcell .order-delivered-inline.is-done{color:#177e5b;background:#eaf8f1;border-color:#d1eadc;cursor:default}
 @media(max-width:700px){.order-editcell .order-delivered-inline{min-height:35px}}
+
+
+/* Limpeza administrativa: revisão explícita, backup e digitação de confirmação. */
+.sheets-page .production-cleanup{margin:24px 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.sheets-page .production-cleanup summary{display:flex;align-items:center;gap:9px;min-height:48px;padding:12px 14px;cursor:pointer;list-style:none;font-size:12px;font-weight:750;color:var(--muted)}
+.sheets-page .production-cleanup summary::-webkit-details-marker{display:none}
+.sheets-page .production-cleanup summary:hover{background:var(--panel2)}
+.sheets-page .production-cleanup-body{padding:16px;display:grid;gap:14px;border-top:1px solid var(--line)}
+.sheets-page .production-cleanup-body p{font-size:12px;color:var(--muted);line-height:1.6;margin:0}
+.sheets-page .production-cleanup-body p>svg{vertical-align:middle;color:#c77830}
+.sheets-page .production-cleanup-preview{border:1px solid #edc4ac;background:rgba(236,150,87,.06);border-radius:12px;padding:13px;display:grid;justify-items:start;gap:10px}
+.sheets-page .production-cleanup-preview strong{color:var(--text);font-size:14px}
+.sheets-page .production-cleanup-preview span,.sheets-page .production-cleanup-preview small{color:var(--muted);font-size:12px}
+.sheets-page .production-cleanup-preview label{display:grid;gap:7px;color:var(--text);font-size:12px;font-weight:750;width:100%;max-width:440px}
+.sheets-page .production-cleanup-preview input{width:100%;padding:11px;min-height:43px;background:var(--panel);color:var(--text);border:1px solid #cf9f8c;border-radius:10px}
+.sheets-page .production-cleanup-preview>.order-delete-button{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px}
+.sheets-page .production-cleanup-preview>.order-delete-button:disabled{opacity:.5;cursor:not-allowed}
