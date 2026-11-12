@@ -85,16 +85,24 @@ export async function stockId(material:string,color:string,unit:string,kind='tec
  return (await sha256(kind+'|'+code(material)+'|'+code(color||'SEM COR')+'|'+unit)).slice(0,40);
 }
 type Delta = {id:string;material:string;color:string;kind:string;unit:StockUnit;amount:number;sourceId:string;sourceKind:'purchase_in'|'enfesto_out';oc:string};
-async function createInventoryMovement(db:Firestore,company:string,uid:string,sourceId:string,kind:'purchase_in'|'enfesto_out',deltas:Delta[],sourcePayload:Record<string,unknown>):Promise<void>{
+export type EnfestoCompletion={sheetId:string;oc:string;rows:Record<string,unknown>[];notes:string};
+async function createInventoryMovement(db:Firestore,company:string,uid:string,sourceId:string,kind:'purchase_in'|'enfesto_out',deltas:Delta[],sourcePayload:Record<string,unknown>,linkedSheet?:EnfestoCompletion):Promise<void>{
  if(!deltas.length)throw Error('Nenhum material informado.');
  // As regras do Spark limitam consultas getAfter por transação; até 7 saldos distintos.
  if(deltas.length>7)throw Error('Esta operação contém mais de 7 combinações de material/cor/unidade. Divida a importação antes de confirmar; nenhuma entrada foi gravada.');
  const stocks=deltas.map(x=>doc(db,...coll(company,'inventory'),x.id));
  const movements=await Promise.all(deltas.map(async x=>doc(db,...coll(company,'stock_movements'),(await sha256(kind+'|'+sourceId+'|'+x.id)).slice(0,48))));
  const source=doc(db,...coll(company,kind==='purchase_in'?'purchases':'enfesto_confirmations'),sourceId);
+ if(linkedSheet&&(kind!=='enfesto_out'||sourceId!==linkedSheet.sheetId))throw Error('Identificador da ficha e do consumo devem ser iguais para evitar baixas duplicadas.');
+ const sheetRef=linkedSheet?doc(db,'production_sheets',linkedSheet.sheetId):null;
+ const jobRef=linkedSheet?doc(db,'enfesto_jobs',linkedSheet.sheetId):null;
  await runTransaction(db,async t=>{
    const existing=await t.get(source);
    if(existing.exists())throw Error(kind==='purchase_in'?'Esta nota já foi confirmada. Entrada duplicada bloqueada.':'Este enfesto já teve baixa. Consumo duplicado bloqueado.');
+   const sheet=sheetRef?await t.get(sheetRef):null;
+   const oldJob=jobRef?await t.get(jobRef):null;
+   if(sheetRef&&(!sheet?.exists()||sheet.data()?.status!=='enfesto'||sheet.data()?.oc!==linkedSheet?.oc))throw Error('Ficha não está disponível para finalização do enfesto.');
+   if(oldJob?.exists()&&oldJob.data()?.status==='completed')throw Error('Enfesto já concluído. Baixa duplicada bloqueada.');
    const previous=await Promise.all(stocks.map(x=>t.get(x)));
    const before:number[]=previous.map(x=>x.exists()?Number(x.data().quantityMilli):0);
    for(let i=0;i<deltas.length;i++){
@@ -102,6 +110,15 @@ async function createInventoryMovement(db:Firestore,company:string,uid:string,so
      if(!Number.isSafeInteger(before[i])||before[i]+deltas[i].amount<0)throw Error('Saldo insuficiente para '+deltas[i].material+' / '+deltas[i].color+'.');
    }
    t.set(source,{...sourcePayload,createdBy:uid,createdAt:serverTimestamp()});
+   if(sheetRef&&jobRef&&linkedSheet){
+     t.set(jobRef,{
+       sheetId:linkedSheet.sheetId,oc:linkedSheet.oc,status:'completed',rows:linkedSheet.rows,
+       notes:linkedSheet.notes.slice(0,500),stockConfirmed:true,
+       completedAt:serverTimestamp(),completedBy:uid,updatedAt:serverTimestamp(),updatedBy:uid,
+       ...(!oldJob?.exists()?{createdAt:serverTimestamp(),createdBy:uid}:{})
+     },{merge:true});
+     t.update(sheetRef,{status:'pending',enfestoCompletedAt:serverTimestamp(),enfestoCompletedBy:uid,updatedAt:serverTimestamp(),updatedBy:uid});
+   }
    deltas.forEach((item,i)=>{
      const after=before[i]+item.amount;
      t.set(movements[i],{
@@ -144,7 +161,7 @@ export async function confirmInvoice(db:Firestore,company:string,uid:string,invo
  */
 export async function confirmEnfestoConsumption(args:{
  db:Firestore;company:string;uid:string;confirmationId:string;oc:string;
- lines:ConsumptionLine[];notes?:string
+ lines:ConsumptionLine[];notes?:string;sheetCompletion?:EnfestoCompletion
 }):Promise<string>{
  const {db,company,uid,confirmationId,oc,lines}=args;
  const id=clean(confirmationId),number=clean(oc);
@@ -168,8 +185,25 @@ export async function confirmEnfestoConsumption(args:{
      kind:'tecido',amount:-aggregate.get(snap.id)!,sourceId:id,sourceKind:'enfesto_out',oc:number});
  }
  await createInventoryMovement(db,company,uid,id,'enfesto_out',deltas,{oc:number,notes:clean(args.notes).slice(0,500),status:'confirmed',
-   lines:deltas.map(d=>({stockId:d.id,quantityMilli:-d.amount,unit:d.unit,color:d.color}))});
+   lines:deltas.map(d=>({stockId:d.id,quantityMilli:-d.amount,unit:d.unit,color:d.color}))},args.sheetCompletion);
  return id;
+}
+export async function finishEnfestoWithoutStock(args:{
+ db:Firestore;uid:string;sheetId:string;oc:string;rows:Record<string,unknown>[];notes:string
+}):Promise<void>{
+ const {db,uid,sheetId,oc,rows,notes}=args;
+ const sheetRef=doc(db,'production_sheets',sheetId),jobRef=doc(db,'enfesto_jobs',sheetId);
+ await runTransaction(db,async t=>{
+   const sheet=await t.get(sheetRef),oldJob=await t.get(jobRef);
+   if(!sheet.exists()||sheet.data().status!=='enfesto'||sheet.data().oc!==oc)throw Error('Ficha não está disponível para finalização do enfesto.');
+   if(oldJob.exists()&&oldJob.data().status==='completed')throw Error('Enfesto já finalizado.');
+   t.set(jobRef,{
+     sheetId,oc,status:'completed',rows,notes:notes.slice(0,500),stockConfirmed:false,
+     completedAt:serverTimestamp(),completedBy:uid,updatedAt:serverTimestamp(),updatedBy:uid,
+     ...(!oldJob.exists()?{createdAt:serverTimestamp(),createdBy:uid}:{})
+   },{merge:true});
+   t.update(sheetRef,{status:'pending',enfestoCompletedAt:serverTimestamp(),enfestoCompletedBy:uid,updatedAt:serverTimestamp(),updatedBy:uid});
+ });
 }
 export async function saveBoleto(db:Firestore,company:string,uid:string,payload:{
  file:File;supplier:string;amount:string;dueDate:string;barcode:string;purchaseId:string
