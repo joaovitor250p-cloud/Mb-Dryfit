@@ -228,8 +228,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const samplePieces=useMemo(()=>{
     let total=0,missing=0;
     for(const item of items){
-      const cleaned=String(item.quantity??'').trim().replace(/[.\\s]/g,'');
-      if(!/^\\d{1,12}$/.test(cleaned)){missing++;continue;}
+      const cleaned=String(item.quantity??'').trim().replace(/[.\s]/g,'');
+      if(!/^\d{1,12}$/.test(cleaned)){missing++;continue;}
       total+=Number(cleaned);
     }
     return {total,missing};
