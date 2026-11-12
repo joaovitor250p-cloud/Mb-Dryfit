@@ -159,6 +159,10 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
  const submitted=sheets.filter(s=>s.status==='pending'||s.status==='assigned').sort(compareOcDesc);
+ const inEnfesto=sheets.filter(s=>s.status==='enfesto').sort(compareOcDesc);
+ const atOffice=assigned.filter(s=>orderStatuses[s.id]!=='ENTREGUE');
+ const completedSheets=assigned.filter(s=>orderStatuses[s.id]==='ENTREGUE');
+ const phaseSheets=phaseFilter==='enfesto'?inEnfesto:phaseFilter==='office'?atOffice:phaseFilter==='done'?completedSheets:submitted;
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
@@ -167,7 +171,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  };
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
- const historical=submitted.filter(s=>
+ const historical=phaseSheets.filter(s=>
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
    (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
  );
@@ -178,16 +182,21 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    .map(([key,name])=>({name,items:sentFiltered.filter(s=>workshopKey(s.assignedTailor)===key)}));
  return <section className="sheets-page">
  <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>Fichas de Produção</h1><p>Criação, distribuição por oficina e consulta das fichas enviadas.</p></div></div>
+ {initialTab==='create'&&<div className="sheet-phase-cards" role="group" aria-label="Acompanhar fichas de produção">
+  <button type="button" className={phaseFilter==='enfesto'&&tab==='all'?'selected phase-enfesto':'phase-enfesto'} onClick={()=>{setTab('all');setPhaseFilter('enfesto');setHistoryOffice('all');setHistoryLimit(50)}}><Clock3 size={20}/><span>FICHAS EM ENFESTO</span><strong>{inEnfesto.length}</strong><small>Ver e baixar fichas aguardando corte</small></button>
+  <button type="button" className={phaseFilter==='office'&&tab==='all'?'selected phase-office':'phase-office'} onClick={()=>{setTab('all');setPhaseFilter('office');setHistoryOffice('all');setHistoryLimit(50)}}><Building2 size={20}/><span>FICHAS NA OFICINA</span><strong>{atOffice.length}</strong><small>Ver e baixar fichas enviadas</small></button>
+  <button type="button" className={phaseFilter==='done'&&tab==='all'?'selected phase-done':'phase-done'} onClick={()=>{setTab('all');setPhaseFilter('done');setHistoryOffice('all');setHistoryLimit(50)}}><CheckCircle2 size={20}/><span>FICHAS FINALIZADAS</span><strong>{completedSheets.length}</strong><small>OCs marcadas como entregues</small></button>
+ </div>}
  <div className="sheet-tabs">
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Nova ficha</button>}
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='drafts'?'active':''} onClick={()=>setTab('drafts')}>Rascunhos ({drafts.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='distribution'?'active':''} onClick={()=>setTab('distribution')}>Distribuição ({pending.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({assigned.length})</button>}
-  <button type="button" className={tab==='all'?'active':''} onClick={()=>setTab('all')}>Todas as fichas ({submitted.length})</button>
+  <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({submitted.length})</button>
  </div>
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
- {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('model','Nome da peça:')}{field('reference','REF:')}
+ {tab==='create'&&canEdit&&<div className="sheet-paper"><div className="sheet-top"><div>{field('client','CLIENTE:')}{field('model','Nome da peça:')}{field('reference','REF:')}
  <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
  {!!form.reference.trim()&&!!referenceMatch.suggestedName&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
  {referenceMatch.names.length>1&&!referenceMatch.suggestedName&&<label className="sheet-ref-select"><strong>Não há um nome técnico único para esta REF. Escolha a peça correta:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
@@ -196,7 +205,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></div></div>}
  {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}</div>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
-  <div className="sheet-view-head"><div><h2>Todas as fichas</h2><p>Somente fichas concluídas no enfesto ou enviadas às oficinas. Clique na OC para abrir os detalhes e o PDF.</p></div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
+  <div className="sheet-view-head"><div><h2>{phaseFilter==='enfesto'?'Fichas em Enfesto':phaseFilter==='office'?'Fichas na Oficina':phaseFilter==='done'?'Fichas Finalizadas':'Todas as fichas'}</h2><p>{phaseFilter==='all'?'Somente fichas prontas para distribuição ou enviadas. Clique na OC para ver detalhes e PDF.':'Clique na OC para consultar, imprimir ou baixar a ficha em PDF.'}</p>{phaseFilter==='done'&&!canViewOrders&&<small>É necessária permissão de visualização de OCs para consultar as entregas.</small>}</div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
   <div className="sheet-filters">
    <label className="sheet-quick-search"><Search size={18}/><input aria-label="Pesquisar ficha por OC, REF ou modelo" type="search" value={historySearch} onChange={e=>{setHistorySearch(e.target.value);setHistoryLimit(50)}} placeholder="Pesquisar OC, REF ou modelo..."/></label>
    <label className="sheet-office-filter"><Building2 size={18}/><select aria-label="Filtrar fichas por oficina" value={historyOffice} onChange={e=>{setHistoryOffice(e.target.value);setHistoryLimit(50)}}>
@@ -210,7 +219,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    <summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary>
    <div className="sheet-compact-detail">
     <div className="sheet-card-top"><strong className="sheet-detail-name">{s.model||'MODELO NÃO INFORMADO'}</strong><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'ENVIADA':s.status==='enfesto'?'EM ENFESTO':'PRONTA PARA DISTRIBUIÇÃO'}</span></div>
-    <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'TIPO NÃO INFORMADO'} · {sheetQuantity(s).toLocaleString('pt-BR')} PEÇAS</p>
+    <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'TIPO NÃO INFORMADO'} · {sheetQuantity(s).toLocaleString('pt-BR')} PEÇAS</p>
     <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'OFICINA NÃO INFORMADA':s.status==='enfesto'?'AGUARDANDO CORTE':'AINDA SEM OFICINA DEFINIDA'}</span></div>
     <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
    </div>
@@ -241,7 +250,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
      <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
      <div className="sheet-distribution-body">
      <h3>{s.model||'Modelo não informado'}</h3>
-     <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
+     <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
      <div className="sheet-send-fields">
       <label>Tipo da peça<input list={`sheet-types-${s.id}`} maxLength={80} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setTailor(v=>({...v,[s.id]:''}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Camiseta ou Bermuda"/><datalist id={`sheet-types-${s.id}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label>
       <label>Costureiro / oficina<select aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
@@ -274,7 +283,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
      {group.items.map(s=><article className="sheet-card sheet-send-card sheet-assigned-card" key={s.id}>
       <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-assigned">Enviada</span></div>
       <h3>{s.model||'Modelo não informado'}</h3>
-      <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
+      <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
       <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
       <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button></div>
      </article>)}
