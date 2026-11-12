@@ -18,7 +18,7 @@ test('OCs 752, 753 e 754 possuem painel dedicado e não são recriadas arbitrari
  assert.match(panel,/model,reference,pieceType:garmentTypeFromCatalog/);
  assert.match(panel,/status:'enfesto'/);
  assert.match(panel,/createdAt:serverTimestamp\(\),createdBy:user\.uid/);
- assert.match(panel,/NÃO serão apagados nem substituídos/);
+ assert.match(panel,/não serão apagados nem substituídos/i);
  assert.match(panel,/informe as cores reais/i);
  assert.match(panel,/a soma dos tamanhos/i);
 });
