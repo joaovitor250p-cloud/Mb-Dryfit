@@ -188,7 +188,7 @@ export default function Enfesto({db,user,canEdit,companyId}:Props){
      const cut=readCut(opened,index,row),layers=layersOf(cut),used=consumptionMilli(cut);
      const readOnly=!!opened.enfestoConfirmationId||!canEdit;
      return <section className="enfesto-color-card" key={index}>
-      <div className="enfesto-color-head"><h3>{row.cor?.toLocaleUpperCase('pt-BR')||'SEM COR'}</h3><span className={readOnly?'enfesto-done':cut.confirmedAt?'enfesto-done':'enfesto-waiting'}>{readOnly||cut.confirmedAt?'COR OK':'PENDENTE'}</span></div>
+      <div className="enfesto-color-head"><h3>{row.cor?.toLocaleUpperCase('pt-BR')||'SEM COR'}</h3><span className={opened.enfestoConfirmationId||cut.confirmedAt?'enfesto-done':'enfesto-waiting'}>{opened.enfestoConfirmationId||cut.confirmedAt?'COR OK':'PENDENTE'}</span></div>
       <div className="enfesto-size-grid">{sizes.filter(k=>Number(row[k])>0).map(k=><label key={k}>{k.toUpperCase()} <small>Previsto: {row[k]}</small><input type="number" min="0" step="1" disabled={readOnly} value={cut.quantities[k]} onChange={e=>updateCut(opened,index,row,{quantities:{...cut.quantities,[k]:e.target.value}})}/></label>)}</div>
       <div className="enfesto-cut-grid">
        <label>Camadas <small>{cut.manualLayers?'Manual':'Automático: menor quantidade positiva'}</small><input type="number" min="1" step="1" disabled={readOnly} value={cut.manualLayers?cut.layers:Number.isFinite(layers)?String(layers):''} onChange={e=>updateCut(opened,index,row,{layers:e.target.value,manualLayers:true})}/></label>
