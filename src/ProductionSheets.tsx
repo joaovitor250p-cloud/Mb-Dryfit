@@ -164,49 +164,66 @@ export default function ProductionSheets({db,user,canEdit,canDistribute,initialT
   {historical.length>historyLimit&&<button type="button" className="outline-button sheet-show-more" onClick={()=>setHistoryLimit(n=>n+50)}>Mostrar mais 50 fichas ({historical.length-historyLimit} restantes)</button>}
  </section>}
  {tab==='distribution'&&canDistribute&&<section className="sheet-list sheet-distribution-view">
-  <div className="sheet-view-head"><div><h2>Distribuir fichas por oficina</h2><p>Clique no nome do costureiro para ver as fichas disponíveis, escolher a data de envio e criar a OC.</p></div><span className="sheet-view-count">{pending.length} ficha(s) para enviar</span></div>
-  {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Enviada em {lastAssigned.sentLabel}. OC criada em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> Imprimir ficha enviada</button></div>}
+  <div className="sheet-view-head"><div><h2>Fichas disponíveis para distribuição</h2><p>Escolha uma ficha, selecione o costureiro e a data. Depois do envio a OC aparece em OCs e pagamentos.</p></div><span className="sheet-view-count">{pending.length} ficha(s) disponíveis</span></div>
+  {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Envio em {lastAssigned.sentLabel}. Ficha em Costureiros e OC em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> Imprimir ficha enviada</button></div>}
   <div className="sheet-distribution-stats">
    <div><Clock3 size={18}/><span>Fichas disponíveis</span><strong>{pending.length}</strong></div>
-   <div><Building2 size={18}/><span>Oficinas com fichas</span><strong>{groups.length}</strong></div>
+   <div><FileText size={18}/><span>Peças disponíveis</span><strong>{pending.reduce((total,s)=>total+sheetQuantity(s),0).toLocaleString('pt-BR')}</strong></div>
    <div><PackageCheck size={18}/><span>Fichas enviadas</span><strong>{assigned.length}</strong></div>
   </div>
   <label className="sheet-quick-search sheet-distribution-search"><Search size={18}/><input aria-label="Pesquisar OC para distribuir" type="search" value={distributionSearch} onChange={e=>setDistributionSearch(e.target.value)} placeholder="Buscar ficha disponível por OC, REF ou modelo..."/></label>
-  {!!pending.length&&<p className="sheet-list-explanation">Uma ficha pode aparecer em mais de uma oficina que produz esse tipo de peça. Ao confirmar o envio, ela sai de todas as listas de disponíveis.</p>}
-  {!pending.length&&<div className="sheet-no-results"><CheckCircle2 size={30}/><strong>Nenhuma ficha aguardando distribuição.</strong><span>As fichas enviadas podem ser impressas em Todas as fichas.</span></div>}
+  {!pending.length&&<div className="sheet-no-results"><CheckCircle2 size={30}/><strong>Nenhuma ficha aguardando distribuição.</strong><span>Fichas enviadas estão na aba Costureiros.</span></div>}
   {!!pending.length&&!filteredPending.length&&<div className="sheet-no-results"><Search size={27}/><strong>Nenhuma ficha corresponde à pesquisa.</strong></div>}
+  <div className="sheet-distribution-grid sheet-pending-grid">
+   {filteredPending.map(s=>{
+    const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
+    const candidates=compatibleOffices(s);
+    const selectedOffice=candidates.find(name=>workshopKey(name)===workshopKey(tailor[s.id]||''))||'';
+    const suggested=selectedOffice?getPrice(s,selectedOffice,type):'';
+    const priceId=`${s.id}:${workshopKey(selectedOffice)}`;
+    const value=selectedOffice?(priceOverride[priceId]??suggested):'';
+    const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
+    return <article className="sheet-card sheet-send-card" key={s.id}>
+     <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">Aguardando envio</span></div>
+     <h3>{s.model||'Modelo não informado'}</h3>
+     <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
+     <div className="sheet-send-fields">
+      <label>Tipo da peça<input list={`sheet-types-${s.id}`} maxLength={80} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setTailor(v=>({...v,[s.id]:''}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Camiseta ou Bermuda"/><datalist id={`sheet-types-${s.id}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label>
+      <label>Costureiro / oficina<select aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
+       <option value="">{type?'Selecione o costureiro':'Informe o tipo da peça primeiro'}</option>
+       {candidates.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}
+      </select></label>
+      <label>Data de envio<span className="sheet-input-icon"><CalendarDays size={15}/><input type="date" aria-label={`Data de envio da OC ${s.oc}`} value={sendDates[s.id]??todayInput()} onChange={e=>setSendDates(v=>({...v,[s.id]:e.target.value}))}/></span></label>
+      <label>Valor por peça (R$)<input inputMode="decimal" value={value} disabled={!selectedOffice} onChange={e=>setPriceOverride(v=>({...v,[priceId]:e.target.value}))} placeholder={selectedOffice?'Informe o valor':'Selecione o costureiro'}/></label>
+     </div>
+     {type&&!candidates.length&&<div className="sheet-price-warning">Nenhuma oficina compatível com {type}. Confira as categorias em Configurações → Oficinas e costureiros.</div>}
+     {selectedOffice&&!known&&<div className="sheet-price-warning">Verifique a REF {s.reference}. Para REF nova, informe o valor por peça antes de enviar.</div>}
+     {selectedOffice&&known&&<small className="sheet-price-note">Valor sugerido para {selectedOffice}: {Number.isFinite(parsePrice(suggested))?currency(parsePrice(suggested)):'A informar'}</small>}
+     <div className="sheet-card-actions">
+      <button type="button" className="primary-button" disabled={busy||!selectedOffice||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button>
+      <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> Prévia da ficha</button>
+     </div>
+    </article>;
+   })}
+  </div>
+ </section>}
+ {tab==='sent'&&canDistribute&&<section className="sheet-list sheet-sent-view">
+  <div className="sheet-view-head"><div><h2>Fichas enviadas por costureiro</h2><p>Clique no costureiro para consultar e imprimir as fichas enviadas, da maior OC para a menor.</p></div><span className="sheet-view-count">{assigned.length} ficha(s) enviadas</span></div>
+  <label className="sheet-quick-search sheet-distribution-search"><Search size={18}/><input aria-label="Pesquisar fichas enviadas por OC ou costureiro" type="search" value={sentSearch} onChange={e=>setSentSearch(e.target.value)} placeholder="Pesquisar OC, REF, modelo ou costureiro..."/></label>
+  {!sentFiltered.length&&<div className="sheet-no-results"><FileText size={29}/><strong>Nenhuma ficha enviada encontrada.</strong><span>As fichas aparecerão aqui após a confirmação do envio.</span></div>}
   <div className="sheet-office-list">
-   {groups.map(group=><details className="sheet-office-group" key={workshopKey(group.name)}>
-    <summary><span className="sheet-office-avatar"><Building2 size={22}/></span><span className="sheet-office-summary-title"><strong>{group.name}</strong><small>{group.items.length} {group.items.length===1?'ficha disponível':'fichas disponíveis'}</small></span><span className="sheet-office-number">{group.items.length}</span><ChevronDown className="sheet-office-arrow" size={19}/></summary>
+   {sentGroups.map(group=><details className="sheet-office-group" key={workshopKey(group.name)}>
+    <summary><span className="sheet-office-avatar"><Building2 size={22}/></span><span className="sheet-office-summary-title"><strong>{group.name}</strong><small>{group.items.length} ficha(s) enviadas</small></span><span className="sheet-office-number">{group.items.length}</span><ChevronDown className="sheet-office-arrow" size={19}/></summary>
     <div className="sheet-office-inner"><div className="sheet-distribution-grid">
-     {group.items.map(s=>{
-      const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
-      const suggested=getPrice(s,group.name,type);
-      const priceId=`${s.id}:${workshopKey(group.name)}`;
-      const value=priceOverride[priceId]??suggested;
-      const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
-      return <article className="sheet-card sheet-send-card" key={s.id}>
-       <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">Disponível</span></div>
-       <h3>{s.model||'Modelo não informado'}</h3>
-       <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.colors.length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
-       <div className="sheet-send-fields">
-        <label>Tipo da peça<input list={`sheet-types-${s.id}-${workshopKey(group.name)}`} maxLength={80} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Camiseta"/><datalist id={`sheet-types-${s.id}-${workshopKey(group.name)}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label>
-        <label>Data de envio<span className="sheet-input-icon"><CalendarDays size={15}/><input type="date" aria-label={`Data de envio da OC ${s.oc}`} value={sendDates[s.id]??todayInput()} onChange={e=>setSendDates(v=>({...v,[s.id]:e.target.value}))}/></span></label>
-        <label>Valor por peça (R$)<input inputMode="decimal" value={value} onChange={e=>setPriceOverride(v=>({...v,[priceId]:e.target.value}))} placeholder="Informe o preço"/></label>
-       </div>
-       {!known&&<div className="sheet-price-warning">Verifique a REF {s.reference}. Para uma referência nova, informe o valor por peça antes de distribuir.</div>}
-       {known&&<small className="sheet-price-note">Valor sugerido para {group.name}: {Number.isFinite(parsePrice(suggested))?currency(parsePrice(suggested)):'A informar'}</small>}
-       <div className="sheet-card-actions"><button type="button" className="primary-button" disabled={busy||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s,group.name)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button><button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:group.name})}><Printer size={16}/> Prévia da ficha</button></div>
-      </article>;
-     })}
+     {group.items.map(s=><article className="sheet-card sheet-send-card sheet-assigned-card" key={s.id}>
+      <div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-assigned">Enviada</span></div>
+      <h3>{s.model||'Modelo não informado'}</h3>
+      <p className="sheet-card-meta"><b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
+      <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
+      <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> Imprimir ficha enviada</button></div>
+     </article>)}
     </div></div>
    </details>)}
-   {!!unclassified.length&&<details className="sheet-office-group sheet-office-unclassified">
-    <summary><span className="sheet-office-avatar"><FileText size={22}/></span><span className="sheet-office-summary-title"><strong>Fichas sem oficina compatível</strong><small>Defina o tipo da peça para encontrar costureiros disponíveis</small></span><span className="sheet-office-number">{unclassified.length}</span><ChevronDown className="sheet-office-arrow" size={19}/></summary>
-    <div className="sheet-office-inner"><div className="sheet-distribution-grid">
-     {unclassified.map(s=><article className="sheet-card sheet-send-card" key={s.id}><div className="sheet-card-top"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">A classificar</span></div><h3>{s.model}</h3><p className="sheet-card-meta">REF {s.reference} · {sheetQuantity(s).toLocaleString('pt-BR')} peças</p><label className="sheet-unclassified-field">Tipo da peça (escolha ou escreva)<input list={`sheet-unclassified-${s.id}`} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Bermuda, Calça, Camiseta"/><datalist id={`sheet-unclassified-${s.id}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label><small>Se não surgir nenhuma oficina, confira os tipos produzidos em Configurações → Oficinas e costureiros.</small></article>)}
-    </div></div>
-   </details>}
   </div>
  </section>}
  {printSheet&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
