@@ -7,7 +7,7 @@ import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,p
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
 import ProductionCleanup from './ProductionCleanup';
-import {isProtectedProductionOc} from './lib/sheetOcSequence';
+import {isProtectedProductionOc,normalizeOcNumber} from './lib/sheetOcSequence';
 import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
 import {nextProductionOc} from './lib/sheetOcSequence';
@@ -158,10 +158,10 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  // Fichas antigas 752/753/754 podem ter uma OC financeira já existente:
  // nunca sobrescrever nem criar outra OC de mesmo número.
  const legacyOrders=isProtectedProductionOc(s.oc)
-   ?await getDocs(firestoreQuery(collection(db,'cut_orders'),where('oc','==',s.oc)))
-   :null;
- if(legacyOrders&&legacyOrders.size>1)throw Error('Existem várias OCs financeiras com número '+s.oc+'. Confira os documentos antes de distribuir.');
- const legacy=legacyOrders?.docs[0];
+   ?(await getDocs(collection(db,'cut_orders'))).docs.filter(item=>normalizeOcNumber(item.data().oc)===normalizeOcNumber(s.oc))
+   :[];
+ if(legacyOrders.length>1)throw Error('Existem várias OCs financeiras com número '+s.oc+'. Confira os documentos antes de distribuir.');
+ const legacy=legacyOrders[0];
  if(legacy){
   const oldStatus=String(legacy.data().status||'').trim().toUpperCase();
   const oldOffice=canonicalWorkshopName(String(legacy.data().office||''));
