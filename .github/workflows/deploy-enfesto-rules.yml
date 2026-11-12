@@ -1,0 +1,65 @@
+name: Publicar regras de Enfesto no Firebase
+
+on:
+  push:
+    branches:
+      - feat/enfesto-fichas-producao-20261112
+    paths:
+      - '.github/workflows/deploy-enfesto-rules.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mb-referencias-firestore-rules
+  cancel-in-progress: false
+
+jobs:
+  rules:
+    name: Validar e publicar regras
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Preparar Java para validar regras
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Validar sintaxe das regras no emulador
+        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'echo Regras-validadas'
+      - name: Verificar acesso de implantação sem revelar credenciais
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${FIREBASE_PROJECT_ID:-}" ]]; then
+            echo "::error::Falta o secret VITE_FIREBASE_PROJECT_ID para selecionar o projeto Firebase."
+            exit 1
+          fi
+          if [[ -n "${FIREBASE_SERVICE_ACCOUNT_JSON:-}" ]]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/firebase-admin.json"
+            chmod 600 "$RUNNER_TEMP/firebase-admin.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-admin.json" >> "$GITHUB_ENV"
+            echo "Credencial administrativa encontrada; pronta para publicar."
+          elif [[ -n "${GOOGLE_APPLICATION_CREDENTIALS_JSON:-}" ]]; then
+            printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/firebase-admin.json"
+            chmod 600 "$RUNNER_TEMP/firebase-admin.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-admin.json" >> "$GITHUB_ENV"
+            echo "Credencial administrativa encontrada; pronta para publicar."
+          elif [[ -n "${FIREBASE_TOKEN:-}" ]]; then
+            echo "Token Firebase encontrado; pronta para publicar."
+          else
+            echo "::error::Não existe credencial de implantação Firebase nos secrets FIREBASE_SERVICE_ACCOUNT, GOOGLE_APPLICATION_CREDENTIALS_JSON ou FIREBASE_TOKEN. Nenhuma regra foi publicada."
+            exit 1
+          fi
+      - name: Publicar regras do Firestore no projeto selecionado
+        run: npx --yes firebase-tools@13.35.1 deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --non-interactive
