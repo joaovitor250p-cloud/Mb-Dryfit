@@ -11,7 +11,7 @@ import {calculatedKg,calculateConsumption,makeEnfestoRows,normalizeColor,totalCu
 import {confirmEnfestoConsumption,finishEnfestoWithoutStock,quantityText,type StockEntry} from './lib/purchasesInventory';
 import './enfesto.css';
 
-type Sheet={id:string;oc:string;model:string;reference:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
+type Sheet={id:string;oc:string;model:string;reference:string;client?:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
 type Job={id:string;sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
 type Props={db:Firestore;user:User;companyId:string;canEdit:boolean};
 const empty:EnfestoDetails={rows:[],notes:''};
@@ -35,7 +35,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   const colors=(sheet.colors||[]).map(row=>({...row,detalhes:String((row as FichaCor&{detalhes?:string}).detalhes||'')}));
   if(colors.filter(row=>Object.values(row).some(v=>String(v).trim())).length>14){setError('A ficha tem mais de 14 linhas preenchidas. Confira o modelo A4 antes de imprimir.');return}
   setPrintSheet({
-   oc:sheet.oc,reference:sheet.reference,model:sheet.model,pieceType:sheet.pieceType||'',
+   oc:sheet.oc,reference:sheet.reference,model:sheet.model,client:sheet.client||'MB',pieceType:sheet.pieceType||'',
    fabric:sheet.fabric||'',composition:sheet.composition||'',trims:sheet.trims||'',
    officeInstructions:sheet.officeInstructions||'',withdrawalDate:sheet.withdrawalDate||'',
    volumes:sheet.volumes||'',tailorInstructions:sheet.tailorInstructions||'',
