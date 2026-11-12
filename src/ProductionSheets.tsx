@@ -7,6 +7,7 @@ import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,p
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
 import ProductionCleanup from './ProductionCleanup';
+import {isProtectedProductionOc} from './lib/sheetOcSequence';
 import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
 import { PageActiveContext } from './lib/pageMemory';
 import {nextProductionOc} from './lib/sheetOcSequence';
@@ -153,7 +154,21 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const sentISO=sendDates[s.id]??todayInput();
  const sentDate=new Date(`${sentISO}T12:00:00`);
  if(!/^\d{4}-\d{2}-\d{2}$/.test(sentISO)||Number.isNaN(sentDate.getTime())||todayInputFromDate(sentDate)!==sentISO){setError('Escolha uma data de envio válida para a ficha.');return;}
- setBusy(true);setError('');try{const orderRef=doc(db,'cut_orders',s.id);/* A gravação em lote usa ID fixo da ficha: uma segunda tentativa é negada pelas regras de criação. */const br=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,due=new Date(sentDate.getFullYear(),sentDate.getMonth(),sentDate.getDate()+10),money=(n:number)=>currency(n);const fields=['oc','ref','model','office','qty','piecePrice','entry','sent','due','status','deliveredFlag','deliveredAt','defects','discountPiece','discountTotal','total','paidAt','paymentDone'];const order={...Object.fromEntries(fields.map(k=>[k,''])),oc:s.oc,ref:s.reference,model:s.model,office:name,qty:String(qty),piecePrice:money(amount),sent:br(sentDate),due:br(due),status:'EM ANDAMENTO',total:money(qty*amount),source:'manual',manualTotal:false,createdBy:user.uid,createdAt:serverTimestamp(),updatedBy:user.uid,updatedAt:serverTimestamp()};const batch=writeBatch(db);batch.update(doc(db,'production_sheets',s.id),{status:'assigned',assignedTailor:name,assignedAt:serverTimestamp(),assignedBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});batch.set(orderRef,order);await batch.commit();setMessage(`Ficha OC ${s.oc} enviada para ${name} em ${displayDate(sentISO)}. A OC foi criada em OCs e pagamentos.`);setLastAssigned({...s,pieceType:type,assignedTailor:name,sentLabel:displayDate(sentISO)});}catch(e){const code=String((e as {code?:string})?.code||'');setError((code?`Firebase (${code}): `:'')+safeProviderMessage(e)+(code==='permission-denied'?' — Confirme a permissão sheet_distribution, as regras publicadas e a configuração do projeto Firebase.':''));}finally{setBusy(false);}};
+ setBusy(true);setError('');try{
+ // Fichas antigas 752/753/754 podem ter uma OC financeira já existente:
+ // nunca sobrescrever nem criar outra OC de mesmo número.
+ const legacyOrders=isProtectedProductionOc(s.oc)
+   ?await getDocs(firestoreQuery(collection(db,'cut_orders'),where('oc','==',s.oc)))
+   :null;
+ if(legacyOrders&&legacyOrders.size>1)throw Error('Existem várias OCs financeiras com número '+s.oc+'. Confira os documentos antes de distribuir.');
+ const legacy=legacyOrders?.docs[0];
+ if(legacy){
+  const oldStatus=String(legacy.data().status||'').trim().toUpperCase();
+  const oldOffice=canonicalWorkshopName(String(legacy.data().office||''));
+  if(oldStatus==='ENTREGUE')throw Error('A OC '+s.oc+' já está ENTREGUE. Não é seguro redistribuir uma OC concluída.');
+  if(!oldOffice||workshopKey(oldOffice)!==workshopKey(name))throw Error('A OC '+s.oc+' já está cadastrada para '+(oldOffice||'oficina não informada')+'. Para preservar a OC e os pagamentos, escolha a mesma oficina ou ajuste a OC existente.');
+ }
+ const orderRef=doc(db,'cut_orders',s.id);/* A gravação em lote usa ID fixo da ficha: uma segunda tentativa é negada pelas regras de criação. */const br=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,due=new Date(sentDate.getFullYear(),sentDate.getMonth(),sentDate.getDate()+10),money=(n:number)=>currency(n);const fields=['oc','ref','model','office','qty','piecePrice','entry','sent','due','status','deliveredFlag','deliveredAt','defects','discountPiece','discountTotal','total','paidAt','paymentDone'];const order={...Object.fromEntries(fields.map(k=>[k,''])),oc:s.oc,ref:s.reference,model:s.model,office:name,qty:String(qty),piecePrice:money(amount),sent:br(sentDate),due:br(due),status:'EM ANDAMENTO',total:money(qty*amount),source:'manual',manualTotal:false,createdBy:user.uid,createdAt:serverTimestamp(),updatedBy:user.uid,updatedAt:serverTimestamp()};const batch=writeBatch(db);batch.update(doc(db,'production_sheets',s.id),{status:'assigned',assignedTailor:name,assignedAt:serverTimestamp(),assignedBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});if(!legacy)batch.set(orderRef,order);await batch.commit();setMessage(legacy?`Ficha OC ${s.oc} enviada para ${name}. A OC financeira já existente foi preservada sem duplicação nem alteração de pagamentos.`:`Ficha OC ${s.oc} enviada para ${name} em ${displayDate(sentISO)}. A OC foi criada em OCs e pagamentos.`);setLastAssigned({...s,pieceType:type,assignedTailor:name,sentLabel:displayDate(sentISO)});}catch(e){const code=String((e as {code?:string})?.code||'');setError((code?`Firebase (${code}): `:'')+safeProviderMessage(e)+(code==='permission-denied'?' — Confirme a permissão sheet_distribution, as regras publicadas e a configuração do projeto Firebase.':''));}finally{setBusy(false);}};
  const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid).sort(compareOcDesc);
  const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
