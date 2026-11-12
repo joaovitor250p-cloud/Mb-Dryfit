@@ -16,6 +16,9 @@ test('a distribuição lista fichas disponíveis, não lista de costureiros',()=
  assert.match(sheets,/const filteredPending=pending\.filter/);
  assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'\)\.sort\(compareOcDesc\)/);
  assert.match(sheets,/sheet-pending-grid/);
+ assert.match(sheets,/return <details className="sheet-distribution-item"/);
+ assert.match(sheets,/sheet-distribution-summary/);
+ assert.match(sheets,/sheet-distribution-body/);
 });
 
 test('dentro de cada ficha escolhe costureiro, data de envio e valor',()=>{
@@ -78,7 +81,7 @@ test('ordena OC numericamente da maior para a menor, inclusive com zeros à esqu
  assert.deepEqual(entries.sort(context.exports.compare).map(o=>o.oc),['100','050','11','9','7','003','2']);
  assert.match(sheets,/const pending=sheets\.filter\(s=>s\.status==='pending'\)\.sort\(compareOcDesc\)/);
  assert.match(sheets,/const assigned=sheets\.filter\(s=>s\.status==='assigned'\)\.sort\(compareOcDesc\)/);
- assert.match(sheets,/const submitted=sheets\.filter\(s=>s\.status!=='draft'\)\.sort\(compareOcDesc\)/);
+ assert.match(sheets,/const submitted=sheets\.filter\(s=>s\.status==='pending'\|\|s\.status==='assigned'\)\.sort\(compareOcDesc\)/);
 });
 
 test('cores usadas em fichas anteriores ficam disponíveis nas novas e também no aparelho',()=>{
