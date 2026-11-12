@@ -2,7 +2,7 @@
 // Campos legados permanecem opcionais para não quebrar fichas antigas do Firebase.
 export type SheetColorRow = { cor: string; p: string; m: string; g: string; gg: string; xg: string; detalhes: string };
 export type PrintableSheet = {
-  model: string; reference: string; pieceType?: string; fabric?: string; composition: string; trims: string;
+  model: string; reference: string; client?: string; pieceType?: string; fabric?: string; composition: string; trims: string;
   officeInstructions: string; oc: string; withdrawalDate?: string; volumes?: string;
   tailorInstructions: string; finishingInstructions: string;
   colors: SheetColorRow[]; assignedTailor: string;
@@ -12,11 +12,15 @@ const sizes = ['p','m','g','gg','xg'] as const;
 const columns = ['cor','p','m','g','gg','xg','detalhes'] as const;
 
 export default function SheetPrint({sheet}:{sheet:PrintableSheet}) {
-  const filled=(sheet.colors||[]).filter(row=>columns.some(key=>String(row[key]??'').trim()));
+  const rows=(sheet.colors||[]).map(row=>({...row}));
+  // Mantém a ficha A4 inteira mesmo se CORES, tamanhos e quantidades estiverem vazios.
+  const emptyRow=():SheetColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
+  while(rows.length<8)rows.push(emptyRow());
+  const filled=rows;
   const total=filled.reduce((sum,row)=>sum+sizes.reduce((n,key)=>n+quantity(row[key]),0),0);
   return <div className="sheet-print-only"><div className="sheet-paper sheet-paper-a4">
     <div className="sheet-top">
-      <div><div className="sheet-field"><strong>Modelo:</strong><span>{sheet.model}</span></div><div className="sheet-field"><strong>REF:</strong><span>{sheet.reference}</span></div><div className="sheet-field"><strong>Tipo de roupa:</strong><span>{sheet.pieceType||''}</span></div></div>
+      <div><div className="sheet-field"><strong>CLIENTE:</strong><span>{sheet.client?.trim()||'MB'}</span></div><div className="sheet-field"><strong>Modelo:</strong><span>{sheet.model}</span></div><div className="sheet-field"><strong>REF:</strong><span>{sheet.reference}</span></div><div className="sheet-field"><strong>Tipo de roupa:</strong><span>{sheet.pieceType||''}</span></div></div>
       <div><div className="sheet-field"><strong>Composição</strong><span>{sheet.composition}</span></div><div className="sheet-field"><strong>Tecido:</strong><span>{sheet.fabric||''}</span></div></div>
     </div>
     <div className="sheet-middle">

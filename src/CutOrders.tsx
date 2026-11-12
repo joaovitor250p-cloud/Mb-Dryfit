@@ -436,18 +436,18 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       return next;
     });
   };
-  const save=async()=>{if(!draft||!canEdit||busy)return;const row=recalc({...draft,office:canonicalWorkshopName(draft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
+  const save=async(override?:Order)=>{const activeDraft=override||draft,activeEditing=override||editing;if(!activeDraft||!canEdit||busy)return;const row=recalc({...activeDraft,office:canonicalWorkshopName(activeDraft.office)});if(!row.oc.trim()||!row.model.trim())return notify('Informe o número da OC e o modelo.',true);
     for(const key of dateKeys){if(row[key]&&!toISO(row[key]))return notify(`Confira a data de ${names[key]}. Valor antigo inválido: ${row[key]}. Você pode corrigi-la ou apagar.`,true)}
     for(const key of [...numberKeys,...moneyKeys]){if(row[key]&&(!Number.isFinite(num(row[key]))||num(row[key])<0))return notify(`Confira ${names[key]}.`,true)}
     if(row.defects.trim()&&(!Number.isSafeInteger(num(row.defects))||num(row.defects)>num(row.qty)))
       return notify('A quantidade de defeitos não pode superar a quantidade de peças desta OC.',true);
     if(num(row.defects)>0&&!(num(row.discountPiece)>0))
       return notify('Informe o desconto por peça defeituosa antes de salvar.',true);
-    if(!editing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
-    const id=editing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
-    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:editing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
-    const needsSample = row.status === 'ENTREGUE' && (!editing || editing.status !== 'ENTREGUE'
-      || editing.qty !== row.qty || editing.ref !== row.ref || editing.model !== row.model || editing.office !== row.office);
+    if(!activeEditing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
+    const id=activeEditing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
+    const needsSample = row.status === 'ENTREGUE' && (!activeEditing || activeEditing.status !== 'ENTREGUE'
+      || activeEditing.qty !== row.qty || activeEditing.ref !== row.ref || activeEditing.model !== row.model || activeEditing.office !== row.office);
     setBusy(true);
     try {
       if (needsSample) {
@@ -461,9 +461,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         const orderRef = doc(db, 'cut_orders', id);
         await runTransaction(db, async transaction => {
           const [orderSnap, sampleSnap] = await Promise.all([transaction.get(orderRef), transaction.get(sampleRef)]);
-          if (!editing && orderSnap.exists()) throw new Error(`A OC ${row.oc} já existe. Atualize a lista antes de cadastrar.`);
-          const orderPayload = editing ? content : {...content,createdAt:serverTimestamp(),createdBy:user.uid};
-          if (editing) transaction.update(orderRef, orderPayload);
+          if (!activeEditing && orderSnap.exists()) throw new Error(`A OC ${row.oc} já existe. Atualize a lista antes de cadastrar.`);
+          const orderPayload = activeEditing ? content : {...content,createdAt:serverTimestamp(),createdBy:user.uid};
+          if (activeEditing) transaction.update(orderRef, orderPayload);
           else transaction.set(orderRef, orderPayload);
           if (sampleSnap.exists()) {
             // Não apaga fotos ou conteúdo editado manualmente. Completa apenas metadados ausentes.
@@ -488,7 +488,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         });
         notify(`OC ${row.oc} entregue e amostra vinculada! Para pagar, abra Pagamento de sexta-feira e use “Adicionar ou ajustar OCs”.`);
       } else {
-        if (editing) await updateDoc(doc(db,'cut_orders',id),content);
+        if (activeEditing) await updateDoc(doc(db,'cut_orders',id),content);
         else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
         notify(`OC ${row.oc} salva com sucesso.`);
       }
@@ -502,9 +502,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
           const ref=doc(db,'cut_orders',id);
           await runTransaction(db,async transaction=>{
             const current=await transaction.get(ref);
-            if(!editing&&current.exists())throw new Error('Esta OC já foi salva. Atualize a planilha antes de tentar novamente.');
-            if(editing&&!current.exists())throw new Error('A OC foi excluída em outro dispositivo. Atualize a planilha.');
-            if(editing)transaction.update(ref,content);
+            if(!activeEditing&&current.exists())throw new Error('Esta OC já foi salva. Atualize a planilha antes de tentar novamente.');
+            if(activeEditing&&!current.exists())throw new Error('A OC foi excluída em outro dispositivo. Atualize a planilha.');
+            if(activeEditing)transaction.update(ref,content);
             else transaction.set(ref,{...content,createdAt:serverTimestamp(),createdBy:user.uid});
           });
           setDraft(null);
@@ -516,6 +516,11 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         notify(`Não foi possível salvar a OC ${row.oc}: ${errorText(e)}`,true);
       }
     } finally {setBusy(false)}
+  };
+  const markDelivered=async(order:Order)=>{
+    if(!canEdit||busy||done(order))return;
+    if(!window.confirm(`Marcar a OC ${order.oc} como ENTREGUE? A data de entrega será registrada e o pagamento continuará pendente até ser confirmado separadamente.`))return;
+    await save({...order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:order.deliveredAt||toBR(today())});
   };
   // Regras do Firestore: excluir cut_orders é permitido somente a administradores.
   // Usar o ID real do documento preserva OCs com número duplicado.
@@ -563,13 +568,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         setNotice(`Esta OC foi alterada depois da distribuição. A ficha impressa preserva o número original ${String(sheet.oc||'—')}.`);
       }
       const colors=Array.isArray(sheet.colors)?sheet.colors as SheetColorRow[]:[];
-      const filled=colors.filter(row=>Object.values(row||{}).some(v=>String(v??'').trim()));
-      if(filled.length>14){
-        notify(`A ficha da OC ${o.oc} tem ${filled.length} linhas de cores. Para não cortar informações na folha A4, faça a impressão pela área de Fichas de Produção após ajustar o documento.`,true);
-        return;
-      }
       setPrintSheet({
-        model:String(sheet.model||''),reference:String(sheet.reference||''),
+        model:String(sheet.model||''),reference:String(sheet.reference||''),client:String(sheet.client||'MB'),
         pieceType:String(sheet.pieceType||''),fabric:String(sheet.fabric||''),
         composition:String(sheet.composition||''),trims:String(sheet.trims||''),
         officeInstructions:String(sheet.officeInstructions||''),oc:String(sheet.oc||''),
@@ -700,7 +700,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       <div className="order-summary-head"><strong>Resumo das OCs</strong><span>Role a barra horizontal para consultar as informações à direita.</span></div>
       <div className="order-helper"><span>{filtered.length} OCs encontradas · exibindo {Math.min(count,filtered.length)} {loading?'· carregando...':''}</span><span><Edit3 size={14}/> Para editar: <strong>3 cliques/toques</strong> no registro ou <strong>Editar</strong> com um toque</span></div>
       <div className="order-scrollbar-top" ref={railRef} tabIndex={0} role="region" onScroll={e=>scrollRail(e.currentTarget.scrollLeft)} aria-label="Barra horizontal para navegar nas colunas"><div style={{width:tableWidth,height:1}}/></div>
-      <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit&&paid(o)&&<button type="button" className="order-unpay-inline" title="Desmarcar pagamento registrado" disabled={busy} onClick={e=>{e.stopPropagation();void undoPaid(o)}}>Desmarcar pago</button>}{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" title={`Abrir ficha enviada ao costureiro da OC ${o.oc} para salvar em PDF`} aria-label={`Ficha OC ${o.oc}`} disabled={!!loadingFicha} onClick={e=>{e.stopPropagation();void abrirFicha(o)}}><Download size={13}/> {loadingFicha===o.id?'Abrindo...':'Ficha'}</button>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
+      <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit&&paid(o)&&<button type="button" className="order-unpay-inline" title="Desmarcar pagamento registrado" disabled={busy} onClick={e=>{e.stopPropagation();void undoPaid(o)}}>Desmarcar pago</button>}{canEdit&&<button type="button" className={done(o)?'order-delivered-inline is-done':'order-delivered-inline'} title={done(o)?`OC ${o.oc} já marcada como entregue`:`Marcar OC ${o.oc} como entregue`} aria-label={`Marcar OC ${o.oc} como entregue`} disabled={busy||done(o)} onClick={e=>{e.stopPropagation();void markDelivered(o)}}><CheckCircle2 size={14}/>{done(o)?'ENTREGUE':'ENTREGAR'}</button>}{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" title={`Abrir ficha enviada ao costureiro da OC ${o.oc} para salvar em PDF`} aria-label={`Ficha OC ${o.oc}`} disabled={!!loadingFicha} onClick={e=>{e.stopPropagation();void abrirFicha(o)}}><Download size={13}/> {loadingFicha===o.id?'Abrindo...':'Ficha'}</button>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
       <div className="order-foot"><span>Você pode rolar a tabela para ver todas as colunas.</span>{count<filtered.length&&<div><button className="outline-button" onClick={()=>setCount(n=>n+PAGE)}>Mostrar mais 75</button><button className="outline-button" onClick={()=>setCount(filtered.length)}>Mostrar todas ({filtered.length})</button></div>}</div>
     </>}
     {paymentPrepare&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setPaymentPrepare(null)}}>
