@@ -53,9 +53,9 @@ service cloud.firestore {
     function validSections(sections) {
       return sections is list
         && sections.size() >= 1
-        && sections.size() <= 10
+        && sections.size() <= 11
         && sections.hasOnly([
-          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'purchases'
+          'catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'sheet_distribution', 'enfesto', 'purchases'
         ]);
     }
 
@@ -770,8 +770,8 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
-        && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
+      return d.keys().hasOnly(['model','reference','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy'])
+        && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
         && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
@@ -785,37 +785,50 @@ service cloud.firestore {
         && d.tailorInstructions is string && d.tailorInstructions.size() <= 4000
         && d.finishingInstructions is string && d.finishingInstructions.size() <= 4000
         && d.colors is list && d.colors.size() <= 50
-        && d.status in ['draft','pending','assigned']
+        && d.status in ['draft','enfesto','pending','assigned']
         && d.assignedTailor is string && d.assignedTailor.size() <= 120
         && d.createdBy is string && d.updatedBy == request.auth.uid
         && d.updatedAt == request.time
         && (d.assignedAt == null || d.assignedAt is timestamp)
-        && (d.assignedBy == null || d.assignedBy is string);
+        && (d.assignedBy == null || d.assignedBy is string)
+        && (!('enfestoCompletedAt' in d) || d.enfestoCompletedAt is timestamp)
+        && (!('enfestoCompletedBy' in d) || (d.enfestoCompletedBy is string && d.enfestoCompletedBy.size() <= 128));
     }
 
     match /production_sheets/{sheetId} {
       // Quem acessa Ordens de Corte pode baixar somente fichas já distribuídas,
       // pelo ID específico da OC; não libera listagem de fichas nem rascunhos.
-      allow get: if canView('sheets') || canView('sheet_distribution')
+      allow get: if canView('sheets') || canView('sheet_distribution') || canView('enfesto')
         || (canView('orders') && resource.data.status == 'assigned');
-      allow list: if canView('sheets') || canView('sheet_distribution');
+      allow list: if canView('sheets') || canView('sheet_distribution') || canView('enfesto');
       allow create: if canWrite('sheets') && validSheetFields(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && request.resource.data.status in ['draft','pending']
+        && request.resource.data.status in ['draft','enfesto']
         && request.resource.data.assignedTailor == ''
         && request.resource.data.assignedAt == null
         && request.resource.data.assignedBy == null;
       allow update: if (
         canWrite('sheets') && validSheetFields(request.resource.data)
         && resource.data.status == 'draft'
-        && request.resource.data.status in ['draft','pending']
+        && request.resource.data.status in ['draft','enfesto']
         && request.auth.uid == resource.data.createdBy
         && request.resource.data.assignedTailor == ''
         && request.resource.data.assignedAt == null
         && request.resource.data.assignedBy == null
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
+      ) || (
+        canWrite('enfesto') && validSheetFields(request.resource.data)
+        && resource.data.status == 'enfesto'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status','enfestoCompletedAt','enfestoCompletedBy','updatedAt','updatedBy'])
+        && request.resource.data.enfestoCompletedAt == request.time
+        && request.resource.data.enfestoCompletedBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
+        && getAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status == 'completed'
+        && getAfter(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.completedBy == request.auth.uid
       ) || (
         canWrite('sheet_distribution') && validSheetFields(request.resource.data)
         && resource.data.status == 'pending'
@@ -826,6 +839,57 @@ service cloud.firestore {
         && request.resource.data.assignedBy == request.auth.uid
       );
       allow delete: if isAdmin();
+    }
+
+    // Dados e conferências por cor do Enfesto.
+    function validEnfestoJob(data, sheetId) {
+      return data.keys().hasOnly([
+          'sheetId','oc','status','rows','notes','stockConfirmed',
+          'createdAt','createdBy','updatedAt','updatedBy','completedAt','completedBy'
+        ])
+        && data.keys().hasAll([
+          'sheetId','oc','status','rows','notes','stockConfirmed',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && data.sheetId == sheetId
+        && data.oc is string && data.oc.size() > 0 && data.oc.size() <= 80
+        && data.status in ['draft','completed']
+        && data.rows is list && data.rows.size() >= 1 && data.rows.size() <= 50
+        && data.notes is string && data.notes.size() <= 500
+        && data.stockConfirmed is bool
+        && data.createdAt is timestamp && data.createdBy is string
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid
+        && (
+          (data.status == 'draft'
+            && data.stockConfirmed == false
+            && data.get('completedAt',null) == null
+            && data.get('completedBy',null) == null)
+          ||
+          (data.status == 'completed'
+            && data.get('completedAt',null) == request.time
+            && data.get('completedBy',null) == request.auth.uid)
+        );
+    }
+    match /enfesto_jobs/{sheetId} {
+      allow get, list: if canView('enfesto') || canView('sheets') || canView('sheet_distribution');
+      allow create: if canWrite('enfesto')
+        && validEnfestoJob(request.resource.data,sheetId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
+          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
+      allow update: if canWrite('enfesto')
+        && resource.data.status == 'draft'
+        && validEnfestoJob(request.resource.data,sheetId)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
+          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
+      allow delete: if false;
     }
 
     function currentCompany() {
@@ -840,7 +904,7 @@ service cloud.firestore {
       return canWrite('purchases') && currentCompany() == companyId;
     }
     function canCompanyConsume(companyId) {
-      return (canWrite('purchases') || canWrite('cuts')) && currentCompany() == companyId;
+      return (canWrite('purchases') || canWrite('cuts') || canWrite('enfesto')) && currentCompany() == companyId;
     }
     function validStock(d) {
       return d.keys().hasOnly(['material','color','kind','unit','quantityMilli','lastMovementId','lastDeltaMilli','updatedAt','updatedBy','createdAt'])
