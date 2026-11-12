@@ -770,10 +770,11 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy'])
+      return d.keys().hasOnly(['model','reference','client','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
+        && (!('client' in d) || (d.client is string && d.client.size() <= 120))
         && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
         && (!('volumes' in d) || (d.volumes is string && d.volumes.matches('^[0-9]{0,6}$')))
         && (!('fabric' in d) || (d.fabric is string && d.fabric.size() <= 250))
