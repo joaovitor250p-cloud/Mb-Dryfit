@@ -44,7 +44,7 @@ export default function Enfesto({db,user,canEdit,companyId}:Props){
    setStocks(snap.docs.map(d=>({id:d.id,...d.data()} as StockEntry)).filter(s=>s.kind==='tecido'&&(s.unit==='KG'||s.unit==='M')));
   },e=>setError('Erro ao consultar tecidos: '+safeProviderMessage(e)));
  },[active,canEdit,db,companyId]);
- const waiting=useMemo(()=>sheets.filter(s=>s.status==='enfesto').sort(newerOC),[sheets]);
+ const waiting=useMemo(()=>sheets.filter(s=>s.status==='enfesto'||(s.status==='pending'&&!s.enfestoConfirmationId)).sort(newerOC),[sheets]);
  const completed=useMemo(()=>sheets.filter(s=>!!s.enfestoConfirmationId&&(s.status==='pending'||s.status==='assigned')).sort(newerOC),[sheets]);
  const matching=(list:Sheet[])=>list.filter(s=>!search.trim()||norm([s.oc,s.model,s.reference,s.fabric,s.pieceType].join(' ')).includes(norm(search.trim())));
  const fabrics=useMemo(()=>stocks.filter(s=>s.quantityMilli>0).sort((a,b)=>a.material.localeCompare(b.material,'pt-BR')||a.color.localeCompare(b.color,'pt-BR')),[stocks]);
