@@ -258,27 +258,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&done(o)&&num(o.total)>0
     &&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate
     &&(paymentQueue[fridayDate]||[]).includes(o.id)),[rows,fridayDate,paymentQueue]);
-  // Verifica a existência da ficha vinculada por ID. OCs históricas e manuais
-  // não ganham um botão de PDF apenas por coincidência de número.
-  // A consulta pontual respeita as regras: quem vê OCs só lê fichas já distribuídas.
-  const [verifiedSheetIds,setVerifiedSheetIds]=useState<Set<string>>(()=>new Set());
-  const sheetLookupCache=useRef(new Map<string,boolean>());
-  const sheetCandidates=useMemo(()=>[...new Set([...filtered.slice(0,count),...eligible].filter(hasNewProductionSheet).map(o=>o.id))],[filtered,count,eligible]);
-  useEffect(()=>{
-    if(!pageActive){return;}
-    let canceled=false;
-    const unknown=sheetCandidates.filter(id=>!sheetLookupCache.current.has(id));
-    const publish=()=>{if(!canceled)setVerifiedSheetIds(new Set(sheetCandidates.filter(id=>sheetLookupCache.current.get(id)===true)))};
-    publish();
-    if(unknown.length)void Promise.all(unknown.map(async id=>{
-      try{
-        const snapshot=await getDoc(doc(db,'production_sheets',id));
-        sheetLookupCache.current.set(id,snapshot.exists()&&snapshot.data().status==='assigned');
-      }catch{sheetLookupCache.current.set(id,false)}
-    })).then(publish);
-    return()=>{canceled=true};
-  },[db,pageActive,sheetCandidates]);
-  const hasVerifiedSheet=(o:Order)=>hasNewProductionSheet(o)&&verifiedSheetIds.has(o.id);
+
   const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!(paymentQueue[fridayDate]||[]).includes(o.id)&&
     (!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows,fridayDate,paymentQueue]);
   const paymentMatches=useMemo(()=>{
@@ -541,6 +521,27 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   // Usar o ID real do documento preserva OCs com número duplicado.
   // O ID da OC criada automaticamente é o ID da ficha de produção.
   // OCs importadas/manuais não possuem ficha vinculada e recebem um aviso claro.
+  // Verifica a existência da ficha vinculada por ID. OCs históricas e manuais
+  // não ganham um botão de PDF apenas por coincidência de número.
+  // A consulta pontual respeita as regras: quem vê OCs só lê fichas já distribuídas.
+  const [verifiedSheetIds,setVerifiedSheetIds]=useState<Set<string>>(()=>new Set());
+  const sheetLookupCache=useRef(new Map<string,boolean>());
+  const sheetCandidates=useMemo(()=>[...new Set([...filtered.slice(0,count),...eligible].filter(hasNewProductionSheet).map(o=>o.id))],[filtered,count,eligible]);
+  useEffect(()=>{
+    if(!pageActive){return;}
+    let canceled=false;
+    const unknown=sheetCandidates.filter(id=>!sheetLookupCache.current.has(id));
+    const publish=()=>{if(!canceled)setVerifiedSheetIds(new Set(sheetCandidates.filter(id=>sheetLookupCache.current.get(id)===true)))};
+    publish();
+    if(unknown.length)void Promise.all(unknown.map(async id=>{
+      try{
+        const snapshot=await getDoc(doc(db,'production_sheets',id));
+        sheetLookupCache.current.set(id,snapshot.exists()&&snapshot.data().status==='assigned');
+      }catch{sheetLookupCache.current.set(id,false)}
+    })).then(publish);
+    return()=>{canceled=true};
+  },[db,pageActive,sheetCandidates]);
+  const hasVerifiedSheet=(o:Order)=>hasNewProductionSheet(o)&&verifiedSheetIds.has(o.id);
   const abrirFicha=async(o:Order)=>{
     if(!hasVerifiedSheet(o))return;
     if(loadingFicha)return;
