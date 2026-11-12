@@ -96,7 +96,7 @@ async function createInventoryMovement(db:Firestore,company:string,uid:string,so
  await runTransaction(db,async t=>{
    const existing=await t.get(source);
    const sheet=linkedSheet?await t.get(linkedSheet):null;
-   if(linkedSheet&&(!sheet?.exists()||sheet.data().status!=='enfesto'||sheet.data().oc!==sourcePayload.oc))throw Error('Ficha já concluída, modificada ou não encontrada. Atualize o Enfesto antes de tentar novamente.');
+   if(linkedSheet&&(!sheet?.exists()||!(sheet.data().status==='enfesto'||(sheet.data().status==='pending'&&!sheet.data().enfestoConfirmationId))||sheet.data().oc!==sourcePayload.oc))throw Error('Ficha já concluída, modificada ou não encontrada. Atualize o Enfesto antes de tentar novamente.');
    if(existing.exists())throw Error(kind==='purchase_in'?'Esta nota já foi confirmada. Entrada duplicada bloqueada.':'Este enfesto já teve baixa. Consumo duplicado bloqueado.');
    const previous=await Promise.all(stocks.map(x=>t.get(x)));
    const before:number[]=previous.map(x=>x.exists()?Number(x.data().quantityMilli):0);
