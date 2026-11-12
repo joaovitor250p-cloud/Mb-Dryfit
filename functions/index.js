@@ -6,7 +6,7 @@ const {getFirestore,FieldValue}=require('firebase-admin/firestore');
 initializeApp();
 const auth=getAuth();
 const db=getFirestore();
-const SECTIONS=['catalog','samples','cuts','orders','expenses','info','workshops','sheets','sheet_distribution'];
+const SECTIONS=['catalog','samples','cuts','orders','expenses','info','workshops','sheets','enfesto','sheet_distribution','purchases'];
 const roles=['admin','editor','viewer'];
 const cleanPermissions=(v)=>Array.isArray(v)?[...new Set(v.filter(s=>SECTIONS.includes(s)))]:[...SECTIONS];
 const fail=(message,code='invalid-argument')=>{throw new HttpsError(code,message)};
