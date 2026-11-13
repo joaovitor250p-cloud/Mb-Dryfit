@@ -29,7 +29,7 @@ function paymentView(rows,fridayDate,paymentQueue={}){
   useMemo:fn=>fn(),done:o=>o.status==='ENTREGUE',paid:o=>o.paymentDone==='OK',
   num:value=>Number(String(value).replace(',','.')),norm:String,toISO};
  vm.runInNewContext(code,ctx);
- return Object.fromEntries(Object.entries(ctx.exports).map(([key,value])=>[key,key==='selection'?value:value.map(o=>o.id)]));
+ return Object.fromEntries(Object.entries(ctx.exports).map(([key,value])=>[key,key==='selection'?Array.from(value):Array.from(value,o=>o.id)]));
 }
 test('OCs 752, 753 e 754 entregues aparecem automaticamente no pagamento SEM seleção manual',()=>{
  const rows=[order('752'),order('753'),order('754')];
