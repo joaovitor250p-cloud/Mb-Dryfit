@@ -255,20 +255,23 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const manualPaymentIds=(paymentQueue[fridayDate]||[]).filter(id=>rows.some(o=>o.id===id&&!paid(o)));
   // Histórico pendente sempre visível a partir do Firestore, independente da seleção semanal.
   const awaitingPayment=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)),[rows]);
-  // Seleção de pagamento de sexta continua manual, sem marcar automaticamente como PAGO.
-  const eligible=useMemo(()=>rows.filter(o=>!paid(o)&&done(o)&&num(o.total)>0
-    &&!!toISO(o.deliveredAt)&&toISO(o.deliveredAt)<=fridayDate
-    &&(paymentQueue[fridayDate]||[]).includes(o.id)),[rows,fridayDate,paymentQueue]);
-
-  const review=useMemo(()=>rows.filter(o=>done(o)&&!paid(o)&&!(paymentQueue[fridayDate]||[]).includes(o.id)&&
-    (!!o.paidAt||!toISO(o.deliveredAt)||!(num(o.total)>0))),[rows,fridayDate,paymentQueue]);
+  // OCs ENTREGUES e NÃO PAGAS vêm diretamente do Firestore, inclusive de
+  // semanas anteriores. Seleções locais não podem esconder uma entrega real.
+  // A sexta-feira selecionada define o fechamento; entregas futuras ficam fora.
+  const eligible=useMemo(()=>awaitingPayment.filter(o=>!toISO(o.deliveredAt)||toISO(o.deliveredAt)<=fridayDate),[awaitingPayment,fridayDate]);
+  // Mesmo incompletas, as entregues aparecem na área de pagamento para conferência.
+  const review=useMemo(()=>eligible.filter(o=>!toISO(o.deliveredAt)
+    ||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)
+    ||!(num(o.total)>0)||(num(o.defects)>0&&!(num(o.discountPiece)>0))),[eligible]);
+  const reviewIds=useMemo(()=>new Set(review.map(o=>o.id)),[review]);
+  const readyForPayment=useMemo(()=>eligible.filter(o=>!reviewIds.has(o.id)),[eligible,reviewIds]);
   const paymentMatches=useMemo(()=>{
     const search=norm(paymentSearch.trim());
     if(!search)return [];
     return rows.filter(o=>!paid(o)&&norm([o.oc,o.ref,o.model,o.office].join(' ')).includes(search))
       .sort((a,b)=>Number(b.oc)-Number(a.oc)).slice(0,14);
   },[rows,paymentSearch]);
-  const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible]);
+  const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);if(!reviewIds.has(o.id))item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible,reviewIds]);
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
   const open=(o?:Order)=>{if(!canEdit)return;priceEditedByUser.current=!!o?.piecePrice?.trim();setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
@@ -599,7 +602,9 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     finally{setBusy(false);}
   };
   const markPaid=async(items:Order[])=>{if(!canEdit||busy||!items.length)return;
-    const invalid=items.find(o=>!done(o)||paid(o)||!(num(o.total)>0)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0));
+    const invalid=items.find(o=>!done(o)||paid(o)||!toISO(o.deliveredAt)||toISO(o.deliveredAt)>fridayDate
+      ||!(num(o.total)>0)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)
+      ||(num(o.defects)>0&&!(num(o.discountPiece)>0)));
     if(invalid){
       if(!done(invalid))return notify(`A OC ${invalid.oc} ainda não foi entregue. Confira na Ordem de Corte.`,true);
       if(paid(invalid))return notify(`A OC ${invalid.oc} já foi marcada como paga. Atualize a relação.`,true);
@@ -616,7 +621,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   };
   const downloadCsv=(list:Order[],prefix:string)=>{const header=[...fields];download([header.map(k=>csvEsc(names[k])).join(';'),...list.map(o=>header.map(k=>csvEsc(o[k])).join(';'))].join('\r\n'),`${prefix}_${today()}.csv`)};
   const downloadJson=()=>download(JSON.stringify({version:1,exportedAt:new Date().toISOString(),rows},null,2),`BACKUP_ORDEM_DE_CORTE_${today()}.json`,'application/json;charset=utf-8');
-  const amount=eligible.reduce((a,x)=>a+num(x.total),0);
+  const amount=readyForPayment.reduce((a,x)=>a+num(x.total),0);
   const monthlyPaid=useMemo(()=>rows.filter(o=>paid(o)&&monthOfPaid(o)===paymentMonth),[rows,paymentMonth]);
   const monthOptions=useMemo(()=>[...new Set([monthNow(),paymentMonth,...rows.flatMap(o=>[monthOfPaid(o),monthOfPaidDate(o.deliveredAt),monthOfPaidDate(o.sent)]).filter(x=>/^\d{4}-\d{2}$/.test(x))])].sort((a,b)=>b.localeCompare(a)),[rows,paymentMonth]);
   const monthlyTotal=useMemo(()=>monthlyPaid.reduce((sum,o)=>sum+(Number.isFinite(num(o.total))?num(o.total):0),0),[monthlyPaid]);
