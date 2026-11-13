@@ -679,22 +679,23 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
           <small>OCs pagas saem da lista. As seleções desta sexta não são transferidas para a próxima semana.</small>
         </div>}
       </section>}</div>}
-      <p className="order-payment-guidance">Ao confirmar o pagamento, a OC é atualizada imediatamente com <strong>Pagamento: Pago</strong> e a data <strong>{toBR(fridayDate)||'—'}</strong>. Você pode quitar uma OC de cada vez ou todas as OCs de uma oficina.</p>
-      {groups.length===0&&<div className="order-empty">Esta semana está zerada: nenhuma OC selecionada. Use “Adicionar ou ajustar OCs desta semana” para escolher apenas as OCs desta sexta-feira. Os registros antigos continuam na Planilha de OCs.</div>}{groups.map(g=>{const pix=pixByOffice.get(norm(g.name))||'';return <details key={norm(g.name)} className="order-office"><summary><span><strong>{g.name}</strong><small>{g.list.length} OCs pendentes</small></span><b>{brl(g.total)}</b><ChevronDown size={16}/></summary><div>
+      <p className="order-payment-guidance">As OCs entregues e pendentes aparecem sem precisar selecionar uma a uma. Confira os valores e clique em <strong>Pago</strong> para confirmar. Apenas essa confirmação registra <strong>Pagamento: Pago</strong> e a data <strong>{toBR(fridayDate)||'—'}</strong>.</p>
+      {groups.length===0&&<div className="order-empty">Não há OCs entregues e pendentes até a sexta-feira selecionada. Se a OC estiver marcada como ENTREGUE, confira se a data de entrega é posterior à data do fechamento ou use “Pesquisar ou conferir uma OC”. As OCs pagas permanecem no histórico.</div>}{groups.map(g=>{const pix=pixByOffice.get(norm(g.name))||'';return <details key={norm(g.name)} className="order-office"><summary><span><strong>{g.name}</strong><small>{g.list.length} OCs pendentes</small></span><b>{brl(g.total)}</b><ChevronDown size={16}/></summary><div>
         <div className="order-friday-pix"><span><b>PIX da oficina</b><small>{pix||'Não cadastrado em Configurações → Oficinas'}</small></span>{pix&&<button className="outline-button" type="button" onClick={()=>void copyPix(pix,g.name)}><Copy size={14}/> Copiar PIX</button>}</div>
         {g.list.map(o=><div className="order-office-line order-payment-line" key={o.id}>
           <div className="order-payment-info"><strong>OC {o.oc} — {o.model}</strong><small>Entregue em: <b>{o.deliveredAt||'Não informada'}</b> · Quantidade: <b>{o.qty||'—'} peças</b></small>
             <small>Valor bruto: {moneyText(Number.isFinite(num(o.qty))&&Number.isFinite(num(o.piecePrice))?num(o.qty)*num(o.piecePrice):NaN)} · Com defeito: <b>{o.defects||'0'} peças</b> · Desconto por peça: <b>{money(o.discountPiece)}</b></small>
             <small>Desconto total desta OC: <b>{money(o.discountTotal)}</b></small>
           </div>
-          <strong className="order-payment-net">{money(o.total)}</strong>
-          {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>preparePayment(o)}>Editar entrega / defeitos</button>}
+          <strong className="order-payment-net">{reviewIds.has(o.id)?'A CONFERIR':money(o.total)}</strong>
+          {reviewIds.has(o.id)&&<span className="order-payment-review-hint" role="status">Conferir data de entrega, quantidade, valor ou descontos</span>}
+          {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>preparePayment(o)}>{reviewIds.has(o.id)?'Completar dados para pagar':'Editar entrega / defeitos'}</button>}
           {hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(o)}><Download size={14}/> Ficha</button>}
-          {canEdit&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void markPaid([o])}><CheckCircle2 size={14}/> Pago</button>}
+          {canEdit&&!reviewIds.has(o.id)&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void markPaid([o])}><CheckCircle2 size={14}/> Pago</button>}
         </div>)}
-        {canEdit&&<button disabled={busy} className="primary-button" onClick={()=>void markPaid(g.list)}>Confirmar pagamento de todas as OCs da oficina</button>}
+        {canEdit&&g.list.some(o=>!reviewIds.has(o.id))&&<button disabled={busy} className="primary-button" onClick={()=>void markPaid(g.list.filter(o=>!reviewIds.has(o.id)))}>Confirmar pagamento das OCs conferidas da oficina</button>}
       </div></details>})}
-      <button className="outline-button" onClick={()=>downloadCsv(eligible,'PAGAMENTOS_SEXTA')}>Exportar relação desta sexta</button>
+      <button className="outline-button" onClick={()=>downloadCsv(eligible,'ENTREGUES_PENDENTES')}>Exportar relação de OCs pendentes</button>
       {false&&review.length>0&&<details className="order-review"><summary><ShieldAlert size={17}/> {review.length} registros para conferir (não entram na soma)</summary>{review.slice(0,150).map(o=><p key={o.id}>OC {o.oc} — {officeLabel(o.office)}: {o.paidAt?'já possui data de pagamento':!toISO(o.deliveredAt)?'data de entrega ausente ou inválida':'valor a pagar ausente ou zerado'}.</p>)}</details>}
     </section>:<>
       <details className="order-history-archive"><summary><CalendarDays size={16}/> Histórico de pagamentos por mês <ChevronDown size={16}/></summary>
