@@ -495,7 +495,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             });
           }
         });
-        notify(`OC ${row.oc} entregue e amostra vinculada! Para pagar, abra Pagamento de sexta-feira e use “Adicionar ou ajustar OCs”.`);
+        notify(`OC ${row.oc} entregue e amostra vinculada! Ela já aparece automaticamente em Pagamento de sexta-feira para conferência. Ainda NÃO foi marcada como paga.`);
       } else {
         if (activeEditing) await updateDoc(doc(db,'cut_orders',id),content);
         else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
@@ -517,7 +517,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             else transaction.set(ref,{...content,createdAt:serverTimestamp(),createdBy:user.uid});
           });
           setDraft(null);
-          notify(`OC ${row.oc} SALVA com sucesso como ENTREGUE. A OC ficou registrada como entregue e pode ser selecionada para pagamento. O Firebase recusou a sincronização automática com Amostras; a amostra NÃO foi criada ou atualizada. Confira a área Amostras e as regras publicadas antes de depender desse vínculo.`);
+          notify(`OC ${row.oc} SALVA como ENTREGUE e disponível automaticamente em Pagamentos (ainda NÃO paga). O Firebase recusou a sincronização com Amostras; a amostra NÃO foi criada nem atualizada. Confira Amostras e as regras publicadas antes de depender desse vínculo.`);
         }catch(fallbackError){
           notify(`O Firebase recusou o cadastro da OC ${row.oc} mesmo sem a Amostra: ${errorText(fallbackError)}. Verifique a permissão de escrita de Ordem de Corte e as regras efetivamente publicadas.`,true);
         }
