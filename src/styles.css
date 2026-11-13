@@ -2011,3 +2011,11 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .production-cleanup-preview input{width:100%;padding:11px;min-height:43px;background:var(--panel);color:var(--text);border:1px solid #cf9f8c;border-radius:10px}
 .sheets-page .production-cleanup-preview>.order-delete-button{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px}
 .sheets-page .production-cleanup-preview>.order-delete-button:disabled{opacity:.5;cursor:not-allowed}
+
+
+/* Pagamentos: OCs entregues e pendentes aparecem mesmo com dados incompletos. */
+.order-payment-review-hint{display:inline-flex;align-items:center;border:1px solid #e5c990;background:#fff6df;color:#82570c;border-radius:9px;padding:8px 10px;font-size:11px;font-weight:800;line-height:1.45;max-width:100%}
+.dark .order-payment-review-hint{background:rgba(201,151,67,.14);border-color:#8b713e;color:#ffdd9b}
+.order-payment-line .order-payment-review-hint{flex:0 1 235px}
+.order-payment-line .order-payment-net{font-variant-numeric:tabular-nums}
+@media(max-width:690px){.order-payment-line .order-payment-review-hint{flex:1 1 100%}}
