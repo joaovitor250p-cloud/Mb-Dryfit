@@ -312,6 +312,11 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     if(toISO(o.deliveredAt)&&toISO(o.deliveredAt)>fridayDate)return notify(`A OC ${o.oc} foi entregue depois da sexta-feira escolhida. Selecione a sexta-feira correta para incluí-la.`,true);
     if(o.paidAt.trim()&&!window.confirm(`A OC ${o.oc} possui data antiga de pagamento (${o.paidAt}), mas não está marcada como paga. Ao confirmar um novo pagamento, essa data será substituída. Continuar?`))return;
     setPaymentSearch('');
+    if(eligible.some(candidate=>candidate.id===o.id)){
+      if(reviewIds.has(o.id))preparePayment(o);
+      else{setPaymentPickerOpen(false);notify('OC '+o.oc+' já aparece automaticamente em Pagamentos. Nenhuma OC foi marcada como paga.')}
+      return;
+    }
     if(!toISO(o.deliveredAt)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)||!(num(o.total)>0)
       ||(num(o.defects)>0&&!(num(o.discountPiece)>0))){
       preparePayment(o);
@@ -647,17 +652,17 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     </div>
     {isAdmin&&rows.filter(o=>o.id.startsWith('legado_')).length<720&&<div className="order-seed"><div><strong><UploadCloud size={17}/> Importação inicial da planilha</strong><p>As 720 OCs históricas estão disponíveis para importar uma vez, com nomes, valores, datas e a OC duplicada preservados. Não substitui documentos já importados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>void initialImport()}>{busy?'Importando...':'Importar planilha (720)'}</button></div>}
     <div className="order-tabs"><button className={!showFriday?'active':''} onClick={()=>setShowFriday(false)}><ClipboardList size={15}/> Planilha de OCs</button><button className={showFriday?'active':''} onClick={()=>setShowFriday(true)}><CalendarDays size={15}/> Pagamento de sexta-feira</button></div>
-    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Pagamento da semana</h2><p>Somente as OCs selecionadas para a sexta-feira de <strong>{toBR(fridayDate)}</strong> aparecem abaixo. Cada semana começa sem OCs selecionadas; as semanas anteriores não se misturam.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7));setPaymentPickerOpen(false);setPaymentSearch('');}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>OCs selecionadas</small><strong>{manualPaymentIds.length}</strong></div></div>
+    {showFriday?<section className="order-friday"><div className="order-friday-head"><div><h2>Pagamento da semana</h2><p>As OCs <strong>ENTREGUES e ainda não pagas</strong> aparecem automaticamente por costureiro, inclusive entregas de semanas anteriores. A sexta-feira <strong>{toBR(fridayDate)}</strong> é a data do fechamento, não um filtro de seleção manual.</p></div><label>Sexta-feira<input type="date" value={fridayDate} onChange={e=>{if(!e.target.value)return;const selected=friday(e.target.value);if(selected){setFridayDate(selected);setPaymentMonth(selected.slice(0,7));setPaymentPickerOpen(false);setPaymentSearch('');}}}/></label></div><div className="order-stats"><div><small>A pagar nesta sexta</small><strong>{brl(amount)}</strong></div><div><small>Oficinas</small><strong>{groups.length}</strong></div><div><small>OCs pendentes</small><strong>{eligible.length}</strong></div><div><small>Precisam conferir</small><strong>{review.length}</strong></div></div>
       
             {canEdit&&<div className="order-picker-area">
         <button type="button" className="outline-button order-picker-toggle" aria-expanded={paymentPickerOpen}
           aria-controls="order-picker-panel"
           onClick={()=>{setPaymentPickerOpen(open=>!open);setPaymentSearch('')}}>
           {paymentPickerOpen?<X size={16}/>:<Plus size={16}/>}
-          {paymentPickerOpen?'Fechar seleção de OCs':'Adicionar ou ajustar OCs desta semana'}
+          {paymentPickerOpen?'Fechar busca de OCs':'Pesquisar ou conferir uma OC'}
         </button>
         {paymentPickerOpen&&<section id="order-picker-panel" className="order-manual-select" aria-label="Adicionar OC ao pagamento">
-        <div className="order-manual-head"><strong><Plus size={17}/> Adicionar OC para pagar</strong><small>Busque pelo número da OC, modelo, REF ou costureiro. A seleção não marca como paga.</small></div>
+        <div className="order-manual-head"><strong><Search size={17}/> Localizar OC</strong><small>As entregues aparecem automaticamente abaixo. Busque uma OC para completar data, quantidades, defeitos ou valores. Isto não marca pagamento.</small></div>
         <label className="order-manual-search"><Search size={17}/><input aria-label="Buscar OC para incluir no pagamento" value={paymentSearch} onChange={e=>setPaymentSearch(e.target.value)} placeholder="Digite o número da OC para selecionar..." autoComplete="off"/></label>
         {paymentSearch.trim()&&<div className="order-manual-results">
           {!paymentMatches.length&&<p>Nenhuma OC encontrada. Confira o número na planilha.</p>}
@@ -665,7 +670,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             <div><strong>OC {o.oc} — {o.model}</strong><small>{officeLabel(o.office)} · {o.qty||'Sem quantidade'} peças · Entregue: {o.deliveredAt||'sem data'} · {money(o.total)} · {done(o)?'ENTREGUE':'EM ANDAMENTO'}</small>
               {num(o.defects)>0&&<small>{o.defects} com defeito · Desconto por peça: {money(o.discountPiece)} · Total descontado: {money(o.discountTotal)}</small>}</div>
             {paid(o)?<button type="button" className="outline-button" disabled={busy} onClick={()=>void undoPaid(o)}>Desmarcar pago</button>
-              :<button type="button" className="outline-button" disabled={busy} onClick={()=>addPaymentOC(o)}>{manualPaymentIds.includes(o.id)?'Selecionar / conferir':'+ Adicionar'}</button>}
+              :<button type="button" className="outline-button" disabled={busy} onClick={()=>addPaymentOC(o)}>{eligible.some(item=>item.id===o.id)?'Conferir / localizar':'Adicionar / conferir'}</button>}
           </div>)}
         </div>}
         {!!manualPaymentIds.length&&<div className="order-selected-ocs">
