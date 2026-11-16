@@ -52,12 +52,14 @@ test('OC entregue cria amostra na mesma transação, sem apagar foto existente',
   assert.match(orders,/transaction\.set\(sampleRef/);
   assert.match(orders,/sampleSnap\.exists\(\)/);
   assert.match(orders,/quantity: row\.qty\.trim\(\)/);
-  assert.match(orders,/imageData: '', status: 'done'/);
+  assert.match(orders,/imageData: '', status: newSampleStatus/);
+  assert.match(orders,/saveWithSampleStage\('in_progress'\)/);
+  assert.match(orders,/saveWithSampleStage\('done'\)/);
   assert.doesNotMatch(orders,/transaction\.update\(sampleRef,\s*\{[^}]*imageData:/);
 });
 
 test('amostras são apenas consulta e a edição/cadastro de fotos fica em Cortes',()=>{
-  assert.match(samples,/view === 'samples'\s*\? true/);
+  assert.match(samples,/view === 'samples'\s*\? visibleSampleStage\(x\) === 'in_progress'/);
   assert.match(samples,/Quantidade total/);
   assert.match(samples,/missingDataFromOrder/);
   assert.match(samples,/linkedOrders/);

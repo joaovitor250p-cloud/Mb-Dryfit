@@ -401,7 +401,10 @@ service cloud.firestore {
         && !('extraImages' in request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && request.resource.data.status == 'done'
+        && request.resource.data.status in ['in_progress', 'done']
+        && (request.resource.data.status == 'done'
+          || (request.resource.data.get('completedAt', null) == null
+            && request.resource.data.get('completedBy', null) == null))
         && request.resource.data.imageData == ''
         && deliveredOrderForSample(request.resource.data)
         && newSampleMatchesOrder(request.resource.data)
