@@ -18,6 +18,12 @@ const u=moduleObj.exports;
 const sample=(fields={})=>({oc:' 777 ',name:'SEM MODELO',reference:'SEM CÓDIGO',tailor:'NÃO INFORMADO',quantity:'',...fields});
 const order=(fields={})=>({id:'ord-777',oc:'777',model:'BERMUDA DRY FIT',ref:'10275',office:'VIRGÍLIO',qty:'429',...fields});
 
+test('Amostras ordena OCs numericamente de menor para maior, mesmo com prefixos',()=>{
+  const ocs=['OC 1020','OC 99','100','O.C. 7','OC 752','10','OC Nº 8'];
+  assert.deepEqual(ocs.sort(u.compareSampleOC),['O.C. 7','OC Nº 8','10','OC 99','100','OC 752','OC 1020']);
+  const workflow=read(path.join(root,'src/SampleWorkflow.tsx'));
+  assert.match(workflow,/if \(view === 'samples'\) return compareSampleOC\(a\.oc,b\.oc\)/);
+});
 test('completa quantidade, REF, costureiro e modelo pela OC sem substituir campos que existem',()=>{
   const patch=u.missingDataFromOrder(sample(),order());
   assert.equal(patch.name,'BERMUDA DRY FIT');

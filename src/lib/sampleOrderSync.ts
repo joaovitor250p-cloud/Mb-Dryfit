@@ -25,6 +25,12 @@ export const normalizeSampleOC = (value: unknown): string => String(value ?? '')
   .normalize('NFKC').trim().toLocaleUpperCase('pt-BR').replace(/\s+/g, ' ')
   .replace(/^O\.?\s*C\.?\s*(?:N[º°O.]?\s*)?[-:#]?\s*(?=\d)/, '');
 
+// Ordem natural por número: 9, 10, 100 (não 10, 100, 9).
+// Aceita também prefixos de OCs antigas, como "OC 752" e "O.C. 752".
+const ocOrder = new Intl.Collator('pt-BR', {numeric: true, sensitivity: 'base'});
+export const compareSampleOC = (first: unknown, second: unknown): number =>
+  ocOrder.compare(normalizeSampleOC(first), normalizeSampleOC(second));
+
 /** Variações históricas, consultadas em uma única busca indexada.
  * Nunca executa varredura em todas as OCs ao digitar um número.
  */
