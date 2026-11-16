@@ -81,7 +81,7 @@ test('regras aceitam quantity e vínculo, limitando entrega automática a order 
 });
 
 test('JS e TSX alterados sem erro de parser',()=>{
-  const ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript');
+  const ts=require('typescript');
   for(const rel of ['src/CutOrders.tsx','src/SampleWorkflow.tsx','src/main.tsx']){
     const result=ts.transpileModule(read(rel),{fileName:rel,reportDiagnostics:true,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}});
     const errors=(result.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error);
