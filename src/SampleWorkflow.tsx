@@ -11,7 +11,7 @@ import PhotoLightbox from './PhotoLightbox';
 import InitialCutCsvImport from './InitialCutCsvImport';
 import { optimizePhoto } from './lib/photos';
 import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemory';
-import { buildOrderLookup, compareSampleOC, missingDataFromOrder, missingModel, missingReference, missingTailor, missingQuantity, normalizeSampleOC, orderForSample, quantityFromOrder, sampleOrderSearchValues, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
+import { buildOrderLookup, compareSampleOC, shouldSortProductionByOc, missingDataFromOrder, missingModel, missingReference, missingTailor, missingQuantity, normalizeSampleOC, orderForSample, quantityFromOrder, sampleOrderSearchValues, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
 import { canonicalWorkshopName } from './lib/workshopNames';
 import { safeProviderMessage } from './lib/safeMessage';
 import { isAutoDeliveredSample, visibleSampleStage } from './lib/sampleStage';
@@ -272,9 +272,9 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     .filter(x => matchesModelType(x.name,typeFilter))
     .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)) || matchesModelSearch(x.name, search))
     .sort((a,b)=> {
-      // Amostras começa pela menor OC, independentemente do modelo.
-      // A ordenação por tipo/nome de Cortes e fotos permanece inalterada.
-      if (view === 'samples') return compareSampleOC(a.oc,b.oc)
+      // Sempre OC crescente em Amostras e em qualquer resultado filtrado.
+      // Sem filtros, Cortes mantém sua organização por tipo e nome.
+      if (shouldSortProductionByOc(view,typeFilter,search,filter)) return compareSampleOC(a.oc,b.oc)
         || normalizeText(a.name).localeCompare(normalizeText(b.name),'pt-BR');
       const group = (name:string) => { const t = modelType(name); return t === 'camisas' || t === 'camisetas' ? 'camisas' : t; };
       const typeCmp = group(a.name).localeCompare(group(b.name),'pt-BR');

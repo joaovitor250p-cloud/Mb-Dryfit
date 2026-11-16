@@ -31,6 +31,12 @@ const ocOrder = new Intl.Collator('pt-BR', {numeric: true, sensitivity: 'base'})
 export const compareSampleOC = (first: unknown, second: unknown): number =>
   ocOrder.compare(normalizeSampleOC(first), normalizeSampleOC(second));
 
+// Os resultados de qualquer pesquisa/filtro também ficam pela OC crescente.
+// Cortes sem filtro mantém sua organização original por tipo e modelo.
+export const shouldSortProductionByOc = (
+  view: 'samples' | 'cuts', typeFilter: string, search: string, stageFilter: string
+): boolean => view === 'samples' || typeFilter !== 'all' || search.trim().length > 0 || stageFilter !== 'all';
+
 /** Variações históricas, consultadas em uma única busca indexada.
  * Nunca executa varredura em todas as OCs ao digitar um número.
  */
