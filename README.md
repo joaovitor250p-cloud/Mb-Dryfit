@@ -5,14 +5,18 @@ Sistema web para catálogo de modelos, amostras, cortes, ordens de corte, gastos
 ## O que mudou nesta versão
 
 ### Amostras
-- Cartões mostram somente a foto e as informações da OC.
+- Os cartões mostram apenas as OCs **Em andamento**; ao marcar Pronto, somem de Amostras imediatamente.
+- O contador de peças e cards considera apenas amostras em andamento.
+- As OCs continuam compartilhadas com Cortes e fotos: nenhum registro ou foto é duplicado.
 - A criação de novas amostras e a importação inicial continuam nesta área.
 - A galeria de fotos continua disponível para consulta.
 
 ### Cortes
 - Edição dos dados e das fotos da OC.
 - Exclusão individual e exclusão em lote.
-- Ações de andamento e Pronto continuam disponíveis.
+- Ações de andamento e Pronto atualizam a mesma OC nas duas áreas, em tempo real.
+- Filtros **Todos**, **Em andamento** e **Prontos** permitem localizar qualquer corte.
+- Registros antigos enviados como Pronto automaticamente são reconhecidos e reabertos com segurança ao acessar Cortes.
 - As fotos adicionais são carregadas na galeria.
 
 ### Visualizador de fotos

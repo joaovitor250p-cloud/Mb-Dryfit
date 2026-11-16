@@ -14,14 +14,16 @@ import { PageActiveContext, readPageMemory, usePageMemory } from './lib/pageMemo
 import { buildOrderLookup, missingDataFromOrder, missingModel, missingReference, missingTailor, missingQuantity, normalizeSampleOC, orderForSample, quantityFromOrder, sampleOrderSearchValues, sampleHasMissingData, type OrderInfo } from './lib/sampleOrderSync';
 import { canonicalWorkshopName } from './lib/workshopNames';
 import { safeProviderMessage } from './lib/safeMessage';
+import { isAutoDeliveredSample, visibleSampleStage } from './lib/sampleStage';
 
 // 'store' é conservado apenas para leitura de registros legados.
 // Novas alterações e a interface usam somente Em andamento e Pronto.
 type Stage = 'in_progress' | 'done' | 'store';
 type VisibleStage = 'in_progress' | 'done';
+type StageFilter = VisibleStage | 'all';
 type Production = {
   id: string; oc: string; name: string; reference: string; tailor: string; quantity?: string; orderId?: string;
-  imageData: string; status: Stage; createdAt?: unknown; updatedAt?: unknown; completedAt?: unknown; completedBy?: string|null;
+  imageData: string; status: Stage; createdAt?: unknown; createdBy?: string|null; updatedAt?: unknown; completedAt?: unknown; completedBy?: string|null;
 };
 type View = 'samples' | 'cuts';
 type Props = { view: View; db: Firestore; user: User; canEdit: boolean; isAdmin:boolean; canReadOrders:boolean; models: Model[] };
@@ -162,11 +164,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const pageMemoryKey = `mb-referencias:${user.uid}:${view}`;
-  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { search: '', typeFilter: 'all' as ModelType, filter: 'in_progress' as VisibleStage }));
+  const pageMemoryKey = `mb-referencias:${user.uid}:${view}:status-v2`;
+  const [initialPageState] = useState(() => readPageMemory(pageMemoryKey, { search: '', typeFilter: 'all' as ModelType, filter: 'all' as StageFilter }));
   const [search, setSearch] = useState(String(initialPageState.search || ''));
   const [typeFilter, setTypeFilter] = useState<ModelType>((initialPageState.typeFilter as ModelType) || 'all');
-  const [filter, setFilter] = useState<VisibleStage>((initialPageState.filter as VisibleStage) || 'in_progress');
+  const [filter, setFilter] = useState<StageFilter>((initialPageState.filter as StageFilter) || 'all');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Production | null>(null);
   const [oc, setOc] = useState('');
@@ -220,14 +222,42 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
     }, e => { setError('Não foi possível consultar as amostras: ' + safeProviderMessage(e)); setLoading(false); });
   }, [db,pageActive]);
 
-  const progress = useMemo(() => items.filter(x => x.status === 'in_progress').length, [items]);
-  // OCs antigas no estado 'store' continuam acessíveis em Prontos, sem migração destrutiva.
-  const finished = useMemo(() => items.filter(x => x.status === 'done' || x.status === 'store').length, [items]);
+  // OCs entregues por versões antigas eram criadas como "done" no mesmo segundo.
+  // Não há confirmação manual de corte pronto nesse caso. Corrige a origem quando
+  // um editor de Cortes abre a tela, sem tocar nas fotos, OCs ou pagamentos.
+  const migratedLegacyIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!pageActive || !canEdit || view !== 'cuts' || loading) return;
+    const candidates = items.filter(isAutoDeliveredSample)
+      .filter(item => !migratedLegacyIds.current.has(item.id)).slice(0, 8);
+    if (!candidates.length) return;
+    candidates.forEach(item => migratedLegacyIds.current.add(item.id));
+    void Promise.all(candidates.map(async item => {
+      try {
+        await runTransaction(db, async transaction => {
+          const ref = doc(db, 'production_samples', item.id);
+          const current = await transaction.get(ref);
+          if (!current.exists() || !isAutoDeliveredSample(current.data())) return;
+          transaction.update(ref, {
+            status: 'in_progress', completedAt: null, completedBy: null,
+            updatedAt: serverTimestamp(), updatedBy: user.uid
+          });
+        });
+      } catch (migrationError) {
+        setError('Não foi possível reorganizar automaticamente a OC ' + item.oc + ': ' + productionError(migrationError));
+      }
+    }));
+  }, [items, canEdit, db, loading, pageActive, user.uid, view]);
+
+  const progress = useMemo(() => items.filter(x => visibleSampleStage(x) === 'in_progress').length, [items]);
+  // "store" permanece acessível em Prontos; amostras entregues automaticamente
+  // só são consideradas prontas após a confirmação manual.
+  const finished = useMemo(() => items.filter(x => visibleSampleStage(x) === 'done').length, [items]);
   // O indicador de Amostras exibe PEÇAS informadas, não quantidade de cadastros/OCs.
   // Campos vazios ou inválidos não são inventados: ficam sinalizados para correção.
   const samplePieces=useMemo(()=>{
     let total=0,missing=0;
-    for(const item of items){
+    for(const item of items.filter(item => visibleSampleStage(item) === 'in_progress')){
       const cleaned=String(item.quantity??'').trim().replace(/[.\s]/g,'');
       if(!/^\d{1,12}$/.test(cleaned)){missing++;continue;}
       total+=Number(cleaned);
@@ -237,8 +267,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   const incorrectTailorNames=useMemo(()=>items.filter(p=>p.tailor?.trim()&&canonicalWorkshopName(p.tailor)!==p.tailor),[items]);
 
   const filtered = useMemo(() => items.filter(x => view === 'samples'
-    ? true
-    : filter === 'done' ? (x.status === 'done' || x.status === 'store') : x.status === 'in_progress')
+    ? visibleSampleStage(x) === 'in_progress'
+    : filter === 'all' || visibleSampleStage(x) === filter)
     .filter(x => matchesModelType(x.name,typeFilter))
     .filter(x => !search.trim() || normalizeText([x.oc, x.name, x.reference, x.tailor].join(' ')).includes(normalizeText(search)) || matchesModelSearch(x.name, search))
     .sort((a,b)=> {
@@ -680,15 +710,34 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
   };
 
   const mark = async (p: Production, status: VisibleStage) => {
-    if (!canEdit || busy || p.status === status) return;
+    if (!canEdit || busy || visibleSampleStage(p) === status) return;
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'production_samples', p.id), {
-        status,
-        completedAt: status === 'done' ? serverTimestamp() : null,
-        completedBy: status === 'done' ? user.uid : null,
-        updatedAt: serverTimestamp(),
-        updatedBy: user.uid
+      const ref = doc(db, 'production_samples', p.id);
+      // Para entrega legada marcada automaticamente como pronta, reabrir antes
+      // de registrar o primeiro "Pronto" real (as regras exigem transição de status).
+      if (status === 'done' && isAutoDeliveredSample(p)) {
+        await runTransaction(db, async transaction => {
+          const current = await transaction.get(ref);
+          if (current.exists() && isAutoDeliveredSample(current.data())) {
+            transaction.update(ref, {
+              status: 'in_progress', completedAt: null, completedBy: null,
+              updatedAt: serverTimestamp(), updatedBy: user.uid
+            });
+          }
+        });
+      }
+      await runTransaction(db, async transaction => {
+        const current = await transaction.get(ref);
+        if (!current.exists()) throw new Error('Essa OC não existe mais.');
+        if (visibleSampleStage(current.data()) === status) return;
+        transaction.update(ref, {
+          status,
+          completedAt: status === 'done' ? serverTimestamp() : null,
+          completedBy: status === 'done' ? user.uid : null,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.uid
+        });
       });
       showMessage(status === 'done'
         ? `OC ${p.oc} marcada como pronta.`
@@ -696,7 +745,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       try {
         await setDoc(doc(collection(db, 'audit_log')), auditEntry(
           user, status === 'done' ? 'corte_pronto' : 'reabriu_corte',
-          p, { status:p.status }, { status }
+          p, { status:visibleSampleStage(p) }, { status }
         ));
       } catch (auditError) {
         showMessage(`OC ${p.oc}: status salvo, mas o histórico falhou: ` + productionError(auditError), true);
@@ -772,8 +821,8 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       </div></div>
 
     {view === 'samples' && <section className="samples-count-strip" aria-label="Resumo de amostras e peças">
-      <div className="stat-card samples-count-card samples-count-pieces"><div className="stat-icon amber"><Camera/></div><div><span>Total de peças nas amostras</span><strong>{loading ? '—' : samplePieces.total.toLocaleString('pt-BR')}</strong><small>{samplePieces.missing>0?`${samplePieces.missing} amostra(s) sem quantidade informada`:'Soma das quantidades informadas nas OCs'}</small></div></div>
-      <div className="stat-card samples-count-card samples-count-records"><div className="stat-icon teal"><Layers3/></div><div><span>Total de cards (cortes)</span><strong>{loading ? '—' : items.length.toLocaleString('pt-BR')}</strong><small>{filtered.length===items.length?'Cortes cadastrados':'Exibindo '+filtered.length.toLocaleString('pt-BR')+' após filtros'}</small></div></div>
+      <div className="stat-card samples-count-card samples-count-pieces"><div className="stat-icon amber"><Camera/></div><div><span>Peças em andamento</span><strong>{loading ? '—' : samplePieces.total.toLocaleString('pt-BR')}</strong><small>{samplePieces.missing>0?`${samplePieces.missing} amostra(s) sem quantidade informada`:'Soma das quantidades informadas nas OCs'}</small></div></div>
+      <div className="stat-card samples-count-card samples-count-records"><div className="stat-icon teal"><Layers3/></div><div><span>Cards em andamento</span><strong>{loading ? '—' : progress.toLocaleString('pt-BR')}</strong><small>{filtered.length===progress?'Amostras pendentes':'Exibindo '+filtered.length.toLocaleString('pt-BR')+' após filtros'}</small></div></div>
     </section>}
 
     {view === 'cuts' && <section className="stats-grid"><div className="stat-card"><div className="stat-icon amber"><Clock3/></div><div><span>Em andamento</span><strong>{progress}</strong><small>Aguardando finalização</small></div></div><div className="stat-card"><div className="stat-icon green"><CheckCircle2/></div><div><span>Prontos</span><strong>{finished}</strong><small>Cortes finalizados</small></div></div></section>}
@@ -782,7 +831,7 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       <div className="production-toolbar">
         <label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar OC, peça, REF ou costureiro..."/></label>
         <label className="filter-select model-type-filter"><Filter size={16}/><select aria-label={view==='samples'?'Filtrar amostras por tipo de peça':'Filtrar cortes por tipo de peça'} value={typeFilter} onChange={e=>setTypeFilter(e.target.value as ModelType)}>{MODEL_TYPE_OPTIONS.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
-        {view === 'cuts'&&<div className="production-tabs"><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
+        {view === 'cuts'&&<div className="production-tabs"><button className={filter==='all'?'chosen':''} onClick={()=>setFilter('all')}><Layers3 size={15}/> Todos ({items.length})</button><button className={filter==='in_progress'?'chosen':''} onClick={()=>setFilter('in_progress')}><Clock3 size={15}/> Em andamento ({progress})</button><button className={filter==='done'?'chosen':''} onClick={()=>setFilter('done')}><Check size={15}/> Prontos ({finished})</button></div>}
       </div>
 
       {view==='cuts'&&selectionMode&&<div className="bulk-select-toolbar" role="region" aria-label="Exclusão de OCs selecionadas">
@@ -797,11 +846,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
       {message&&<div className="production-ok">{message}</div>}
 
       {loading?<div className="empty-state"><RefreshCw className="spin"/> Carregando produção...</div>:
-      !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra pendente. Use Adicionar amostra ou importe a planilha de 21 OCs acima.' : 'Não há cortes nesta situação.'}</span></div>:
+      !filtered.length?<div className="empty-state"><Scissors size={28}/><strong>Nenhum registro encontrado</strong><span>{view === 'samples' ? 'Nenhuma amostra em andamento. Os cortes prontos ficam na aba Prontos de Cortes e fotos.' : 'Não há cortes nesta situação.'}</span></div>:
       <div className="production-grid">{displayed.map(original=>{const p=currentInfo(original);const cardImage=p.imageData||'';return <article className={`production-card ${selectedCutIds.includes(p.id)?'bulk-card-selected':''}`} key={p.id}>
         {view==='cuts'&&selectionMode&&<label className="bulk-card-checkbox"><input type="checkbox" disabled={busy} aria-label={`Selecionar OC ${p.oc}`} checked={selectedCutIds.includes(p.id)} onChange={e=>setSelectedCutIds(ids=>e.target.checked?[...new Set([...ids,p.id])]:ids.filter(id=>id!==p.id))}/><span>Selecionar</span></label>}
 
-        <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={true} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${p.status==='store'?'done':p.status}`}>{p.status==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
+        <div className="production-photo">{cardImage?<SamplePhotoStack db={db} sample={p} loadGallery={true} onOpen={(images,index)=>setLightbox({images:[...images],index,name:p.name,reference:p.reference,oc:p.oc})}/>:<div className="model-photo-placeholder"><ImagePlus size={28}/><span>Foto pendente</span></div>}{view === 'cuts' && <span className={`production-status ${visibleSampleStage(p)}`}>{visibleSampleStage(p)==='in_progress'?'EM ANDAMENTO':'PRONTO'}</span>}</div>
 
         <div className="production-details">
           <div className="production-oc">OC {p.oc}</div>
@@ -811,11 +860,11 @@ export default function SampleWorkflow({ view, db, user, canEdit, isAdmin, canRe
             <div><dt>Costureiro</dt><dd>{canonicalWorkshopName(p.tailor)}</dd></div>
             <div><dt>Quantidade total</dt><dd>{p.quantity || 'A informar'}</dd></div>
             <div><dt>Cadastrado</dt><dd>{humanDate(p.createdAt)}</dd></div>
-            {view === 'cuts' && p.status !== 'in_progress' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
+            {view === 'cuts' && visibleSampleStage(p) === 'done' && <div><dt>Pronto em</dt><dd>{humanDate(p.completedAt)}</dd></div>}
           </dl>
 
           {canEdit&&view==='cuts'&&<div className="production-actions">
-            {p.status==='in_progress'
+            {visibleSampleStage(p)==='in_progress'
               ? <button disabled={busy} className="primary-button" onClick={()=>void mark(p,'done')}><Check size={16}/> Pronto</button>
               : <button disabled={busy} className="outline-button" onClick={()=>void mark(p,'in_progress')} title={`Devolver OC ${p.oc} para Em andamento`}><RotateCcw size={16}/> Voltar para andamento</button>}
             <button className="outline-button" disabled={busy} onClick={()=>void openEdit(p)} title="Editar dados e fotos desta OC"><Camera size={15}/> Editar / fotos</button>

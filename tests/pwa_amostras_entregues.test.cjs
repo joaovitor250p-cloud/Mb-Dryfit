@@ -52,12 +52,14 @@ test('OC entregue cria amostra na mesma transação, sem apagar foto existente',
   assert.match(orders,/transaction\.set\(sampleRef/);
   assert.match(orders,/sampleSnap\.exists\(\)/);
   assert.match(orders,/quantity: row\.qty\.trim\(\)/);
-  assert.match(orders,/imageData: '', status: 'done'/);
+  assert.match(orders,/imageData: '', status: newSampleStatus/);
+  assert.match(orders,/saveWithSampleStage\('in_progress'\)/);
+  assert.match(orders,/saveWithSampleStage\('done'\)/);
   assert.doesNotMatch(orders,/transaction\.update\(sampleRef,\s*\{[^}]*imageData:/);
 });
 
 test('amostras são apenas consulta e a edição/cadastro de fotos fica em Cortes',()=>{
-  assert.match(samples,/view === 'samples'\s*\? true/);
+  assert.match(samples,/view === 'samples'\s*\? visibleSampleStage\(x\) === 'in_progress'/);
   assert.match(samples,/Quantidade total/);
   assert.match(samples,/missingDataFromOrder/);
   assert.match(samples,/linkedOrders/);
@@ -79,7 +81,7 @@ test('regras aceitam quantity e vínculo, limitando entrega automática a order 
 });
 
 test('JS e TSX alterados sem erro de parser',()=>{
-  const ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript');
+  const ts=require('typescript');
   for(const rel of ['src/CutOrders.tsx','src/SampleWorkflow.tsx','src/main.tsx']){
     const result=ts.transpileModule(read(rel),{fileName:rel,reportDiagnostics:true,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}});
     const errors=(result.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error);

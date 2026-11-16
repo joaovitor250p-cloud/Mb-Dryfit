@@ -468,7 +468,7 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
         const found = snapshots.flatMap(snapshot => snapshot.docs).find(sample => normalizedOC(String(sample.data().oc || '')) === targetOC);
         const sampleRef = doc(db, 'production_samples', found?.id || sampleIdForOc(row.oc));
         const orderRef = doc(db, 'cut_orders', id);
-        await runTransaction(db, async transaction => {
+        const saveWithSampleStage = async (newSampleStatus: 'in_progress' | 'done') => runTransaction(db, async transaction => {
           const [orderSnap, sampleSnap] = await Promise.all([transaction.get(orderRef), transaction.get(sampleRef)]);
           if (!activeEditing && orderSnap.exists()) throw new Error(`A OC ${row.oc} já existe. Atualize a lista antes de cadastrar.`);
           const orderPayload = activeEditing ? content : {...content,createdAt:serverTimestamp(),createdBy:user.uid};
@@ -488,14 +488,24 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
             transaction.set(sampleRef, {
               oc: row.oc.trim(), name: row.model.trim(), reference: row.ref.trim(),
               tailor: row.office.trim() || 'NÃO INFORMADO', quantity: row.qty.trim(),
-              orderId: id, imageData: '', status: 'done',
+              orderId: id, imageData: '', status: newSampleStatus,
               createdAt: serverTimestamp(), createdBy: user.uid,
               updatedAt: serverTimestamp(), updatedBy: user.uid,
-              completedAt: serverTimestamp(), completedBy: user.uid,
+              completedAt: newSampleStatus === 'done' ? serverTimestamp() : null,
+              completedBy: newSampleStatus === 'done' ? user.uid : null,
             });
           }
         });
-        notify(`OC ${row.oc} entregue e amostra vinculada! Ela já aparece automaticamente em Pagamento de sexta-feira para conferência. Ainda NÃO foi marcada como paga.`);
+        try {
+          await saveWithSampleStage('in_progress');
+        } catch (deliveryError) {
+          // Compatibilidade com regras Firebase antigas, que exigiam "done"
+          // na criação pela OC. O fluxo de Amostras identifica e reabre
+          // esses registros antigos sem apagar fotos ou dados.
+          if (!String((deliveryError as {code?:string})?.code || '').includes('permission-denied')) throw deliveryError;
+          await saveWithSampleStage('done');
+        }
+        notify(`OC ${row.oc} entregue e amostra vinculada! Ela aparece em Amostras e Cortes e fotos como Em andamento, sem alterar o pagamento.`);
       } else {
         if (activeEditing) await updateDoc(doc(db,'cut_orders',id),content);
         else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
