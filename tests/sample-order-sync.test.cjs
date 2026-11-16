@@ -97,6 +97,6 @@ test('Amostras busca a OC ao digitar, respeita duplicidade e padroniza costureir
   assert.match(workflow,/window\.setTimeout\(async\(\)=>\{/);
   assert.match(workflow,/quantityFromOrder\(order\.qty\)/);
   assert.match(workflow,/canonicalWorkshopName\(order\.office\)/);
-  assert.match(workflow,/tailor:canonicalWorkshopName\(tailor\)/);
+  assert.match(workflow,/tailor:\s*canonicalWorkshopName\(tailor\)/);
   assert.match(workflow,/Corrigir nomes \(/);
 });
