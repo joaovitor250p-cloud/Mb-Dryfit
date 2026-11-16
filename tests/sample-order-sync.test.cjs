@@ -22,7 +22,20 @@ test('Amostras ordena OCs numericamente de menor para maior, mesmo com prefixos'
   const ocs=['OC 1020','OC 99','100','O.C. 7','OC 752','10','OC Nº 8'];
   assert.deepEqual(ocs.sort(u.compareSampleOC),['O.C. 7','OC Nº 8','10','OC 99','100','OC 752','OC 1020']);
   const workflow=read(path.join(root,'src/SampleWorkflow.tsx'));
-  assert.match(workflow,/if \(view === 'samples'\) return compareSampleOC\(a\.oc,b\.oc\)/);
+  assert.match(workflow,/if \(shouldSortProductionByOc\(view,typeFilter,search,filter\)\) return compareSampleOC\(a\.oc,b\.oc\)/);
+});
+test('pesquisar e filtrar Amostras ou Cortes mantém sempre OC crescente',()=>{
+  assert.equal(u.shouldSortProductionByOc('samples','all','','all'),true);
+  assert.equal(u.shouldSortProductionByOc('samples','bermudas','','all'),true);
+  assert.equal(u.shouldSortProductionByOc('samples','all','camiseta','all'),true);
+  assert.equal(u.shouldSortProductionByOc('cuts','all','','all'),false);
+  assert.equal(u.shouldSortProductionByOc('cuts','bermudas','','all'),true);
+  assert.equal(u.shouldSortProductionByOc('cuts','all','752','all'),true);
+  assert.equal(u.shouldSortProductionByOc('cuts','all','','done'),true);
+  assert.equal(u.shouldSortProductionByOc('cuts','all','','in_progress'),true);
+  const values=['1000','OC 751','OC 9','25','OC 752'];
+  const filtered=values.filter(v=>v !== 'OC 752').sort(u.compareSampleOC);
+  assert.deepEqual(filtered,['OC 9','25','OC 751','1000']);
 });
 test('completa quantidade, REF, costureiro e modelo pela OC sem substituir campos que existem',()=>{
   const patch=u.missingDataFromOrder(sample(),order());
