@@ -6,10 +6,10 @@ import { CheckCircle2, RefreshCw, Shield, UserCheck, UserRoundX, Mail } from 'lu
 import { safeProviderMessage } from './lib/safeMessage';
 
 type Role = 'admin' | 'editor' | 'viewer';
-type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution' | 'enfesto' | 'purchases';
+type Section = 'catalog' | 'samples' | 'cuts' | 'orders' | 'expenses' | 'info' | 'workshops' | 'sheets' | 'sheet_distribution' | 'enfesto' | 'purchases' | 'tailor_reassignment';
 type Account = { uid: string; email: string; role: Role; permissions: Section[]; disabled: boolean };
 type Request = { uid: string; email: string; status: 'pending' | 'approved' | 'denied' };
-const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'enfesto', 'sheet_distribution', 'purchases'];
+const ALL: Section[] = ['catalog', 'samples', 'cuts', 'orders', 'expenses', 'info', 'workshops', 'sheets', 'enfesto', 'sheet_distribution', 'purchases', 'tailor_reassignment'];
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'catalog', label: 'Catálogo de modelos' },
   { value: 'samples', label: 'Amostras' },
@@ -22,6 +22,7 @@ const SECTIONS: { value: Section; label: string }[] = [
   { value: 'enfesto', label: 'Enfesto e corte (conferir, finalizar e baixar tecido)' },
   { value: 'sheet_distribution', label: 'Distribuir fichas (autorização individual)' },
   { value: 'purchases', label: 'Compras e Estoque' },
+  { value: 'tailor_reassignment', label: 'Trocar costureiro de fichas já enviadas (permissão especial)' },
 ];
 const errorText = (e: unknown) => safeProviderMessage(e, 'Não foi possível salvar.');
 const asSections = (value: unknown): Section[] => Array.isArray(value) ? value.filter((s): s is Section => ALL.includes(s as Section)) : ALL;
