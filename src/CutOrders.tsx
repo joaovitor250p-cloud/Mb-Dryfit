@@ -503,8 +503,11 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
       return notify('Informe o desconto por peça defeituosa antes de salvar.',true);
     if(!activeEditing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
     if(activeEditing&&workshopKey(row.office)!==workshopKey(activeEditing.office)){
-      const linked=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',row.oc)))).docs.some(x=>x.data().status==='assigned');
-      if(linked)return notify('Esta OC está vinculada a uma ficha enviada. Use Trocar costureiro para alterar os dois registros juntos.',true);
+      if(!canReassignTailor)return notify('Somente o dono ou alguém autorizado pode alterar o costureiro de uma OC.',true);
+      try{
+        const linked=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',row.oc)))).docs.some(x=>x.data().status==='assigned');
+        if(linked)return notify('Esta OC está vinculada a uma ficha enviada. Use Trocar costureiro para atualizar a ficha e a OC juntas.',true);
+      }catch(e){return notify('Não foi possível verificar a ficha vinculada: '+safeProviderMessage(e),true)}
     }
     const id=activeEditing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
     const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
