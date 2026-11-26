@@ -261,13 +261,13 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     const value=selectedOffice?(priceOverride[priceId]??suggested):'';
     const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
     return <details className="sheet-distribution-item" key={s.id}>
-     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
+     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-distribution-identifiers"><span className="sheet-distribution-ref">REF {s.reference||'—'}</span><span className="sheet-distribution-type">{(pieceType[s.id]??s.pieceType)||'TIPO NÃO INFORMADO'}</span></span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
      <div className="sheet-distribution-body">
      <h3>{s.model||'Modelo não informado'}</h3>
      <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
      <div className="sheet-send-fields">
       <label>Tipo da peça<input list={`sheet-types-${s.id}`} maxLength={80} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setTailor(v=>({...v,[s.id]:''}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Camiseta ou Bermuda"/><datalist id={`sheet-types-${s.id}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label>
-      <label>Costureiro / oficina<select aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
+      <label className="sheet-tailor-picker">Costureiro / oficina<select aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
        <option value="">{type?'Selecione o costureiro':'Informe o tipo da peça primeiro'}</option>
        {candidates.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}
       </select></label>
