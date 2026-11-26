@@ -35,6 +35,19 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/cut_orders\/\$\(request\.resource\.data\.reassignmentOrderId\)\)\.data\.office/);
 });
 
+test('ficha enviada informa permissão ausente e PWA busca JS/CSS atualizados',()=>{
+ const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
+ const startAll=sheets.indexOf("{tab==='all'&&");
+ const startDistribution=sheets.indexOf("{tab==='distribution'&&");
+ const all=sheets.slice(startAll,startDistribution);
+ assert.match(all,/canDistribute&&!canReassignTailor/);
+ assert.match(all,/Contas e permissões/);
+ assert.match(all,/s\.status==='assigned'&&reassignControl\(s\)/);
+ assert.match(sw,/2026-11-26-transferencia-update/);
+ assert.match(sw,/fetch\(req, \{cache:'no-cache'\}\)/);
+ assert.match(sw,/caches\.match\(req\)/);
+});
+
 test('troca de costureiro fica somente em Todas as fichas',()=>{
  const startAll=sheets.indexOf("{tab==='all'&&");
  const startDistribution=sheets.indexOf("{tab==='distribution'&&");
