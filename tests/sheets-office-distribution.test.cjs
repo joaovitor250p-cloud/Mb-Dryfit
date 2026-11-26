@@ -35,6 +35,18 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/cut_orders\/\$\(request\.resource\.data\.reassignmentOrderId\)\)\.data\.office/);
 });
 
+test('troca de costureiro fica somente em Todas as fichas',()=>{
+ const startAll=sheets.indexOf("{tab==='all'&&");
+ const startDistribution=sheets.indexOf("{tab==='distribution'&&");
+ const startSent=sheets.indexOf("{tab==='sent'&&");
+ const endSent=sheets.indexOf("{isAdmin&&initialTab==='create'",startSent);
+ assert.ok(startAll>=0&&startDistribution>startAll&&startSent>startDistribution&&endSent>startSent);
+ assert.match(sheets.slice(startAll,startDistribution),/s\.status==='assigned'&&reassignControl\(s\)/);
+ assert.doesNotMatch(sheets.slice(startSent,endSent),/reassignControl\(s\)/);
+ assert.match(sheets.slice(startAll,startDistribution),/sheet-reassign-guidance/);
+ assert.match(sheets.slice(startSent,endSent),/Para trocar o costureiro, use Todas as fichas/);
+});
+
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
