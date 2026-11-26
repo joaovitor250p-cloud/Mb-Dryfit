@@ -9,12 +9,24 @@ export type EnfestoDetails = {rows:EnfestoColor[];notes:string};
 
 const integer=(v:unknown)=>{const n=Number(String(v??'').trim());return Number.isSafeInteger(n)&&n>=0?n:0};
 export const normalizeColor=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleUpperCase('pt-BR').trim();
+
+/** Menor quantidade positiva entre P/M/G/GG/XG de UMA cor da ficha. */
+export function sheetsForColor(row:FichaCor):number{
+ const positives=(['p','m','g','gg','xg'] as const).map(size=>integer(row[size])).filter(value=>value>0);
+ return positives.length?Math.min(...positives):0;
+}
+export const isBlackColor=(color:string)=>/^(PRET[OA]|BLACK)(?:\b|$)/.test(normalizeColor(color));
+/** Propaga o peso único ao editar; não altera fichas salvas antes da edição. */
+export function withSharedSheetWeight(rows:EnfestoColor[],weight:string):EnfestoColor[]{
+ return rows.map(row=>({...row,weightPerLayer:weight,consumption:'',checked:row.weightPerLayer===weight?row.checked:false}));
+}
 export function makeEnfestoRows(colors:FichaCor[],saved:EnfestoColor[]=[]):EnfestoColor[]{
  const fromSheet=colors.filter(row=>row.cor.trim()||['p','m','g','gg','xg'].some(k=>integer(row[k as keyof FichaCor])>0));
  return fromSheet.map((row,i)=>{
   const expected=['p','m','g','gg','xg'].reduce((sum,k)=>sum+integer(row[k as keyof FichaCor]),0);
   const found=saved.find(item=>normalizeColor(item.cor)===normalizeColor(row.cor)&&item.expected===expected);
-  return found?{...found,cor:row.cor,expected}:{cor:row.cor||'COR NÃO INFORMADA '+(i+1),expected,layers:'',weightPerLayer:'',cutPieces:String(expected),stockId:'',consumption:'',checked:false};
+  const suggestedLayers=String(sheetsForColor(row)||'');
+  return found?{...found,cor:row.cor,expected,layers:found.layers?.trim()?found.layers:suggestedLayers}:{cor:row.cor||'COR NÃO INFORMADA '+(i+1),expected,layers:suggestedLayers,weightPerLayer:'',cutPieces:String(expected),stockId:'',consumption:'',checked:false};
  });
 }
 export function calculatedKg(row:EnfestoColor):number{
@@ -22,9 +34,10 @@ export function calculatedKg(row:EnfestoColor):number{
  return layers>0&&Number.isFinite(weight)&&weight>0?Math.round(layers*weight*1000)/1000:0;
 }
 export function calculateConsumption(row:EnfestoColor,unit:string):number{
- const entered=decimal(row.consumption);
- if(row.consumption.trim())return entered;
- return unit==='KG'?calculatedKg(row):NaN;
+ // Em KG, a baixa segue sempre folhas × peso compartilhado.
+ // Unidades em metros continuam exigindo consumo informado em M.
+ if(unit==='KG')return calculatedKg(row);
+ return row.consumption.trim()?decimal(row.consumption):NaN;
 }
 export function validateEnfesto(rows:EnfestoColor[],stocks:StockEntry[],skipStock:boolean):string{
  if(!rows.length)return 'Esta ficha não possui cores ou quantidades válidas para enfestar.';

@@ -7,7 +7,7 @@ import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase
 import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
 import {PageActiveContext} from './lib/pageMemory';
 import {safeProviderMessage} from './lib/safeMessage';
-import {calculatedKg,calculateConsumption,makeEnfestoRows,normalizeColor,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
+import {calculatedKg,calculateConsumption,isBlackColor,withSharedSheetWeight,makeEnfestoRows,normalizeColor,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
 import {confirmEnfestoConsumption,finishEnfestoWithoutStock,quantityText,type StockEntry} from './lib/purchasesInventory';
 import './enfesto.css';
 
@@ -87,12 +87,15 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    })())
   :empty;
  const completedCount=waiting.filter(x=>jobs[x.id]?.status==='draft').length;
+ const blackRowIndex=draft.rows.findIndex(row=>isBlackColor(row.cor));
+ const sharedWeight=draft.rows[blackRowIndex>=0?blackRowIndex:0]?.weightPerLayer||'';
  const saveEdit=(next:EnfestoDetails)=>{
   if(!sheet||sheet.status!=='enfesto')return;
   setEdits(old=>({...old,[sheet.id]:next}));
   try{localStorage.setItem(localKey(user.uid,sheet.id),JSON.stringify(next))}catch{/* navegador pode não permitir armazenamento */}
  };
  const changeRow=(index:number,patch:Partial<EnfestoColor>)=>saveEdit({...draft,rows:draft.rows.map((r,i)=>i===index?{...r,...patch,checked:patch.checked??(Object.keys(patch).some(k=>k!=='checked')?false:r.checked)}:r)});
+ const changeSharedWeight=(weight:string)=>saveEdit({...draft,rows:withSharedSheetWeight(draft.rows,weight)});
  const saveDraft=async()=>{
   if(!sheet||!canEdit||busy||sheet.status!=='enfesto')return;
   if(!draft.rows.length){setError('Esta ficha não possui cores para enfestar. Corrija a ficha de produção.');return}
@@ -179,19 +182,21 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
       <div><small>Peças cortadas</small><strong>{number(totalCut(draft.rows))}</strong></div>
       <div><small>Cores conferidas</small><strong>{draft.rows.filter(r=>r.checked).length}/{draft.rows.length}</strong></div>
      </div>
+     {blackRowIndex<0&&draft.rows.length>0&&<label className="enfesto-shared-weight">Peso por folha (KG) — todas as cores<input type="text" inputMode="decimal" aria-label="Peso por folha para todas as cores" disabled={!canEdit||sheet.status!=='enfesto'} value={sharedWeight} onChange={e=>changeSharedWeight(e.target.value)} placeholder="Ex.: 1,200"/><small>Informe uma vez. Aplicaremos o mesmo peso a todas as cores.</small></label>}
      <div className="enfesto-color-list">
       {draft.rows.map((row,i)=>{
        const matching=stocks.filter(item=>item.kind==='tecido'&&normalizeColor(item.color)===normalizeColor(row.cor)&&(item.unit==='KG'||item.unit==='M'));
        const stock=stocks.find(item=>item.id===row.stockId);
-       const consumption=stock?calculateConsumption(row,stock.unit):calculatedKg(row);
+       const sharedRow={...row,weightPerLayer:sharedWeight};
+       const consumption=stock?calculateConsumption(sharedRow,stock.unit):calculatedKg(sharedRow);
        return <article key={i} className={'enfesto-color-card '+(row.checked?'checked':'')}>
         <div className="enfesto-color-title"><strong>{row.cor}</strong><span>{row.expected} peças previstas</span></div>
         <div className="enfesto-fields">
-         <label>Camadas<input type="number" min="1" step="1" inputMode="numeric" disabled={!canEdit||sheet.status!=='enfesto'} value={row.layers} onChange={e=>changeRow(i,{layers:e.target.value})} placeholder="Ex.: 12"/></label>
-         <label>Peso por folha (KG)<input type="text" inputMode="decimal" disabled={!canEdit||sheet.status!=='enfesto'} value={row.weightPerLayer} onChange={e=>changeRow(i,{weightPerLayer:e.target.value})} placeholder="Ex.: 1,200"/></label>
+         <label>Camadas/folhas<input type="number" min="1" step="1" inputMode="numeric" disabled={!canEdit||sheet.status!=='enfesto'} value={row.layers} onChange={e=>changeRow(i,{layers:e.target.value})} placeholder="Ex.: 12"/></label>
+         {blackRowIndex===i?<label>Peso por folha (KG) — todas as cores<input type="text" inputMode="decimal" disabled={!canEdit||sheet.status!=='enfesto'} value={sharedWeight} onChange={e=>changeSharedWeight(e.target.value)} placeholder="Ex.: 1,200"/></label>:<div className="enfesto-weight-display"><span>Peso por folha (KG)</span><strong>{sharedWeight||'A informar na ficha'}</strong></div>}
          <label>Peças cortadas<input type="number" min="0" step="1" inputMode="numeric" disabled={!canEdit||sheet.status!=='enfesto'} value={row.cutPieces} onChange={e=>changeRow(i,{cutPieces:e.target.value})}/></label>
          <label>Tecido da cor no estoque<select disabled={!canEdit||sheet.status!=='enfesto'||!!skipStock[sheet.id]} value={row.stockId} onChange={e=>changeRow(i,{stockId:e.target.value,consumption:''})}><option value="">Selecionar tecido...</option>{matching.map(item=><option key={item.id} value={item.id}>{item.material} · {item.unit} · saldo {quantityText(item.quantityMilli)}</option>)}</select></label>
-         <label>Consumo real ({stock?.unit||'KG/M'})<input type="text" inputMode="decimal" disabled={!canEdit||sheet.status!=='enfesto'||!!skipStock[sheet.id]} value={row.consumption} onChange={e=>changeRow(i,{consumption:e.target.value})} placeholder={stock?.unit==='KG'?'Automático pelas camadas':'Informe o total usado'}/></label>
+         {stock?.unit==='M'?<label>Consumo real (M)<input type="text" inputMode="decimal" disabled={!canEdit||sheet.status!=='enfesto'||!!skipStock[sheet.id]} value={row.consumption} onChange={e=>changeRow(i,{consumption:e.target.value})} placeholder="Informe metros usados"/></label>:<div className="enfesto-consumption-readonly"><span>Consumo automático (KG)</span><strong>{Number.isFinite(calculatedKg({...row,weightPerLayer:sharedWeight}))?number(calculatedKg({...row,weightPerLayer:sharedWeight})): '—'} KG</strong></div>}
         </div>
         <div className="enfesto-color-footer"><span>Consumo calculado: <strong>{Number.isFinite(consumption)?number(consumption):'—'} {stock?.unit||'KG'}</strong></span><label className="enfesto-check"><input type="checkbox" disabled={!canEdit||sheet.status!=='enfesto'} checked={row.checked} onChange={e=>changeRow(i,{checked:e.target.checked})}/> Cor cortada e conferida</label></div>
        </article>;
