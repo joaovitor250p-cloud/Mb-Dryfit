@@ -45,6 +45,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const [lastCreatedOc,setLastCreatedOc]=useState('754');
  const [orderOcs,setOrderOcs]=useState<string[]>([]);
  const [orderStatuses,setOrderStatuses]=useState<Record<string,string>>({});
+ const [orderStatusByOc,setOrderStatusByOc]=useState<Record<string,string>>({});
  const [phaseFilter,setPhaseFilter]=useState<'all'|'enfesto'|'office'|'done'>('all');
  const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>normalizeReferenceNumber(m.reference)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
  const referenceMatch=lookupReference(catalogModels,form.reference);
@@ -99,6 +100,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   return onSnapshot(collection(db,'cut_orders'),snapshot=>{
    setOrderOcs(snapshot.docs.map(item=>String(item.data().oc||'')));
    setOrderStatuses(Object.fromEntries(snapshot.docs.map(item=>[item.id,String(item.data().status||'').trim().toUpperCase()])));
+   setOrderStatusByOc(Object.fromEntries(snapshot.docs.map(item=>[normalizeOcNumber(String(item.data().oc||'')),String(item.data().status||'').trim().toUpperCase()])));
   },e=>setError('Não foi possível conferir o andamento das OCs: '+safeProviderMessage(e)));
  },[db,active,canViewOrders]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'reference_prices'),snap=>setPrices(snap.docs.map(x=>x.data() as {reference:string;type:string;price:string})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
@@ -176,9 +178,11 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
  const submitted=sheets.filter(s=>s.status==='pending'||s.status==='assigned').sort(compareOcDesc);
  const inEnfesto=sheets.filter(s=>s.status==='enfesto').sort(compareOcDesc);
- const atOffice=assigned.filter(s=>orderStatuses[s.id]!=='ENTREGUE');
- const completedSheets=assigned.filter(s=>orderStatuses[s.id]==='ENTREGUE');
- const phaseSheets=phaseFilter==='enfesto'?inEnfesto:phaseFilter==='office'?atOffice:phaseFilter==='done'?completedSheets:submitted;
+ const statusForSheet=(s:Sheet)=>orderStatuses[s.id]||orderStatusByOc[normalizeOcNumber(s.oc)]||'';
+ const atOffice=assigned.filter(s=>statusForSheet(s)!=='ENTREGUE');
+ const completedSheets=assigned.filter(s=>statusForSheet(s)==='ENTREGUE');
+ // Todas as fichas: apenas OCs finalizadas, inclusive legado com ID financeiro diferente.
+ const phaseSheets=phaseFilter==='enfesto'?inEnfesto:phaseFilter==='office'?atOffice:completedSheets;
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
@@ -251,8 +255,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    (!historySearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||'',s.pieceType||''].join(' ')).includes(normSearch(historySearch)))&&
    (historyOffice==='all'||(historyOffice==='pending'?s.status==='pending':s.status==='assigned'&&workshopKey(s.assignedTailor)===historyOffice))
  );
- const historyOffices=[...new Map(assigned.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
- const sentFiltered=assigned.filter(s=>!sentSearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||''].join(' ')).includes(normSearch(sentSearch)));
+ const historyOffices=[...new Map(phaseSheets.filter(s=>s.status==='assigned').map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'));
+ const sentFiltered=atOffice.filter(s=>!sentSearch.trim()||normSearch([s.oc,s.reference,s.model,s.assignedTailor||''].join(' ')).includes(normSearch(sentSearch)));
  const sentGroups=[...new Map(sentFiltered.map(s=>[workshopKey(s.assignedTailor),canonicalWorkshopName(s.assignedTailor)] as [string,string]).filter(([key])=>!!key)).entries()]
    .sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'))
    .map(([key,name])=>({name,items:sentFiltered.filter(s=>workshopKey(s.assignedTailor)===key)}));
@@ -267,8 +271,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Nova ficha</button>}
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='drafts'?'active':''} onClick={()=>setTab('drafts')}>Rascunhos ({drafts.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='distribution'?'active':''} onClick={()=>setTab('distribution')}>Distribuição ({pending.length})</button>}
-  {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({assigned.length})</button>}
-  <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({submitted.length})</button>
+  {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({atOffice.length})</button>}
+  <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({completedSheets.length})</button>
  </div>
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
@@ -282,7 +286,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}</div>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
   {canAddTailor&&<button type="button" className="outline-button" onClick={onAddTailor}>+ Adicionar costureiro</button>}
-  <div className="sheet-view-head"><div><h2>{phaseFilter==='enfesto'?'Fichas em Enfesto':phaseFilter==='office'?'Fichas na Oficina':phaseFilter==='done'?'Fichas Finalizadas':'Todas as fichas'}</h2><p>{phaseFilter==='all'?'Fichas prontas ou enviadas. Abra a OC para escolher o costureiro e distribuir as pendentes, ou trocar o responsável das enviadas se autorizado.':'Clique na OC para consultar, imprimir ou baixar a ficha em PDF.'}</p>{phaseFilter==='done'&&!canViewOrders&&<small>É necessária permissão de visualização de OCs para consultar as entregas.</small>}</div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
+  <div className="sheet-view-head"><div><h2>{phaseFilter==='enfesto'?'Fichas em Enfesto':phaseFilter==='office'?'Fichas na Oficina':'Todas as fichas finalizadas'}</h2><p>{phaseFilter==='all'?'Somente fichas finalizadas (OCs entregues). As fichas em andamento ficam em Costureiros e as que aguardam envio ficam em Distribuição.':'Clique na OC para consultar, imprimir ou baixar a ficha em PDF.'}</p>{phaseFilter==='done'&&!canViewOrders&&<small>É necessária permissão de visualização de OCs para consultar as entregas.</small>}</div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
   <div className="sheet-filters">
    <label className="sheet-quick-search"><Search size={18}/><input aria-label="Pesquisar ficha por OC, REF ou modelo" type="search" value={historySearch} onChange={e=>{setHistorySearch(e.target.value);setHistoryLimit(50)}} placeholder="Pesquisar OC, REF ou modelo..."/></label>
    <label className="sheet-office-filter"><Building2 size={18}/><select aria-label="Filtrar fichas por oficina" value={historyOffice} onChange={e=>{setHistoryOffice(e.target.value);setHistoryLimit(50)}}>
@@ -373,9 +377,9 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   </div>
  </section>}
  {tab==='sent'&&canDistribute&&<section className="sheet-list sheet-sent-view">
-  <div className="sheet-view-head"><div><h2>Fichas enviadas por costureiro</h2><p>Consulte e imprima as fichas enviadas, da maior OC para a menor. Para trocar o costureiro, use Todas as fichas.</p></div><span className="sheet-view-count">{assigned.length} ficha(s) enviadas</span></div>
+  <div className="sheet-view-head"><div><h2>Costureiros — fichas em andamento</h2><p>Somente fichas enviadas com OC ainda não entregue. Consulte, imprima e, se autorizado, troque o costureiro aqui.</p></div><span className="sheet-view-count">{atOffice.length} ficha(s) em andamento</span></div>
   <label className="sheet-quick-search sheet-distribution-search"><Search size={18}/><input aria-label="Pesquisar fichas enviadas por OC ou costureiro" type="search" value={sentSearch} onChange={e=>setSentSearch(e.target.value)} placeholder="Pesquisar OC, REF, modelo ou costureiro..."/></label>
-  {!sentFiltered.length&&<div className="sheet-no-results"><FileText size={29}/><strong>Nenhuma ficha enviada encontrada.</strong><span>As fichas aparecerão aqui após a confirmação do envio.</span></div>}
+  {!sentFiltered.length&&<div className="sheet-no-results"><FileText size={29}/><strong>Nenhuma ficha enviada encontrada.</strong><span>As fichas aparecerão aqui após a distribuição e sairão quando a OC for marcada como ENTREGUE.</span></div>}
   <div className="sheet-office-list">
    {sentGroups.map(group=><details className="sheet-office-group" key={workshopKey(group.name)}>
     <summary><span className="sheet-office-avatar"><Building2 size={22}/></span><span className="sheet-office-summary-title"><strong>{group.name}</strong><small>{group.items.length} ficha(s) enviadas</small></span><span className="sheet-office-number">{group.items.length}</span><ChevronDown className="sheet-office-arrow" size={19}/></summary>
@@ -385,6 +389,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <h3>{s.model||'Modelo não informado'}</h3>
       <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
       <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
+      {reassignControl(s)}
       <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button></div>
      </article>)}
     </div></div>
