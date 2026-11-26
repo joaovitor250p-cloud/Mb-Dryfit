@@ -1,5 +1,5 @@
 /* MB REFERÊNCIAS — apenas arquivos estáticos; nunca guarda respostas do Firebase. */
-const VERSION = 'mb-referencias-shell-2026-11-06-mobile-recovery';
+const VERSION = 'mb-referencias-shell-2026-11-26-transferencia-update';
 const BASE = new URL(self.registration.scope);
 const SHELL = [BASE.href, new URL('index.html', BASE).href, new URL('instalar.html',BASE).href];
 self.addEventListener('install', event => {
@@ -25,8 +25,20 @@ self.addEventListener('fetch', event => {
     )));
     return;
   }
-  // Só faz cache de arquivos versionados do build e dos ícones. Não intercepta dados.
-  if(/\/(assets|icons)\/[^/]+\.(js|css|png|webp|svg|woff2?)$/i.test(url.pathname)) {
+  // JS e CSS do aplicativo: prioriza a rede para mostrar novas publicações,
+  // mantendo o cache como alternativa caso a rede falhe.
+  if(/\/assets\/[^/]+\.(js|css)$/i.test(url.pathname)) {
+    event.respondWith(fetch(req, {cache:'no-cache'}).then(response => {
+      if(response.ok) {
+        const copy=response.clone();
+        event.waitUntil(caches.open(VERSION).then(cache=>cache.put(req,copy)));
+      }
+      return response;
+    }).catch(async()=> (await caches.match(req)) || Response.error()));
+    return;
+  }
+  // Imagens e fontes não têm dados de usuário e podem ser cacheadas.
+  if(/\/(assets|icons)\/[^/]+\.(png|webp|svg|woff2?)$/i.test(url.pathname)) {
     event.respondWith(caches.match(req).then(cached => cached || fetch(req).then(response => {
       if(response.ok) {const copy=response.clone();event.waitUntil(caches.open(VERSION).then(cache=>cache.put(req,copy)));}
       return response;
