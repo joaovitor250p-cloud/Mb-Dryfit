@@ -1030,7 +1030,12 @@ service cloud.firestore {
       }
 
       match /inventory/{stockId} {
-        allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
+        // Enfesto precisa consultar saldos por tecido/cor mesmo com perfil de leitura.
+        // A permissão permanece restrita à empresa do usuário; alterar o estoque
+        // continua exigindo autorização de consumo e validação da movimentação.
+        allow get, list: if canCompanyView(companyId)
+          || canCompanyConsume(companyId)
+          || (canView('enfesto') && currentCompany() == companyId);
         allow create: if canCompanyConsume(companyId)
           && validStock(request.resource.data)
           && request.resource.data.createdAt == request.time
