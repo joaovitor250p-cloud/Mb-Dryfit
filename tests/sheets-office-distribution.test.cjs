@@ -26,7 +26,7 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  assert.match(sheets,/batch\.update\(orderRef,\{office:target,reassignmentSheetId:s\.id,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
  assert.match(sheets,/batch\.set\(doc\(collection\(db,'audit_log'\)\)/);
  assert.match(sheets,/await batch\.commit\(\)/);
- assert.match(sheets,/String\(orderData\.status\|\|''\)\.toUpperCase\(\)!=='EM ANDAMENTO'/);
+ assert.match(sheets,/const divergence=workshopKey\(financialOffice\)!==workshopKey\(current\)/);
  assert.doesNotMatch(sheets,/batch\.update\(orderRef,\{[^}]*paymentDone/);
  assert.match(rules,/function canReassignTailor\(\)/);
  assert.match(rules,/canWrite\('tailor_reassignment'\)/);
@@ -73,6 +73,24 @@ test('OCs e Pagamentos usa ação autorizada e grava ficha e OC juntas',()=>{
  assert.doesNotMatch(cut,/batch\.update\(orderRef,\{office:target,paymentDone/);
 });
 
+test('reconcilia OC divergente, aceita OC sem ficha e preserva pagamentos',()=>{
+ const cut=fs.readFileSync(path.join(root,'src/CutOrders.tsx'),'utf8');
+ const app=fs.readFileSync(path.join(root,'src/App.tsx'),'utf8');
+ assert.match(sheets,/const soloOcs=financeOcs\.filter/);
+ assert.match(sheets,/const transferSolo=async\(order:FinanceOc\)=>/);
+ assert.match(sheets,/OCs sem ficha cadastrada/);
+ assert.match(sheets,/canAddTailor&&/);
+ assert.match(app,/onAddTailor=/);
+ assert.match(sheets,/Costureiro \/ oficina \* \(obrigatório\)<select required/);
+ assert.match(cut,/const sheetOffice=canonicalWorkshopName/);
+ assert.match(cut,/transfer\.sheetId/);
+ assert.match(cut,/batch\.update\(orderRef,\{office:target,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(rules,/resource\.data\.office == resource\.data\.office/);
+ assert.match(rules,/resource\.data\.get\('reassignmentSheetId',null\) == null/);
+ assert.match(rules,/canReassignTailor\(\)/);
+ assert.doesNotMatch(sheets,/O costureiro foi modificado em outro aparelho ou os registros estão divergentes/);
+});
+
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
@@ -86,7 +104,7 @@ test('a distribuição lista fichas disponíveis, não lista de costureiros',()=
 });
 
 test('dentro de cada ficha escolhe costureiro, data de envio e valor',()=>{
- assert.match(sheets,/Costureiro \/ oficina<select/);
+ assert.match(sheets,/Costureiro \/ oficina \* \(obrigatório\)<select required/);
  assert.match(sheets,/value=\{selectedOffice\}/);
  assert.match(sheets,/setTailor\(v=>\(\{\.\.\.v,\[s\.id\]:e\.target\.value\}\)\)/);
  assert.match(sheets,/const candidates=compatibleOffices\(s\)/);

@@ -16,6 +16,7 @@ import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 type ColorRow = {cor:string;p:string;m:string;g:string;gg:string;xg:string;detalhes:string};
 type Sheet = {id:string;createdBy:string;model:string;reference:string;client?:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
 type FormData = Omit<Sheet,'id'|'status'|'assignedTailor'|'createdBy'>;
+type FinanceOc={id:string;oc:string;ref:string;model:string;office:string;status:string;paymentDone:string};
 const blankRow=():ColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
 const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] as const).every(k=>!r[k].trim()||(/^\d+$/.test(r[k].trim())&&Number.isSafeInteger(Number(r[k])))));
 const todayInputFromDate=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -37,13 +38,14 @@ const readStoredColors=(uid:string):string[]=>{
 };
 const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),client:upperField(sheet.client||'MB'),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;isAdmin:boolean;initialTab:'create'|'distribution'}) {
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,canAddTailor,onAddTailor,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;canAddTailor:boolean;onAddTailor:()=>void;isAdmin:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
  const [ocAuto,setOcAuto]=useState(true);
  const [lastCreatedOc,setLastCreatedOc]=useState('754');
  const [orderOcs,setOrderOcs]=useState<string[]>([]);
+ const [financeOcs,setFinanceOcs]=useState<FinanceOc[]>([]);
  const [orderStatuses,setOrderStatuses]=useState<Record<string,string>>({});
  const [phaseFilter,setPhaseFilter]=useState<'all'|'enfesto'|'office'|'done'>('all');
  const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>normalizeReferenceNumber(m.reference)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
@@ -98,6 +100,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(!active||!canViewOrders)return;
   return onSnapshot(collection(db,'cut_orders'),snapshot=>{
    setOrderOcs(snapshot.docs.map(item=>String(item.data().oc||'')));
+   setFinanceOcs(snapshot.docs.map(item=>({id:item.id,oc:String(item.data().oc||''),ref:String(item.data().ref||''),model:String(item.data().model||''),office:canonicalWorkshopName(String(item.data().office||'')),status:String(item.data().status||''),paymentDone:String(item.data().paymentDone||'')})));
    setOrderStatuses(Object.fromEntries(snapshot.docs.map(item=>[item.id,String(item.data().status||'').trim().toUpperCase()])));
   },e=>setError('Não foi possível conferir o andamento das OCs: '+safeProviderMessage(e)));
  },[db,active,canViewOrders]);
@@ -182,14 +185,16 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
-   const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
-   return officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
+   const model=String(s.model||'');
+   const inferred=/BERMUDA/i.test(model)?'Bermuda':/CAL[ÇC]A/i.test(model)?'Calça':/REGATA/i.test(model)?'Regata':/MANGA LONGA|M\.L\./i.test(model)?'M.L.':/CAMISA|CAMISETA/i.test(model)?'Camiseta':'';
+   const type=normalizedGarmentType(pieceType[s.id]||s.pieceType||inferred);
+   return !type?officeNames:officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
  };
 
  const reassignSentSheet=async(s:Sheet)=>{
   if(!canDistribute||!canReassignTailor||busy||s.status!=='assigned')return;
   const target=canonicalWorkshopName(replacementOffice),current=canonicalWorkshopName(s.assignedTailor||'');
-  if(!target||workshopKey(target)===workshopKey(current)){setError('Escolha um costureiro diferente do atual.');return;}
+  if(!target){setError('Escolha um costureiro para a OC.');return;}
   if(!compatibleOffices(s).some(name=>workshopKey(name)===workshopKey(target))){setError('A oficina escolhida não produz este tipo de peça.');return;}
   setBusy(true);setError('');setMessage('');
   try{
@@ -207,12 +212,15 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    if(!orderSnap?.exists())throw Error('OC financeira não localizada. Para fichas antigas, é necessário acesso de leitura a OCs e Pagamentos.');
    const orderData=orderSnap.data();
    if(String(orderData.oc||'')!==s.oc)throw Error('A OC financeira não corresponde à ficha.');
-   if(String(orderData.status||'').toUpperCase()!=='EM ANDAMENTO')throw Error('A OC já foi entregue e não pode ser transferida.');
-   if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current)
-    ||workshopKey(canonicalWorkshopName(String(orderData.office||'')))!==workshopKey(current))
-    throw Error('O costureiro foi modificado em outro aparelho ou os registros estão divergentes. Atualize.');
+   // Mesmo uma OC entregue pode ter o responsável corrigido pelo dono; não alteramos status nem pagamentos.
+   if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current))
+    throw Error('A ficha mudou em outro aparelho. Reabra a OC.');
+   const financialOffice=canonicalWorkshopName(String(orderData.office||''));
+   if(workshopKey(target)===workshopKey(current)&&workshopKey(target)===workshopKey(financialOffice))
+    throw Error('A ficha e a OC financeira já estão com este costureiro.');
    const paid=String(orderData.paymentDone||'').trim().toUpperCase()==='OK';
-   if(!window.confirm('Transferir OC '+s.oc+' de '+current+' para '+target+'?\nA ficha e a OC financeira mudarão juntas. Valores, pagamentos e datas serão preservados.'+(paid?'\nATENÇÃO: pagamento já marcado OK; o histórico pago será preservado.':'')))return;
+   const divergence=workshopKey(financialOffice)!==workshopKey(current);
+   if(!window.confirm((divergence?'ATENÇÃO: nomes diferentes.\nFicha: '+current+'\nOCs/Pagamentos: '+financialOffice+'\n\n':'')+'Confirmar novo costureiro da OC '+s.oc+': '+target+'?\nA ficha e a OC ficarão iguais. Pagamentos, datas e valores serão mantidos.'+(paid?'\nATENÇÃO: OC já consta como paga.':'')))return;
    const batch=writeBatch(db);
    batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.update(orderRef,{office:target,reassignmentSheetId:s.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
@@ -227,15 +235,44 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   canReassignTailor?<div className="sheet-reassign-area">
        {reassignId===s.id?<div className="sheet-reassign-form">
         <strong>Trocar costureiro — OC {s.oc}</strong>
-        <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
-        <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
+        <small>Corrige também fichas com nome diferente do financeiro. Não altera pagamentos, preços ou datas.</small>
+        <label>Novo costureiro * (obrigatório)<select required aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
          <option value="">Selecione um costureiro</option>
-         {compatibleOffices(s).filter(name=>workshopKey(name)!==workshopKey(s.assignedTailor)).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
+         {compatibleOffices(s).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
         </select></label>
         <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
        </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
       </div>:null
  );
+ const soloOcs=financeOcs.filter(o=>o.oc.trim()&&!sheets.some(sh=>normalizeOcNumber(sh.oc)===normalizeOcNumber(o.oc))).sort(compareOcDesc);
+ const candidateForSolo=(order:FinanceOc)=>{
+   const model=order.model.toLocaleUpperCase('pt-BR');
+   const type=normalizedGarmentType(/BERMUDA/.test(model)?'Bermuda':/CAL[ÇC]A/.test(model)?'Calça':/REGATA/.test(model)?'Regata':/MANGA LONGA|M\.L\./.test(model)?'M.L.':/CAMISA|CAMISETA/.test(model)?'Camiseta':'');
+   return type?officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[]))):officeNames;
+ };
+ const transferSolo=async(order:FinanceOc)=>{
+   if(!canReassignTailor||!canViewOrders||busy)return;
+   const target=canonicalWorkshopName(replacementOffice);
+   if(!target||workshopKey(target)===workshopKey(order.office)){setError('Escolha outro costureiro.');return;}
+   if(!candidateForSolo(order).some(name=>workshopKey(name)===workshopKey(target))){setError('Costureiro incompatível com o tipo de peça.');return;}
+   setBusy(true);setError('');setMessage('');
+   try{
+     const matching=(await getDocs(firestoreQuery(collection(db,'production_sheets'),where('oc','==',order.oc)))).docs;
+     if(matching.some(d=>d.data().status==='assigned'))throw Error('Existe ficha enviada para esta OC. Abra a ficha para sincronizar os dois nomes.');
+     const ref=doc(db,'cut_orders',order.id),snap=await getDoc(ref);
+     if(!snap.exists()||snap.data().oc!==order.oc||workshopKey(canonicalWorkshopName(String(snap.data().office||'')))!==workshopKey(order.office))
+       throw Error('OC modificada em outro aparelho. Atualize.');
+     if(snap.data().reassignmentSheetId)throw Error('Esta OC está vinculada a uma ficha. Corrija a transferência na ficha.');
+     if(!window.confirm('Trocar OC '+order.oc+' de '+(order.office||'SEM COSTUREIRO')+' para '+target+'?\\nEsta OC não possui ficha vinculada. Preços, pagamentos, datas e estoque serão preservados.'))return;
+     const batch=writeBatch(db);
+     batch.update(ref,{office:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+     batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+order.oc,before:{oc:order.oc,office:order.office,withoutSheet:true},after:{oc:order.oc,office:target},at:serverTimestamp()});
+     await batch.commit();
+     setReassignId(null);setReplacementOffice('');
+     setMessage('Costureiro da OC '+order.oc+' atualizado. OC sem ficha; valores e pagamentos preservados.');
+   }catch(e){setError('Falha na OC '+order.oc+': '+safeProviderMessage(e));}
+   finally{setBusy(false);}
+ };
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
  const historical=phaseSheets.filter(s=>
@@ -272,6 +309,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></div></div>}
  {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}</div>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
+  {canAddTailor&&<button type="button" className="outline-button" onClick={onAddTailor}>+ Adicionar costureiro</button>}
   <div className="sheet-view-head"><div><h2>{phaseFilter==='enfesto'?'Fichas em Enfesto':phaseFilter==='office'?'Fichas na Oficina':phaseFilter==='done'?'Fichas Finalizadas':'Todas as fichas'}</h2><p>{phaseFilter==='all'?'Somente fichas prontas para distribuição ou enviadas. Abra a OC para consultar, imprimir e, se autorizado, trocar o costureiro de fichas enviadas.':'Clique na OC para consultar, imprimir ou baixar a ficha em PDF.'}</p>{phaseFilter==='done'&&!canViewOrders&&<small>É necessária permissão de visualização de OCs para consultar as entregas.</small>}</div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
   <div className="sheet-filters">
    <label className="sheet-quick-search"><Search size={18}/><input aria-label="Pesquisar ficha por OC, REF ou modelo" type="search" value={historySearch} onChange={e=>{setHistorySearch(e.target.value);setHistoryLimit(50)}} placeholder="Pesquisar OC, REF ou modelo..."/></label>
@@ -295,8 +333,22 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    </div>
   </details>)}</div>
   {historical.length>historyLimit&&<button type="button" className="outline-button sheet-show-more" onClick={()=>setHistoryLimit(n=>n+50)}>Mostrar mais 50 fichas ({historical.length-historyLimit} restantes)</button>}
+  {phaseFilter==='all'&&canReassignTailor&&canViewOrders&&soloOcs.length>0&&<section className="sheet-ocs-without-sheet">
+   <h3>OCs sem ficha cadastrada ({soloOcs.length})</h3>
+   <p>Registros financeiros antigos que não possuem ficha de produção. É possível alterar o costureiro sem criar uma ficha nem mexer no pagamento.</p>
+   <div className="sheet-compact-list">{soloOcs.filter(o=>!historySearch.trim()||normSearch([o.oc,o.model,o.ref,o.office].join(' ')).includes(normSearch(historySearch))).slice(0,historyLimit).map(o=><details className="sheet-compact-item" key={o.id}>
+    <summary><span className="sheet-oc-label">OC {o.oc}</span><span className="sheet-status-pill is-pending">SEM FICHA</span><ChevronDown size={18}/></summary>
+    <div className="sheet-compact-detail"><strong>{o.model||'MODELO NÃO INFORMADO'}</strong><p className="sheet-card-meta">REF {o.ref||'—'} · Costureiro: <b>{o.office||'NÃO INFORMADO'}</b></p>
+     {reassignId==='oc:'+o.id?<div className="sheet-reassign-form"><label>Novo costureiro *<select required disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
+       <option value="">Selecione o costureiro</option>{candidateForSolo(o).filter(name=>workshopKey(name)!==workshopKey(o.office)).map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}
+      </select></label><div className="sheet-reassign-actions"><button className="primary-button" type="button" disabled={busy||!replacementOffice} onClick={()=>void transferSolo(o)}>Confirmar troca</button><button className="outline-button" type="button" onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div></div>
+     :<button className="outline-button sheet-reassign-toggle" type="button" onClick={()=>{setReassignId('oc:'+o.id);setReplacementOffice('')}}>Trocar costureiro</button>}
+    </div>
+   </details>)}</div>
+  </section>}
  </section>}
  {tab==='distribution'&&canDistribute&&<section className="sheet-list sheet-distribution-view">
+  {canAddTailor&&<button type="button" className="outline-button" onClick={onAddTailor}>+ Adicionar costureiro</button>}
   <div className="sheet-view-head"><div><h2>Centro de Distribuição</h2><p>As fichas chegam automaticamente aqui após a confirmação do Enfesto. Abra a OC, escolha o costureiro e a data de envio: o sistema cria a OC em OCs e pagamentos ao confirmar, sem duplicar OCs já existentes.</p></div><span className="sheet-view-count">{pending.length} ficha(s) disponíveis</span></div>
   {lastAssigned&&<div className="sheet-dispatched-banner"><div><span className="sheet-dispatched-icon"><CheckCircle2 size={23}/></span><div><strong>Ficha enviada! OC {lastAssigned.oc} — {lastAssigned.assignedTailor}</strong><p>Envio em {lastAssigned.sentLabel}. Ficha em Costureiros e OC em OCs e pagamentos.</p></div></div><button type="button" className="primary-button" onClick={()=>print(lastAssigned)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA ENVIADA</button></div>}
   <div className="sheet-distribution-stats">
@@ -323,7 +375,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
      <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
      <div className="sheet-send-fields">
       <label>Tipo da peça<input list={`sheet-types-${s.id}`} maxLength={80} value={pieceType[s.id]??s.pieceType??''} onChange={e=>{setPieceType(v=>({...v,[s.id]:e.target.value}));setTailor(v=>({...v,[s.id]:''}));setPriceOverride(v=>Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith(s.id+':'))))}} placeholder="Ex.: Camiseta ou Bermuda"/><datalist id={`sheet-types-${s.id}`}>{TYPES.map(t=><option key={t} value={t}/>)}</datalist></label>
-      <label className="sheet-tailor-picker">Costureiro / oficina<select aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
+      <label className="sheet-tailor-picker">Costureiro / oficina * (obrigatório)<select required aria-label={`Costureiro para a OC ${s.oc}`} value={selectedOffice} disabled={!type} onChange={e=>setTailor(v=>({...v,[s.id]:e.target.value}))}>
        <option value="">{type?'Selecione o costureiro':'Informe o tipo da peça primeiro'}</option>
        {candidates.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}
       </select></label>
@@ -331,6 +383,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <label>Valor por peça (R$)<input inputMode="decimal" value={value} disabled={!selectedOffice} onChange={e=>setPriceOverride(v=>({...v,[priceId]:e.target.value}))} placeholder={selectedOffice?'Informe o valor':'Selecione o costureiro'}/></label>
      </div>
      {type&&!candidates.length&&<div className="sheet-price-warning">Nenhuma oficina compatível com {type}. Confira as categorias em Configurações → Oficinas e costureiros.</div>}
+     {canAddTailor&&<button className="outline-button" type="button" onClick={onAddTailor}>+ Cadastrar novo costureiro</button>}
      {selectedOffice&&!known&&<div className="sheet-price-warning">Verifique a REF {s.reference}. Para REF nova, informe o valor por peça antes de enviar.</div>}
      {selectedOffice&&known&&<small className="sheet-price-note">Valor sugerido para {selectedOffice}: {Number.isFinite(parsePrice(suggested))?currency(parsePrice(suggested)):'A informar'}</small>}
      <div className="sheet-card-actions">
