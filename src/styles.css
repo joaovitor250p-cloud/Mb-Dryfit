@@ -2105,3 +2105,13 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-ocs-without-sheet .sheet-compact-detail{display:grid;gap:13px}
 .sheets-page .sheet-ocs-without-sheet .sheet-reassign-form{max-width:680px}
 .sheets-page .sheet-ocs-without-sheet .sheet-reassign-toggle{justify-self:start}
+
+/* Distribuição direta das fichas pendentes, dentro de Todas as fichas. */
+.sheets-page .sheet-all-view .sheet-pending-assign{display:grid;gap:14px;margin-top:4px;padding:16px;border:1px solid rgba(108,88,224,.27);border-radius:14px;background:rgba(108,88,224,.045)}
+.sheets-page .sheet-all-view .sheet-pending-assign>strong{font-size:15px;color:var(--text)}
+.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields label{min-width:0;display:grid;gap:7px;font-size:13px;font-weight:750;color:var(--text)}
+.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields input,.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields select{width:100%;min-height:52px;padding:10px 12px;border-radius:11px;border:1.5px solid var(--line);background:var(--panel);color:var(--text);font-size:15px}
+.sheets-page .sheet-all-view .sheet-pending-assign .sheet-tailor-picker select{border-color:#8674e3;font-size:16px;font-weight:800}
+.sheets-page .sheet-all-view .sheet-pending-assign .sheet-card-actions{display:flex;flex-wrap:wrap;gap:9px}
+@media(max-width:700px){.sheets-page .sheet-all-view .sheet-pending-assign{padding:12px}.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields{grid-template-columns:minmax(0,1fr)}}
