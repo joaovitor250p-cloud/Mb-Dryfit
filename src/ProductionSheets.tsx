@@ -261,7 +261,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     const value=selectedOffice?(priceOverride[priceId]??suggested):'';
     const known=prices.some(p=>p.reference.toUpperCase()===s.reference.trim().toUpperCase()&&normalizedGarmentType(p.type)===type);
     return <details className="sheet-distribution-item" key={s.id}>
-     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-distribution-identifiers"><span className="sheet-distribution-ref">REF {s.reference||'—'}</span><span className="sheet-distribution-type">{pieceType[s.id]??s.pieceType||'TIPO NÃO INFORMADO'}</span></span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
+     <summary className="sheet-distribution-summary"><span className="sheet-oc-label">OC {s.oc}</span><span className="sheet-distribution-identifiers"><span className="sheet-distribution-ref">REF {s.reference||'—'}</span><span className="sheet-distribution-type">{(pieceType[s.id]??s.pieceType)||'TIPO NÃO INFORMADO'}</span></span><span className="sheet-status-pill is-pending">AGUARDANDO ENVIO</span><ChevronDown size={19}/></summary>
      <div className="sheet-distribution-body">
      <h3>{s.model||'Modelo não informado'}</h3>
      <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.colors.filter(row=>row.cor.trim()).length} cores · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
