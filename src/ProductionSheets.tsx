@@ -208,6 +208,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    const batch=writeBatch(db);
    batch.update(sheetRef,{assignedTailor:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.update(orderRef,{office:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+   batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+s.oc,before:{oc:s.oc,office:current},after:{oc:s.oc,office:target},at:serverTimestamp()});
    await batch.commit();
    setReassignId(null);setReplacementOffice('');
    setMessage('OC '+s.oc+' transferida para '+target+'. A ficha e OCs e Pagamentos foram sincronizados sem alterar valores ou pagamentos.');
