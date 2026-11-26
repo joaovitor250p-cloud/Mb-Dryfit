@@ -76,9 +76,9 @@ test('OCs e Pagamentos usa ação autorizada e grava ficha e OC juntas',()=>{
 test('reconcilia OC divergente, aceita OC sem ficha e preserva pagamentos',()=>{
  const cut=fs.readFileSync(path.join(root,'src/CutOrders.tsx'),'utf8');
  const app=fs.readFileSync(path.join(root,'src/App.tsx'),'utf8');
- assert.match(sheets,/const soloOcs=financeOcs\.filter/);
- assert.match(sheets,/const transferSolo=async\(order:FinanceOc\)=>/);
- assert.match(sheets,/OCs sem ficha cadastrada/);
+ assert.doesNotMatch(sheets,/OCs sem ficha cadastrada/);
+ assert.match(sheets,/s\.status==='pending'&&canDistribute&&/);
+ assert.match(sheets,/Confirmar distribuição/);
  assert.match(sheets,/canAddTailor&&/);
  assert.match(app,/onAddTailor=/);
  assert.match(sheets,/Costureiro \/ oficina \* \(obrigatório\)<select required/);
@@ -91,6 +91,16 @@ test('reconcilia OC divergente, aceita OC sem ficha e preserva pagamentos',()=>{
  assert.doesNotMatch(sheets,/O costureiro foi modificado em outro aparelho ou os registros estão divergentes/);
 });
 
+test('Todas as fichas mostra seleção direta de costureiro nas fichas pendentes, sem seção extra',()=>{
+ const all=sheets.slice(sheets.indexOf("{tab==='all'&&"),sheets.indexOf("{tab==='distribution'&&"));
+ const sent=sheets.slice(sheets.indexOf("{tab==='sent'&&"));
+ assert.match(all,/s\.status==='pending'&&canDistribute&&/);
+ assert.match(all,/sheet-pending-assign/);
+ assert.match(all,/void assign\(s\)/);
+ assert.match(all,/Costureiro \/ oficina \* \(obrigatório\)<select required/);
+ assert.doesNotMatch(all,/OCs sem ficha cadastrada/);
+ assert.doesNotMatch(sent,/reassignControl\(s\)/);
+});
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
