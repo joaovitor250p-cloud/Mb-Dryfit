@@ -31,8 +31,8 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  assert.match(rules,/function canReassignTailor\(\)/);
  assert.match(rules,/canWrite\('tailor_reassignment'\)/);
  assert.match(rules,/request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)/);
- assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/production_sheets\/\$\(request\.resource\.data\.reassignmentSheetId\)\)\.data\.assignedTailor/);
- assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/cut_orders\/\$\(request\.resource\.data\.reassignmentOrderId\)\)\.data\.office/);
+ assert.match(rules,/\.hasOnly\(\['office','reassignmentSheetId','updatedAt','updatedBy'\]\)/);
+ assert.match(rules,/\.hasOnly\(\['assignedTailor','reassignmentOrderId','updatedAt','updatedBy'\]\)/);
 });
 
 test('ficha enviada informa permissão ausente e PWA busca JS/CSS atualizados',()=>{
@@ -120,6 +120,15 @@ test('Todas as fichas usa apenas OCs entregues e Costureiros mostra andamento, i
  assert.match(sheets,/const sentFiltered=atOffice\.filter/);
 });
 
+test('transferência OC754 não exige acesso cruzado ao documento em outro ID e limita os campos',()=>{
+ const cut=rules.slice(rules.indexOf('match /cut_orders/{orderId}'),rules.indexOf('function validExpense'));
+ const sheet=rules.slice(rules.indexOf('match /production_sheets/{sheetId}'),rules.indexOf('allow delete:',rules.indexOf('match /production_sheets/{sheetId}')));
+ assert.match(cut,/canReassignTailor\(\)/);
+ assert.match(cut,/\.hasOnly\(\['office','reassignmentSheetId','updatedAt','updatedBy'\]\)/);
+ assert.match(sheet,/\.hasOnly\(\['assignedTailor','reassignmentOrderId','updatedAt','updatedBy'\]\)/);
+ assert.doesNotMatch(cut,/getAfter\(\/databases\/\$\(database\)\/documents\/production_sheets\/\$\(request\.resource\.data\.reassignmentSheetId\)\)/);
+ assert.doesNotMatch(sheet,/getAfter\(\/databases\/\$\(database\)\/documents\/cut_orders\/\$\(request\.resource\.data\.reassignmentOrderId\)\)/);
+});
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);

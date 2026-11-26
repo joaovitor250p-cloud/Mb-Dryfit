@@ -593,8 +593,10 @@ service cloud.firestore {
         // especial de transferência, disponível ao dono/delegado autorizado.
         && request.resource.data.office == resource.data.office
       ) || (
-        // Transferência ou reconciliação com ficha existente. Ambos os
-        // documentos mudam atomicamente; nenhum campo financeiro é editado.
+        // Transferência de oficina por dono/editor delegado.
+        // Somente nome, vínculo e auditoria técnica podem mudar; nenhum
+        // valor, quantidade, status, desconto ou pagamento pode ser alterado.
+        // A aplicação faz ficha+OC em um único batch.
         canReassignTailor()
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['office','reassignmentSheetId','updatedAt','updatedBy'])
@@ -608,13 +610,7 @@ service cloud.firestore {
           || request.resource.data.reassignmentSheetId != resource.data.get('reassignmentSheetId',''))
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
-        && exists(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId))
-        && get(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.status == 'assigned'
-        && get(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.oc == resource.data.oc
-        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.assignedTailor == request.resource.data.office
-        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.reassignmentOrderId == orderId
-        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.updatedBy == request.auth.uid
-        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.updatedAt == request.time
+        && request.resource.data.oc == resource.data.oc
       ) || (
         // OC realmente sem ficha: altera apenas a oficina, sem mexer em
         // valores ou datas. Exclusivo de dono/editor delegado.
@@ -926,8 +922,9 @@ service cloud.firestore {
         && request.resource.data.assignedAt == request.time
         && request.resource.data.assignedBy == request.auth.uid
       ) || (
-        // Permite corrigir nomes divergentes entre ficha e OC, sempre
-        // preservando a situação financeira e vinculando ambos no mesmo batch.
+        // Atualização restrita ao responsável da ficha para o dono/editor
+        // delegado. Os dados de corte/produção nunca são regravados.
+        // A aplicação sincroniza o nome financeiro no mesmo batch.
         canReassignTailor()
         && resource.data.status == 'assigned'
         && request.resource.data.status == 'assigned'
@@ -943,12 +940,6 @@ service cloud.firestore {
           || request.resource.data.reassignmentOrderId != resource.data.get('reassignmentOrderId',''))
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
-        && exists(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId))
-        && get(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.oc == resource.data.oc
-        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.office == request.resource.data.assignedTailor
-        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.reassignmentSheetId == sheetId
-        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.updatedBy == request.auth.uid
-        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.updatedAt == request.time
       );
       allow delete: if isAdmin()
         && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
