@@ -193,10 +193,18 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(!compatibleOffices(s).some(name=>workshopKey(name)===workshopKey(target))){setError('A oficina escolhida não produz este tipo de peça.');return;}
   setBusy(true);setError('');setMessage('');
   try{
-   const sheetRef=doc(db,'production_sheets',s.id),orderRef=doc(db,'cut_orders',s.id);
-   const [sheetSnap,orderSnap]=await Promise.all([getDoc(sheetRef),getDoc(orderRef)]);
+   const sheetRef=doc(db,'production_sheets',s.id);
+   const directOrder=await getDoc(doc(db,'cut_orders',s.id));
+   // OCs antigas podem usar um ID diferente da ficha (ex.: OC 753).
+   const legacyMatches=!directOrder.exists()&&canViewOrders
+     ?(await getDocs(firestoreQuery(collection(db,'cut_orders'),where('oc','==',s.oc)))).docs
+     :[];
+   if(legacyMatches.length>1)throw Error('Existem várias OCs financeiras com este número. Troca bloqueada para revisão.');
+   const orderSnap=directOrder.exists()?directOrder:legacyMatches[0];
+   const orderRef=orderSnap?orderSnap.ref:doc(db,'cut_orders',s.id);
+   const sheetSnap=await getDoc(sheetRef);
    if(!sheetSnap.exists()||sheetSnap.data().status!=='assigned'||sheetSnap.data().oc!==s.oc)throw Error('Ficha alterada por outro usuário. Atualize.');
-   if(!orderSnap.exists())throw Error('Não há OC financeira vinculada pelo mesmo ID; troca bloqueada para preservar os pagamentos.');
+   if(!orderSnap?.exists())throw Error('OC financeira não localizada. Para fichas antigas, é necessário acesso de leitura a OCs e Pagamentos.');
    const orderData=orderSnap.data();
    if(String(orderData.oc||'')!==s.oc)throw Error('A OC financeira não corresponde à ficha.');
    if(String(orderData.status||'').toUpperCase()!=='EM ANDAMENTO')throw Error('A OC já foi entregue e não pode ser transferida.');
@@ -206,8 +214,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    const paid=String(orderData.paymentDone||'').trim().toUpperCase()==='OK';
    if(!window.confirm('Transferir OC '+s.oc+' de '+current+' para '+target+'?\nA ficha e a OC financeira mudarão juntas. Valores, pagamentos e datas serão preservados.'+(paid?'\nATENÇÃO: pagamento já marcado OK; o histórico pago será preservado.':'')))return;
    const batch=writeBatch(db);
-   batch.update(sheetRef,{assignedTailor:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
-   batch.update(orderRef,{office:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+   batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
+   batch.update(orderRef,{office:target,reassignmentSheetId:s.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+s.oc,before:{oc:s.oc,office:current},after:{oc:s.oc,office:target},at:serverTimestamp()});
    await batch.commit();
    setReassignId(null);setReplacementOffice('');
@@ -215,6 +223,19 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   }catch(e){setError('Falha ao transferir OC '+s.oc+': '+safeProviderMessage(e)+'. Não alteramos valores ou pagamentos.');}
   finally{setBusy(false);}
  };
+ const reassignControl=(s:Sheet)=>(
+  {canReassignTailor&&<div className="sheet-reassign-area">
+       {reassignId===s.id?<div className="sheet-reassign-form">
+        <strong>Trocar costureiro — OC {s.oc}</strong>
+        <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
+        <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
+         <option value="">Selecione um costureiro</option>
+         {compatibleOffices(s).filter(name=>workshopKey(name)!==workshopKey(s.assignedTailor)).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
+        </select></label>
+        <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
+       </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
+      </div>}
+ );
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
  const historical=phaseSheets.filter(s=>
@@ -267,6 +288,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     <div className="sheet-card-top"><strong className="sheet-detail-name">{s.model||'MODELO NÃO INFORMADO'}</strong><span className={`sheet-status-pill ${s.status==='assigned'?'is-assigned':'is-pending'}`}>{s.status==='assigned'?'ENVIADA':s.status==='enfesto'?'EM ENFESTO':'PRONTA PARA DISTRIBUIÇÃO'}</span></div>
     <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'TIPO NÃO INFORMADO'} · {sheetQuantity(s).toLocaleString('pt-BR')} PEÇAS</p>
     <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'OFICINA NÃO INFORMADA':s.status==='enfesto'?'AGUARDANDO CORTE':'AINDA SEM OFICINA DEFINIDA'}</span></div>
+    {s.status==='assigned'&&reassignControl(s)}
     <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
    </div>
   </details>)}</div>
@@ -331,17 +353,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <h3>{s.model||'Modelo não informado'}</h3>
       <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
       <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
-      {canReassignTailor&&<div className="sheet-reassign-area">
-       {reassignId===s.id?<div className="sheet-reassign-form">
-        <strong>Trocar costureiro — OC {s.oc}</strong>
-        <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
-        <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
-         <option value="">Selecione um costureiro</option>
-         {compatibleOffices(s).filter(name=>workshopKey(name)!==workshopKey(s.assignedTailor)).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
-        </select></label>
-        <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
-       </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
-      </div>}
+      {reassignControl(s)}
       <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button></div>
      </article>)}
     </div></div>
