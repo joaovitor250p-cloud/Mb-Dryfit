@@ -12,7 +12,7 @@ import { safeProviderMessage } from './lib/safeMessage';
 import { currentAccountingMonth as monthNow, accountingMonthLabel as monthLabel, paymentMonth as monthOfPaidDate } from './lib/monthlyAccounting';
 import { parseFinanceNumber as num } from './lib/financeNumbers';
 import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
-import type { ReferencePrice } from './lib/referencePrices';
+import {TAILORS,canSewType,normalizedGarmentType,type ReferencePrice} from './lib/referencePrices';
 import { suggestOrderPiecePrice, type PriceWorkshop } from './lib/orderPriceSuggestion';
 
 // Ordem de Corte: documentos separados de production_samples, sem alterar as OCs da tela Cortes.
@@ -20,7 +20,7 @@ import { suggestOrderPiecePrice, type PriceWorkshop } from './lib/orderPriceSugg
 type DataField = 'oc'|'ref'|'model'|'office'|'qty'|'piecePrice'|'entry'|'sent'|'due'|'status'|'deliveredFlag'|'deliveredAt'|'defects'|'discountPiece'|'discountTotal'|'total'|'paidAt'|'paymentDone';
 type View = 'summary'|'dates'|'finance'|'all';
 type Order = Record<DataField, string> & {id: string; source: string; manualTotal: boolean; createdBy?: string; createdAt?: unknown};
-type Props = {db: Firestore; user: User; canEdit: boolean; isAdmin: boolean};
+type Props = {db: Firestore; user: User; canEdit: boolean; canReassignTailor:boolean; isAdmin: boolean};
 const names: Record<DataField,string> = {
   oc:'OC',ref:'REF',model:'Modelo / peça',office:'Costureiro / oficina',qty:'Quantidade',piecePrice:'Valor por peça',entry:'Data de entrada',sent:'Data de envio',due:'Prazo de 10 dias',status:'Produção',deliveredFlag:'Entregue (planilha)',deliveredAt:'Data de entrega',defects:'Faltas / defeitos',discountPiece:'Desconto por peça',discountTotal:'Desconto total',total:'Valor a pagar',paidAt:'Data pagamento',paymentDone:'Pagamento'
 };
@@ -71,7 +71,7 @@ const normalizedOC=(oc:string)=>oc.trim().normalize('NFKC').toLocaleUpperCase('p
 const sampleIdForOc=(oc:string)=>`oc_${encodeURIComponent(normalizedOC(oc))}`;
 const PAGE=75;
 const monthOfPaid=(o:Order)=>monthOfPaidDate(o.paidAt);
-export default function CutOrders({db,user,canEdit,isAdmin}:Props){
+export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Props){
   const pageActive=useContext(PageActiveContext);
   const pageMemoryKey = `mb-referencias:${user.uid}:orders`;
   const currentDate=today();
@@ -79,6 +79,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   const [rows,setRows]=useState<Order[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [alert,setAlert]=useState(''),[notice,setNotice]=useState('');
   const [deleteTarget,setDeleteTarget]=useState<Order|null>(null);
+  const [transfer,setTransfer]=useState<{order:Order;sheetId:string;options:string[]}|null>(null);
+  const [transferOffice,setTransferOffice]=useState('');
   const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
   const [loadingFicha,setLoadingFicha]=useState<string|null>(null);
   // Preços são lidos apenas enquanto o formulário de OC estiver aberto.
@@ -273,6 +275,53 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
   },[rows,paymentSearch]);
   const groups=useMemo(()=>{const m=new Map<string,{name:string;list:Order[];total:number}>();eligible.forEach(o=>{const key=norm(o.office);const item: {name:string;list:Order[];total:number}=m.get(key)||{name:officeLabel(o.office),list:[],total:0};item.list.push(o);if(!reviewIds.has(o.id))item.total+=num(o.total);m.set(key,item)});return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))},[eligible,reviewIds]);
   const notify=(msg:string,isErr=false)=>{setAlert(isErr?msg:'');setNotice(isErr?'':msg)};
+  const prepareTailorTransfer=async(order:Order)=>{
+    if(!canReassignTailor||busy)return;
+    setBusy(true);setAlert('');
+    try{
+      const matching=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',order.oc)))).docs
+        .filter(x=>x.data().status==='assigned');
+      if(matching.length!==1)throw Error('Não há uma única ficha ENVIADA vinculada a esta OC. Verifique Todas as fichas antes de transferir.');
+      const sheet=matching[0].data();
+      if(workshopKey(canonicalWorkshopName(String(sheet.assignedTailor||'')))!==workshopKey(order.office))
+        throw Error('O costureiro registrado na ficha não confere com o da OC. Confira os dados antes de transferir.');
+      if(order.status!=='EM ANDAMENTO')throw Error('Uma OC entregue não pode ser transferida.');
+      const registered=(await getDocs(collection(db,'workshops'))).docs.map(x=>x.data());
+      const type=normalizedGarmentType(String(sheet.pieceType||order.model||''));
+      const names=[...new Map([...TAILORS,...registered.map(w=>String(w.name||''))].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()];
+      const options=names.filter(name=>workshopKey(name)!==workshopKey(order.office)
+        && canSewType(name,type,registered.filter(w=>workshopKey(String(w.name||''))===workshopKey(name)).flatMap(w=>Array.isArray(w.types)?w.types:[])))
+        .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+      if(!options.length)throw Error('Nenhum costureiro compatível com este tipo de peça. Confira as categorias nas Oficinas.');
+      setTransfer({order,sheetId:matching[0].id,options});setTransferOffice('');
+      setDraft(null);
+    }catch(e){notify('Não foi possível preparar a troca: '+safeProviderMessage(e),true)}
+    finally{setBusy(false)}
+  };
+  const confirmTailorTransfer=async()=>{
+    if(!transfer||!transferOffice||!canReassignTailor||busy)return;
+    const target=canonicalWorkshopName(transferOffice),previous=canonicalWorkshopName(transfer.order.office);
+    if(!transfer.options.some(x=>workshopKey(x)===workshopKey(target)))return notify('Costureiro não autorizado para esta peça.',true);
+    if(!window.confirm('Transferir OC '+transfer.order.oc+' de '+previous+' para '+target+'? Os valores e pagamentos serão preservados.'))return;
+    setBusy(true);setAlert('');
+    try{
+      const sheetRef=doc(db,'production_sheets',transfer.sheetId),orderRef=doc(db,'cut_orders',transfer.order.id);
+      const [sheet,order]=await Promise.all([getDoc(sheetRef),getDoc(orderRef)]);
+      if(!sheet.exists()||!order.exists()||sheet.data().status!=='assigned'||order.data().status!=='EM ANDAMENTO'
+        ||sheet.data().oc!==transfer.order.oc||order.data().oc!==transfer.order.oc
+        ||workshopKey(canonicalWorkshopName(String(sheet.data().assignedTailor||'')))!==workshopKey(previous)
+        ||workshopKey(canonicalWorkshopName(String(order.data().office||'')))!==workshopKey(previous))
+        throw Error('OC ou ficha alterada em outro aparelho. Atualize e tente novamente.');
+      const batch=writeBatch(db);
+      batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
+      batch.update(orderRef,{office:target,reassignmentSheetId:sheetRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
+      batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+transfer.order.oc,before:{oc:transfer.order.oc,office:previous},after:{oc:transfer.order.oc,office:target},at:serverTimestamp()});
+      await batch.commit();
+      setTransfer(null);setTransferOffice('');
+      notify('Costureiro da OC '+transfer.order.oc+' atualizado em Todas as fichas e OCs e Pagamentos. Valores e pagamentos preservados.');
+    }catch(e){notify('Falha na transferência: '+safeProviderMessage(e),true)}
+    finally{setBusy(false)}
+  };
   const open=(o?:Order)=>{if(!canEdit)return;priceEditedByUser.current=!!o?.piecePrice?.trim();setAlert('');setNotice('');setEditing(o||null);setDraft(o?{...o}:{...fresh(),id:'',status:'EM ANDAMENTO',paymentDone:'',source:'manual',manualTotal:false})};
   const unlock=(event:MouseEvent, o:Order)=>{if(canEdit&&event.detail>=3)open(o)};
   const queuePayment=(o:Order,date=fridayDate)=>{
@@ -453,6 +502,10 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
     if(num(row.defects)>0&&!(num(row.discountPiece)>0))
       return notify('Informe o desconto por peça defeituosa antes de salvar.',true);
     if(!activeEditing&&rows.some(o=>o.oc.trim()===row.oc.trim()))return notify('Esse número de OC já existe. Confira antes de criar outro registro.',true);
+    if(activeEditing&&workshopKey(row.office)!==workshopKey(activeEditing.office)){
+      const linked=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',row.oc)))).docs.some(x=>x.data().status==='assigned');
+      if(linked)return notify('Esta OC está vinculada a uma ficha enviada. Use Trocar costureiro para alterar os dois registros juntos.',true);
+    }
     const id=activeEditing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
     const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
     const needsSample = row.status === 'ENTREGUE' && (!activeEditing || activeEditing.status !== 'ENTREGUE'
@@ -755,7 +808,8 @@ export default function CutOrders({db,user,canEdit,isAdmin}:Props){
       {priceLookupWarning&&<span> {priceLookupWarning}</span>}
     </small>}</label>)}</div></fieldset>)}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
-      <footer>{editing&&hasVerifiedSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
+      <footer>{canReassignTailor&&editing&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void prepareTailorTransfer(editing)}>Trocar costureiro na ficha</button>}{editing&&hasVerifiedSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
+    {transfer&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setTransfer(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Transferir costureiro da OC"><header><div><span className="order-eyebrow">TROCA AUTORIZADA</span><h2>Transferir OC {transfer.order.oc}</h2><p>Responsável atual: {transfer.order.office}. A ficha e OCs e Pagamentos serão atualizadas juntas, sem alterar os valores.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Fechar</button></header><div className="order-fieldgrid"><label>Novo costureiro<select value={transferOffice} disabled={busy} onChange={e=>setTransferOffice(e.target.value)}><option value="">Selecione uma oficina</option>{transfer.options.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}</select></label></div><footer><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Cancelar</button><button type="button" className="primary-button" disabled={busy||!transferOffice} onClick={()=>void confirmTailorTransfer()}>{busy?'Salvando...':'Confirmar troca'}</button></footer></section></div>,document.body)}
     {printSheet&&pageActive&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
     {deleteTarget&&isAdmin&&pageActive&&createPortal(<div className="order-delete-overlay" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)setDeleteTarget(null)}}><section className="order-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-oc-title" aria-describedby="delete-oc-description"><div className="order-delete-icon"><Trash2 size={23}/></div><h2 id="delete-oc-title">Excluir a OC {deleteTarget.oc}?</h2><p id="delete-oc-description">Tem certeza que deseja excluir a <strong>OC {deleteTarget.oc}</strong> — {deleteTarget.model || 'sem modelo'}?</p><p>Esta ação apaga o registro da Ordem de Corte do Firebase e não pode ser desfeita. A Ficha de Produção vinculada não será apagada.</p><div className="order-delete-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button type="button" className="order-delete-button order-delete-confirm-button" disabled={busy} onClick={()=>void removeOrder()}>{busy?'Excluindo...':`Sim, excluir OC ${deleteTarget.oc}`}</button></div></section></div>,document.body)}
   </div>;
