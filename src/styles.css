@@ -2097,3 +2097,11 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-all-view .sheet-reassign-guidance{margin:0;padding:10px 12px;border-radius:10px;background:rgba(112,91,223,.08);color:var(--text);font-size:13px;font-weight:650;line-height:1.5}
 .sheets-page .sheet-all-view .sheet-reassign-toggle{background:#6959dc;color:#fff;border-color:#6959dc;padding:10px 16px}
 .sheets-page .sheet-all-view .sheet-reassign-toggle:hover{background:#5848c5;color:#fff}
+
+/* Distribuição: OCs históricas sem ficha visíveis separadamente. */
+.sheets-page .sheet-ocs-without-sheet{display:grid;gap:13px;margin-top:24px;padding-top:22px;border-top:2px solid var(--line)}
+.sheets-page .sheet-ocs-without-sheet h3{margin:0;font-size:19px;color:var(--text)}
+.sheets-page .sheet-ocs-without-sheet>p{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.sheets-page .sheet-ocs-without-sheet .sheet-compact-detail{display:grid;gap:13px}
+.sheets-page .sheet-ocs-without-sheet .sheet-reassign-form{max-width:680px}
+.sheets-page .sheet-ocs-without-sheet .sheet-reassign-toggle{justify-self:start}
