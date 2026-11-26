@@ -26,6 +26,39 @@ const api=ctx.exports;
 const row=(color,qty)=>({cor:color,p:String(qty),m:'',g:'',gg:'',xg:''});
 const filled=(color,expected,stockId='')=>({cor:color,expected,layers:'10',weightPerLayer:'1,200',cutPieces:String(expected),stockId,consumption:'',checked:true});
 
+
+test('folhas por cor usam o menor tamanho positivo e peso único calcula 12 kg e 9,6 kg',()=>{
+ const colors=[
+  {cor:'PRETA',p:'10',m:'20',g:'20',gg:'10',xg:'0'},
+  {cor:'AZUL',p:'8',m:'12',g:'16',gg:'',xg:'0'}
+ ];
+ const rows=api.makeEnfestoRows(colors);
+ assert.equal(rows[0].layers,'10');
+ assert.equal(rows[1].layers,'8');
+ assert.equal(api.isBlackColor(rows[0].cor),true);
+ const updated=api.withSharedSheetWeight(rows,'1,200');
+ assert.equal(updated[0].weightPerLayer,'1,200');
+ assert.equal(updated[1].weightPerLayer,'1,200');
+ assert.equal(api.calculateConsumption(updated[0],'KG'),12);
+ assert.equal(api.calculateConsumption(updated[1],'KG'),9.6);
+});
+test('reabrir progresso preserva camadas preenchidas e peso previamente salvo',()=>{
+ const colors=[{cor:'PRETA',p:'10',m:'20',g:'',gg:'',xg:''}];
+ const old=[{cor:'PRETA',expected:30,layers:'7',weightPerLayer:'0,850',cutPieces:'30',stockId:'old-id',consumption:'',checked:true}];
+ const rows=api.makeEnfestoRows(colors,old);
+ assert.equal(rows[0].layers,'7');
+ assert.equal(rows[0].weightPerLayer,'0,850');
+ assert.equal(rows[0].stockId,'old-id');
+ assert.equal(rows[0].checked,true);
+});
+test('sem preto, mesma alteração de peso se aplica a todas as cores',()=>{
+ const rows=api.makeEnfestoRows([row('BRANCO',10),row('VERDE',8)]);
+ assert.equal(rows.some(r=>api.isBlackColor(r.cor)),false);
+ const updated=api.withSharedSheetWeight(rows,'1,200');
+ assert.equal(api.calculatedKg(updated[0]),12);
+ assert.equal(api.calculatedKg(updated[1]),9.6);
+});
+
 test('a ficha cria linhas de enfesto por cor e soma quantidades sem duplicar',()=>{
  const items=api.makeEnfestoRows([row('PRETO',100),row('BRANCO',50)]);
  assert.equal(items.length,2);
@@ -39,7 +72,8 @@ test('camadas vezes peso por folha calcula consumo em KG',()=>{
  assert.equal(api.calculatedKg(item),12);
  assert.equal(api.calculateConsumption(item,'KG'),12);
  item.consumption='10,500';
- assert.equal(api.calculateConsumption(item,'KG'),10.5);
+ assert.equal(api.calculateConsumption(item,'KG'),12); // KG sempre usa folhas × peso
+ assert.equal(api.calculateConsumption(item,'M'),10.5); // em metros usa o consumo informado
 });
 test('sem marcar todas as cores como conferidas, não libera distribuição',()=>{
  const rows=[filled('PRETO',100)];
