@@ -194,16 +194,19 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(!target){setError('Escolha um costureiro para a OC.');return;}
   if(!compatibleOffices(s).some(name=>workshopKey(name)===workshopKey(target))){setError('A oficina escolhida não produz este tipo de peça.');return;}
   setBusy(true);setError('');setMessage('');
+  let stage='consultar OC por ID';
   try{
    const sheetRef=doc(db,'production_sheets',s.id);
    const directOrder=await getDoc(doc(db,'cut_orders',s.id));
    // OCs antigas podem usar um ID diferente da ficha (ex.: OC 753).
+   stage='localizar OC financeira antiga';
    const legacyMatches=!directOrder.exists()&&canViewOrders
      ?(await getDocs(firestoreQuery(collection(db,'cut_orders'),where('oc','==',s.oc)))).docs
      :[];
    if(legacyMatches.length>1)throw Error('Existem várias OCs financeiras com este número. Troca bloqueada para revisão.');
    const orderSnap=directOrder.exists()?directOrder:legacyMatches[0];
    const orderRef=orderSnap?orderSnap.ref:doc(db,'cut_orders',s.id);
+   stage='consultar ficha enviada';
    const sheetSnap=await getDoc(sheetRef);
    if(!sheetSnap.exists()||sheetSnap.data().status!=='assigned'||sheetSnap.data().oc!==s.oc)throw Error('Ficha alterada por outro usuário. Atualize.');
    if(!orderSnap?.exists())throw Error('OC financeira não localizada. Para fichas antigas, é necessário acesso de leitura a OCs e Pagamentos.');
@@ -222,10 +225,11 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.update(orderRef,{office:target,reassignmentSheetId:s.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+s.oc,before:{oc:s.oc,office:current},after:{oc:s.oc,office:target},at:serverTimestamp()});
+   stage='gravação atômica de ficha, OC e auditoria';
    await batch.commit();
    setReassignId(null);setReplacementOffice('');
    setMessage('OC '+s.oc+' transferida para '+target+'. A ficha e OCs e Pagamentos foram sincronizados sem alterar valores ou pagamentos.');
-  }catch(e){setError('Falha ao transferir OC '+s.oc+': '+safeProviderMessage(e)+'. Não alteramos valores ou pagamentos.');}
+  }catch(e){const code=String((e as {code?:string})?.code||'');const project=String(db.app.options.projectId||'não identificado');setError('Falha ao transferir OC '+s.oc+' na etapa: '+stage+'. '+(code?'Firebase '+code+': ':'')+safeProviderMessage(e)+'. Projeto Firebase: '+project+'. '+(code.includes('permission-denied')?'A gravação foi bloqueada pelas regras do Firestore ou pela permissão do usuário; confirme o projeto e a versão publicada das regras.':'')+' Nenhum pagamento foi alterado.');}
   finally{setBusy(false);}
  };
  const reassignControl=(s:Sheet)=>(
