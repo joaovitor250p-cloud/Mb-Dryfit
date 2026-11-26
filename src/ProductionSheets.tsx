@@ -16,6 +16,7 @@ import { workshopKey, canonicalWorkshopName } from './lib/workshopNames';
 type ColorRow = {cor:string;p:string;m:string;g:string;gg:string;xg:string;detalhes:string};
 type Sheet = {id:string;createdBy:string;model:string;reference:string;client?:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
 type FormData = Omit<Sheet,'id'|'status'|'assignedTailor'|'createdBy'>;
+type FinanceOc={id:string;oc:string;ref:string;model:string;office:string;status:string;paymentDone:string};
 const blankRow=():ColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
 const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] as const).every(k=>!r[k].trim()||(/^\d+$/.test(r[k].trim())&&Number.isSafeInteger(Number(r[k])))));
 const todayInputFromDate=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -37,13 +38,14 @@ const readStoredColors=(uid:string):string[]=>{
 };
 const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),client:upperField(sheet.client||'MB'),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;isAdmin:boolean;initialTab:'create'|'distribution'}) {
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,canAddTailor,onAddTailor,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;canAddTailor:boolean;onAddTailor:()=>void;isAdmin:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
  const [ocAuto,setOcAuto]=useState(true);
  const [lastCreatedOc,setLastCreatedOc]=useState('754');
  const [orderOcs,setOrderOcs]=useState<string[]>([]);
+ const [financeOcs,setFinanceOcs]=useState<FinanceOc[]>([]);
  const [orderStatuses,setOrderStatuses]=useState<Record<string,string>>({});
  const [phaseFilter,setPhaseFilter]=useState<'all'|'enfesto'|'office'|'done'>('all');
  const referenceOptions=useMemo(()=>[...new Set(catalogModels.map(m=>normalizeReferenceNumber(m.reference)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true})),[catalogModels]);
@@ -98,6 +100,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(!active||!canViewOrders)return;
   return onSnapshot(collection(db,'cut_orders'),snapshot=>{
    setOrderOcs(snapshot.docs.map(item=>String(item.data().oc||'')));
+   setFinanceOcs(snapshot.docs.map(item=>({id:item.id,oc:String(item.data().oc||''),ref:String(item.data().ref||''),model:String(item.data().model||''),office:canonicalWorkshopName(String(item.data().office||'')),status:String(item.data().status||''),paymentDone:String(item.data().paymentDone||'')})));
    setOrderStatuses(Object.fromEntries(snapshot.docs.map(item=>[item.id,String(item.data().status||'').trim().toUpperCase()])));
   },e=>setError('Não foi possível conferir o andamento das OCs: '+safeProviderMessage(e)));
  },[db,active,canViewOrders]);
@@ -189,7 +192,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const reassignSentSheet=async(s:Sheet)=>{
   if(!canDistribute||!canReassignTailor||busy||s.status!=='assigned')return;
   const target=canonicalWorkshopName(replacementOffice),current=canonicalWorkshopName(s.assignedTailor||'');
-  if(!target||workshopKey(target)===workshopKey(current)){setError('Escolha um costureiro diferente do atual.');return;}
+  if(!target){setError('Escolha um costureiro para a OC.');return;}
   if(!compatibleOffices(s).some(name=>workshopKey(name)===workshopKey(target))){setError('A oficina escolhida não produz este tipo de peça.');return;}
   setBusy(true);setError('');setMessage('');
   try{
@@ -208,11 +211,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    const orderData=orderSnap.data();
    if(String(orderData.oc||'')!==s.oc)throw Error('A OC financeira não corresponde à ficha.');
    if(String(orderData.status||'').toUpperCase()!=='EM ANDAMENTO')throw Error('A OC já foi entregue e não pode ser transferida.');
-   if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current)
-    ||workshopKey(canonicalWorkshopName(String(orderData.office||'')))!==workshopKey(current))
-    throw Error('O costureiro foi modificado em outro aparelho ou os registros estão divergentes. Atualize.');
+   if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current))
+    throw Error('A ficha mudou em outro aparelho. Reabra a OC.');
+   const financialOffice=canonicalWorkshopName(String(orderData.office||''));
+   if(workshopKey(target)===workshopKey(current)&&workshopKey(target)===workshopKey(financialOffice))
+    throw Error('A ficha e a OC financeira já estão com este costureiro.');
    const paid=String(orderData.paymentDone||'').trim().toUpperCase()==='OK';
-   if(!window.confirm('Transferir OC '+s.oc+' de '+current+' para '+target+'?\nA ficha e a OC financeira mudarão juntas. Valores, pagamentos e datas serão preservados.'+(paid?'\nATENÇÃO: pagamento já marcado OK; o histórico pago será preservado.':'')))return;
+   const divergence=workshopKey(financialOffice)!==workshopKey(current);
+   if(!window.confirm((divergence?'ATENÇÃO: nomes diferentes.\nFicha: '+current+'\nOCs/Pagamentos: '+financialOffice+'\n\n':'')+'Confirmar novo costureiro da OC '+s.oc+': '+target+'?\nA ficha e a OC ficarão iguais. Pagamentos, datas e valores serão mantidos.'+(paid?'\nATENÇÃO: OC já consta como paga.':'')))return;
    const batch=writeBatch(db);
    batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
    batch.update(orderRef,{office:target,reassignmentSheetId:s.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
@@ -227,10 +233,10 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   canReassignTailor?<div className="sheet-reassign-area">
        {reassignId===s.id?<div className="sheet-reassign-form">
         <strong>Trocar costureiro — OC {s.oc}</strong>
-        <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
+        <small>Corrige também fichas com nome diferente do financeiro. Não altera pagamentos, preços ou datas.</small>
         <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
          <option value="">Selecione um costureiro</option>
-         {compatibleOffices(s).filter(name=>workshopKey(name)!==workshopKey(s.assignedTailor)).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
+         {compatibleOffices(s).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
         </select></label>
         <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
        </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
