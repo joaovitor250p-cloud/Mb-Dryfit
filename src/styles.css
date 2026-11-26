@@ -2092,3 +2092,8 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-reassign-actions{display:flex;flex-wrap:wrap;gap:9px}
 .sheets-page .sheet-reassign-actions button{min-height:44px}
 @media(max-width:500px){.sheets-page .sheet-reassign-form{padding:12px}.sheets-page .sheet-reassign-actions button{flex:1 1 100%}}
+
+/* Aviso de transferência exibido apenas no cartão de Todas as fichas. */
+.sheets-page .sheet-all-view .sheet-reassign-guidance{margin:0;padding:10px 12px;border-radius:10px;background:rgba(112,91,223,.08);color:var(--text);font-size:13px;font-weight:650;line-height:1.5}
+.sheets-page .sheet-all-view .sheet-reassign-toggle{background:#6959dc;color:#fff;border-color:#6959dc;padding:10px 16px}
+.sheets-page .sheet-all-view .sheet-reassign-toggle:hover{background:#5848c5;color:#fff}
