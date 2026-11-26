@@ -236,7 +236,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
        {reassignId===s.id?<div className="sheet-reassign-form">
         <strong>Trocar costureiro — OC {s.oc}</strong>
         <small>Corrige também fichas com nome diferente do financeiro. Não altera pagamentos, preços ou datas.</small>
-        <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
+        <label>Novo costureiro * (obrigatório)<select required aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
          <option value="">Selecione um costureiro</option>
          {compatibleOffices(s).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
         </select></label>
@@ -247,7 +247,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const soloOcs=financeOcs.filter(o=>o.oc.trim()&&!sheets.some(sh=>normalizeOcNumber(sh.oc)===normalizeOcNumber(o.oc))).sort(compareOcDesc);
  const candidateForSolo=(order:FinanceOc)=>{
    const model=order.model.toLocaleUpperCase('pt-BR');
-   const type=normalizedGarmentType(/BERMUDA/.test(model)?'Bermuda':/CAL[ÇC]A/.test(model)?'Calça':/REGATA/.test(model)?'Regata':/MANGA LONGA|M\\.L\\./.test(model)?'M.L.':/CAMISA|CAMISETA/.test(model)?'Camiseta':'');
+   const type=normalizedGarmentType(/BERMUDA/.test(model)?'Bermuda':/CAL[ÇC]A/.test(model)?'Calça':/REGATA/.test(model)?'Regata':/MANGA LONGA|M\.L\./.test(model)?'M.L.':/CAMISA|CAMISETA/.test(model)?'Camiseta':'');
    return type?officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[]))):officeNames;
  };
  const transferSolo=async(order:FinanceOc)=>{
