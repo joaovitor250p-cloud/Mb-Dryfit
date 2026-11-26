@@ -187,7 +187,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const compatibleOffices=(s:Sheet)=>{
    const model=String(s.model||'');
    const inferred=/BERMUDA/i.test(model)?'Bermuda':/CAL[ÇC]A/i.test(model)?'Calça':/REGATA/i.test(model)?'Regata':/MANGA LONGA|M\.L\./i.test(model)?'M.L.':/CAMISA|CAMISETA/i.test(model)?'Camiseta':'';
-   const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??inferred);
+   const type=normalizedGarmentType(pieceType[s.id]||s.pieceType||inferred);
    return !type?officeNames:officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
  };
 
