@@ -9,6 +9,27 @@ const root=path.join(__dirname,'..');
 const sheets=fs.readFileSync(path.join(root,'src/ProductionSheets.tsx'),'utf8');
 const rules=fs.readFileSync(path.join(root,'firestore.rules'),'utf8');
 
+
+test('troca de costureiro só aparece para usuário autorizado e sincroniza OC sem pagamentos',()=>{
+ const app=fs.readFileSync(path.join(root,'src/App.tsx'),'utf8');
+ const admin=fs.readFileSync(path.join(root,'src/AccountsAdmin.tsx'),'utf8');
+ assert.match(admin,/tailor_reassignment/);
+ assert.match(app,/canReassignTailor=\{editor&&\(admin\|\|access\.includes\('tailor_reassignment'\)\)\&\&permitted\('sheet_distribution'\)\}/);
+ assert.match(sheets,/\{canReassignTailor&&<div className="sheet-reassign-area">/);
+ assert.match(sheets,/const reassignSentSheet=async\(s:Sheet\)=>/);
+ assert.match(sheets,/batch\.update\(sheetRef,\{assignedTailor:target,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(sheets,/batch\.update\(orderRef,\{office:target,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(sheets,/batch\.set\(doc\(collection\(db,'audit_log'\)\)/);
+ assert.match(sheets,/await batch\.commit\(\)/);
+ assert.match(sheets,/String\(orderData\.status\|\|''\)\.toUpperCase\(\)!=='EM ANDAMENTO'/);
+ assert.doesNotMatch(sheets,/batch\.update\(orderRef,\{[^}]*paymentDone/);
+ assert.match(rules,/function canReassignTailor\(\)/);
+ assert.match(rules,/canWrite\('tailor_reassignment'\)/);
+ assert.match(rules,/request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)/);
+ assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/production_sheets\/\$\(orderId\)\)\.data\.assignedTailor/);
+ assert.match(rules,/getAfter\(\/databases\/\$\(database\)\/documents\/cut_orders\/\$\(sheetId\)\)\.data\.office/);
+});
+
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
