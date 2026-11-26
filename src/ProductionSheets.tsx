@@ -2,7 +2,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, FileText, PackageCheck, Printer, Search, Send } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
-import { collection, doc, getDocs, onSnapshot, query as firestoreQuery, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query as firestoreQuery, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
@@ -37,7 +37,7 @@ const readStoredColors=(uid:string):string[]=>{
 };
 const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(sheet.model),reference:normalizeReferenceNumber(sheet.reference),client:upperField(sheet.client||'MB'),pieceType:upperField(sheet.pieceType||''),fabric:upperField(sheet.fabric||''),composition:upperField(sheet.composition),trims:upperField(sheet.trims),officeInstructions:upperField(sheet.officeInstructions),oc:upperField(sheet.oc),tailorInstructions:upperField(sheet.tailorInstructions),finishingInstructions:upperField(sheet.finishingInstructions),colors:sheet.colors.map(row=>({...row,cor:normalizeColorName(row.cor),detalhes:upperField(row.detalhes)}))});
 const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
-export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canViewOrders,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canViewOrders:boolean;isAdmin:boolean;initialTab:'create'|'distribution'}) {
+export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;isAdmin:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
  const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
  const [form,setForm]=useState<FormData>(blank);
@@ -87,6 +87,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const [distributionSearch,setDistributionSearch]=useState('');
  const [sentSearch,setSentSearch]=useState('');
  const [sendDates,setSendDates]=useState<Record<string,string>>({});
+ const [reassignId,setReassignId]=useState<string|null>(null);
+ const [replacementOffice,setReplacementOffice]=useState('');
  const [printSheet,setPrintSheet]=useState<FormData & {assignedTailor:string}|null>(null);
  const print=(sheet:FormData & {assignedTailor:string})=>{setPrintSheet(sheet);};
  useEffect(()=>{if(!printSheet||!active)return;const previousTitle=document.title;document.title=`Ficha_OC_${(printSheet.oc||'sem_numero').replace(/[^a-zA-Z0-9_-]/g,'_')}`;const timeout=window.setTimeout(()=>window.print(),350);return()=>{window.clearTimeout(timeout);document.title=previousTitle};},[printSheet,active]);
@@ -182,6 +184,35 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const compatibleOffices=(s:Sheet)=>{
    const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
    return officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
+ };
+
+ const reassignSentSheet=async(s:Sheet)=>{
+  if(!canDistribute||!canReassignTailor||busy||s.status!=='assigned')return;
+  const target=canonicalWorkshopName(replacementOffice),current=canonicalWorkshopName(s.assignedTailor||'');
+  if(!target||workshopKey(target)===workshopKey(current)){setError('Escolha um costureiro diferente do atual.');return;}
+  if(!compatibleOffices(s).some(name=>workshopKey(name)===workshopKey(target))){setError('A oficina escolhida não produz este tipo de peça.');return;}
+  setBusy(true);setError('');setMessage('');
+  try{
+   const sheetRef=doc(db,'production_sheets',s.id),orderRef=doc(db,'cut_orders',s.id);
+   const [sheetSnap,orderSnap]=await Promise.all([getDoc(sheetRef),getDoc(orderRef)]);
+   if(!sheetSnap.exists()||sheetSnap.data().status!=='assigned'||sheetSnap.data().oc!==s.oc)throw Error('Ficha alterada por outro usuário. Atualize.');
+   if(!orderSnap.exists())throw Error('Não há OC financeira vinculada pelo mesmo ID; troca bloqueada para preservar os pagamentos.');
+   const orderData=orderSnap.data();
+   if(String(orderData.oc||'')!==s.oc)throw Error('A OC financeira não corresponde à ficha.');
+   if(String(orderData.status||'').toUpperCase()!=='EM ANDAMENTO')throw Error('A OC já foi entregue e não pode ser transferida.');
+   if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current)
+    ||workshopKey(canonicalWorkshopName(String(orderData.office||'')))!==workshopKey(current))
+    throw Error('O costureiro foi modificado em outro aparelho ou os registros estão divergentes. Atualize.');
+   const paid=String(orderData.paymentDone||'').trim().toUpperCase()==='OK';
+   if(!window.confirm('Transferir OC '+s.oc+' de '+current+' para '+target+'?\nA ficha e a OC financeira mudarão juntas. Valores, pagamentos e datas serão preservados.'+(paid?'\nATENÇÃO: pagamento já marcado OK; o histórico pago será preservado.':'')))return;
+   const batch=writeBatch(db);
+   batch.update(sheetRef,{assignedTailor:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+   batch.update(orderRef,{office:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+   await batch.commit();
+   setReassignId(null);setReplacementOffice('');
+   setMessage('OC '+s.oc+' transferida para '+target+'. A ficha e OCs e Pagamentos foram sincronizados sem alterar valores ou pagamentos.');
+  }catch(e){setError('Falha ao transferir OC '+s.oc+': '+safeProviderMessage(e)+'. Não alteramos valores ou pagamentos.');}
+  finally{setBusy(false);}
  };
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
@@ -299,6 +330,17 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
       <h3>{s.model||'Modelo não informado'}</h3>
       <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'Tipo não informado'} · <b>{sheetQuantity(s).toLocaleString('pt-BR')} peças</b></p>
       <div className="sheet-card-office"><Building2 size={16}/><span>{s.assignedTailor}</span></div>
+      {canReassignTailor&&<div className="sheet-reassign-area">
+       {reassignId===s.id?<div className="sheet-reassign-form">
+        <strong>Trocar costureiro — OC {s.oc}</strong>
+        <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
+        <label>Novo costureiro<select aria-label={`Novo costureiro da OC ${s.oc}`} disabled={busy} value={replacementOffice} onChange={e=>setReplacementOffice(e.target.value)}>
+         <option value="">Selecione um costureiro</option>
+         {compatibleOffices(s).filter(name=>workshopKey(name)!==workshopKey(s.assignedTailor)).map(name=><option value={name} key={workshopKey(name)}>{name}</option>)}
+        </select></label>
+        <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
+       </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
+      </div>}
       <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button></div>
      </article>)}
     </div></div>
