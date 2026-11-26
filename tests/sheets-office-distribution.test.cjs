@@ -48,16 +48,16 @@ test('ficha enviada informa permissão ausente e PWA busca JS/CSS atualizados',(
  assert.match(sw,/caches\.match\(req\)/);
 });
 
-test('troca de costureiro fica somente em Todas as fichas',()=>{
+test('troca de costureiro existe nas fichas finalizadas e nas em andamento',()=>{
  const startAll=sheets.indexOf("{tab==='all'&&");
  const startDistribution=sheets.indexOf("{tab==='distribution'&&");
  const startSent=sheets.indexOf("{tab==='sent'&&");
  const endSent=sheets.indexOf("{isAdmin&&initialTab==='create'",startSent);
  assert.ok(startAll>=0&&startDistribution>startAll&&startSent>startDistribution&&endSent>startSent);
  assert.match(sheets.slice(startAll,startDistribution),/s\.status==='assigned'&&reassignControl\(s\)/);
- assert.doesNotMatch(sheets.slice(startSent,endSent),/reassignControl\(s\)/);
+ assert.match(sheets.slice(startSent,endSent),/reassignControl\(s\)/);
  assert.match(sheets.slice(startAll,startDistribution),/sheet-reassign-guidance/);
- assert.match(sheets.slice(startSent,endSent),/Para trocar o costureiro, use Todas as fichas/);
+ assert.match(sheets.slice(startSent,endSent),/Costureiros — fichas em andamento/);
 });
 
 test('OCs e Pagamentos usa ação autorizada e grava ficha e OC juntas',()=>{
@@ -99,7 +99,7 @@ test('Todas as fichas mostra seleção direta de costureiro nas fichas pendentes
  assert.match(all,/void assign\(s\)/);
  assert.match(all,/Costureiro \/ oficina \* \(obrigatório\)<select required/);
  assert.doesNotMatch(all,/OCs sem ficha cadastrada/);
- assert.doesNotMatch(sent,/reassignControl\(s\)/);
+ assert.match(sent,/reassignControl\(s\)/);
 });
 test('erro de permissão informa etapa e projeto Firebase para OC enviada',()=>{
  assert.match(sheets,/let stage='consultar OC por ID'/);
@@ -108,6 +108,16 @@ test('erro de permissão informa etapa e projeto Firebase para OC enviada',()=>{
  assert.match(sheets,/stage='gravação atômica de ficha, OC e auditoria'/);
  assert.match(sheets,/db\.app\.options\.projectId/);
  assert.match(sheets,/Nenhum pagamento foi alterado/);
+});
+
+test('Todas as fichas usa apenas OCs entregues e Costureiros mostra andamento, inclusive OC legada',()=>{
+ assert.match(sheets,/const statusForSheet=\(s:Sheet\)=>orderStatuses\[s\.id\]\|\|orderStatusByOc\[normalizeOcNumber\(s\.oc\)\]/);
+ assert.match(sheets,/const completedSheets=assigned\.filter\(s=>statusForSheet\(s\)==='ENTREGUE'\)/);
+ assert.match(sheets,/const atOffice=assigned\.filter\(s=>statusForSheet\(s\)!=='ENTREGUE'\)/);
+ assert.match(sheets,/const phaseSheets=phaseFilter==='enfesto'\?inEnfesto:phaseFilter==='office'\?atOffice:completedSheets/);
+ assert.match(sheets,/Todas as fichas \(\{completedSheets\.length\}\)/);
+ assert.match(sheets,/Costureiros \(\{atOffice\.length\}\)/);
+ assert.match(sheets,/const sentFiltered=atOffice\.filter/);
 });
 
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
@@ -150,10 +160,10 @@ test('confirmar envio cria OC com data escolhida e prazo de dez dias',()=>{
 });
 
 test('enviadas vão para Costureiros e ficam disponíveis para impressão A4',()=>{
- assert.match(sheets,/Costureiros \(\{assigned\.length\}\)/);
+ assert.match(sheets,/Costureiros \(\{atOffice\.length\}\)/);
  assert.match(sheets,/tab==='sent'&&canDistribute/);
  assert.match(sheets,/sentGroups\.map\(group=>/);
- assert.match(sheets,/const sentFiltered=assigned\.filter/);
+ assert.match(sheets,/const sentFiltered=atOffice\.filter/);
  assert.match(sheets,/group\.items\.map\(s=>/);
  assert.match(sheets,/print\(lastAssigned\)/);
  assert.match(sheets,/BAIXAR \/ IMPRIMIR FICHA ENVIADA/);
