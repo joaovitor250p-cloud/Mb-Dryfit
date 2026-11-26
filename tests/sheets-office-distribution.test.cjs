@@ -15,7 +15,7 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  const admin=fs.readFileSync(path.join(root,'src/AccountsAdmin.tsx'),'utf8');
  assert.match(admin,/tailor_reassignment/);
  assert.match(app,/canReassignTailor=\{editor&&\(admin\|\|access\.includes\('tailor_reassignment'\)\)\&\&permitted\('sheet_distribution'\)\}/);
- assert.match(sheets,/\{canReassignTailor&&<div className="sheet-reassign-area">/);
+ assert.match(sheets,/canReassignTailor\?<div className="sheet-reassign-area">/);
  assert.match(sheets,/const reassignSentSheet=async\(s:Sheet\)=>/);
  assert.match(sheets,/s\.status==='assigned'&&reassignControl\(s\)/);
  assert.match(sheets,/const legacyMatches=/);
@@ -58,6 +58,19 @@ test('troca de costureiro fica somente em Todas as fichas',()=>{
  assert.doesNotMatch(sheets.slice(startSent,endSent),/reassignControl\(s\)/);
  assert.match(sheets.slice(startAll,startDistribution),/sheet-reassign-guidance/);
  assert.match(sheets.slice(startSent,endSent),/Para trocar o costureiro, use Todas as fichas/);
+});
+
+test('OCs e Pagamentos usa ação autorizada e grava ficha e OC juntas',()=>{
+ const cut=fs.readFileSync(path.join(root,'src/CutOrders.tsx'),'utf8');
+ const app=fs.readFileSync(path.join(root,'src/App.tsx'),'utf8');
+ assert.match(app,/<CutOrders db=\{db!\} user=\{user\} canEdit=\{editor&&permitted\('orders'\)\} canReassignTailor=/);
+ assert.match(cut,/const prepareTailorTransfer=async\(order:Order\)=>/);
+ assert.match(cut,/const confirmTailorTransfer=async\(\)=>/);
+ assert.match(cut,/batch\.update\(sheetRef,\{assignedTailor:target,reassignmentOrderId:orderRef\.id/);
+ assert.match(cut,/batch\.update\(orderRef,\{office:target,reassignmentSheetId:sheetRef\.id/);
+ assert.match(cut,/Trocar costureiro na ficha/);
+ assert.match(cut,/Somente o dono ou alguém autorizado pode alterar o costureiro/);
+ assert.doesNotMatch(cut,/batch\.update\(orderRef,\{office:target,paymentDone/);
 });
 
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
