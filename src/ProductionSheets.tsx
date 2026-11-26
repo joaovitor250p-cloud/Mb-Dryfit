@@ -289,6 +289,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     <p className="sheet-card-meta"><b>CLIENTE: {(s.client||'MB').toLocaleUpperCase('pt-BR')}</b> · <b>REF {s.reference||'—'}</b> · {s.pieceType||'TIPO NÃO INFORMADO'} · {sheetQuantity(s).toLocaleString('pt-BR')} PEÇAS</p>
     <div className="sheet-card-office"><Building2 size={16}/><span>{s.status==='assigned'?s.assignedTailor||'OFICINA NÃO INFORMADA':s.status==='enfesto'?'AGUARDANDO CORTE':'AINDA SEM OFICINA DEFINIDA'}</span></div>
     {s.status==='assigned'&&canReassignTailor&&<p className="sheet-reassign-guidance">Esta ficha já foi enviada. Se o costureiro não fizer este tipo de peça, escolha outro responsável abaixo.</p>}
+    {s.status==='assigned'&&canDistribute&&!canReassignTailor&&<p className="sheet-reassign-guidance" role="status">Para trocar o costureiro desta ficha, o dono precisa autorizar a permissão especial <strong>Trocar costureiro de fichas já enviadas</strong> em Contas e permissões. Seu acesso atual permite consultar a ficha, mas não transferi-la.</p>}
     {s.status==='assigned'&&reassignControl(s)}
     <div className="sheet-card-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
    </div>
