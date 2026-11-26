@@ -15,7 +15,7 @@ test('troca de costureiro só aparece para usuário autorizado e sincroniza OC s
  const admin=fs.readFileSync(path.join(root,'src/AccountsAdmin.tsx'),'utf8');
  assert.match(admin,/tailor_reassignment/);
  assert.match(app,/canReassignTailor=\{editor&&\(admin\|\|access\.includes\('tailor_reassignment'\)\)\&\&permitted\('sheet_distribution'\)\}/);
- assert.match(sheets,/\{canReassignTailor&&<div className="sheet-reassign-area">/);
+ assert.match(sheets,/canReassignTailor\?<div className="sheet-reassign-area">/);
  assert.match(sheets,/const reassignSentSheet=async\(s:Sheet\)=>/);
  assert.match(sheets,/s\.status==='assigned'&&reassignControl\(s\)/);
  assert.match(sheets,/const legacyMatches=/);
