@@ -79,7 +79,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
   const [rows,setRows]=useState<Order[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [alert,setAlert]=useState(''),[notice,setNotice]=useState('');
   const [deleteTarget,setDeleteTarget]=useState<Order|null>(null);
-  const [transfer,setTransfer]=useState<{order:Order;sheetId:string;options:string[]}|null>(null);
+  const [transfer,setTransfer]=useState<{order:Order;sheetId:string;sheetOffice:string;options:string[]}|null>(null);
   const [transferOffice,setTransferOffice]=useState('');
   const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
   const [loadingFicha,setLoadingFicha]=useState<string|null>(null);
@@ -281,19 +281,18 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
     try{
       const matching=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',order.oc)))).docs
         .filter(x=>x.data().status==='assigned');
-      if(matching.length!==1)throw Error('Não há uma única ficha ENVIADA vinculada a esta OC. Verifique Todas as fichas antes de transferir.');
-      const sheet=matching[0].data();
-      if(workshopKey(canonicalWorkshopName(String(sheet.assignedTailor||'')))!==workshopKey(order.office))
-        throw Error('O costureiro registrado na ficha não confere com o da OC. Confira os dados antes de transferir.');
-      if(order.status!=='EM ANDAMENTO')throw Error('Uma OC entregue não pode ser transferida.');
+      if(matching.length>1)throw Error('Existem várias fichas enviadas para esta OC. Confira as fichas antes de alterar.');
+      const sheet=matching[0]?.data();
+      const sheetOffice=canonicalWorkshopName(String(sheet?.assignedTailor||''));
       const registered=(await getDocs(collection(db,'workshops'))).docs.map(x=>x.data());
-      const type=normalizedGarmentType(String(sheet.pieceType||order.model||''));
+      const model=String(order.model||'');
+      const type=normalizedGarmentType(String(sheet?.pieceType||(/BERMUDA/i.test(model)?'Bermuda':/CAL[ÇC]A/i.test(model)?'Calça':/CAMISA|CAMISETA/i.test(model)?'Camiseta':'')));
       const names=[...new Map([...TAILORS,...registered.map(w=>String(w.name||''))].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()];
-      const options=names.filter(name=>workshopKey(name)!==workshopKey(order.office)
-        && canSewType(name,type,registered.filter(w=>workshopKey(String(w.name||''))===workshopKey(name)).flatMap(w=>Array.isArray(w.types)?w.types:[])))
+      const options=names.filter(name=>((workshopKey(name)!==workshopKey(order.office)||!!sheet&&workshopKey(name)===workshopKey(sheetOffice))
+        && (!type||canSewType(name,type,registered.filter(w=>workshopKey(String(w.name||''))===workshopKey(name)).flatMap(w=>Array.isArray(w.types)?w.types:[])))))
         .sort((a,b)=>a.localeCompare(b,'pt-BR'));
       if(!options.length)throw Error('Nenhum costureiro compatível com este tipo de peça. Confira as categorias nas Oficinas.');
-      setTransfer({order,sheetId:matching[0].id,options});setTransferOffice('');
+      setTransfer({order,sheetId:matching[0]?.id||'',sheetOffice,options});setTransferOffice('');
       setDraft(null);
     }catch(e){notify('Não foi possível preparar a troca: '+safeProviderMessage(e),true)}
     finally{setBusy(false)}
@@ -305,20 +304,33 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
     if(!window.confirm('Transferir OC '+transfer.order.oc+' de '+previous+' para '+target+'? Os valores e pagamentos serão preservados.'))return;
     setBusy(true);setAlert('');
     try{
-      const sheetRef=doc(db,'production_sheets',transfer.sheetId),orderRef=doc(db,'cut_orders',transfer.order.id);
-      const [sheet,order]=await Promise.all([getDoc(sheetRef),getDoc(orderRef)]);
-      if(!sheet.exists()||!order.exists()||sheet.data().status!=='assigned'||order.data().status!=='EM ANDAMENTO'
-        ||sheet.data().oc!==transfer.order.oc||order.data().oc!==transfer.order.oc
-        ||workshopKey(canonicalWorkshopName(String(sheet.data().assignedTailor||'')))!==workshopKey(previous)
-        ||workshopKey(canonicalWorkshopName(String(order.data().office||'')))!==workshopKey(previous))
-        throw Error('OC ou ficha alterada em outro aparelho. Atualize e tente novamente.');
+      const orderRef=doc(db,'cut_orders',transfer.order.id);
+      const currentOrder=await getDoc(orderRef);
+      if(!currentOrder.exists()||currentOrder.data().oc!==transfer.order.oc
+        ||workshopKey(canonicalWorkshopName(String(currentOrder.data().office||'')))!==workshopKey(previous))
+        throw Error('Esta OC foi alterada em outro aparelho. Atualize a lista.');
       const batch=writeBatch(db);
-      batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
-      batch.update(orderRef,{office:target,reassignmentSheetId:sheetRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
-      batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+transfer.order.oc,before:{oc:transfer.order.oc,office:previous},after:{oc:transfer.order.oc,office:target},at:serverTimestamp()});
+      if(transfer.sheetId){
+        const sheetRef=doc(db,'production_sheets',transfer.sheetId);
+        const sheet=await getDoc(sheetRef);
+        if(!sheet.exists()||sheet.data().status!=='assigned'||sheet.data().oc!==transfer.order.oc
+          ||workshopKey(canonicalWorkshopName(String(sheet.data().assignedTailor||'')))!==workshopKey(transfer.sheetOffice))
+          throw Error('A ficha foi alterada em outro aparelho. Atualize a lista.');
+        if(workshopKey(target)===workshopKey(transfer.sheetOffice)&&workshopKey(target)===workshopKey(previous))
+          throw Error('Ficha e OC já estão com o costureiro escolhido.');
+        batch.update(sheetRef,{assignedTailor:target,reassignmentOrderId:orderRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
+        batch.update(orderRef,{office:target,reassignmentSheetId:sheetRef.id,updatedAt:serverTimestamp(),updatedBy:user.uid});
+      }else{
+        const matches=(await getDocs(fsQuery(collection(db,'production_sheets'),where('oc','==',transfer.order.oc)))).docs;
+        if(matches.some(x=>x.data().status==='assigned')||currentOrder.data().reassignmentSheetId)
+          throw Error('Esta OC possui uma ficha. Faça a transferência sincronizada pela ficha.');
+        if(workshopKey(previous)===workshopKey(target))throw Error('O costureiro selecionado já está nesta OC.');
+        batch.update(orderRef,{office:target,updatedAt:serverTimestamp(),updatedBy:user.uid});
+      }
+      batch.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'tailor_reassignment',modelName:'OC '+transfer.order.oc,before:{oc:transfer.order.oc,office:previous,sheetOffice:transfer.sheetOffice||null},after:{oc:transfer.order.oc,office:target,withoutSheet:!transfer.sheetId},at:serverTimestamp()});
       await batch.commit();
       setTransfer(null);setTransferOffice('');
-      notify('Costureiro da OC '+transfer.order.oc+' atualizado em Todas as fichas e OCs e Pagamentos. Valores e pagamentos preservados.');
+      notify('Costureiro da OC '+transfer.order.oc+' atualizado'+(transfer.sheetId?' também na ficha.':'. Esta OC não possui ficha vinculada.')+' Valores e pagamentos preservados.');
     }catch(e){notify('Falha na transferência: '+safeProviderMessage(e),true)}
     finally{setBusy(false)}
   };
@@ -812,7 +824,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
     </small>}</label>)}</div></fieldset>)}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
       <footer>{canReassignTailor&&editing&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void prepareTailorTransfer(editing)}>Trocar costureiro na ficha</button>}{editing&&hasVerifiedSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
-    {transfer&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setTransfer(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Transferir costureiro da OC"><header><div><span className="order-eyebrow">TROCA AUTORIZADA</span><h2>Transferir OC {transfer.order.oc}</h2><p>Responsável atual: {transfer.order.office}. A ficha e OCs e Pagamentos serão atualizadas juntas, sem alterar os valores.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Fechar</button></header><div className="order-fieldgrid"><label>Novo costureiro<select value={transferOffice} disabled={busy} onChange={e=>setTransferOffice(e.target.value)}><option value="">Selecione uma oficina</option>{transfer.options.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}</select></label></div><footer><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Cancelar</button><button type="button" className="primary-button" disabled={busy||!transferOffice} onClick={()=>void confirmTailorTransfer()}>{busy?'Salvando...':'Confirmar troca'}</button></footer></section></div>,document.body)}
+    {transfer&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setTransfer(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Transferir costureiro da OC"><header><div><span className="order-eyebrow">TROCA AUTORIZADA</span><h2>Transferir OC {transfer.order.oc}</h2><p>Costureiro na OC: {transfer.order.office}.{transfer.sheetId?' Costureiro na ficha: '+transfer.sheetOffice+'. Os dois serão sincronizados.':' Esta OC não possui ficha; somente o nome no financeiro será alterado.'} Valores, pagamentos e datas serão preservados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Fechar</button></header><div className="order-fieldgrid"><label>Novo costureiro<select value={transferOffice} disabled={busy} onChange={e=>setTransferOffice(e.target.value)}><option value="">Selecione uma oficina</option>{transfer.options.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}</select></label></div><footer><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Cancelar</button><button type="button" className="primary-button" disabled={busy||!transferOffice} onClick={()=>void confirmTailorTransfer()}>{busy?'Salvando...':'Confirmar troca'}</button></footer></section></div>,document.body)}
     {printSheet&&pageActive&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
     {deleteTarget&&isAdmin&&pageActive&&createPortal(<div className="order-delete-overlay" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)setDeleteTarget(null)}}><section className="order-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-oc-title" aria-describedby="delete-oc-description"><div className="order-delete-icon"><Trash2 size={23}/></div><h2 id="delete-oc-title">Excluir a OC {deleteTarget.oc}?</h2><p id="delete-oc-description">Tem certeza que deseja excluir a <strong>OC {deleteTarget.oc}</strong> — {deleteTarget.model || 'sem modelo'}?</p><p>Esta ação apaga o registro da Ordem de Corte do Firebase e não pode ser desfeita. A Ficha de Produção vinculada não será apagada.</p><div className="order-delete-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button type="button" className="order-delete-button order-delete-confirm-button" disabled={busy} onClick={()=>void removeOrder()}>{busy?'Excluindo...':`Sim, excluir OC ${deleteTarget.oc}`}</button></div></section></div>,document.body)}
   </div>;
