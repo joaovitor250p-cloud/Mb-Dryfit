@@ -101,6 +101,15 @@ test('Todas as fichas mostra seleção direta de costureiro nas fichas pendentes
  assert.doesNotMatch(all,/OCs sem ficha cadastrada/);
  assert.doesNotMatch(sent,/reassignControl\(s\)/);
 });
+test('erro de permissão informa etapa e projeto Firebase para OC enviada',()=>{
+ assert.match(sheets,/let stage='consultar OC por ID'/);
+ assert.match(sheets,/stage='localizar OC financeira antiga'/);
+ assert.match(sheets,/stage='consultar ficha enviada'/);
+ assert.match(sheets,/stage='gravação atômica de ficha, OC e auditoria'/);
+ assert.match(sheets,/db\.app\.options\.projectId/);
+ assert.match(sheets,/Nenhum pagamento foi alterado/);
+});
+
 test('a distribuição lista fichas disponíveis, não lista de costureiros',()=>{
  assert.match(sheets,/Centro de Distribuição/);
  assert.match(sheets,/filteredPending\.map\(s=>/);
