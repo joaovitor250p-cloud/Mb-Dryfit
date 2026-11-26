@@ -2019,3 +2019,29 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .order-payment-line .order-payment-review-hint{flex:0 1 235px}
 .order-payment-line .order-payment-net{font-variant-numeric:tabular-nums}
 @media(max-width:690px){.order-payment-line .order-payment-review-hint{flex:1 1 100%}}
+
+/* Ficha A4: texto preenchido (vermelho) mais legível na impressão.
+   Não altera rótulos pretos, edição na tela nem tamanho do papel. */
+@media print {
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field:not(.sheet-volumes) > span {
+    font-size:13px!important;
+    line-height:1.24!important;
+    font-weight:700!important;
+    color:#c40000!important;
+    -webkit-text-fill-color:#c40000!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td {
+    font-size:12.5px!important;
+    line-height:1.25!important;
+    font-weight:700!important;
+    color:#c40000!important;
+    -webkit-text-fill-color:#c40000!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td:last-child {
+    font:700 12.5px/1.25 Arial,Helvetica,sans-serif!important;
+    color:#c40000!important;
+    -webkit-text-fill-color:#c40000!important;
+    text-align:left!important;
+    overflow-wrap:anywhere!important;
+  }
+}
