@@ -486,7 +486,7 @@ service cloud.firestore {
           'entry','sent','due','status','deliveredFlag',
           'deliveredAt','defects','discountPiece',
           'discountTotal','total','paidAt','paymentDone',
-          'manualTotal','source',
+          'manualTotal','source','reassignmentSheetId',
           'createdAt','createdBy','updatedAt','updatedBy'
         ])
         && d.keys().hasAll([
@@ -498,6 +498,7 @@ service cloud.firestore {
           'createdAt','createdBy','updatedAt','updatedBy'
         ])
         && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
+        && (!('reassignmentSheetId' in d) || (d.reassignmentSheetId is string && d.reassignmentSheetId.size() > 0 && d.reassignmentSheetId.size() <= 128))
 
         && d.oc is string
         && d.oc.size() > 0
@@ -590,25 +591,30 @@ service cloud.firestore {
         && request.resource.data.source == resource.data.source
         // Uma OC vinculada a ficha enviada só troca a oficina no fluxo autorizado.
         && (request.resource.data.office == resource.data.office
-          || !exists(/databases/$(database)/documents/production_sheets/$(orderId))
-          || get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status != 'assigned')
+          || (resource.data.get('reassignmentSheetId',null) == null
+            && (!exists(/databases/$(database)/documents/production_sheets/$(orderId))
+              || get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status != 'assigned')))
       ) || (
         canReassignTailor()
         && resource.data.status == 'EM ANDAMENTO'
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['office','updatedAt','updatedBy'])
+          .hasOnly(['office','reassignmentSheetId','updatedAt','updatedBy'])
+        && request.resource.data.reassignmentSheetId is string
+        && request.resource.data.reassignmentSheetId.size() > 0
+        && request.resource.data.reassignmentSheetId.size() <= 128
         && request.resource.data.office is string
         && request.resource.data.office.size() > 0
         && request.resource.data.office.size() <= 120
         && request.resource.data.office != resource.data.office
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
-        && exists(/databases/$(database)/documents/production_sheets/$(orderId))
-        && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status == 'assigned'
-        && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.oc == resource.data.oc
-        && get(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedTailor == resource.data.office
-        && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.assignedTailor == request.resource.data.office
-        && getAfter(/databases/$(database)/documents/production_sheets/$(orderId)).data.updatedBy == request.auth.uid
+        && exists(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId))
+        && get(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.status == 'assigned'
+        && get(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.oc == resource.data.oc
+        && get(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.assignedTailor == resource.data.office
+        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.assignedTailor == request.resource.data.office
+        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.reassignmentOrderId == orderId
+        && getAfter(/databases/$(database)/documents/production_sheets/$(request.resource.data.reassignmentSheetId)).data.updatedBy == request.auth.uid
       );
 
       allow delete: if isAdmin();
@@ -803,7 +809,7 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','client','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy'])
+      return d.keys().hasOnly(['model','reference','client','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy','reassignmentOrderId'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
@@ -821,6 +827,7 @@ service cloud.firestore {
         && d.colors is list && d.colors.size() <= 50
         && d.status in ['draft','enfesto','pending','assigned']
         && d.assignedTailor is string && d.assignedTailor.size() <= 120
+        && (!('reassignmentOrderId' in d) || (d.reassignmentOrderId is string && d.reassignmentOrderId.size() > 0 && d.reassignmentOrderId.size() <= 128))
         && d.createdBy is string && d.updatedBy == request.auth.uid
         && d.updatedAt == request.time
         && (d.assignedAt == null || d.assignedAt is timestamp)
@@ -911,19 +918,23 @@ service cloud.firestore {
         && resource.data.status == 'assigned'
         && request.resource.data.status == 'assigned'
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['assignedTailor','updatedAt','updatedBy'])
+          .hasOnly(['assignedTailor','reassignmentOrderId','updatedAt','updatedBy'])
+        && request.resource.data.reassignmentOrderId is string
+        && request.resource.data.reassignmentOrderId.size() > 0
+        && request.resource.data.reassignmentOrderId.size() <= 128
         && request.resource.data.assignedTailor is string
         && request.resource.data.assignedTailor.size() > 0
         && request.resource.data.assignedTailor.size() <= 120
         && request.resource.data.assignedTailor != resource.data.assignedTailor
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
-        && exists(/databases/$(database)/documents/cut_orders/$(sheetId))
-        && get(/databases/$(database)/documents/cut_orders/$(sheetId)).data.oc == resource.data.oc
-        && get(/databases/$(database)/documents/cut_orders/$(sheetId)).data.office == resource.data.assignedTailor
-        && get(/databases/$(database)/documents/cut_orders/$(sheetId)).data.status == 'EM ANDAMENTO'
-        && getAfter(/databases/$(database)/documents/cut_orders/$(sheetId)).data.office == request.resource.data.assignedTailor
-        && getAfter(/databases/$(database)/documents/cut_orders/$(sheetId)).data.updatedBy == request.auth.uid
+        && exists(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId))
+        && get(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.oc == resource.data.oc
+        && get(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.office == resource.data.assignedTailor
+        && get(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.status == 'EM ANDAMENTO'
+        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.office == request.resource.data.assignedTailor
+        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.reassignmentSheetId == sheetId
+        && getAfter(/databases/$(database)/documents/cut_orders/$(request.resource.data.reassignmentOrderId)).data.updatedBy == request.auth.uid
       );
       allow delete: if isAdmin()
         && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
