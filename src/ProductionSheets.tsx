@@ -224,7 +224,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   finally{setBusy(false);}
  };
  const reassignControl=(s:Sheet)=>(
-  {canReassignTailor&&<div className="sheet-reassign-area">
+  canReassignTailor?<div className="sheet-reassign-area">
        {reassignId===s.id?<div className="sheet-reassign-form">
         <strong>Trocar costureiro — OC {s.oc}</strong>
         <small>Altera a ficha e a OC juntas. Não modifica pagamentos, valores ou datas.</small>
@@ -234,7 +234,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
         </select></label>
         <div className="sheet-reassign-actions"><button type="button" className="primary-button" disabled={busy||!replacementOffice} onClick={()=>void reassignSentSheet(s)}>{busy?'Salvando...':'Confirmar troca'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>{setReassignId(null);setReplacementOffice('')}}>Cancelar</button></div>
        </div>:<button type="button" className="outline-button sheet-reassign-toggle" disabled={busy} onClick={()=>{setReassignId(s.id);setReplacementOffice('');setError('')}}>Trocar costureiro</button>}
-      </div>}
+      </div>:null
  );
  const normSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const filteredPending=pending.filter(s=>!distributionSearch.trim()||normSearch([s.oc,s.reference,s.model,s.pieceType||''].join(' ')).includes(normSearch(distributionSearch)));
