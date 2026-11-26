@@ -589,11 +589,9 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.source == resource.data.source
-        // Uma OC vinculada a ficha enviada só troca a oficina no fluxo autorizado.
-        && (request.resource.data.office == resource.data.office
-          || (resource.data.get('reassignmentSheetId',null) == null
-            && (!exists(/databases/$(database)/documents/production_sheets/$(orderId))
-              || get(/databases/$(database)/documents/production_sheets/$(orderId)).data.status != 'assigned')))
+        // A edição comum nunca troca costureiro: somente a operação
+        // especial de transferência, disponível ao dono/delegado autorizado.
+        && request.resource.data.office == resource.data.office
       ) || (
         // Transferência ou reconciliação com ficha existente. Ambos os
         // documentos mudam atomicamente; nenhum campo financeiro é editado.
