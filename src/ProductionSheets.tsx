@@ -185,8 +185,10 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sheetQuantity=(s:Sheet)=>s.colors.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((v,k)=>v+quantity(row[k]),0),0);
  const compatibleOffices=(s:Sheet)=>{
-   const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??'');
-   return officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
+   const model=String(s.model||'');
+   const inferred=/BERMUDA/i.test(model)?'Bermuda':/CAL[ÇC]A/i.test(model)?'Calça':/REGATA/i.test(model)?'Regata':/MANGA LONGA|M\.L\./i.test(model)?'M.L.':/CAMISA|CAMISETA/i.test(model)?'Camiseta':'';
+   const type=normalizedGarmentType(pieceType[s.id]??s.pieceType??inferred);
+   return !type?officeNames:officeNames.filter(name=>canSewType(name,type,workshops.filter(w=>workshopKey(w.name)===workshopKey(name)).flatMap(w=>w.types||[])));
  };
 
  const reassignSentSheet=async(s:Sheet)=>{
@@ -210,7 +212,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    if(!orderSnap?.exists())throw Error('OC financeira não localizada. Para fichas antigas, é necessário acesso de leitura a OCs e Pagamentos.');
    const orderData=orderSnap.data();
    if(String(orderData.oc||'')!==s.oc)throw Error('A OC financeira não corresponde à ficha.');
-   if(String(orderData.status||'').toUpperCase()!=='EM ANDAMENTO')throw Error('A OC já foi entregue e não pode ser transferida.');
+   // Mesmo uma OC entregue pode ter o responsável corrigido pelo dono; não alteramos status nem pagamentos.
    if(workshopKey(canonicalWorkshopName(String(sheetSnap.data().assignedTailor||'')))!==workshopKey(current))
     throw Error('A ficha mudou em outro aparelho. Reabra a OC.');
    const financialOffice=canonicalWorkshopName(String(orderData.office||''));
