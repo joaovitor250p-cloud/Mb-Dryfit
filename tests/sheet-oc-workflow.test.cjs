@@ -65,8 +65,9 @@ test('a ficha imprime linhas vazias sem omitir o quadro de cores e tamanhos',()=
 test('três cartões clicáveis mostram Enfesto, Oficina e Finalizadas',()=>{
  const page=read('src/ProductionSheets.tsx');
  for(const title of ['FICHAS EM ENFESTO','FICHAS NA OFICINA','FICHAS FINALIZADAS'])assert.ok(page.includes(title));
- assert.match(page,/const completedSheets=assigned\.filter\(s=>orderStatuses\[s\.id\]==='ENTREGUE'\)/);
- assert.match(page,/const atOffice=assigned\.filter\(s=>orderStatuses\[s\.id\]!=='ENTREGUE'\)/);
+ assert.match(page,/const statusForSheet=\(s:Sheet\)=>orderStatuses\[s\.id\]\|\|orderStatusByOc\[normalizeOcNumber\(s\.oc\)\]/);
+ assert.match(page,/const completedSheets=assigned\.filter\(s=>statusForSheet\(s\)==='ENTREGUE'\)/);
+ assert.match(page,/const atOffice=assigned\.filter\(s=>statusForSheet\(s\)!=='ENTREGUE'\)/);
  assert.match(page,/setPhaseFilter\('enfesto'\)/);
  assert.match(page,/setPhaseFilter\('office'\)/);
  assert.match(page,/setPhaseFilter\('done'\)/);
