@@ -290,7 +290,7 @@ test('OC 758 histórica: editor corrige ficha com campos opcionais antigos ausen
  });
  assert.equal((await sheet.get()).data().colors.length,2);
 });
-test('OC 758 histórica: editor sincroniza job incompleto sem alterar status nem estoque',async()=>{
+test('OC 758: criador sincroniza job salvo por outro funcionário sem alterar estoque',async()=>{
  const uid='criador_758_job_antigo',id='ficha758';
  const {db}=await setup(uid);
  await env.withSecurityRulesDisabled(async ctx=>{
@@ -307,9 +307,9 @@ test('OC 758 histórica: editor sincroniza job incompleto sem alterar status nem
   await d.doc('enfesto_jobs/'+id).set({
    sheetId:id,oc:'758',status:'draft',
    rows:[{cor:'PRETO',expected:30,layers:'10',weightPerLayer:'',cutPieces:'30',stockId:'',consumption:'',checked:false}],
+   notes:'',stockConfirmed:false,
    createdAt:timestamp(),createdBy:'costureiro',
    updatedAt:timestamp(),updatedBy:'costureiro'
-   // legado: notes e stockConfirmed ausentes
   });
  });
  const sheet=db.doc('production_sheets/'+id),job=db.doc('enfesto_jobs/'+id);
