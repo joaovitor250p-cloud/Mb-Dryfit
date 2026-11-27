@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
-import { Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, FileText, PackageCheck, Printer, Search, Send } from 'lucide-react';
+import { Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, FileText, PackageCheck, Printer, Search, Send, X, Layers, ClipboardCheck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { User } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, onSnapshot, query as firestoreQuery, serverTimestamp, setDoc, updateDoc, runTransaction, where, writeBatch, type Firestore } from 'firebase/firestore';
@@ -97,6 +97,9 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const [editingId,setEditingId]=useState<string|null>(null);
  const [editingSent,setEditingSent]=useState(false);
  const [editingColorsBaseline,setEditingColorsBaseline]=useState<string|null>(null);
+ const [creatorStage,setCreatorStage]=useState<'enfesto'|'pending'|'office'|'done'>('enfesto');
+ const [creatorSearch,setCreatorSearch]=useState('');
+ const [revisionConfirm,setRevisionConfirm]=useState<{oc:string;reference:string;model:string;status:string;oldQuantity:number;newQuantity:number}|null>(null);
  useEffect(()=>{
   if(!canEdit||editingId||!ocAuto)return;
   setForm(current=>current.oc===nextOc?current:{...current,oc:nextOc});
@@ -173,14 +176,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const normalized=uppercaseSheetForm(form);const {client:clientName,...sheetFields}=normalized;const savedHasClient=!!editingId&&sheets.some(item=>item.id===editingId&&item.client!==undefined);const payload={...sheetFields,...(clientName!=='MB'||savedHasClient?{client:clientName}:{ }),model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',/^\d{1,12}$/.test(normalized.oc)?`ficha_oc_${Number(normalized.oc)}`:`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setLastCreatedOc(previous=>String(Math.max(Number(previous),Number(normalized.oc)||0)));setForm({...blank(),oc:nextProductionOc(sheets,orderOcs.map(oc=>({oc})),[{oc:normalized.oc}])});setOcAuto(true);setEditingId(null);setEditingSent(false);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError((String((e as {code?:string}).code||'').includes('permission-denied')&&form.client?.trim().toUpperCase()!=='MB'?'Para salvar um CLIENTE diferente de MB, é necessário publicar as novas regras do Firebase. ':'')+safeProviderMessage(e));}finally{setBusy(false);}};
  const editDraft=(s:Sheet)=>{setEditingSent(false);setEditingColorsBaseline(null);setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:paddedColors(s.colors),client:s.client||'MB'}));setOcAuto(false);setEditingId(s.id);setTab('create');setError('');};
  const editEnfestoSheet=(s:Sheet)=>{
-  if(!canEdit||!['enfesto','pending'].includes(s.status)||(!isAdmin&&s.createdBy!==user.uid))return;
+  if(!canEdit||!['enfesto','pending','assigned'].includes(s.status)||(!isAdmin&&s.createdBy!==user.uid))return;
   editDraft(s);setEditingColorsBaseline(colorSignature(s.colors));setEditingSent(true);setTab('create');
-  setMessage('Editando ficha OC '+s.oc+' ('+(s.status==='pending'?'EM DISTRIBUIÇÃO':'EM ENFESTO')+'). A correção mantém a etapa atual e atualiza a ficha original/PDF sem criar outra OC.');
+  setMessage('Editando OC '+s.oc+' · REF '+s.reference+' · '+s.model+'. A ficha mantém sua etapa atual e o PDF será atualizado após o salvamento.');
  };
- const saveEditedEnfesto=async()=>{
+ const saveEditedEnfesto=async(approved=false)=>{
   if(!canEdit||!editingSent||!editingId||busy)return;
   const original=sheets.find(s=>s.id===editingId);
-  if(!original||!['enfesto','pending'].includes(original.status)||(!isAdmin&&original.createdBy!==user.uid)){setError('Esta ficha não pode mais ser corrigida neste fluxo.');return;}
+  if(!original||!['enfesto','pending','assigned'].includes(original.status)||(!isAdmin&&original.createdBy!==user.uid)){setError('Esta ficha não pode mais ser corrigida neste fluxo.');return;}
   if(!validQuantities(form.colors)){setError('Quantidades inválidas. Use números inteiros não negativos.');return;}
   if(form.oc.trim()!==original.oc){setError('O número da OC não pode ser modificado após o envio.');return;}
   const normalized=uppercaseSheetForm(form);
@@ -189,16 +192,22 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(colors.some(r=>!r.cor.trim()||r.cor.length>90)||new Set(colors.map(r=>normalizeColorName(r.cor))).size!==colors.length){setError('Informe cores válidas, sem nomes repetidos.');return;}
   if(!normalized.model.trim()||!normalized.reference.trim()||!normalized.pieceType?.trim()){setError('Nome, REF e tipo da peça são obrigatórios.');return;}
   if(normalized.volumes?.trim()&&!/^\d{1,6}$/.test(normalized.volumes.trim())){setError('VOL deve ter somente números.');return;}
-  if(!window.confirm('Salvar as correções da ficha OC '+original.oc+'?\nA ficha e seu PDF serão atualizados imediatamente, sem voltar de etapa. '+(original.status==='enfesto'?'O Enfesto receberá as novas cores e quantidades e precisará reconferir as modificadas.':'A ficha continuará na Distribuição. O Enfesto já concluído e os registros de estoque não serão reabertos.')+' Nenhum pagamento nem preço será alterado.'))return;
+  if(!approved){
+   const count=(rows:ColorRow[])=>rows.reduce((sum,row)=>sum+(['p','m','g','gg','xg'] as const).reduce((n,size)=>n+Number(row[size]||0),0),0);
+   setRevisionConfirm({oc:original.oc,reference:normalized.reference,model:normalized.model,status:original.status==='assigned'?(statusForSheet(original)==='ENTREGUE'?'FINALIZADA':'COSTUREIRO'):original.status==='pending'?'ACABAMENTO / DISTRIBUIÇÃO':'ENFESTO',oldQuantity:count(original.colors||[]),newQuantity:count(colors)});
+   return;
+  }
+  setRevisionConfirm(null);
   setBusy(true);setError('');setMessage('');
   try{
    const sheetRef=doc(db,'production_sheets',original.id),jobRef=doc(db,'enfesto_jobs',original.id);
    await runTransaction(db,async transaction=>{
-    const [current,job]=await Promise.all([transaction.get(sheetRef),transaction.get(jobRef)]);
+    const current=await transaction.get(sheetRef);
+    const job=original.status==='enfesto'?await transaction.get(jobRef):null;
     if(!current.exists()||current.data().status!==original.status||current.data().oc!==original.oc)
       throw Error('A ficha mudou de etapa. Atualize a tela.');
     if(!isAdmin&&current.data().createdBy!==user.uid)throw Error('Somente o criador ou o dono pode editar esta ficha.');
-    if(original.status==='enfesto'&&job.exists()&&job.data().status==='completed')throw Error('O Enfesto já foi concluído. Atualize a ficha para conferir a fase atual.');
+    if(original.status==='enfesto'&&job?.exists()&&job.data().status==='completed')throw Error('O Enfesto já foi concluído. Atualize a ficha para conferir a fase atual.');
     // Evita gravar sobre alterações realizadas em outro aparelho.
     if(colorSignature(current.data().colors as ColorRow[]|undefined)!==(editingColorsBaseline??colorSignature(original.colors)))
       throw Error('As cores ou quantidades desta ficha foram realmente alteradas depois que você abriu a edição. Atualize a ficha para não sobrescrever essa mudança.');
@@ -211,7 +220,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
      volumes:normalized.volumes||'',colors,updatedAt:serverTimestamp(),updatedBy:user.uid
     };
     transaction.update(sheetRef,updates);
-    if(original.status==='enfesto'&&job.exists()){
+    if(original.status==='enfesto'&&job?.exists()){
      const oldRows=Array.isArray(job.data().rows)?job.data().rows as EnfestoColor[]:[];
      const previousColors=Array.isArray(current.data().colors)?current.data().colors as FichaCor[]:[];
      const nextRows=reconcileEnfestoRowsAfterSheetEdit(previousColors,colors,oldRows);
@@ -220,7 +229,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     transaction.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'production_sheet_revision',modelName:'OC '+original.oc,before:{colors:current.data().colors,model:current.data().model,reference:current.data().reference},after:{colors,model:normalized.model,reference:normalized.reference},at:serverTimestamp()});
    });
    setEditingId(null);setEditingSent(false);setEditingColorsBaseline(null);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts');
-   setMessage('OC '+original.oc+': ficha e PDF corrigidos no Firebase mantendo a fase '+(original.status==='pending'?'DISTRIBUIÇÃO. O Enfesto concluído foi preservado.':'ENFESTO. As cores e quantidades do Enfesto foram sincronizadas.') );
+   setMessage('OC '+original.oc+' · REF '+normalized.reference+' · '+normalized.model+': ficha e PDF atualizados para todos, mantendo a etapa. '+(original.status==='enfesto'?'Enfesto sincronizado.':'Enfesto concluído, estoque e pagamentos preservados.'));
   }catch(e){setError('Não foi possível atualizar a ficha OC '+original.oc+': '+safeProviderMessage(e)+'. Nenhuma alteração parcial foi gravada.');}
   finally{setBusy(false)}
  };
@@ -246,7 +255,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  }
  const orderRef=doc(db,'cut_orders',s.id);/* A gravação em lote usa ID fixo da ficha: uma segunda tentativa é negada pelas regras de criação. */const br=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,due=new Date(sentDate.getFullYear(),sentDate.getMonth(),sentDate.getDate()+10),money=(n:number)=>currency(n);const fields=['oc','ref','model','office','qty','piecePrice','entry','sent','due','status','deliveredFlag','deliveredAt','defects','discountPiece','discountTotal','total','paidAt','paymentDone'];const order={...Object.fromEntries(fields.map(k=>[k,''])),oc:s.oc,ref:s.reference,model:s.model,office:name,qty:String(qty),piecePrice:money(amount),sent:br(sentDate),due:br(due),status:'EM ANDAMENTO',total:money(qty*amount),source:'manual',manualTotal:false,createdBy:user.uid,createdAt:serverTimestamp(),updatedBy:user.uid,updatedAt:serverTimestamp()};const batch=writeBatch(db);batch.update(doc(db,'production_sheets',s.id),{status:'assigned',assignedTailor:name,assignedAt:serverTimestamp(),assignedBy:user.uid,updatedAt:serverTimestamp(),updatedBy:user.uid});if(!legacy)batch.set(orderRef,order);await batch.commit();setMessage(legacy?`Ficha OC ${s.oc} enviada para ${name}. A OC financeira já existente foi preservada sem duplicação nem alteração de pagamentos.`:`Ficha OC ${s.oc} enviada para ${name} em ${displayDate(sentISO)}. A OC foi criada em OCs e pagamentos.`);setLastAssigned({...s,pieceType:type,assignedTailor:name,sentLabel:displayDate(sentISO)});}catch(e){const code=String((e as {code?:string})?.code||'');setError((code?`Firebase (${code}): `:'')+safeProviderMessage(e)+(code==='permission-denied'?' — Confirme a permissão sheet_distribution, as regras publicadas e a configuração do projeto Firebase.':''));}finally{setBusy(false);}};
  const drafts=sheets.filter(s=>s.status==='draft'&&s.createdBy===user.uid).sort(compareOcDesc);
- const sentToEnfesto=sheets.filter(s=>s.status==='enfesto'&&(isAdmin||s.createdBy===user.uid)).sort(compareOcDesc);
+ const creatorSheets=sheets.filter(s=>isAdmin||s.createdBy===user.uid).sort(compareOcDesc);
  const pending=sheets.filter(s=>s.status==='pending').sort(compareOcDesc);
  const assigned=sheets.filter(s=>s.status==='assigned').sort(compareOcDesc);
  const submitted=sheets.filter(s=>s.status==='pending'||s.status==='assigned').sort(compareOcDesc);
@@ -254,6 +263,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const statusForSheet=(s:Sheet)=>orderStatuses[s.id]||orderStatusByOc[normalizeOcNumber(s.oc)]||'';
  const atOffice=assigned.filter(s=>statusForSheet(s)!=='ENTREGUE');
  const completedSheets=assigned.filter(s=>statusForSheet(s)==='ENTREGUE');
+ const ownEnfesto=creatorSheets.filter(s=>s.status==='enfesto');
+ const ownPending=creatorSheets.filter(s=>s.status==='pending');
+ const ownOffice=creatorSheets.filter(s=>s.status==='assigned'&&statusForSheet(s)!=='ENTREGUE');
+ const ownFinished=creatorSheets.filter(s=>s.status==='assigned'&&statusForSheet(s)==='ENTREGUE');
+ const creatorStageSheets=(creatorStage==='enfesto'?ownEnfesto:creatorStage==='pending'?ownPending:creatorStage==='office'?ownOffice:ownFinished)
+   .filter(s=>[s.oc,s.reference,s.model,s.assignedTailor].join(' ').toLocaleLowerCase('pt-BR').includes(creatorSearch.trim().toLocaleLowerCase('pt-BR')));
+ const creatorTailorGroups=[...new Map(creatorStageSheets.map(s=>[workshopKey(s.assignedTailor)||'sem-oficina',canonicalWorkshopName(s.assignedTailor)||'OFICINA NÃO INFORMADA'] as [string,string])).entries()]
+   .sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([key,name])=>({key,name,items:creatorStageSheets.filter(s=>(workshopKey(s.assignedTailor)||'sem-oficina')===key)}));
  // Todas as fichas: apenas OCs finalizadas, inclusive legado com ID financeiro diferente.
  const phaseSheets=phaseFilter==='enfesto'?inEnfesto:phaseFilter==='office'?atOffice:completedSheets;
  const officeNames=[...new Map([...TAILORS,...workshops.map(w=>w.name)].map(name=>[workshopKey(name),canonicalWorkshopName(name)] as [string,string])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -342,21 +359,36 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  </div>}
  <div className="sheet-tabs">
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='create'?'active':''} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('create')}}>Nova ficha</button>}
-  {canEdit&&initialTab==='create'&&<button type="button" className={tab==='drafts'?'active':''} onClick={()=>setTab('drafts')}>Minhas fichas ({drafts.length+sentToEnfesto.length})</button>}
+  {canEdit&&initialTab==='create'&&<button type="button" className={tab==='drafts'?'active':''} onClick={()=>setTab('drafts')}>Painel de fichas ({creatorSheets.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='distribution'?'active':''} onClick={()=>setTab('distribution')}>Distribuição ({pending.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({atOffice.length})</button>}
   <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({completedSheets.length})</button>
  </div>
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
- {tab==='create'&&canEdit&&<><div className="sheet-edit-heading"><strong>{editingSent?'CORRIGIR FICHA ENVIADA — OC '+form.oc:editingId?'EDITAR RASCUNHO':'NOVA FICHA'}</strong>{editingSent&&<p>A correção atualiza a ficha e o PDF sem alterar a fase. Se estiver em Distribuição, o Enfesto já concluído, o estoque e os pagamentos continuam preservados.</p>}</div><div className="sheet-paper"><div className="sheet-top"><div>{field('client','CLIENTE:')}{field('model','Nome da peça:')}{field('reference','REF:')}
+ {tab==='create'&&canEdit&&<><div className="sheet-edit-heading"><strong>{editingSent?'CORRIGIR FICHA ENVIADA — OC '+form.oc:editingId?'EDITAR RASCUNHO':'NOVA FICHA'}</strong>{editingSent&&<p>Revise as cores e quantidades. O PDF e todas as telas que consultam a ficha serão atualizados. Após o Enfesto, estoque e financeiro não são reprocessados automaticamente.</p>}</div><div className="sheet-paper"><div className="sheet-top"><div>{field('client','CLIENTE:')}{field('model','Nome da peça:')}{field('reference','REF:')}
  <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
  {!!form.reference.trim()&&!!referenceMatch.suggestedName&&<p className="sheet-ref-match">REF encontrada no catálogo: <strong>{referenceMatch.suggestedName}</strong> · {referenceMatch.suggestedType||'TIPO NÃO INFORMADO'}</p>}
  {referenceMatch.names.length>1&&!referenceMatch.suggestedName&&<label className="sheet-ref-select"><strong>Não há um nome técnico único para esta REF. Escolha a peça correta:</strong><select value={form.model} onChange={e=>chooseCatalogModel(e.target.value)}><option value="">SELECIONE O MODELO</option>{referenceMatch.names.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}<label className="sheet-field"><strong>Tipo de roupa (escolha ou escreva):</strong><input list="sheet-types-creator" maxLength={80} placeholder="Ex.: Camiseta, Bermuda ou outro" value={form.pieceType||''} onChange={e=>setForm(v=>({...v,pieceType:upperField(e.target.value)}))}/><datalist id="sheet-types-creator">{TYPES.map(type=><option key={type} value={type} />)}</datalist></label></div><div>{field('composition','Composição',true)}{field('fabric','Tecido:')}</div></div><div className="sheet-middle">{field('trims','Aviamentos',true)}<div className="sheet-right"><div className="sheet-field"><strong>Oficina - Costureiro</strong><p>Definido exclusivamente na distribuição</p></div>{field('officeInstructions','Inf. p/ oficina',true)}{field('oc','O.C:')}{field('tailorInstructions','Informações dos costureiros:',true)}</div></div>{tableRows(form.colors,true)}
  <datalist id="sheet-color-suggestions">{colorOptions.map(color=><option value={color} key={color}/>)}</datalist>
  <p className="sheet-colors-hint">Cores já usadas ficam salvas como sugestões para a próxima ficha. Toque no campo CORES para selecionar ou digitar uma nova.</p>
- <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>{editingSent?<><button className="outline-button" disabled={busy} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts')}}>Cancelar edição</button><button className="primary-button" disabled={busy} onClick={()=>void saveEditedEnfesto()}>{busy?'Salvando...':'Salvar correção da ficha'}</button></>:<><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></>}</div></div></>}
- {tab==='drafts'&&canEdit&&<div className="sheet-list"><h2>Meus rascunhos</h2>{!drafts.length&&<p>Nenhum rascunho salvo.</p>}{drafts.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc||'—'}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model||'SEM MODELO'}</strong><div className="sheet-card-actions"><button className="outline-button" onClick={()=>editDraft(s)}>CONTINUAR PREENCHIMENTO</button><button className="outline-button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> BAIXAR PDF / IMPRIMIR</button></div></div></details>)}<h2>Fichas enviadas ao Enfesto — corrigíveis ({sentToEnfesto.length})</h2>{!sentToEnfesto.length&&<p>Nenhuma ficha sua aguardando correção no Enfesto.</p>}{sentToEnfesto.map(s=><details className="sheet-compact-item" key={s.id}><summary><span className="sheet-oc-label">OC {s.oc}</span><ChevronDown size={18}/></summary><div className="sheet-compact-detail"><strong>{s.model}</strong><p>REF {s.reference} · {sheetQuantity(s).toLocaleString('pt-BR')} peças · EM ENFESTO</p><div className="sheet-card-actions"><button className="primary-button" type="button" onClick={()=>editEnfestoSheet(s)}>EDITAR FICHA ENVIADA</button><button className="outline-button" type="button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> PDF</button></div></div></details>)}</div>}
+ <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>{editingSent?<><button className="outline-button" disabled={busy} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts')}}>Cancelar edição</button><button className="primary-button" disabled={busy} onClick={()=>void saveEditedEnfesto(false)}>{busy?'Salvando...':'Salvar correção da ficha'}</button></>:<><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></>}</div></div></>}
+ {tab==='drafts'&&canEdit&&initialTab==='create'&&<section className="sheet-list creator-stage-panel">
+  <div className="creator-stage-heading"><div><span className="sheet-eyebrow">CONTROLE DE PRODUÇÃO</span><h2>Acompanhar minhas fichas</h2><p>Escolha a etapa para consultar OC, REF, modelo, imprimir a ficha ou corrigi-la.</p></div><span className="creator-stage-live"><CheckCircle2 size={16}/> Atualização automática</span></div>
+  <div className="creator-stage-tiles" role="group" aria-label="Etapas das fichas">
+   {([
+     {id:'enfesto',title:'Em Enfesto',count:ownEnfesto.length,icon:<Layers size={22}/>,note:'Corte e conferência'},
+     {id:'pending',title:'Acabamento / Distribuição',count:ownPending.length,icon:<PackageCheck size={22}/>,note:'Aguardando costureiro'},
+     {id:'office',title:'Costureiros',count:ownOffice.length,icon:<Building2 size={22}/>,note:'Em produção nas oficinas'},
+     {id:'done',title:'Finalizadas',count:ownFinished.length,icon:<ClipboardCheck size={22}/>,note:'OCs marcadas ENTREGUE'}
+   ] as const).map(stage=><button type="button" key={stage.id} className={creatorStage===stage.id?'creator-stage-tile selected':'creator-stage-tile'} onClick={()=>setCreatorStage(stage.id)} aria-pressed={creatorStage===stage.id}><span className="creator-stage-icon">{stage.icon}</span><strong>{stage.title}</strong><b>{stage.count}</b><small>{stage.note}</small></button>)}
+  </div>
+  <label className="sheet-quick-search creator-stage-search"><Search size={17}/><input type="search" value={creatorSearch} onChange={e=>setCreatorSearch(e.target.value)} placeholder="Pesquisar OC, REF, modelo ou costureiro" aria-label="Pesquisar minhas fichas"/></label>
+  {creatorStage==='done'&&!canViewOrders&&<p className="sheet-price-warning">Para identificar as OCs marcadas como ENTREGUE, o criador precisa ter permissão de consulta a OCs. Peça ao dono para habilitar essa consulta.</p>}
+  {!creatorStageSheets.length&&<div className="sheet-no-results"><FileText size={24}/><strong>Nenhuma ficha nesta etapa</strong><span>As fichas aparecem automaticamente quando mudam de fase.</span></div>}
+  {creatorStage==='office'?<div className="creator-tailor-groups">{creatorTailorGroups.map(group=><details className="creator-tailor-group" key={group.key} open><summary><Building2 size={20}/><strong>{group.name}</strong><span>{group.items.length} ficha(s)</span><ChevronDown size={17}/></summary><div className="creator-stage-list">{group.items.map(s=><article className="creator-sheet-card" key={s.id}><div className="creator-sheet-details"><b>OC {s.oc}</b><span>REF {s.reference}</span><strong>{s.model}</strong><small>{sheetQuantity(s).toLocaleString('pt-BR')} peças · {s.assignedTailor}</small></div><div className="creator-sheet-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> Baixar ficha PDF</button><button type="button" className="primary-button" onClick={()=>editEnfestoSheet(s)}>Alterar ficha</button></div></article>)}</div></details>)}</div>:<div className="creator-stage-list">{creatorStageSheets.map(s=><article className="creator-sheet-card" key={s.id}><div className="creator-sheet-details"><b>OC {s.oc}</b><span>REF {s.reference}</span><strong>{s.model}</strong><small>{sheetQuantity(s).toLocaleString('pt-BR')} peças{s.assignedTailor?' · '+s.assignedTailor:''}</small></div><div className="creator-sheet-actions"><button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> Baixar ficha PDF</button><button type="button" className="primary-button" onClick={()=>editEnfestoSheet(s)}>Alterar ficha</button></div></article>)}</div>}
+  <details className="creator-drafts"><summary>Rascunhos ainda não enviados ({drafts.length}) <ChevronDown size={17}/></summary><div className="creator-stage-list">{drafts.map(s=><article className="creator-sheet-card" key={s.id}><div className="creator-sheet-details"><b>OC {s.oc}</b><span>REF {s.reference}</span><strong>{s.model||'SEM MODELO'}</strong></div><div className="creator-sheet-actions"><button className="outline-button" type="button" onClick={()=>editDraft(s)}>Continuar preenchimento</button><button className="outline-button" type="button" onClick={()=>print({...s,assignedTailor:''})}><Printer size={16}/> PDF</button></div></article>)}</div></details>
+ </section>}
  {tab==='all'&&(canEdit||canDistribute)&&<section className="sheet-list sheet-all-view">
   {canAddTailor&&<button type="button" className="outline-button" onClick={onAddTailor}>+ Adicionar costureiro</button>}
   <div className="sheet-view-head"><div><h2>{phaseFilter==='enfesto'?'Fichas em Enfesto':phaseFilter==='office'?'Fichas na Oficina':'Todas as fichas finalizadas'}</h2><p>{phaseFilter==='all'?'Somente fichas finalizadas (OCs entregues). As fichas em andamento ficam em Costureiros e as que aguardam envio ficam em Distribuição.':'Clique na OC para consultar, imprimir ou baixar a ficha em PDF.'}</p>{phaseFilter==='done'&&!canViewOrders&&<small>É necessária permissão de visualização de OCs para consultar as entregas.</small>}</div><span className="sheet-view-count">{historical.length} ficha(s)</span></div>
@@ -396,7 +428,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
        <div className="sheet-card-actions"><button type="button" className="primary-button" disabled={busy||!selected||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar distribuição'}</button>{canAddTailor&&<button type="button" className="outline-button" onClick={onAddTailor}>+ Adicionar costureiro</button>}</div>
       </div>;
     })()}
-    <div className="sheet-card-actions">{['enfesto','pending'].includes(s.status)&&canEdit&&(isAdmin||s.createdBy===user.uid)&&<button type="button" className="primary-button" onClick={()=>editEnfestoSheet(s)}>EDITAR FICHA {s.status==='pending'?'EM DISTRIBUIÇÃO':'ENVIADA'}</button>}<button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
+    <div className="sheet-card-actions">{initialTab==='create'&&['enfesto','pending','assigned'].includes(s.status)&&canEdit&&(isAdmin||s.createdBy===user.uid)&&<button type="button" className="primary-button" onClick={()=>editEnfestoSheet(s)}>ALTERAR FICHA</button>}<button type="button" className="outline-button" onClick={()=>print({...s,assignedTailor:s.assignedTailor||''})}><Printer size={16}/> BAIXAR / IMPRIMIR FICHA PDF</button></div>
    </div>
   </details>)}</div>
   {historical.length>historyLimit&&<button type="button" className="outline-button sheet-show-more" onClick={()=>setHistoryLimit(n=>n+50)}>Mostrar mais 50 fichas ({historical.length-historyLimit} restantes)</button>}
@@ -441,7 +473,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
      {selectedOffice&&!known&&<div className="sheet-price-warning">Verifique a REF {s.reference}. Para REF nova, informe o valor por peça antes de enviar.</div>}
      {selectedOffice&&known&&<small className="sheet-price-note">Valor sugerido para {selectedOffice}: {Number.isFinite(parsePrice(suggested))?currency(parsePrice(suggested)):'A informar'}</small>}
      <div className="sheet-card-actions">
-      {canEdit&&(isAdmin||s.createdBy===user.uid)&&<button type="button" className="outline-button" disabled={busy} onClick={()=>editEnfestoSheet(s)}><FileText size={16}/> EDITAR FICHA E CORES</button>}
+      
       <button type="button" className="primary-button" disabled={busy||!selectedOffice||!Number.isFinite(parsePrice(value))} onClick={()=>void assign(s)}><Send size={16}/>{busy?'Enviando...':'Confirmar envio e criar OC'}</button>
       <button type="button" className="outline-button" onClick={()=>print({...s,pieceType:type,assignedTailor:selectedOffice})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>
      </div>
@@ -471,6 +503,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   </div>
  </section>}
  {isAdmin&&initialTab==='create'&&<ProductionCleanup db={db} isAdmin={isAdmin}/>}
+ {revisionConfirm&&createPortal(<div className="creator-confirm-overlay" role="presentation"><div className="creator-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="creator-confirm-title"><button type="button" className="creator-confirm-close" aria-label="Fechar confirmação" disabled={busy} onClick={()=>setRevisionConfirm(null)}><X size={19}/></button><div className="creator-confirm-icon"><ClipboardCheck size={27}/></div><span className="sheet-eyebrow">CONFIRMAR ALTERAÇÃO</span><h2 id="creator-confirm-title">Atualizar ficha de produção?</h2><div className="creator-confirm-identifiers"><div><small>ORDEM DE CORTE</small><strong>OC {revisionConfirm.oc}</strong></div><div><small>REFERÊNCIA</small><strong>{revisionConfirm.reference}</strong></div><div className="creator-confirm-model"><small>MODELO</small><strong>{revisionConfirm.model}</strong></div></div><p><strong>Etapa atual:</strong> {revisionConfirm.status}</p><p><strong>Quantidade:</strong> {revisionConfirm.oldQuantity.toLocaleString('pt-BR')} → {revisionConfirm.newQuantity.toLocaleString('pt-BR')} peças</p><p className="creator-confirm-warning">A ficha e o PDF serão atualizados para todos. Depois do Enfesto, o estoque e os valores financeiros não são alterados automaticamente; confira eventuais diferenças.</p><div className="creator-confirm-buttons"><button className="outline-button" type="button" disabled={busy} onClick={()=>setRevisionConfirm(null)}>Cancelar</button><button className="primary-button" type="button" disabled={busy} onClick={()=>void saveEditedEnfesto(true)}>{busy?'Salvando...':'Confirmar e salvar'}</button></div></div></div>,document.body)}
  {printSheet&&createPortal(<SheetPrint sheet={printSheet}/>,document.body)}
  </section>;
 }
