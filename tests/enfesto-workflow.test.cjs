@@ -180,9 +180,9 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  const creator=read('src/ProductionSheets.tsx');
  const page=read('src/EnfestoPage.tsx');
  const rules=read('firestore.rules');
- assert.match(creator,/const sentToEnfesto=sheets\.filter\(s=>s\.status==='enfesto'/);
+ assert.match(creator,/const creatorSheets=sheets\.filter\(s=>isAdmin\|\|s\.createdBy===user\.uid\)/);
  assert.match(creator,/const editEnfestoSheet=\(s:Sheet\)=>/);
- assert.match(creator,/const saveEditedEnfesto=async\(\)=>/);
+ assert.match(creator,/const saveEditedEnfesto=async\(approved=false\)=>/);
  assert.match(creator,/EDITAR FICHA ENVIADA/);
  assert.match(creator,/Salvar correção da ficha/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
@@ -195,6 +195,21 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  assert.match(rules,/\.hasOnly\(\['rows','updatedAt','updatedBy'\]\)/);
  assert.match(rules,/request\.resource\.data\.oc == resource\.data\.oc/);
  assert.match(rules,/resource\.data\.status == 'enfesto'/);
+});
+test('painel do criador tem quatro etapas, agrupamento de costureiro e confirmação de revisão',()=>{
+ const page=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
+ for(const name of ['Em Enfesto','Acabamento / Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(name));
+ assert.match(page,/creatorStageSheets/);
+ assert.match(page,/creatorTailorGroups/);
+ assert.match(page,/Baixar ficha PDF/);
+ assert.match(page,/revisionConfirm&&createPortal/);
+ assert.match(page,/OC \{revisionConfirm\.oc\}/);
+ assert.match(page,/\{revisionConfirm\.reference\}/);
+ assert.match(page,/\{revisionConfirm\.model\}/);
+ assert.match(page,/saveEditedEnfesto\(true\)/);
+ assert.match(page,/original\.status==='enfesto'\?await transaction\.get\(jobRef\):null/);
+ assert.match(rules,/resource\.data\.status in \['enfesto','pending','assigned'\]/);
+ assert.match(rules,/request\.resource\.data\.status == resource\.data\.status/);
 });
 test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>{
  const page=read('src/EnfestoPage.tsx');
