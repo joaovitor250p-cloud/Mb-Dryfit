@@ -1036,9 +1036,8 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
         && resource.data.get('sheetId',sheetId) == sheetId
-        && resource.data.get('oc','') == get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc
-        && get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status == 'enfesto'
-        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.createdBy == request.auth.uid)
+        && get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.get('status','') == 'enfesto'
+        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.get('createdBy','') == request.auth.uid)
       ) || (
         canWrite('enfesto')
         && resource.data.status == 'draft'
