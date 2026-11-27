@@ -171,7 +171,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   if(colors.some(r=>!r.cor.trim()||r.cor.length>90)||new Set(colors.map(r=>normalizeColorName(r.cor))).size!==colors.length){setError('Informe cores válidas, sem nomes repetidos.');return;}
   if(!normalized.model.trim()||!normalized.reference.trim()||!normalized.pieceType?.trim()){setError('Nome, REF e tipo da peça são obrigatórios.');return;}
   if(normalized.volumes?.trim()&&!/^\d{1,6}$/.test(normalized.volumes.trim())){setError('VOL deve ter somente números.');return;}
-  if(!window.confirm('Salvar as correções da ficha OC '+original.oc+'?\\nA ficha original, o PDF e os dados do Enfesto serão atualizados. Cores ou quantidades alteradas precisarão de nova conferência. Nenhum estoque nem pagamento será alterado.'))return;
+  if(!window.confirm('Salvar as correções da ficha OC '+original.oc+'?\nA ficha original, o PDF e os dados do Enfesto serão atualizados. Cores ou quantidades alteradas precisarão de nova conferência. Nenhum estoque nem pagamento será alterado.'))return;
   setBusy(true);setError('');setMessage('');
   try{
    const sheetRef=doc(db,'production_sheets',original.id),jobRef=doc(db,'enfesto_jobs',original.id);
