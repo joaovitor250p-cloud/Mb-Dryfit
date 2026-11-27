@@ -19,7 +19,7 @@ import { suggestOrderPiecePrice, type PriceWorkshop } from './lib/orderPriceSugg
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
 type DataField = 'oc'|'ref'|'model'|'office'|'qty'|'piecePrice'|'entry'|'sent'|'due'|'status'|'deliveredFlag'|'deliveredAt'|'defects'|'discountPiece'|'discountTotal'|'total'|'paidAt'|'paymentDone';
 type View = 'summary'|'dates'|'finance'|'all';
-type Order = Record<DataField, string> & {id: string; source: string; manualTotal: boolean; createdBy?: string; createdAt?: unknown};
+type Order = Record<DataField, string> & {id: string; source: string; manualTotal: boolean; createdBy?: string; createdAt?: unknown; paymentEligibleFrom?: string};
 type Props = {db: Firestore; user: User; canEdit: boolean; canReassignTailor:boolean; isAdmin: boolean};
 const names: Record<DataField,string> = {
   oc:'OC',ref:'REF',model:'Modelo / peça',office:'Costureiro / oficina',qty:'Quantidade',piecePrice:'Valor por peça',entry:'Data de entrada',sent:'Data de envio',due:'Prazo de 10 dias',status:'Produção',deliveredFlag:'Entregue (planilha)',deliveredAt:'Data de entrega',defects:'Faltas / defeitos',discountPiece:'Desconto por peça',discountTotal:'Desconto total',total:'Valor a pagar',paidAt:'Data pagamento',paymentDone:'Pagamento'
@@ -32,7 +32,7 @@ const cols: Record<View,DataField[]> = {
   all:fields
 };
 const fresh = (): Order => ({...Object.fromEntries(fields.map(k=>[k,''])),id:'',source:'manual',manualTotal:false} as unknown as Order);
-const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,office:canonicalWorkshopName(d.office),source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt});
+const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,office:canonicalWorkshopName(d.office),source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt,paymentEligibleFrom:String(d.paymentEligibleFrom||'')});
 const errorText=(e:unknown)=>{const x=e as {code?:string;message?:string};return x?.code?.includes('permission-denied')?'Permissão negada. Confira se seu perfil tem acesso à área Ordem de Corte.':safeProviderMessage(x?.message,'Falha ao salvar.')};
 const brl=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
 const money=(s:string)=>{const n=num(s);return Number.isFinite(n)?brl(n):'—'};
@@ -46,6 +46,8 @@ const toISO=(text:string):string=>{
 const toBR=(iso:string)=>/^\d{4}-\d\d-\d\d$/.test(iso)?`${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}`:'';
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const after=(iso:string,days:number)=>{const y=+iso.slice(0,4),m=+iso.slice(5,7)-1,d=+iso.slice(8);if(!toISO(toBR(iso)))return '';const x=new Date(y,m,d+days);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')};
+const nextMonday=(iso:string)=>{const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8));return after(iso,(8-d.getDay())%7||7)};
+const paymentAvailable=(o:Order,date:string)=>!o.paymentEligibleFrom||o.paymentEligibleFrom<=date;
 const friday=(iso:string)=>{const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8));return after(iso,(5-d.getDay()+7)%7)};
 const norm=(s:string)=>workshopKey(s);
 const officeLabel=(name:string)=>canonicalWorkshopName(name)||'SEM COSTUREIRO';
@@ -79,6 +81,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
   const [rows,setRows]=useState<Order[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [alert,setAlert]=useState(''),[notice,setNotice]=useState('');
   const [deleteTarget,setDeleteTarget]=useState<Order|null>(null);
+  const [deliveryTarget,setDeliveryTarget]=useState<Order|null>(null);
   const [transfer,setTransfer]=useState<{order:Order;sheetId:string;sheetOffice:string;options:string[]}|null>(null);
   const [transferOffice,setTransferOffice]=useState('');
   const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
@@ -260,7 +263,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
   // OCs ENTREGUES e NÃO PAGAS vêm diretamente do Firestore, inclusive de
   // semanas anteriores. Seleções locais não podem esconder uma entrega real.
   // A sexta-feira selecionada define o fechamento; entregas futuras ficam fora.
-  const eligible=useMemo(()=>awaitingPayment.filter(o=>!toISO(o.deliveredAt)||toISO(o.deliveredAt)<=fridayDate),[awaitingPayment,fridayDate]);
+  const eligible=useMemo(()=>awaitingPayment.filter(o=>(!toISO(o.deliveredAt)||toISO(o.deliveredAt)<=fridayDate)&&paymentAvailable(o,fridayDate)),[awaitingPayment,fridayDate]);
   // Mesmo incompletas, as entregues aparecem na área de pagamento para conferência.
   const review=useMemo(()=>eligible.filter(o=>!toISO(o.deliveredAt)
     ||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)
@@ -371,6 +374,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
       return;
     }
     if(toISO(o.deliveredAt)&&toISO(o.deliveredAt)>fridayDate)return notify(`A OC ${o.oc} foi entregue depois da sexta-feira escolhida. Selecione a sexta-feira correta para incluí-la.`,true);
+    if(!paymentAvailable(o,fridayDate))return notify(`A OC ${o.oc} foi programada para pagamento a partir de ${toBR(o.paymentEligibleFrom||'')}.`,true);
     if(o.paidAt.trim()&&!window.confirm(`A OC ${o.oc} possui data antiga de pagamento (${o.paidAt}), mas não está marcada como paga. Ao confirmar um novo pagamento, essa data será substituída. Continuar?`))return;
     setPaymentSearch('');
     if(eligible.some(candidate=>candidate.id===o.id)){
@@ -521,8 +525,9 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
         if(linked)return notify('Esta OC está vinculada a uma ficha enviada. Use Trocar costureiro para atualizar a ficha e a OC juntas.',true);
       }catch(e){return notify('Não foi possível verificar a ficha vinculada: '+safeProviderMessage(e),true)}
     }
+    if(row.paymentDone==='OK'&&!paymentAvailable(row,friday(today())))return notify('Esta OC foi adiada para a próxima semana.',true);
     const id=activeEditing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
-    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
+    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),paymentEligibleFrom:row.paymentEligibleFrom||'',manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
     const needsSample = row.status === 'ENTREGUE' && (!activeEditing || activeEditing.status !== 'ENTREGUE'
       || activeEditing.qty !== row.qty || activeEditing.ref !== row.ref || activeEditing.model !== row.model || activeEditing.office !== row.office);
     setBusy(true);
@@ -606,8 +611,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
   };
   const markDelivered=async(order:Order)=>{
     if(!canEdit||busy||done(order))return;
-    if(!window.confirm(`Marcar a OC ${order.oc} como ENTREGUE? A data de entrega será registrada e o pagamento continuará pendente até ser confirmado separadamente.`))return;
-    await save({...order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:order.deliveredAt||toBR(today())});
+    setDeliveryTarget(order);
   };
   // Regras do Firestore: excluir cut_orders é permitido somente a administradores.
   // Usar o ID real do documento preserva OCs com número duplicado.
@@ -685,13 +689,14 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
     finally{setBusy(false);}
   };
   const markPaid=async(items:Order[])=>{if(!canEdit||busy||!items.length)return;
-    const invalid=items.find(o=>!done(o)||paid(o)||!toISO(o.deliveredAt)||toISO(o.deliveredAt)>fridayDate
+    const invalid=items.find(o=>!done(o)||paid(o)||!paymentAvailable(o,fridayDate)||!toISO(o.deliveredAt)||toISO(o.deliveredAt)>fridayDate
       ||!(num(o.total)>0)||!/^\d{1,12}$/.test(o.qty.trim())||!(Number(o.qty)>0)
       ||(num(o.defects)>0&&!(num(o.discountPiece)>0)));
     if(invalid){
       if(!done(invalid))return notify(`A OC ${invalid.oc} ainda não foi entregue. Confira na Ordem de Corte.`,true);
       if(paid(invalid))return notify(`A OC ${invalid.oc} já foi marcada como paga. Atualize a relação.`,true);
-      preparePayment(invalid);
+      if(!paymentAvailable(invalid,fridayDate))return notify(`OC ${invalid.oc} adiada para ${toBR(invalid.paymentEligibleFrom||'')}.`,true);
+       preparePayment(invalid);
       return notify(`Confira quantidade e valor da OC ${invalid.oc} antes de pagar.`,true);
     }if(!toISO(toBR(fridayDate)))return notify('Selecione uma sexta-feira válida antes de pagar.',true);const sum=items.reduce((a,x)=>a+num(x.total),0);const paymentDate=toBR(fridayDate);if(!window.confirm(`Confirmar pagamento de ${items.length} OC(s) no valor total de ${brl(sum)}? A data ${paymentDate} será registrada em Ordem de Corte e as OCs ficarão com status PAGO.`))return;setBusy(true);
     try{for(let i=0;i<items.length;i+=150){const batch=writeBatch(db);items.slice(i,i+150).forEach(o=>batch.update(doc(db,'cut_orders',o.id),{paymentDone:'OK',paidAt:paymentDate,updatedBy:user.uid,updatedAt:serverTimestamp()}));await batch.commit()}notify(`${items.length} OC(s) pagas em ${paymentDate}. Pagamento e data atualizados em Ordem de Corte. OCs pagas removidas da lista da semana e mantidas no histórico.`)}catch(e){notify(errorText(e),true)}finally{setBusy(false)}
@@ -793,6 +798,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
       <div className="order-scroll" ref={tableRef} onScroll={e=>scrollBody(e.currentTarget.scrollLeft)}><table className="order-table"><thead><tr>{cols.summary.map(k=><th key={k}>{names[k]}</th>)}<th>Ações</th></tr></thead><tbody>{filtered.slice(0,count).map(o=><tr key={o.id} onClick={e=>unlock(e,o)} title="Três cliques/toques no registro ou use o botão Editar">{cols.summary.map(k=><td key={k} data-label={names[k]} className={k==='model'?'order-model':''}>{k==='paymentDone'?<span className={paid(o)?'order-paid':'order-pending'}>{paid(o)?'Pago':'Pendente'}</span>:k==='status'?overdue(o,currentDate)?<span className="order-overdue" title={`Prazo vencido em ${o.due}`}>Atrasado</span>:<span className={done(o)?'order-done':'order-progress'}>{done(o)?'Entregue':'Em andamento'}</span>:moneyKeys.has(k)?money(o[k]):o[k]||'—'}</td>)}<td className="order-editcell">{canEdit&&paid(o)&&<button type="button" className="order-unpay-inline" title="Desmarcar pagamento registrado" disabled={busy} onClick={e=>{e.stopPropagation();void undoPaid(o)}}>Desmarcar pago</button>}{canEdit&&<button type="button" className={done(o)?'order-delivered-inline is-done':'order-delivered-inline'} title={done(o)?`OC ${o.oc} já marcada como entregue`:`Marcar OC ${o.oc} como entregue`} aria-label={`Marcar OC ${o.oc} como entregue`} disabled={busy||done(o)} onClick={e=>{e.stopPropagation();void markDelivered(o)}}><CheckCircle2 size={14}/>{done(o)?'ENTREGUE':'ENTREGAR'}</button>}{canEdit?<button type="button" title="Editar esta OC com um toque" aria-label={`Editar OC ${o.oc}`} onClick={e=>{e.stopPropagation();open(o)}}><Edit3 size={13}/> Editar</button>:<span>Consulta</span>}{hasVerifiedSheet(o)&&<button type="button" className="order-ficha-button" title={`Abrir ficha enviada ao costureiro da OC ${o.oc} para salvar em PDF`} aria-label={`Ficha OC ${o.oc}`} disabled={!!loadingFicha} onClick={e=>{e.stopPropagation();void abrirFicha(o)}}><Download size={13}/> {loadingFicha===o.id?'Abrindo...':'Ficha'}</button>}{isAdmin&&<button type="button" className="order-delete-button" title={`Excluir a OC ${o.oc}`} aria-label={`Excluir OC ${o.oc}`} disabled={busy} onClick={e=>{e.stopPropagation();setDeleteTarget(o)}}><Trash2 size={13}/> Excluir</button>}</td></tr>)}</tbody></table></div>
       <div className="order-foot"><span>Você pode rolar a tabela para ver todas as colunas.</span>{count<filtered.length&&<div><button className="outline-button" onClick={()=>setCount(n=>n+PAGE)}>Mostrar mais 75</button><button className="outline-button" onClick={()=>setCount(filtered.length)}>Mostrar todas ({filtered.length})</button></div>}</div>
     </>}
+    {deliveryTarget&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setDeliveryTarget(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Confirmar entrega e semana de pagamento"><header><div><span className="order-eyebrow">CONFIRMAR ENTREGA</span><h2>OC {deliveryTarget.oc} · REF {deliveryTarget.ref}</h2><p>{deliveryTarget.model} · {officeLabel(deliveryTarget.office)}</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>setDeliveryTarget(null)}><X size={17}/></button></header><p>A ficha será marcada como entregue. Incluir nos pagamentos desta semana?</p><footer><button type="button" className="outline-button" disabled={busy} onClick={()=>{const order=deliveryTarget;setDeliveryTarget(null);void save({...order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:order.deliveredAt||toBR(today()),paymentEligibleFrom:nextMonday(toISO(order.deliveredAt)||today())})}}>Não, próxima semana ({toBR(nextMonday(toISO(deliveryTarget.deliveredAt)||today()))})</button><button type="button" className="primary-button" disabled={busy} onClick={()=>{const order=deliveryTarget;setDeliveryTarget(null);void save({...order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:order.deliveredAt||toBR(today()),paymentEligibleFrom:''})}}>Sim, nesta semana</button></footer><small>A escolha não marca a OC como paga.</small></section></div>,document.body)}
     {paymentPrepare&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setPaymentPrepare(null)}}>
       <section className="order-drawer order-payment-preparation" role="dialog" aria-modal="true" aria-label="Conferir entrega e defeitos para pagamento">
         <header><div><span className="order-eyebrow">PAGAMENTO DE SEXTA-FEIRA</span><h2>Entrega e defeitos da OC {paymentPrepare.order.oc}</h2><p>{paymentPrepare.order.model} · {officeLabel(paymentPrepare.order.office)}</p></div>
@@ -822,6 +828,7 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
         :priceDataLoading?'Consultando preço da referência...':'REF sem preço definido para este tipo de peça. Informe o valor por peça.'}
       {priceLookupWarning&&<span> {priceLookupWarning}</span>}
     </small>}</label>)}</div></fieldset>)}
+      {draft.status==='ENTREGUE'&&<label>Quando entra nos pagamentos?<select value={draft.paymentEligibleFrom?'next':'current'} onChange={e=>setDraft(old=>old?{...old,paymentEligibleFrom:e.target.value==='next'?nextMonday(toISO(old.deliveredAt)||today()):''}:old)}><option value="current">Nesta semana</option><option value="next">Próxima semana (a partir de {toBR(draft.paymentEligibleFrom||nextMonday(toISO(draft.deliveredAt)||today()))})</option></select></label>}
       <div className="order-calculation"><span>Total de desconto <strong>{money(draft.discountTotal)}</strong></span><span>Valor previsto <strong>{moneyText(calcNet(draft)??NaN)}</strong></span>{draft.manualTotal&&<button className="outline-button" onClick={()=>setDraft(current=>current?recalc({...current,manualTotal:false}):current)}>Usar valor calculado</button>}{draft.manualTotal&&<small>Valor a pagar definido manualmente. Não será sobrescrito pelo cálculo.</small>}</div>
       <footer>{canReassignTailor&&editing&&<button type="button" className="outline-button" disabled={busy} onClick={()=>void prepareTailorTransfer(editing)}>Trocar costureiro na ficha</button>}{editing&&hasVerifiedSheet(editing)&&<button type="button" className="outline-button" disabled={!!loadingFicha} onClick={()=>void abrirFicha(editing)}><Download size={16}/> {loadingFicha===editing.id?'Abrindo ficha...':'Ficha (PDF)'}</button>}{isAdmin&&editing&&<button type="button" className="order-delete-button" disabled={busy} onClick={()=>setDeleteTarget(editing)}><Trash2 size={16}/> Excluir OC</button>}<button className="outline-button" onClick={()=>setDraft(null)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={()=>void save()}>{busy?'Salvando...':'Salvar alterações'}</button></footer></section></div>,document.body)}
     {transfer&&pageActive&&createPortal(<div className="order-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setTransfer(null)}}><section className="order-drawer" role="dialog" aria-modal="true" aria-label="Transferir costureiro da OC"><header><div><span className="order-eyebrow">TROCA AUTORIZADA</span><h2>Transferir OC {transfer.order.oc}</h2><p>Costureiro na OC: {transfer.order.office}.{transfer.sheetId?' Costureiro na ficha: '+transfer.sheetOffice+'. Os dois serão sincronizados.':' Esta OC não possui ficha; somente o nome no financeiro será alterado.'} Valores, pagamentos e datas serão preservados.</p></div><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Fechar</button></header><div className="order-fieldgrid"><label>Novo costureiro<select value={transferOffice} disabled={busy} onChange={e=>setTransferOffice(e.target.value)}><option value="">Selecione uma oficina</option>{transfer.options.map(name=><option key={workshopKey(name)} value={name}>{name}</option>)}</select></label></div><footer><button type="button" className="outline-button" disabled={busy} onClick={()=>setTransfer(null)}>Cancelar</button><button type="button" className="primary-button" disabled={busy||!transferOffice} onClick={()=>void confirmTailorTransfer()}>{busy?'Salvando...':'Confirmar troca'}</button></footer></section></div>,document.body)}
