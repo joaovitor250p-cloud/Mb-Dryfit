@@ -19,7 +19,7 @@ import { suggestOrderPiecePrice, type PriceWorkshop } from './lib/orderPriceSugg
 // Todas as datas são apresentadas como DD/MM/AAAA e armazenadas como texto; assim, dados legados ficam intactos.
 type DataField = 'oc'|'ref'|'model'|'office'|'qty'|'piecePrice'|'entry'|'sent'|'due'|'status'|'deliveredFlag'|'deliveredAt'|'defects'|'discountPiece'|'discountTotal'|'total'|'paidAt'|'paymentDone';
 type View = 'summary'|'dates'|'finance'|'all';
-type Order = Record<DataField, string> & {id: string; source: string; manualTotal: boolean; createdBy?: string; createdAt?: unknown; paymentEligibleFrom?: string};
+type Order = Record<DataField, string> & {id: string; source: string; manualTotal: boolean; createdBy?: string; createdAt?: unknown; paymentEligibleFrom?: string; storedOffice?: string};
 type Props = {db: Firestore; user: User; canEdit: boolean; canReassignTailor:boolean; isAdmin: boolean};
 const names: Record<DataField,string> = {
   oc:'OC',ref:'REF',model:'Modelo / peça',office:'Costureiro / oficina',qty:'Quantidade',piecePrice:'Valor por peça',entry:'Data de entrada',sent:'Data de envio',due:'Prazo de 10 dias',status:'Produção',deliveredFlag:'Entregue (planilha)',deliveredAt:'Data de entrega',defects:'Faltas / defeitos',discountPiece:'Desconto por peça',discountTotal:'Desconto total',total:'Valor a pagar',paidAt:'Data pagamento',paymentDone:'Pagamento'
@@ -32,7 +32,7 @@ const cols: Record<View,DataField[]> = {
   all:fields
 };
 const fresh = (): Order => ({...Object.fromEntries(fields.map(k=>[k,''])),id:'',source:'manual',manualTotal:false} as unknown as Order);
-const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,office:canonicalWorkshopName(d.office),source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt,paymentEligibleFrom:String(d.paymentEligibleFrom||'')});
+const fromData = (id:string, d:DocumentData):Order => ({...fresh(),...Object.fromEntries(fields.map(k=>[k,typeof d[k]==='string'?d[k]:String(d[k]??'')])),id,office:canonicalWorkshopName(d.office),storedOffice:String(d.office||''),source:String(d.source||'manual'),manualTotal:d.manualTotal===true,createdBy:d.createdBy,createdAt:d.createdAt,paymentEligibleFrom:String(d.paymentEligibleFrom||'')});
 const errorText=(e:unknown)=>{const x=e as {code?:string;message?:string};return x?.code?.includes('permission-denied')?'Permissão negada. Confira se seu perfil tem acesso à área Ordem de Corte.':safeProviderMessage(x?.message,'Falha ao salvar.')};
 const brl=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
 const money=(s:string)=>{const n=num(s);return Number.isFinite(n)?brl(n):'—'};
@@ -527,7 +527,13 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
     }
     if(row.paymentDone==='OK'&&!paymentAvailable(row,friday(today())))return notify('Esta OC foi adiada para a próxima semana.',true);
     const id=activeEditing?.id||`oc_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
-    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),paymentEligibleFrom:row.paymentEligibleFrom||'',manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
+    const storedOffice=activeEditing?.storedOffice||row.office;
+    // Manter o nome original no Firebase em edições comuns: apelidos antigos
+    // como JONY não podem virar uma transferência de costureiro implícita.
+    const savedOffice=activeEditing&&workshopKey(storedOffice)===workshopKey(row.office)?storedOffice:row.office;
+    // Não enviar o campo novo em OCs normais: regras antigas do Firebase ainda
+    // podem estar publicadas e recusariam até uma simples entrega nesta semana.
+    const content={...Object.fromEntries(fields.map(k=>[k,row[k]])),office:savedOffice,...(row.paymentEligibleFrom?{paymentEligibleFrom:row.paymentEligibleFrom}:{}),manualTotal:row.manualTotal,source:activeEditing?.source||'manual',updatedBy:user.uid,updatedAt:serverTimestamp()};
     const needsSample = row.status === 'ENTREGUE' && (!activeEditing || activeEditing.status !== 'ENTREGUE'
       || activeEditing.qty !== row.qty || activeEditing.ref !== row.ref || activeEditing.model !== row.model || activeEditing.office !== row.office);
     setBusy(true);
@@ -578,11 +584,11 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
           if (!String((deliveryError as {code?:string})?.code || '').includes('permission-denied')) throw deliveryError;
           await saveWithSampleStage('done');
         }
-        notify(`OC ${row.oc} entregue e amostra vinculada! Ela aparece em Amostras e Cortes e fotos como Em andamento, sem alterar o pagamento.`);
+        notify(`OC ${row.oc} ENTREGUE${row.paymentEligibleFrom?' — pagamento agendado a partir de '+toBR(row.paymentEligibleFrom):' — disponível em Pagamentos'}. Amostra vinculada e pagamento permanece pendente.`);
       } else {
         if (activeEditing) await updateDoc(doc(db,'cut_orders',id),content);
         else await setDoc(doc(db,'cut_orders',id),{...content,createdAt:serverTimestamp(),createdBy:user.uid});
-        notify(`OC ${row.oc} salva com sucesso.`);
+        notify(`OC ${row.oc} salva com sucesso${done(row)?row.paymentEligibleFrom?' — pagamento agendado para '+toBR(row.paymentEligibleFrom):' — pendente de pagamento':''}.`);
       }
       setDraft(null);
     } catch(e) {
@@ -600,9 +606,9 @@ export default function CutOrders({db,user,canEdit,canReassignTailor,isAdmin}:Pr
             else transaction.set(ref,{...content,createdAt:serverTimestamp(),createdBy:user.uid});
           });
           setDraft(null);
-          notify(`OC ${row.oc} SALVA como ENTREGUE e disponível automaticamente em Pagamentos (ainda NÃO paga). O Firebase recusou a sincronização com Amostras; a amostra NÃO foi criada nem atualizada. Confira Amostras e as regras publicadas antes de depender desse vínculo.`);
+          notify(`OC ${row.oc} salva como ENTREGUE${row.paymentEligibleFrom?' e agendada a partir de '+toBR(row.paymentEligibleFrom):' e disponível em Pagamentos'}. O Firebase recusou a sincronização com Amostras; a amostra não foi atualizada.`);
         }catch(fallbackError){
-          notify(`O Firebase recusou o cadastro da OC ${row.oc} mesmo sem a Amostra: ${errorText(fallbackError)}. Verifique a permissão de escrita de Ordem de Corte e as regras efetivamente publicadas.`,true);
+          notify(`A OC ${row.oc} NÃO foi entregue. ${row.paymentEligibleFrom?'O adiamento para próxima semana exige que as regras novas do Firestore sejam publicadas. ':''}${errorText(fallbackError)}`,true);
         }
       }else{
         notify(`Não foi possível salvar a OC ${row.oc}: ${errorText(e)}`,true);
