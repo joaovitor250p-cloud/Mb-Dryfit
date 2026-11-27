@@ -111,6 +111,29 @@ test('alinhamento da ficha e maiúsculas continuam no CSS de tela e PDF',()=>{
  assert.match(css,/text-align:center/);
  assert.match(css,/\.sheet-print-only \.sheet-paper,\s*\.sheet-print-only \.sheet-paper \*/);
 });
+test('ficha impressa aumenta letras, números, escurece linhas e evita sobreposição',()=>{
+ const css=read('src/styles.css');
+ const marker=css.lastIndexOf('/* FICHA A4 2026-11-27:');
+ assert.ok(marker>0,'deve existir revisão A4 de legibilidade');
+ const print=css.slice(marker);
+ assert.match(print,/font:800 16px\/1\.4 Arial/);
+ assert.match(print,/font:800 15px\/1\.4 Arial/);
+ assert.match(print,/font:800 20px\/1\.35 Arial/);
+ assert.match(print,/border:1px solid #111!important/);
+ assert.match(print,/background:#fff!important/);
+ assert.match(print,/height:auto!important/);
+ assert.match(print,/max-height:none!important/);
+ assert.match(print,/position:static!important/);
+ assert.match(print,/break-inside:auto!important/);
+ assert.match(print,/page-break-inside:auto!important/);
+ assert.match(print,/page-break-inside:avoid!important/);
+ assert.match(print,/\.sheet-color-table tbody td:last-child/);
+ assert.match(print,/\.sheet-finishing/);
+ assert.match(print,/\.sheet-volumes/);
+ const sheet=read('src/SheetPrint.tsx');
+ assert.match(sheet,/className="sheet-paper sheet-paper-a4"/);
+ assert.match(sheet,/className="sheet-table sheet-color-table"/);
+});
 test('arquivos TSX editados não têm erros de sintaxe',()=>{
  for(const f of ['src/App.tsx','src/ProductionSheets.tsx','src/EnfestoPage.tsx','src/CutOrders.tsx']){
   const out=ts.transpileModule(read(f),{fileName:f,reportDiagnostics:true,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}});
