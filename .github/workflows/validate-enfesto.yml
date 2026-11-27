@@ -26,6 +26,7 @@ on:
       - 'src/lib/purchasesInventory.ts'
       - 'firestore.rules'
       - 'tests/enfesto-workflow.test.cjs'
+      - 'tests/enfesto-permissions.integration.cjs'
       - '.github/workflows/validate-enfesto.yml'
 
 permissions:
@@ -46,7 +47,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Validar regras Firestore no emulador sem publicar
-        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'echo Regras-Firestore-validas'
+        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'node --test tests/enfesto-permissions.integration.cjs'
       - name: Testes de Enfesto e regressão
         run: node --test tests/enfesto-workflow.test.cjs tests/purchases-inventory.test.cjs tests/sheets-office-distribution.test.cjs tests/sheet-autofill-print-ui.test.cjs tests/sheet-oc-workflow.test.cjs tests/protected-enfesto-ocs.test.cjs tests/mauro-price.test.cjs tests/payment-delivered-visibility.test.cjs tests/pwa_amostras_entregues.test.cjs tests/sample-status-flow.test.cjs tests/sample-order-sync.test.cjs
       - name: Verificar TypeScript e compilar
