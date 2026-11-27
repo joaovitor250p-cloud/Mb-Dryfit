@@ -1,4 +1,4 @@
-import {useContext,useEffect,useMemo,useState} from 'react';
+import {useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {createPortal} from 'react-dom';
 import SheetPrint,{type PrintableSheet} from './SheetPrint';
@@ -28,6 +28,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [jobs,setJobs]=useState<Record<string,Job>>({});
  const [stocks,setStocks]=useState<StockEntry[]>([]);
  const [edits,setEdits]=useState<Record<string,EnfestoDetails>>({});
+ const sheetColorVersions=useRef<Record<string,string>>({});
  const [skipStock,setSkipStock]=useState<Record<string,boolean>>({});
  const [selectedId,setSelectedId]=useState('');
  const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
@@ -63,7 +64,16 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   if(!active)return;
   const unsubscribe=[
    onSnapshot(collection(db,'production_sheets'),snapshot=>{
-    setSheets(snapshot.docs.map(x=>({...(x.data() as Omit<Sheet,'id'>),id:x.id})));
+    const next=snapshot.docs.map(x=>({...(x.data() as Omit<Sheet,'id'>),id:x.id}));
+    const nextVersions=Object.fromEntries(next.map(x=>[x.id,JSON.stringify(x.colors||[])]));
+    const changedIds=next.filter(x=>sheetColorVersions.current[x.id]!==undefined
+      && sheetColorVersions.current[x.id]!==nextVersions[x.id]).map(x=>x.id);
+    sheetColorVersions.current=nextVersions;
+    if(changedIds.length){
+      setEdits(current=>Object.fromEntries(Object.entries(current).filter(([id])=>!changedIds.includes(id))));
+      changedIds.forEach(id=>{try{localStorage.removeItem(localKey(user.uid,id))}catch{/* sem armazenamento */}});
+    }
+    setSheets(next);
     setLoading(false);
    },e=>{setError('Falha ao ler fichas no Firebase: '+safeProviderMessage(e));setLoading(false)}),
    onSnapshot(collection(db,'enfesto_jobs'),snapshot=>{
@@ -74,7 +84,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    },e=>setError('Não foi possível consultar o estoque: '+safeProviderMessage(e)))
   ];
   return()=>unsubscribe.forEach(stop=>stop());
- },[db,companyId,active]);
+ },[db,companyId,active,user.uid]);
  const waiting=useMemo(()=>sheets.filter(x=>x.status==='enfesto').sort(ocOrder),[sheets]);
  const completed=useMemo(()=>sheets.filter(x=>!!x.enfestoCompletedAt&&x.status!=='enfesto').sort(ocOrder),[sheets]);
  const filtered=(section==='waiting'?waiting:completed).filter(x=>!search||normalizeSearch([x.oc,x.model,x.reference,x.fabric||''].join(' ')).includes(normalizeSearch(search)));
