@@ -57,7 +57,7 @@ const uppercaseSheetForm=(sheet:FormData):FormData=>({...sheet,model:upperField(
 const blank=():FormData=>({client:'MB',model:'',reference:'',pieceType:'',fabric:'',composition:'',trims:'',officeInstructions:'',oc:'',withdrawalDate:'',volumes:'',tailorInstructions:'',finishingInstructions:'',colors:[blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow(),blankRow()]});
 export default function ProductionSheets({db,user,catalogModels,canEdit,canDistribute,canReassignTailor,canViewOrders,canAddTailor,onAddTailor,isAdmin,initialTab}:{db:Firestore;user:User;catalogModels:RefCatalogModel[];canEdit:boolean;canDistribute:boolean;canReassignTailor:boolean;canViewOrders:boolean;canAddTailor:boolean;onAddTailor:()=>void;isAdmin:boolean;initialTab:'create'|'distribution'}) {
  const active=useContext(PageActiveContext);
- const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab);
+ const [tab,setTab]=useState<'create'|'drafts'|'all'|'distribution'|'sent'>(initialTab==='create'?'drafts':'distribution');
  const [form,setForm]=useState<FormData>(blank);
  const [ocAuto,setOcAuto]=useState(true);
  const [lastCreatedOc,setLastCreatedOc]=useState('754');
@@ -128,7 +128,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  },[db,active,canViewOrders]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'reference_prices'),snap=>setPrices(snap.docs.map(x=>x.data() as {reference:string;type:string;price:string})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
  useEffect(()=>{if(!active||!canDistribute)return;return onSnapshot(collection(db,'workshops'),snap=>setWorkshops(snap.docs.map(x=>x.data() as {name:string;types:string[];specialPrices:{reference:string;type:string;price:string}[]})),e=>setError(safeProviderMessage(e)));},[db,active,canDistribute]);
- useEffect(()=>setTab(initialTab),[initialTab]);
+ useEffect(()=>setTab(initialTab==='create'?'drafts':'distribution'),[initialTab]);
  useEffect(()=>setSavedColors(readStoredColors(user.uid)),[user.uid]);
  const getPrice=(sheet:Sheet,name:string,type:string)=>{
    const special=workshops
@@ -351,7 +351,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    .sort((a,b)=>a[1].localeCompare(b[1],'pt-BR'))
    .map(([key,name])=>({name,items:sentFiltered.filter(s=>workshopKey(s.assignedTailor)===key)}));
  return <section className="sheets-page">
- <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>Fichas de Produção</h1><p>Criação, distribuição por oficina e consulta das fichas enviadas.</p></div></div>
+ <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>{initialTab==='create'?'Minhas fichas de produção':'Distribuição de fichas'}</h1><p>{initialTab==='create'?'Acompanhe as quatro etapas, consulte OCs e altere a ficha original a qualquer momento.':'Escolha as oficinas e distribua as fichas que concluíram o Enfesto.'}</p></div></div>
  {initialTab==='create'&&canEdit&&<div className="creator-stage-tiles creator-stage-tiles-top" role="group" aria-label="Acompanhar fichas por etapa">
   {([
    {id:'enfesto',title:'Em Enfesto',count:ownEnfesto.length,icon:<Layers size={22}/>,note:'Corte e conferência'},
@@ -360,12 +360,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    {id:'done',title:'Finalizadas',count:ownFinished.length,icon:<ClipboardCheck size={22}/>,note:'OCs marcadas ENTREGUE'}
   ] as const).map(stage=><button type="button" key={stage.id} className={tab==='drafts'&&creatorStage===stage.id?'creator-stage-tile selected':'creator-stage-tile'} onClick={()=>{setCreatorStage(stage.id);setCreatorSearch('');setTab('drafts')}} aria-pressed={tab==='drafts'&&creatorStage===stage.id}><span className="creator-stage-icon">{stage.icon}</span><strong>{stage.title}</strong><b>{stage.count}</b><small>{stage.note}</small></button>)}
  </div>}
- <div className="sheet-tabs">
-  {canEdit&&initialTab==='create'&&<button type="button" className={tab==='create'?'active':''} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('create')}}>Nova ficha</button>}
-  {canEdit&&initialTab==='create'&&<button type="button" className={tab==='drafts'?'active':''} onClick={()=>setTab('drafts')}>Painel de fichas ({creatorSheets.length})</button>}
+ <div className={initialTab==='create'?'creator-toolbar':'sheet-tabs'}>
+  {canEdit&&initialTab==='create'&&<>
+   <button type="button" className={tab==='create'?'outline-button':'primary-button'} onClick={()=>{setEditingId(null);setEditingSent(false);setRevisionConfirm(null);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('create')}}><FileText size={17}/> + Nova ficha</button>
+   {tab!=='drafts'&&<button type="button" className="outline-button" onClick={()=>setTab('drafts')}><Layers size={17}/> Voltar aos quatro cartões</button>}
+  </>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='distribution'?'active':''} onClick={()=>setTab('distribution')}>Distribuição ({pending.length})</button>}
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({atOffice.length})</button>}
-  <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({completedSheets.length})</button>
+  {initialTab==='distribution'&&<button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({completedSheets.length})</button>}
  </div>
  {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>{error.includes('atualizar a ficha')?'A correção foi recusada pelas regras ativas do Firebase. Confira se as regras de edição de fichas foram PUBLICADAS no projeto mb-referencias e se este usuário tem permissão para editar fichas. Não é uma falha na Distribuição.':'Verifique as permissões desta operação e as regras ativas no Firebase.'}</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
@@ -377,7 +379,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  <p className="sheet-colors-hint">Cores já usadas ficam salvas como sugestões para a próxima ficha. Toque no campo CORES para selecionar ou digitar uma nova.</p>
  <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>{editingSent?<><button className="outline-button" disabled={busy} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts')}}>Cancelar edição</button><button className="primary-button" disabled={busy} onClick={()=>void saveEditedEnfesto(false)}>{busy?'Salvando...':'Salvar correção da ficha'}</button></>:<><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></>}</div></div></>}
  {tab==='drafts'&&canEdit&&initialTab==='create'&&<section className="sheet-list creator-stage-panel">
-  <div className="creator-stage-heading"><div><span className="sheet-eyebrow">CONTROLE DE PRODUÇÃO</span><h2>Acompanhar minhas fichas</h2><p>Escolha a etapa para consultar OC, REF, modelo, imprimir a ficha ou corrigi-la.</p></div><span className="creator-stage-live"><CheckCircle2 size={16}/> Atualização automática</span></div>
+  <div className="creator-stage-heading"><div><span className="sheet-eyebrow">CONTROLE DE PRODUÇÃO</span><h2>{creatorStage==='enfesto'?'Fichas no Enfesto':creatorStage==='pending'?'Fichas no Acabamento / Distribuição':creatorStage==='office'?'Fichas com os Costureiros':'Fichas Finalizadas'}</h2><p>OC, REF, modelo, PDF e alteração da ficha original. Selecione outro cartão acima para trocar de etapa.</p></div><span className="creator-stage-live"><CheckCircle2 size={16}/> Atualização automática</span></div>
 
   <label className="sheet-quick-search creator-stage-search"><Search size={17}/><input type="search" value={creatorSearch} onChange={e=>setCreatorSearch(e.target.value)} placeholder="Pesquisar OC, REF, modelo ou costureiro" aria-label="Pesquisar minhas fichas"/></label>
   {creatorStage==='done'&&!canViewOrders&&<p className="sheet-price-warning">Para identificar as OCs marcadas como ENTREGUE, o criador precisa ter permissão de consulta a OCs. Peça ao dono para habilitar essa consulta.</p>}
