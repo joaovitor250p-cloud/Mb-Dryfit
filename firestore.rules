@@ -901,9 +901,23 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.assignedTailor == resource.data.assignedTailor
-        && request.resource.data.assignedAt == resource.data.assignedAt
-        && request.resource.data.assignedBy == resource.data.assignedBy
-        && validSheetFields(request.resource.data)
+        && request.resource.data.get('assignedAt',null) == resource.data.get('assignedAt',null)
+        && request.resource.data.get('assignedBy',null) == resource.data.get('assignedBy',null)
+        // Dados legados podem ter campos opcionais ausentes. Valide
+        // SOMENTE os campos desta operação, sem revalidar a ficha inteira
+        // (isso ultrapassava 1000 expressões em algumas OCs antigas).
+        && request.resource.data.model is string && request.resource.data.model.size() > 0 && request.resource.data.model.size() <= 250
+        && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 200
+        && request.resource.data.get('client','MB') is string && request.resource.data.get('client','MB').size() <= 120
+        && request.resource.data.get('pieceType','') is string && request.resource.data.get('pieceType','').size() <= 80
+        && request.resource.data.get('fabric','') is string && request.resource.data.get('fabric','').size() <= 250
+        && request.resource.data.get('volumes','') is string
+        && request.resource.data.get('volumes','').matches('[0-9]{0,6}')
+        && request.resource.data.colors is list
+        && request.resource.data.colors.size() > 0
+        && request.resource.data.colors.size() <= 50
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
       ) || (
         resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
@@ -1013,12 +1027,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rows','updatedAt','updatedBy'])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
-        && validEnfestoJob(request.resource.data,sheetId)
-        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
-        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status == 'enfesto'
-        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.updatedAt == request.time
-        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.updatedBy == request.auth.uid
-        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.createdBy == request.auth.uid)
+        // Registros de Enfesto anteriores podem não ter notes ou
+        // stockConfirmed. O criador só modifica linhas e data de revisão:
+        // conclusão, baixa e metadados permanecem imutáveis.
+        && request.resource.data.rows is list
+        && request.resource.data.rows.size() >= 1
+        && request.resource.data.rows.size() <= 50
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        // Somente administrador ou criador da ficha, com permissão sheets.
+        // Status, conclusão, estoque e pagamentos ficam imutáveis.
+        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.get('createdBy','') == request.auth.uid)
       ) || (
         canWrite('enfesto')
         && resource.data.status == 'draft'
