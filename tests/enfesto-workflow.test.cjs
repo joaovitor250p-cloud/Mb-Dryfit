@@ -96,7 +96,7 @@ test('Enfesto recebe revisão em tempo real, invalida cache e protege salvamento
  assert.match(creator,/await runTransaction\(db,async transaction=>/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
  assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows/);
- assert.match(creator,/ficha e PDF corrigidos no Firebase mantendo a fase/); 
+ assert.match(creator,/ficha e PDF atualizados para todos/); 
 });
 test('a ficha cria linhas de enfesto por cor e soma quantidades sem duplicar',()=>{
  const items=api.makeEnfestoRows([row('PRETO',100),row('BRANCO',50)]);
@@ -168,13 +168,13 @@ test('permissão de Enfesto é independente e transição é protegida por docum
 });
 test('corrigir em Distribuição mantém a fase pending e não reabre Enfesto concluído',()=>{
  const creator=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
- assert.match(creator,/\['enfesto','pending'\]\.includes\(s\.status\)/);
- assert.match(creator,/EDITAR FICHA E CORES/);
+ assert.match(creator,/\['enfesto','pending','assigned'\]\.includes\(s\.status\)/);
+ assert.match(creator,/creatorStageSheets/);
  assert.match(creator,/current\.data\(\)\.status!==original\.status/);
- assert.match(creator,/original\.status==='enfesto'&&job\.exists\(\)/);
- assert.match(rules,/resource\.data\.status in \['enfesto','pending'\]/);
+ assert.match(creator,/original\.status==='enfesto'&&job\?\.exists\(\)/);
+ assert.match(rules,/resource\.data\.status in \['enfesto','pending','assigned'\]/);
  assert.match(rules,/request\.resource\.data\.status == resource\.data\.status/);
- assert.match(rules,/resource\.data\.status == 'pending'/);
+ assert.match(rules,/resource\.data\.status in \['pending','assigned'\]/);
 });
 test('correção de ficha enviada é feita pelo criador ou dono, não na tela do Enfesto',()=>{
  const creator=read('src/ProductionSheets.tsx');
@@ -183,7 +183,7 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  assert.match(creator,/const creatorSheets=sheets\.filter\(s=>isAdmin\|\|s\.createdBy===user\.uid\)/);
  assert.match(creator,/const editEnfestoSheet=\(s:Sheet\)=>/);
  assert.match(creator,/const saveEditedEnfesto=async\(approved=false\)=>/);
- assert.match(creator,/EDITAR FICHA ENVIADA/);
+ assert.match(creator,/Alterar ficha/);
  assert.match(creator,/Salvar correção da ficha/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
  assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
