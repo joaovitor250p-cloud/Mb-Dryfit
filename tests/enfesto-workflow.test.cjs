@@ -196,6 +196,20 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  assert.match(rules,/request\.resource\.data\.oc == resource\.data\.oc/);
  assert.match(rules,/resource\.data\.status == 'enfesto'/);
 });
+test('quatro cartões substituem os três antigos acima da Nova ficha sem duplicar dentro do painel',()=>{
+ const page=read('src/ProductionSheets.tsx');
+ assert.doesNotMatch(page,/FICHAS EM ENFESTO|FICHAS NA OFICINA|FICHAS FINALIZADAS/);
+ assert.doesNotMatch(page,/className="sheet-phase-cards"/);
+ const top=page.indexOf('creator-stage-tiles creator-stage-tiles-top');
+ const tabs=page.indexOf('className="sheet-tabs"');
+ const panel=page.indexOf('className="sheet-list creator-stage-panel"');
+ assert.ok(top>0&&top<tabs&&tabs<panel,'cartões aparecem acima das abas');
+ assert.equal((page.match(/className="creator-stage-tiles"/g)||[]).length,0,'não repetir cartões no interior do painel');
+ assert.match(page,/onClick=\{\(\)=>\{setCreatorStage\(stage.id\);setCreatorSearch\(''\);setTab\('drafts'\)\}\}/);
+ for(const name of ['Em Enfesto','Acabamento \/ Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(name));
+ assert.match(page,/Não é uma falha na Distribuição/);
+ assert.match(page,/permissão insuficiente ou regras de correção ainda não publicadas/);
+});
 test('painel do criador tem quatro etapas, agrupamento de costureiro e confirmação de revisão',()=>{
  const page=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
  for(const name of ['Em Enfesto','Acabamento / Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(name));
