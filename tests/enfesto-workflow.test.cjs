@@ -59,6 +59,45 @@ test('sem preto, mesma alteração de peso se aplica a todas as cores',()=>{
  assert.equal(api.calculatedKg(updated[1]),9.6);
 });
 
+test('edição salva da ficha sincroniza imediatamente cores e quantidades do enfesto',()=>{
+ const original=[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''},{cor:'AZUL',p:'',m:'12',g:'',gg:'',xg:''}];
+ const saved=[filled('PRETO',30,'black-stock'),filled('AZUL',12,'blue-stock')];
+ const corrected=[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'',m:'12',g:'',gg:'',xg:''},{cor:'VERDE',p:'5',m:'',g:'',gg:'',xg:''}];
+ const rows=api.reconcileEnfestoRowsAfterSheetEdit(original,corrected,saved);
+ assert.equal(rows.length,3);
+ assert.equal(rows[0].expected,30,'total PRETO permanece 30');
+ assert.equal(rows[0].checked,false,'mudança de P/M/G precisa nova conferência mesmo com total igual');
+ assert.equal(rows[0].stockId,'','não manter tecido de cor alterada');
+ assert.equal(rows[1].checked,true,'cor inalterada conserva conferência');
+ assert.equal(rows[1].stockId,'blue-stock');
+ assert.equal(rows[2].cor,'VERDE','nova cor disponível imediatamente');
+ assert.equal(rows[2].expected,5);
+ assert.equal(rows[2].checked,false);
+ const renamed=api.reconcileEnfestoRowsAfterSheetEdit(original,[{...original[0],cor:'MARINHO'}],saved);
+ assert.equal(renamed.length,1);
+ assert.equal(renamed[0].cor,'MARINHO');
+ assert.equal(renamed[0].checked,false);
+});
+test('assinatura da ficha identifica novos tamanhos, mesmo com total igual',()=>{
+ const a=[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}];
+ const b=[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''}];
+ assert.notEqual(api.sheetColorsSignature(a),api.sheetColorsSignature(b));
+ assert.equal(api.sheetColorsSignature(a),api.sheetColorsSignature([{m:20,p:10,cor:'PRETO',g:0,gg:'',xg:''}]));
+});
+test('Enfesto recebe revisão em tempo real, invalida cache e protege salvamento antigo',()=>{
+ const page=read('src/EnfestoPage.tsx'),creator=read('src/ProductionSheets.tsx');
+ assert.match(page,/onSnapshot\(collection\(db,'production_sheets'\)/);
+ assert.match(page,/sheetColorsSignature\(x\.colors\|\|\[\]\)/);
+ assert.match(page,/changedIds\.includes\(selectedSheetRef\.current\)/);
+ assert.match(page,/localStorage\.removeItem\(localKey\(user\.uid,id\)\)/);
+ assert.match(page,/draftVersions\.current\[sheet\.id\]===signature/);
+ assert.match(page,/sheetColorsSignature\(current\.data\(\)\.colors/);
+ assert.match(page,/Atualização automática ativa/);
+ assert.match(creator,/await runTransaction\(db,async transaction=>/);
+ assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
+ assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows/);
+ assert.match(creator,/ficha, PDF e cores\/quantidades do Enfesto atualizados/); 
+});
 test('a ficha cria linhas de enfesto por cor e soma quantidades sem duplicar',()=>{
  const items=api.makeEnfestoRows([row('PRETO',100),row('BRANCO',50)]);
  assert.equal(items.length,2);
@@ -138,7 +177,7 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  assert.match(creator,/Salvar alterações na ficha e no Enfesto/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
  assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
- assert.match(creator,/makeEnfestoRows\(colors,oldRows\)/);
+ assert.match(creator,/reconcileEnfestoRowsAfterSheetEdit\(previousColors,colors,oldRows\)/);
  assert.match(creator,/action:'production_sheet_revision'/);
  assert.match(page,/sheetColorVersions=useRef/);
  assert.doesNotMatch(page,/EDITAR COR DA FICHA|Editar cores da ficha|Corrigir cor|correctSheetColor/);
@@ -152,7 +191,7 @@ test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>
  for(const field of ['Camadas','Peso por folha','Peças cortadas','Tecido da cor no estoque','Consumo real','Cor cortada e conferida','Salvar progresso','Finalizar Enfesto e liberar ficha']){
   assert.ok(page.includes(field),field);
  }
- assert.match(page,/readLocal\(user\.uid,sheet\.id\)/);
+ assert.match(page,/readLocal\(user\.uid,sheet\.id,signature\)/);
  assert.match(page,/runTransaction\(db,async transaction=>/);
  assert.match(page,/confirmEnfestoConsumption/);
 });

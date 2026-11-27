@@ -6,7 +6,7 @@ import { collection, doc, getDoc, getDocs, onSnapshot, query as firestoreQuery, 
 import {KEY,TYPES,TAILORS,canSewType,normalizedGarmentType,parsePrice,currency,priceWithMauroMinimum} from './lib/referencePrices';
 import { safeProviderMessage } from './lib/safeMessage';
 import SheetPrint from './SheetPrint';
-import {makeEnfestoRows,type EnfestoColor} from './lib/enfestoWorkflow';
+import {reconcileEnfestoRowsAfterSheetEdit,type EnfestoColor,type FichaCor} from './lib/enfestoWorkflow';
 import ProductionCleanup from './ProductionCleanup';
 import {isProtectedProductionOc,normalizeOcNumber} from './lib/sheetOcSequence';
 import {garmentTypeFromCatalog,lookupReference,normalizeColorName,normalizeReferenceNumber,upperField,type RefCatalogModel} from './lib/sheetCatalogAutofill';
@@ -213,13 +213,14 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     transaction.update(sheetRef,updates);
     if(job.exists()){
      const oldRows=Array.isArray(job.data().rows)?job.data().rows as EnfestoColor[]:[];
-     const nextRows=makeEnfestoRows(colors,oldRows);
+     const previousColors=Array.isArray(current.data().colors)?current.data().colors as FichaCor[]:[];
+     const nextRows=reconcileEnfestoRowsAfterSheetEdit(previousColors,colors,oldRows);
      transaction.update(jobRef,{rows:nextRows,updatedAt:serverTimestamp(),updatedBy:user.uid});
     }
     transaction.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'production_sheet_revision',modelName:'OC '+original.oc,before:{colors:current.data().colors,model:current.data().model,reference:current.data().reference},after:{colors,model:normalized.model,reference:normalized.reference},at:serverTimestamp()});
    });
    setEditingId(null);setEditingSent(false);setEditingColorsBaseline(null);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts');
-   setMessage('Ficha OC '+original.oc+' corrigida e sincronizada com o Enfesto e PDF. Confira as linhas modificadas antes de finalizar.');
+   setMessage('OC '+original.oc+': ficha, PDF e cores/quantidades do Enfesto atualizados no Firebase! A equipe do Enfesto recebe as alterações automaticamente; confira novamente apenas as cores modificadas.');
   }catch(e){setError('Não foi possível atualizar a ficha OC '+original.oc+': '+safeProviderMessage(e)+'. Nenhuma alteração parcial foi gravada.');}
   finally{setBusy(false)}
  };

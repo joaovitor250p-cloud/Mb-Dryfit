@@ -29,6 +29,26 @@ export function makeEnfestoRows(colors:FichaCor[],saved:EnfestoColor[]=[]):Enfes
   return found?{...found,cor:row.cor,expected,layers:found.layers?.trim()?found.layers:suggestedLayers}:{cor:row.cor||'COR NÃO INFORMADA '+(i+1),expected,layers:suggestedLayers,weightPerLayer:'',cutPieces:String(expected),stockId:'',consumption:'',checked:false};
  });
 }
+/** Assinatura estável dos nomes e da distribuição por tamanho; independe da ordem das propriedades Firestore. */
+export const sheetColorsSignature=(colors:FichaCor[]|undefined|null):string=>JSON.stringify(
+ (Array.isArray(colors)?colors:[]).map(row=>[
+  normalizeColor(String(row.cor||'')),
+  ...(['p','m','g','gg','xg'] as const).map(size=>integer(row[size]))
+ ]).filter(row=>row[0]!==''||row.slice(1).some(qty=>Number(qty)>0))
+);
+/** Ao corrigir a ficha, só reaproveita a conferência de cores cujos tamanhos
+ * e quantidades realmente não mudaram. Mesmo que o TOTAL seja igual,
+ * deslocar peças entre P/M/G deve obrigar uma nova conferência. */
+export function reconcileEnfestoRowsAfterSheetEdit(
+ previousColors:FichaCor[],nextColors:FichaCor[],savedRows:EnfestoColor[]
+):EnfestoColor[]{
+ const unchanged=new Set((previousColors||[]).filter(old=>(nextColors||[]).some(next=>
+  normalizeColor(old.cor)===normalizeColor(next.cor)
+  && (['p','m','g','gg','xg'] as const).every(size=>integer(old[size])===integer(next[size]))
+ )).map(row=>normalizeColor(row.cor)));
+ const safeRows=(savedRows||[]).filter(row=>unchanged.has(normalizeColor(row.cor)));
+ return makeEnfestoRows(nextColors,safeRows);
+}
 export function calculatedKg(row:EnfestoColor):number{
  const layers=integer(row.layers),weight=decimal(row.weightPerLayer);
  return layers>0&&Number.isFinite(weight)&&weight>0?Math.round(layers*weight*1000)/1000:0;
