@@ -7,20 +7,27 @@ import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase
 import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
 import {PageActiveContext} from './lib/pageMemory';
 import {safeProviderMessage} from './lib/safeMessage';
-import {calculatedKg,calculateConsumption,isBlackColor,withSharedSheetWeight,makeEnfestoRows,normalizeColor,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
+import {calculatedKg,calculateConsumption,isBlackColor,withSharedSheetWeight,makeEnfestoRows,normalizeColor,sheetColorsSignature,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
 import {confirmEnfestoConsumption,finishEnfestoWithoutStock,quantityText,type StockEntry} from './lib/purchasesInventory';
 import './enfesto.css';
 
-type Sheet={id:string;oc:string;model:string;reference:string;client?:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
-type Job={id:string;sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
+type Sheet={id:string;oc:string;model:string;updatedAt?:{toMillis?:()=>number;seconds?:number};reference:string;client?:string;fabric?:string;pieceType?:string;colors:FichaCor[];status:string;assignedTailor?:string;composition?:string;trims?:string;officeInstructions?:string;withdrawalDate?:string;volumes?:string;tailorInstructions?:string;finishingInstructions?:string;enfestoCompletedAt?:{toDate?:()=>Date}};
+type Job={id:string;updatedAt?:{toMillis?:()=>number;seconds?:number};sheetId:string;oc:string;status:'draft'|'completed';rows:EnfestoColor[];notes:string;stockConfirmed:boolean};
 type Props={db:Firestore;user:User;companyId:string;canEdit:boolean};
 const empty:EnfestoDetails={rows:[],notes:''};
 const number=(v:number)=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(v);
 const localKey=(uid:string,id:string)=>'mb-enfesto-progress-'+uid+'-'+id;
 const normalizeSearch=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
 const ocOrder=(a:Sheet,b:Sheet)=>a.oc.localeCompare(b.oc,'pt-BR',{numeric:true});
-function readLocal(uid:string,id:string):EnfestoDetails|null{
- try{const data=JSON.parse(localStorage.getItem(localKey(uid,id))||'null');return data&&Array.isArray(data.rows)&&typeof data.notes==='string'?data:null}catch{return null}
+function readLocal(uid:string,id:string,signature:string):EnfestoDetails|null{
+ try{
+  const data=JSON.parse(localStorage.getItem(localKey(uid,id))||'null');
+  if(!data||!Array.isArray(data.rows)||typeof data.notes!=='string')return null;
+  // Rascunhos antigos sem assinatura só podem ser reaproveitados se a
+  // composição das cores ainda bater; após revisão, versões divergentes caem.
+  if(typeof data.sheetSignature==='string'&&data.sheetSignature!==signature)return null;
+  return data as EnfestoDetails;
+ }catch{return null}
 }
 export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const active=useContext(PageActiveContext);
@@ -29,8 +36,11 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [stocks,setStocks]=useState<StockEntry[]>([]);
  const [edits,setEdits]=useState<Record<string,EnfestoDetails>>({});
  const sheetColorVersions=useRef<Record<string,string>>({});
+ const draftVersions=useRef<Record<string,string>>({});
+ const selectedSheetRef=useRef('');
  const [skipStock,setSkipStock]=useState<Record<string,boolean>>({});
  const [selectedId,setSelectedId]=useState('');
+ selectedSheetRef.current=selectedId;
  const [printSheet,setPrintSheet]=useState<PrintableSheet|null>(null);
  const print=(sheet:Sheet)=>{
   const colors=(sheet.colors||[]).map(row=>({...row,detalhes:String((row as FichaCor&{detalhes?:string}).detalhes||'')}));
@@ -65,13 +75,21 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   const unsubscribe=[
    onSnapshot(collection(db,'production_sheets'),snapshot=>{
     const next=snapshot.docs.map(x=>({...(x.data() as Omit<Sheet,'id'>),id:x.id}));
-    const nextVersions=Object.fromEntries(next.map(x=>[x.id,JSON.stringify(x.colors||[])]));
+    const nextVersions=Object.fromEntries(next.map(x=>[x.id,sheetColorsSignature(x.colors||[])]));
     const changedIds=next.filter(x=>sheetColorVersions.current[x.id]!==undefined
       && sheetColorVersions.current[x.id]!==nextVersions[x.id]).map(x=>x.id);
     sheetColorVersions.current=nextVersions;
     if(changedIds.length){
       setEdits(current=>Object.fromEntries(Object.entries(current).filter(([id])=>!changedIds.includes(id))));
-      changedIds.forEach(id=>{try{localStorage.removeItem(localKey(user.uid,id))}catch{/* sem armazenamento */}});
+      changedIds.forEach(id=>{
+       delete draftVersions.current[id];
+       try{localStorage.removeItem(localKey(user.uid,id))}catch{/* sem armazenamento */}
+      });
+      if(changedIds.includes(selectedSheetRef.current)){
+       const revised=next.find(x=>x.id===selectedSheetRef.current);
+       setSuccess('OC '+(revised?.oc||'')+': ficha, cores e quantidades atualizadas automaticamente. Confira novamente as cores alteradas antes de finalizar.');
+       setError('');
+      }
     }
     setSheets(next);
     setLoading(false);
@@ -90,19 +108,29 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const filtered=(section==='waiting'?waiting:completed).filter(x=>!search||normalizeSearch([x.oc,x.model,x.reference,x.fabric||''].join(' ')).includes(normalizeSearch(search)));
  const sheet=sheets.find(x=>x.id===selectedId);
  const job=sheet?jobs[sheet.id]:null;
+ // Renderização sempre parte das cores/quantidades atuais da ficha.
+ // Edições locais só são aproveitadas se pertencem à mesma versão; uma
+ // alteração recebida pelo listener não pode mostrar cores antigas.
  const draft=sheet
-  ?(edits[sheet.id]||(()=>{
-    const saved=job?{rows:job.rows,notes:job.notes}:readLocal(user.uid,sheet.id);
+  ?(()=>{
+    const signature=sheetColorsSignature(sheet.colors||[]);
+    const local=edits[sheet.id]&&draftVersions.current[sheet.id]===signature?edits[sheet.id]:null;
+    const sheetUpdated=sheet.updatedAt?.toMillis?.()??(sheet.updatedAt?.seconds||0)*1000;
+    const jobUpdated=job?.updatedAt?.toMillis?.()??(job?.updatedAt?.seconds||0)*1000;
+    const currentJob=job&&(!sheetUpdated||jobUpdated>=sheetUpdated)?job:null;
+    const saved=local||(currentJob?{rows:currentJob.rows,notes:currentJob.notes}:readLocal(user.uid,sheet.id,signature));
     return {rows:makeEnfestoRows(sheet.colors||[],saved?.rows||[]),notes:saved?.notes||''};
-   })())
+   })()
   :empty;
  const completedCount=waiting.filter(x=>jobs[x.id]?.status==='draft').length;
  const blackRowIndex=draft.rows.findIndex(row=>isBlackColor(row.cor));
  const sharedWeight=draft.rows[blackRowIndex>=0?blackRowIndex:0]?.weightPerLayer||'';
  const saveEdit=(next:EnfestoDetails)=>{
   if(!sheet||sheet.status!=='enfesto')return;
+  const signature=sheetColorsSignature(sheet.colors||[]);
+  draftVersions.current[sheet.id]=signature;
   setEdits(old=>({...old,[sheet.id]:next}));
-  try{localStorage.setItem(localKey(user.uid,sheet.id),JSON.stringify(next))}catch{/* navegador pode não permitir armazenamento */}
+  try{localStorage.setItem(localKey(user.uid,sheet.id),JSON.stringify({...next,sheetSignature:signature}))}catch{/* navegador pode não permitir armazenamento */}
  };
  const changeRow=(index:number,patch:Partial<EnfestoColor>)=>saveEdit({...draft,rows:draft.rows.map((r,i)=>i===index?{...r,...patch,checked:patch.checked??(Object.keys(patch).some(k=>k!=='checked')?false:r.checked)}:r)});
  const changeSharedWeight=(weight:string)=>saveEdit({...draft,rows:withSharedSheetWeight(draft.rows,weight)});
@@ -115,6 +143,8 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    await runTransaction(db,async transaction=>{
     const [existing,current]=await Promise.all([transaction.get(ref),transaction.get(sheetRef)]);
     if(!current.exists()||current.data().status!=='enfesto')throw Error('Esta ficha já avançou de etapa.');
+    if(sheetColorsSignature(current.data().colors as FichaCor[]||[])!==sheetColorsSignature(sheet.colors||[]))
+     throw Error('A ficha foi atualizada enquanto você preenchia o Enfesto. As novas cores e quantidades aparecerão automaticamente; confira antes de salvar.');
     if(existing.exists()&&existing.data().status==='completed')throw Error('O enfesto já foi finalizado.');
     transaction.set(ref,{
      sheetId:sheet.id,oc:sheet.oc,status:'draft',rows:draft.rows,notes:draft.notes.trim().slice(0,500),
@@ -188,6 +218,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
     {!sheet?<div className="enfesto-placeholder"><Scissors size={34}/><strong>Selecione uma ficha</strong><p>Escolha uma OC na lista para começar a conferência do enfesto.</p></div>:<>
      <div className="enfesto-editor-head"><div><span className="enfesto-oc">OC {sheet.oc}</span><h2>{sheet.model}</h2><p>REF {sheet.reference} · {sheet.pieceType||'Tipo não informado'} · Tecido: {sheet.fabric||'Não informado'}</p></div><div className="enfesto-editor-tools"><span className={sheet.status==='enfesto'?'enfesto-state':'enfesto-state done'}>{sheet.status==='enfesto'?'Em enfesto':'Enfesto concluído'}</span><button type="button" className="outline-button enfesto-print-button" onClick={()=>print(sheet)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA PDF</button></div></div>
 
+     {sheet.status==='enfesto'&&<div className="enfesto-auto-sync"><CheckCircle2 size={17}/> Atualização automática ativa: ao salvar a ficha, as cores e quantidades aparecem aqui sem atualizar a página.</div>}
      <div className="enfesto-totals">
       <div><small>Peças previstas</small><strong>{number(totalExpected(draft.rows))}</strong></div>
       <div><small>Peças cortadas</small><strong>{number(totalCut(draft.rows))}</strong></div>
