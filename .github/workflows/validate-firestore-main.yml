@@ -23,5 +23,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Validar regras no emulador sem publicar
-        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'echo Regras Firestore validas'
+      - name: Instalar dependências e testes de regras
+        run: |
+          npm install
+          npm install --no-save --no-package-lock @firebase/rules-unit-testing@4.0.1
+      - name: Compilar regras e executar testes no emulador sem publicar
+        run: npx --yes firebase-tools@13.35.1 emulators:exec --project demo-mb-referencias --only firestore 'node --test tests/enfesto-permissions.integration.cjs'
