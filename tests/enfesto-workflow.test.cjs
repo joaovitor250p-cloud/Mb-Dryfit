@@ -210,6 +210,18 @@ test('quatro cartões substituem os três antigos acima da Nova ficha sem duplic
  assert.match(page,/Não é uma falha na Distribuição/);
  assert.match(page,/permissão insuficiente ou regras de correção ainda não publicadas/);
 });
+test('criador abre nos quatro cartões e não no formulário ou nas abas antigas',()=>{
+ const page=read('src/ProductionSheets.tsx');
+ assert.match(page,/useState<'create'\|'drafts'\|'all'\|'distribution'\|'sent'>\(initialTab==='create'\?'drafts':'distribution'\)/);
+ assert.match(page,/useEffect\(\(\)=>setTab\(initialTab==='create'\?'drafts':'distribution'\)/);
+ assert.match(page,/initialTab==='create'&&canEdit&&<div className="creator-stage-tiles creator-stage-tiles-top"/);
+ assert.match(page,/onClick=\{\(\)=>\{setCreatorStage\(stage\.id\);setCreatorSearch\(''\);setTab\('drafts'\)\}\}/);
+ assert.match(page,/className=\{initialTab==='create'\?'creator-toolbar':'sheet-tabs'\}/);
+ assert.match(page,/>\+ Nova ficha<\/button>/);
+ assert.match(page,/> Voltar aos quatro cartões<\/button>/);
+ assert.doesNotMatch(page,/>Painel de fichas \(\{creatorSheets\.length\}\)<\/button>/);
+ assert.match(page,/initialTab==='distribution'&&<button type="button" className=\{tab==='all'/);
+});
 test('painel do criador tem quatro etapas, agrupamento de costureiro e confirmação de revisão',()=>{
  const page=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
  for(const name of ['Em Enfesto','Acabamento / Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(name));
