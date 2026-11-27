@@ -385,8 +385,10 @@ test('criador pode corrigir ficha já com costureiro e OC entregue sem alterar p
    total:'R$ 300,00',paymentDone:'OK',status:'ENTREGUE',paidAt:'26/11/2026'});
  });
  const ref=db.doc('production_sheets/'+sheetId);
- const orderBefore=(await db.doc('cut_orders/'+sheetId).get()).data();
- const jobBefore=(await db.doc('enfesto_jobs/'+sheetId).get()).data();
+ const {orderBefore,jobBefore}=await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  return {orderBefore:(await privileged.doc('cut_orders/'+sheetId).get()).data(),jobBefore:(await privileged.doc('enfesto_jobs/'+sheetId).get()).data()};
+ });
  await db.runTransaction(async t=>{
   const existing=await t.get(ref);
   assert.equal(existing.data().status,'assigned');
@@ -402,8 +404,11 @@ test('criador pode corrigir ficha já com costureiro e OC entregue sem alterar p
  assert.equal(after.status,'assigned');
  assert.equal(after.assignedTailor,'RAMIRO');
  assert.equal(after.colors.length,2);
- assert.deepEqual((await db.doc('cut_orders/'+sheetId).get()).data(),orderBefore);
- assert.deepEqual((await db.doc('enfesto_jobs/'+sheetId).get()).data(),jobBefore);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  assert.deepEqual((await privileged.doc('cut_orders/'+sheetId).get()).data(),orderBefore);
+  assert.deepEqual((await privileged.doc('enfesto_jobs/'+sheetId).get()).data(),jobBefore);
+ });
 });
 test('editor não criador não pode corrigir ficha atribuída',async()=>{
  const owner='criador_com_ficha',other='outro_editor_atribuida',sheetId='ficha_oc_900';
