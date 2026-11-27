@@ -4,7 +4,7 @@ import {createPortal} from 'react-dom';
 import SheetPrint,{type PrintableSheet} from './SheetPrint';
 import type {Firestore} from 'firebase/firestore';
 import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase/firestore';
-import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
+import {AlertTriangle,CheckCircle2,ChevronDown,ClipboardList,Clock3,FileCheck2,Layers3,PackageCheck,Pencil,Printer,Save,Scissors,Search,ShieldCheck,Warehouse} from 'lucide-react';
 import {PageActiveContext} from './lib/pageMemory';
 import {safeProviderMessage} from './lib/safeMessage';
 import {calculatedKg,calculateConsumption,isBlackColor,withSharedSheetWeight,makeEnfestoRows,normalizeColor,totalCut,totalExpected,validateEnfesto,type EnfestoColor,type EnfestoDetails,type FichaCor} from './lib/enfestoWorkflow';
@@ -59,6 +59,8 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[success,setSuccess]=useState('');
  const [confirmFinish,setConfirmFinish]=useState<{sheetId:string;oc:string;noStock:boolean}|null>(null);
+ const [editingColor,setEditingColor]=useState<{sheetId:string;index:number;original:string}|null>(null);
+ const [newColor,setNewColor]=useState('');
  useEffect(()=>{
   if(!active)return;
   const unsubscribe=[
@@ -93,6 +95,58 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   if(!sheet||sheet.status!=='enfesto')return;
   setEdits(old=>({...old,[sheet.id]:next}));
   try{localStorage.setItem(localKey(user.uid,sheet.id),JSON.stringify(next))}catch{/* navegador pode não permitir armazenamento */}
+ };
+ const correctSheetColor=async()=>{
+  if(!sheet||!editingColor||!canEdit||busy||sheet.status!=='enfesto'||editingColor.sheetId!==sheet.id)return;
+  const nextColor=newColor.trim().replace(/\\s+/g,' ').toLocaleUpperCase('pt-BR');
+  if(!nextColor||nextColor.length>90){setError('Digite uma cor válida, com até 90 caracteres.');return;}
+  const originalRow=draft.rows[editingColor.index];
+  if(!originalRow||normalizeColor(originalRow.cor)!==normalizeColor(editingColor.original)){
+   setError('A lista de cores mudou. Reabra a ficha para corrigir.');return;
+  }
+  if(normalizeColor(nextColor)===normalizeColor(originalRow.cor)){setEditingColor(null);return;}
+  if(draft.rows.some((r,i)=>i!==editingColor.index&&normalizeColor(r.cor)===normalizeColor(nextColor))){
+   setError('Esta cor já existe na ficha. Não é seguro juntar duas linhas com quantidades diferentes.');return;
+  }
+  if(!window.confirm('Corrigir a cor da OC '+sheet.oc+' de '+originalRow.cor+' para '+nextColor+'?\\nA ficha, o PDF e o enfesto serão sincronizados. As quantidades não mudarão; o tecido selecionado para esta cor será desmarcado para nova conferência.'))return;
+  setBusy(true);setError('');setSuccess('');
+  try{
+   const sheetRef=doc(db,'production_sheets',sheet.id);
+   const jobRef=doc(db,'enfesto_jobs',sheet.id);
+   const corrected=await runTransaction(db,async transaction=>{
+    const [currentSheet,currentJob]=await Promise.all([transaction.get(sheetRef),transaction.get(jobRef)]);
+    if(!currentSheet.exists()||currentSheet.data().status!=='enfesto')
+      throw Error('A ficha já saiu do Enfesto. Não é seguro corrigir a cor depois do envio.');
+    if(currentJob.exists()&&currentJob.data().status==='completed')
+      throw Error('O corte já foi concluído. Não é permitido alterar a cor após a baixa do estoque.');
+    const colors=Array.isArray(currentSheet.data().colors)?currentSheet.data().colors.map((r:FichaCor)=>({...r})):[];
+    const source=colors.map((row:FichaCor,index:number)=>({row,index})).filter(({row}:{row:FichaCor})=>row.cor?.trim()||['p','m','g','gg','xg'].some(k=>Number(row[k as keyof FichaCor])>0));
+    const item=source[editingColor.index];
+    if(!item||normalizeColor(item.row.cor)!==normalizeColor(editingColor.original))
+      throw Error('A cor foi alterada em outro aparelho. Atualize a ficha e tente novamente.');
+    if(colors.some((row:FichaCor,index:number)=>index!==item.index&&normalizeColor(row.cor)===normalizeColor(nextColor)))
+      throw Error('A nova cor já existe nesta ficha. Confira as quantidades antes de corrigir.');
+    colors[item.index]={...item.row,cor:nextColor};
+    transaction.update(sheetRef,{colors,colorCorrectionIndex:item.index,updatedAt:serverTimestamp(),updatedBy:user.uid});
+    if(currentJob.exists()){
+      const savedRows=Array.isArray(currentJob.data().rows)?currentJob.data().rows.map((r:EnfestoColor)=>({...r})):[];
+      const saved=savedRows[editingColor.index];
+      if(!saved||normalizeColor(saved.cor)!==normalizeColor(item.row.cor))
+        throw Error('O progresso do Enfesto foi alterado em outro aparelho. Atualize antes de corrigir.');
+      savedRows[editingColor.index]={...saved,cor:nextColor,stockId:'',consumption:'',checked:false};
+      transaction.update(jobRef,{rows:savedRows,updatedAt:serverTimestamp(),updatedBy:user.uid});
+    }
+    transaction.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'correcao_cor_enfesto',modelName:'OC '+sheet.oc,before:{cor:item.row.cor,index:item.index},after:{cor:nextColor},at:serverTimestamp()});
+    return colors;
+   });
+   const renamedRows=draft.rows.map((row,index)=>index===editingColor.index?{...row,cor:nextColor,stockId:'',consumption:'',checked:false}:row);
+   const updated={...draft,rows:renamedRows};
+   setEdits(previous=>({...previous,[sheet.id]:updated}));
+   try{localStorage.setItem(localKey(user.uid,sheet.id),JSON.stringify(updated))}catch{/* armazenamento pode estar indisponível */}
+   setEditingColor(null);setNewColor('');
+   setSuccess('Cor corrigida na ficha da OC '+sheet.oc+', no PDF e no progresso do Enfesto. Quantidades preservadas; confira novamente o tecido de estoque para '+nextColor+'.');
+  }catch(e){setError('Não foi possível corrigir a cor da OC '+sheet.oc+': '+safeProviderMessage(e)+'. A ficha e o enfesto não foram alterados parcialmente.');}
+  finally{setBusy(false)}
  };
  const changeRow=(index:number,patch:Partial<EnfestoColor>)=>saveEdit({...draft,rows:draft.rows.map((r,i)=>i===index?{...r,...patch,checked:patch.checked??(Object.keys(patch).some(k=>k!=='checked')?false:r.checked)}:r)});
  const changeSharedWeight=(weight:string)=>saveEdit({...draft,rows:withSharedSheetWeight(draft.rows,weight)});
@@ -190,7 +244,8 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
        const sharedRow={...row,weightPerLayer:sharedWeight};
        const consumption=stock?calculateConsumption(sharedRow,stock.unit):calculatedKg(sharedRow);
        return <article key={i} className={'enfesto-color-card '+(row.checked?'checked':'')}>
-        <div className="enfesto-color-title"><strong>{row.cor}</strong><span>{row.expected} peças previstas</span></div>
+        <div className="enfesto-color-title"><strong>{row.cor}</strong><span>{row.expected} peças previstas</span>{sheet.status==='enfesto'&&canEdit&&<button type="button" className="outline-button enfesto-correct-color" disabled={busy} onClick={()=>{setEditingColor({sheetId:sheet.id,index:i,original:row.cor});setNewColor(row.cor);setError('')}}><Pencil size={14}/> Corrigir cor</button>}</div>
+        {editingColor?.sheetId===sheet.id&&editingColor.index===i&&<div className="enfesto-color-correction"><label>Cor correta na ficha *<input type="text" maxLength={90} value={newColor} disabled={busy} onChange={e=>setNewColor(e.target.value)} aria-label={`Nova cor para a OC ${sheet.oc}`}/></label><p>Atualiza a ficha, o PDF e o Enfesto juntos. A seleção do tecido será limpa para conferir a nova cor. Não altera quantidades.</p><div><button type="button" className="primary-button" disabled={busy||!newColor.trim()} onClick={()=>void correctSheetColor()}>{busy?'Salvando...':'Salvar cor na ficha e no sistema'}</button><button type="button" className="outline-button" disabled={busy} onClick={()=>setEditingColor(null)}>Cancelar</button></div></div>}
         <div className="enfesto-fields">
          <label>Camadas/folhas<input type="number" min="1" step="1" inputMode="numeric" disabled={!canEdit||sheet.status!=='enfesto'} value={row.layers} onChange={e=>changeRow(i,{layers:e.target.value})} placeholder="Ex.: 12"/></label>
          {blackRowIndex===i?<label>Peso por folha (KG) — todas as cores<input type="text" inputMode="decimal" disabled={!canEdit||sheet.status!=='enfesto'} value={sharedWeight} onChange={e=>changeSharedWeight(e.target.value)} placeholder="Ex.: 1,200"/></label>:<div className="enfesto-weight-display"><span>Peso por folha (KG)</span><strong>{sharedWeight||'A informar na ficha'}</strong></div>}
