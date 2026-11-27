@@ -2332,3 +2332,9 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
   /* Quando há muitas cores ou observações extensas, a impressão pode usar
      mais de uma folha A4, evitando texto cortado ou desenhado sobre linhas. */
 }
+
+/* Revisão de ficha já enviada: criador ou dono edita no formulário de fichas. */
+.sheets-page .sheet-edit-heading{display:grid;gap:8px;max-width:850px;margin:0 auto 14px;padding:15px 17px;border:1px solid #9987eb;border-radius:12px;background:var(--panel)}
+.sheets-page .sheet-edit-heading strong{font-size:17px;font-weight:850;color:var(--text)}
+.sheets-page .sheet-edit-heading p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}
+.sheets-page .sheet-compact-detail .primary-button{min-height:43px}
