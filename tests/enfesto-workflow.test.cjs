@@ -96,7 +96,7 @@ test('Enfesto recebe revisão em tempo real, invalida cache e protege salvamento
  assert.match(creator,/await runTransaction\(db,async transaction=>/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
  assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows/);
- assert.match(creator,/ficha, PDF e cores\/quantidades do Enfesto atualizados/); 
+ assert.match(creator,/ficha e PDF corrigidos no Firebase mantendo a fase/); 
 });
 test('a ficha cria linhas de enfesto por cor e soma quantidades sem duplicar',()=>{
  const items=api.makeEnfestoRows([row('PRETO',100),row('BRANCO',50)]);
@@ -166,6 +166,16 @@ test('permissão de Enfesto é independente e transição é protegida por docum
  assert.match(admin,/value: 'enfesto'/);
  assert.match(app,/item==='enfesto' \? <EnfestoPage/);
 });
+test('corrigir em Distribuição mantém a fase pending e não reabre Enfesto concluído',()=>{
+ const creator=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
+ assert.match(creator,/\['enfesto','pending'\]\.includes\(s\.status\)/);
+ assert.match(creator,/EDITAR FICHA E CORES/);
+ assert.match(creator,/current\.data\(\)\.status!==original\.status/);
+ assert.match(creator,/original\.status==='enfesto'&&job\.exists\(\)/);
+ assert.match(rules,/resource\.data\.status in \['enfesto','pending'\]/);
+ assert.match(rules,/request\.resource\.data\.status == resource\.data\.status/);
+ assert.match(rules,/resource\.data\.status == 'pending'/);
+});
 test('correção de ficha enviada é feita pelo criador ou dono, não na tela do Enfesto',()=>{
  const creator=read('src/ProductionSheets.tsx');
  const page=read('src/EnfestoPage.tsx');
@@ -174,7 +184,7 @@ test('correção de ficha enviada é feita pelo criador ou dono, não na tela do
  assert.match(creator,/const editEnfestoSheet=\(s:Sheet\)=>/);
  assert.match(creator,/const saveEditedEnfesto=async\(\)=>/);
  assert.match(creator,/EDITAR FICHA ENVIADA/);
- assert.match(creator,/Salvar alterações na ficha e no Enfesto/);
+ assert.match(creator,/Salvar correção da ficha/);
  assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
  assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
  assert.match(creator,/reconcileEnfestoRowsAfterSheetEdit\(previousColors,colors,oldRows\)/);

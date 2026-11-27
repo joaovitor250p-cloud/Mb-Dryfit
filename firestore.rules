@@ -889,9 +889,12 @@ service cloud.firestore {
         // A correção não é aceita após finalização/corte concluído.
         canWrite('sheets')
         && (isAdmin() || resource.data.createdBy == request.auth.uid)
-        && resource.data.status == 'enfesto'
-        && request.resource.data.status == 'enfesto'
-        && (!exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
+        && resource.data.status in ['enfesto','pending']
+        && request.resource.data.status == resource.data.status
+        // Corrigir ficha em Distribuição não reabre Enfesto concluído,
+        // não muda status nem permite modificar estoque ou pagamentos.
+        && (resource.data.status == 'pending'
+          || !exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
           || get(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status == 'draft')
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['model','reference','client','pieceType','fabric','composition',

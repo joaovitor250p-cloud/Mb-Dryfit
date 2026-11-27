@@ -290,3 +290,73 @@ test('OC 758 histórica: editor corrige ficha com campos opcionais antigos ausen
  });
  assert.equal((await sheet.get()).data().colors.length,2);
 });
+
+test('OC 758 em Distribuição: criador corrige cores sem reabrir Enfesto concluído',async()=>{
+ const uid='criador_distribuicao_758',sheetId='ficha758';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const d=ctx.firestore();
+  await d.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await d.doc('production_sheets/'+sheetId).set({
+   model:'CAMISETA',reference:'10088',pieceType:'Camiseta',fabric:'DRYFIT',volumes:'2',
+   composition:'',trims:'',officeInstructions:'',oc:'758',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'0',gg:'',xg:''}],
+   status:'pending',assignedTailor:'',assignedAt:null,assignedBy:null,
+   enfestoCompletedAt:timestamp(),enfestoCompletedBy:'cortador',
+   createdAt:timestamp(),createdBy:uid,updatedAt:timestamp(),updatedBy:'cortador'
+  });
+  await d.doc('enfesto_jobs/'+sheetId).set({
+   sheetId,oc:'758',status:'completed',rows:[{cor:'PRETO',expected:30,layers:'3',weightPerLayer:'1',cutPieces:'30',stockId:'',consumption:'',checked:true}],
+   notes:'',stockConfirmed:false,createdAt:timestamp(),createdBy:'cortador',
+   updatedAt:timestamp(),updatedBy:'cortador',completedAt:timestamp(),completedBy:'cortador'
+  });
+ });
+ const sheet=db.doc('production_sheets/'+sheetId),job=db.doc('enfesto_jobs/'+sheetId);
+ const oldJob=(await job.get()).data();
+ const oldSheet=(await sheet.get()).data();
+ await db.runTransaction(async t=>{
+  const [current,previousJob]=await Promise.all([t.get(sheet),t.get(job)]);
+  assert.equal(current.data().status,'pending');
+  assert.equal(previousJob.data().status,'completed');
+  t.update(sheet,{
+   model:'CAMISETA DRYFIT',reference:'10088',client:'MB',pieceType:'Camiseta',fabric:'DRYFIT',
+   composition:'',trims:'',officeInstructions:'',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',volumes:'2',
+   colors:[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],
+   updatedAt:stamp(),updatedBy:uid
+  });
+  t.set(db.collection('audit_log').doc(),{
+   actorUid:uid,actorEmail:'',action:'production_sheet_revision',modelName:'OC 758',
+   before:{colors:current.data().colors,model:current.data().model,reference:current.data().reference},
+   after:{colors:[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],model:'CAMISETA DRYFIT',reference:'10088'},
+   at:stamp()
+  });
+ });
+ const revised=(await sheet.get()).data(),sameJob=(await job.get()).data();
+ assert.equal(revised.status,'pending');
+ assert.equal(revised.colors.length,2);
+ assert.equal(revised.enfestoCompletedAt.toMillis(),oldSheet.enfestoCompletedAt.toMillis());
+ assert.deepEqual(sameJob,oldJob,'Enfesto concluído deve continuar intacto');
+});
+test('Distribuição: editor não criador não pode modificar ficha de outro usuário',async()=>{
+ const owner='criador_758',unauthorized='outro_editor',sheetId='ficha758';
+ const {db}=await setup(owner);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const d=ctx.firestore();
+  await d.doc('user_roles/'+unauthorized).set({role:'editor',permissions:['sheets'],disabled:false,companyId:'mb-principal'});
+  await d.doc('production_sheets/'+sheetId).set({
+   model:'CAMISETA',reference:'10088',pieceType:'Camiseta',fabric:'DRYFIT',volumes:'',
+   composition:'',trims:'',officeInstructions:'',oc:'758',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'pending',assignedTailor:'',assignedAt:null,assignedBy:null,
+   createdAt:timestamp(),createdBy:owner,updatedAt:timestamp(),updatedBy:owner
+  });
+ });
+ const other=env.authenticatedContext(unauthorized).firestore();
+ await assert.rejects(other.doc('production_sheets/'+sheetId).update({
+  colors:[{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],updatedAt:stamp(),updatedBy:unauthorized
+ }),e=>e.code==='permission-denied');
+ assert.equal((await db.doc('production_sheets/'+sheetId).get()).data().colors[0].cor,'PRETO');
+});
