@@ -124,9 +124,9 @@ test('ficha preserva medidas A4 e oito linhas vazias, aumentando só a fonte',()
  assert.match(print,/height:6mm!important/);
  assert.match(print,/position:absolute!important/);
  assert.match(print,/bottom:0!important/);
- assert.match(print,/font:700 12\.5px\/1\.17/);
- assert.match(print,/font:700 12px\/1\.15/);
- assert.match(print,/font:800 19px\/1\.1/);
+ assert.match(print,/font:700 13\.5px\/1\.17/);
+ assert.match(print,/font:700 13px\/1\.15/);
+ assert.match(print,/font:800 20px\/1\.1/);
  assert.match(print,/border:1px solid #111!important/);
  assert.match(print,/background:#fff!important/);
  assert.match(print,/line-height:1\.2/);
@@ -137,6 +137,20 @@ test('ficha preserva medidas A4 e oito linhas vazias, aumentando só a fonte',()
  assert.match(sheet,/while\(rows\.length<8\)rows\.push\(emptyRow\(\)\)/);
  assert.match(sheet,/className="sheet-field sheet-finishing"/);
  assert.match(sheet,/className="sheet-field sheet-volumes"/);
+});
+test('aumento de fonte usa Arial sem alterar altura dos quadrados',()=>{
+ const css=read('src/styles.css');
+ const start=css.indexOf('/* Ficha A4 compacta: caixas fixas como no modelo impresso.');
+ const end=css.indexOf('/* Revisão de ficha já enviada:',start);
+ const block=css.slice(start,end);
+ assert.match(block,/font-family:Arial,Helvetica,sans-serif/);
+ assert.match(block,/font-size:17px/);
+ assert.match(block,/font:700 13\.5px\/1\.17 Arial/);
+ assert.match(block,/font:700 13px\/1\.15 Arial/);
+ assert.match(block,/height:34mm!important/);
+ assert.match(block,/height:70mm!important/);
+ assert.match(block,/height:35mm!important/);
+ assert.match(block,/height:12mm!important/);
 });
 test('formulário Nova ficha nunca esmaga os quatro campos de cima',()=>{
  const css=read('src/styles.css');
