@@ -172,3 +172,12 @@
 .enfesto-editor-tools .enfesto-header-edit-color{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:43px;border-radius:10px;font-size:12px;font-weight:850;text-align:center}
 .enfesto-editor-tools .enfesto-header-edit-color:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:550px){.enfesto-editor-tools .enfesto-header-edit-color{width:100%}}
+
+/* Comunicação de sincronização automática entre o criador e o Enfesto. */
+.enfesto-auto-sync{
+ display:flex;align-items:center;gap:9px;
+ border:1px solid rgba(17,146,101,.23);border-radius:10px;
+ padding:11px 13px;background:rgba(17,146,101,.06);
+ color:#176d51;font-size:13px;font-weight:750;line-height:1.45;
+}
+.enfesto-auto-sync svg{flex:0 0 auto}
