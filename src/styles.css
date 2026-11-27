@@ -2162,6 +2162,15 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-right>.sheet-field input{
   min-height:24px;
 }
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-right>.sheet-field p{
+  margin:3px 0 0;
+  font-size:12px;
+  line-height:1.2;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-right>.sheet-field textarea{
+  min-height:0;
+  flex:1 1 auto;
+}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th{
   background:#fff;
   color:#111;
