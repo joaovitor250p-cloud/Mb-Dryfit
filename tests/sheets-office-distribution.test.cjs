@@ -43,7 +43,7 @@ test('ficha enviada informa permissão ausente e PWA busca JS/CSS atualizados',(
  assert.match(all,/canDistribute&&!canReassignTailor/);
  assert.match(all,/Contas e permissões/);
  assert.match(all,/s\.status==='assigned'&&reassignControl\(s\)/);
- assert.match(sw,/2026-11-27-criador-quatro-etapas-revisao-global/);
+ assert.match(sw,/2026-11-27-criador-quatro-cartoes-inicio/);
  assert.match(sw,/fetch\(req, \{cache:'no-cache'\}\)/);
  assert.match(sw,/caches\.match\(req\)/);
 });
