@@ -201,7 +201,7 @@ test('quatro cartões substituem os três antigos acima da Nova ficha sem duplic
  assert.doesNotMatch(page,/FICHAS EM ENFESTO|FICHAS NA OFICINA|FICHAS FINALIZADAS/);
  assert.doesNotMatch(page,/className="sheet-phase-cards"/);
  const top=page.indexOf('creator-stage-tiles creator-stage-tiles-top');
- const tabs=page.indexOf('className="sheet-tabs"');
+ const tabs=page.indexOf("className={initialTab==='create'?'creator-toolbar':'sheet-tabs'}");
  const panel=page.indexOf('className="sheet-list creator-stage-panel"');
  assert.ok(top>0&&top<tabs&&tabs<panel,'cartões aparecem acima das abas');
  assert.equal((page.match(/className="creator-stage-tiles"/g)||[]).length,0,'não repetir cartões no interior do painel');
@@ -209,6 +209,18 @@ test('quatro cartões substituem os três antigos acima da Nova ficha sem duplic
  for(const name of ['Em Enfesto','Acabamento \/ Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(name));
  assert.match(page,/Não é uma falha na Distribuição/);
  assert.match(page,/permissão insuficiente ou regras de correção ainda não publicadas/);
+});
+test('criador abre nos quatro cartões e não no formulário ou nas abas antigas',()=>{
+ const page=read('src/ProductionSheets.tsx');
+ assert.match(page,/useState<'create'\|'drafts'\|'all'\|'distribution'\|'sent'>\(initialTab==='create'\?'drafts':'distribution'\)/);
+ assert.match(page,/useEffect\(\(\)=>setTab\(initialTab==='create'\?'drafts':'distribution'\)/);
+ assert.match(page,/initialTab==='create'&&canEdit&&<div className="creator-stage-tiles creator-stage-tiles-top"/);
+ assert.match(page,/onClick=\{\(\)=>\{setCreatorStage\(stage\.id\);setCreatorSearch\(''\);setTab\('drafts'\)\}\}/);
+ assert.match(page,/className=\{initialTab==='create'\?'creator-toolbar':'sheet-tabs'\}/);
+ assert.match(page,/\+ Nova ficha<\/button>/);
+ assert.match(page,/> Voltar aos quatro cartões<\/button>/);
+ assert.doesNotMatch(page,/>Painel de fichas \(\{creatorSheets\.length\}\)<\/button>/);
+ assert.match(page,/initialTab==='distribution'&&<button type="button" className=\{tab==='all'/);
 });
 test('painel do criador tem quatro etapas, agrupamento de costureiro e confirmação de revisão',()=>{
  const page=read('src/ProductionSheets.tsx'),rules=read('firestore.rules');
