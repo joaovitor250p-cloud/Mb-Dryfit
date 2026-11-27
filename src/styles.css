@@ -2122,6 +2122,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4){
   border-color:#222;
   gap:8px;
+  font-family:Arial,Helvetica,sans-serif;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field,
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th,
@@ -2129,20 +2130,20 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
   border-color:#222;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field strong{
-  font-size:13px;
-  line-height:1.2;
+  font-size:15px;
+  line-height:1.25;
   margin-bottom:3px;
   color:#111;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field input{
   min-height:24px;
   height:auto;
-  font-size:15px;
-  line-height:1.25;
+  font-size:17px;
+  line-height:1.3;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field textarea{
-  font-size:15px;
-  line-height:1.3;
+  font-size:17px;
+  line-height:1.35;
 }
 /* Campos de preenchimento NÃO podem receber flex-basis:0:
    sem altura explícita na .sheet-top os quatro campos encolhiam até se sobrepor. */
@@ -2188,8 +2189,8 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
   height:34px;
   padding:4px 2px;
   margin:4px 0 0;
-  font-size:16px;
-  line-height:1.25;
+  font-size:17px;
+  line-height:1.3;
   box-sizing:border-box;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-top>div>.sheet-field textarea{
@@ -2227,7 +2228,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th{
   background:#fff;
   color:#111;
-  font-size:14px;
+  font-size:15px;
   line-height:1.2;
   padding:5px 3px;
 }
@@ -2237,12 +2238,12 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table input{
   min-height:25px;
   height:auto;
-  font-size:15px;
-  line-height:1.2;
+  font-size:16px;
+  line-height:1.25;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-detail-input{
   min-height:32px;
-  font-size:14px;
+  font-size:15px;
   line-height:1.3;
 }
 @media(max-width:700px){
@@ -2342,7 +2343,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     flex:0 0 auto!important;
     margin:0 0 .7mm!important;
     padding:0!important;
-    font:800 10px/1.15 Arial,Helvetica,sans-serif!important;
+    font:800 11px/1.15 Arial,Helvetica,sans-serif!important;
     letter-spacing:0!important;
     color:#111!important;
     -webkit-text-fill-color:#111!important;
@@ -2355,7 +2356,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     height:auto!important;
     margin:0!important;
     padding:0!important;
-    font:700 12.5px/1.17 Arial,Helvetica,sans-serif!important;
+    font:700 13.5px/1.17 Arial,Helvetica,sans-serif!important;
     letter-spacing:0!important;
     color:#b00000!important;
     -webkit-text-fill-color:#b00000!important;
@@ -2395,21 +2396,21 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table thead th,
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table .sheet-total-row th{
-    font:800 10.5px/1.15 Arial,Helvetica,sans-serif!important;
+    font:800 11.5px/1.15 Arial,Helvetica,sans-serif!important;
     text-align:center!important;
     color:#111!important;
     -webkit-text-fill-color:#111!important;
     background:#fff!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td{
-    font:700 12px/1.15 Arial,Helvetica,sans-serif!important;
+    font:700 13px/1.15 Arial,Helvetica,sans-serif!important;
     text-align:center!important;
     color:#b00000!important;
     -webkit-text-fill-color:#b00000!important;
     background:#fff!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td:last-child{
-    font:700 11px/1.15 Arial,Helvetica,sans-serif!important;
+    font:700 12px/1.15 Arial,Helvetica,sans-serif!important;
     text-align:left!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-finishing{
@@ -2447,7 +2448,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     margin:0!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-volumes span{
-    font:800 19px/1.1 Arial,Helvetica,sans-serif!important;
+    font:800 20px/1.1 Arial,Helvetica,sans-serif!important;
     color:#b00000!important;
     -webkit-text-fill-color:#b00000!important;
     margin:0!important;
