@@ -497,7 +497,8 @@ service cloud.firestore {
           'manualTotal','source',
           'createdAt','createdBy','updatedAt','updatedBy'
         ])
-        && (!('paymentEligibleFrom' in d) || (d.paymentEligibleFrom is string && (d.paymentEligibleFrom == '' || d.paymentEligibleFrom.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2} (d.pieceType is string && d.pieceType.size() <= 80))
+        && (!('paymentEligibleFrom' in d) || (d.paymentEligibleFrom is string && (d.paymentEligibleFrom == '' || d.paymentEligibleFrom.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))))
+        && (!('pieceType' in d) || (d.pieceType is string && d.pieceType.size() <= 80))
         && (!('reassignmentSheetId' in d) || (d.reassignmentSheetId is string && d.reassignmentSheetId.size() > 0 && d.reassignmentSheetId.size() <= 128))
 
         && d.oc is string
