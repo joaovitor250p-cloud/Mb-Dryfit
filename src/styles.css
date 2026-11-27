@@ -2115,3 +2115,220 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-all-view .sheet-pending-assign .sheet-tailor-picker select{border-color:#8674e3;font-size:16px;font-weight:800}
 .sheets-page .sheet-all-view .sheet-pending-assign .sheet-card-actions{display:flex;flex-wrap:wrap;gap:9px}
 @media(max-width:700px){.sheets-page .sheet-all-view .sheet-pending-assign{padding:12px}.sheets-page .sheet-all-view .sheet-pending-assign .sheet-send-fields{grid-template-columns:minmax(0,1fr)}}
+
+
+/* FICHA A4 2026-11-27: legibilidade e linhas pretas, sem células de altura fixa.
+   Regras no final do arquivo para substituir o legado de impressão 275mm. */
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field,
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th,
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table td{
+  border-color:#181818;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th{
+  background:#fff;color:#111;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field strong,
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table th{
+  color:#111;font-size:14px;line-height:1.4;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field input,
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field textarea{
+  font-size:16px;line-height:1.5;min-height:43px;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table input{
+  font-size:16px;line-height:1.4;min-height:42px;height:auto;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table textarea.sheet-detail-input{
+  font-size:15px;line-height:1.45;min-height:55px;
+}
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-top>.sheet-field,
+.sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-top>div>.sheet-field{
+  min-height:0;
+}
+@media print {
+  .sheet-print-only .sheet-paper.sheet-paper-a4{
+    box-sizing:border-box!important;
+    display:block!important;
+    position:static!important;
+    width:194mm!important;
+    max-width:194mm!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:#fff!important;
+    color:#111!important;
+    font:700 12px/1.35 Arial,Helvetica,sans-serif!important;
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+    overflow:visible!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top,
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-middle{
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    align-items:stretch!important;
+    overflow:visible!important;
+    gap:2mm!important;
+    margin:0 0 2.2mm!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top{
+    grid-template-columns:minmax(0,60fr) minmax(0,40fr)!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-middle{
+    grid-template-columns:minmax(0,37fr) minmax(0,63fr)!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top>div,
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-right{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:0!important;
+    height:auto!important;
+    min-height:0!important;
+    grid-template-rows:none!important;
+    overflow:visible!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top>div>.sheet-field{
+    flex:0 0 auto!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-right>.sheet-field{
+    flex:0 0 auto!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    height:auto!important;
+    min-height:11mm!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding:1.5mm 2mm!important;
+    border:1px solid #111!important;
+    background:#fff!important;
+    color:#111!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-middle>.sheet-trims{
+    min-height:0!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field strong{
+    display:block!important;
+    flex:0 0 auto!important;
+    font:800 11.5px/1.35 Arial,Helvetica,sans-serif!important;
+    letter-spacing:0!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    margin:0 0 1.2mm!important;
+    padding:0!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field span:not(.sheet-volumes span){
+    display:block!important;
+    flex:0 0 auto!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    white-space:pre-wrap!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    font:800 16px/1.4 Arial,Helvetica,sans-serif!important;
+    color:#b00000!important;
+    -webkit-text-fill-color:#b00000!important;
+    margin:0!important;
+    padding:0 0 0.3mm!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table{
+    display:table!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:1mm 0 2.5mm!important;
+    border-collapse:collapse!important;
+    table-layout:fixed!important;
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table th,
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table td{
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    border:1px solid #111!important;
+    background:#fff!important;
+    padding:1.5mm 1mm!important;
+    line-height:1.4!important;
+    vertical-align:middle!important;
+    white-space:pre-wrap!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table thead th,
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table .sheet-total-row th{
+    font:800 12.5px/1.4 Arial,Helvetica,sans-serif!important;
+    background:#fff!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    text-align:center!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td{
+    font:800 15px/1.4 Arial,Helvetica,sans-serif!important;
+    color:#b00000!important;
+    -webkit-text-fill-color:#b00000!important;
+    text-align:center!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td:last-child{
+    font:800 15px/1.4 Arial,Helvetica,sans-serif!important;
+    text-align:left!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-finishing{
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:19mm!important;
+    max-height:none!important;
+    margin:0 0 2mm!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-volumes{
+    box-sizing:border-box!important;
+    position:static!important;
+    inset:auto!important;
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:7mm!important;
+    height:auto!important;
+    min-height:13mm!important;
+    max-height:none!important;
+    margin:0!important;
+    break-inside:avoid!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-volumes strong{
+    font:800 13px/1.35 Arial,Helvetica,sans-serif!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    margin:0!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-volumes span{
+    font:800 20px/1.35 Arial,Helvetica,sans-serif!important;
+    color:#b00000!important;
+    -webkit-text-fill-color:#b00000!important;
+    padding:0!important;
+    margin:0!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  /* Quando há muitas cores ou observações extensas, a impressão pode usar
+     mais de uma folha A4, evitando texto cortado ou desenhado sobre linhas. */
+}
