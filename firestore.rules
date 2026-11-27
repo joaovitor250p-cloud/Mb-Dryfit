@@ -889,11 +889,13 @@ service cloud.firestore {
         // A correção não é aceita após finalização/corte concluído.
         canWrite('sheets')
         && (isAdmin() || resource.data.createdBy == request.auth.uid)
-        && resource.data.status in ['enfesto','pending']
+        && resource.data.status in ['enfesto','pending','assigned']
         && request.resource.data.status == resource.data.status
-        // Corrigir ficha em Distribuição não reabre Enfesto concluído,
-        // não muda status nem permite modificar estoque ou pagamentos.
-        && (resource.data.status == 'pending'
+        // A correção da fonte de dados é permitida também para fichas
+        // já atribuídas ou entregues, mas não modifica a OC financeira,
+        // datas, preço, estoque, responsável ou status da produção.
+        // Apenas a fase enfesto exige que o job ainda esteja em rascunho.
+        && (resource.data.status in ['pending','assigned']
           || !exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
           || get(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status == 'draft')
         && request.resource.data.diff(resource.data).affectedKeys()
