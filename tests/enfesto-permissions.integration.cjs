@@ -262,3 +262,64 @@ test('OC 758: sem job salvo, criador pode corrigir ficha e manter fase enfesto',
  });
  assert.equal((await sheetRef.get()).data().colors[0].cor,'MARINHO');
 });
+
+
+test('OC 758 histórica: editor corrige ficha com campos opcionais antigos ausentes',async()=>{
+ const uid='criador_758_historico',id='ficha758';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const d=ctx.firestore();
+  await d.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await d.doc('production_sheets/'+id).set({
+   model:'REGATA',reference:'10038',oc:'758',
+   composition:'',trims:'',officeInstructions:'',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'enfesto',assignedTailor:'',
+   createdAt:timestamp(),createdBy:uid,updatedAt:timestamp(),updatedBy:uid
+   // legado: assignedAt e assignedBy não existem
+  });
+ });
+ const sheet=db.doc('production_sheets/'+id);
+ await sheet.update({
+  model:'REGATA DRYFIT',reference:'10038',client:'MB',
+  pieceType:'Regata',fabric:'DRYFIT',composition:'',trims:'',
+  officeInstructions:'',withdrawalDate:'',tailorInstructions:'',finishingInstructions:'',
+  volumes:'2',colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],
+  updatedAt:stamp(),updatedBy:uid
+ });
+ assert.equal((await sheet.get()).data().colors.length,2);
+});
+test('OC 758 histórica: editor sincroniza job incompleto sem alterar status nem estoque',async()=>{
+ const uid='criador_758_job_antigo',id='ficha758';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const d=ctx.firestore();
+  await d.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await d.doc('production_sheets/'+id).set({
+   model:'REGATA',reference:'10038',pieceType:'Regata',fabric:'DRYFIT',
+   volumes:'2',composition:'',trims:'',officeInstructions:'',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'enfesto',assignedTailor:'',
+   createdAt:timestamp(),createdBy:uid,updatedAt:timestamp(),updatedBy:uid,assignedAt:null,assignedBy:null
+  });
+  await d.doc('enfesto_jobs/'+id).set({
+   sheetId:id,oc:'758',status:'draft',
+   rows:[{cor:'PRETO',expected:30,layers:'10',weightPerLayer:'',cutPieces:'30',stockId:'',consumption:'',checked:false}],
+   createdAt:timestamp(),createdBy:'costureiro',
+   updatedAt:timestamp(),updatedBy:'costureiro'
+   // legado: notes e stockConfirmed ausentes
+  });
+ });
+ const sheet=db.doc('production_sheets/'+id),job=db.doc('enfesto_jobs/'+id);
+ await db.runTransaction(async t=>{
+  await Promise.all([t.get(sheet),t.get(job)]);
+  t.update(sheet,{colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],updatedAt:stamp(),updatedBy:uid});
+  t.update(job,{rows:[
+   {cor:'PRETO',expected:30,layers:'10',weightPerLayer:'',cutPieces:'30',stockId:'',consumption:'',checked:false},
+   {cor:'AZUL',expected:5,layers:'5',weightPerLayer:'',cutPieces:'5',stockId:'',consumption:'',checked:false}
+  ],updatedAt:stamp(),updatedBy:uid});
+ });
+ assert.equal((await job.get()).data().rows.length,2);
+});
