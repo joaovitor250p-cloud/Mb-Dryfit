@@ -113,7 +113,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   try{
    const sheetRef=doc(db,'production_sheets',sheet.id);
    const jobRef=doc(db,'enfesto_jobs',sheet.id);
-   const corrected=await runTransaction(db,async transaction=>{
+   await runTransaction(db,async transaction=>{
     const [currentSheet,currentJob]=await Promise.all([transaction.get(sheetRef),transaction.get(jobRef)]);
     if(!currentSheet.exists()||currentSheet.data().status!=='enfesto')
       throw Error('A ficha já saiu do Enfesto. Não é seguro corrigir a cor depois do envio.');
@@ -137,7 +137,6 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
       transaction.update(jobRef,{rows:savedRows,updatedAt:serverTimestamp(),updatedBy:user.uid});
     }
     transaction.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'correcao_cor_enfesto',modelName:'OC '+sheet.oc,before:{cor:item.row.cor,index:item.index},after:{cor:nextColor},at:serverTimestamp()});
-    return colors;
    });
    const renamedRows=draft.rows.map((row,index)=>index===editingColor.index?{...row,cor:nextColor,stockId:'',consumption:'',checked:false}:row);
    const updated={...draft,rows:renamedRows};
