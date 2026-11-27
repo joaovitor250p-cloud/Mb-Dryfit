@@ -177,3 +177,88 @@ test('finalizar com três cores no mesmo Enfesto sem estourar limite de regras',
  assert.equal((await sheet.get()).data().status,'pending');
  for(const stock of stockRefs)assert.equal((await stock.get()).data().quantityMilli,488000);
 });
+
+
+test('OC 758: criador altera cores na ficha e no job em transação atômica, sem perder quantidades',async()=>{
+ const uid='criador_758',sheetId='ficha758';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  await privileged.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await privileged.doc('production_sheets/'+sheetId).set({
+   model:'REGATA',reference:'10038',pieceType:'Regata',fabric:'DRYFIT',volumes:'2',
+   composition:'',trims:'',officeInstructions:'',oc:'758',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'enfesto',assignedTailor:'',createdAt:timestamp(),createdBy:uid,
+   updatedAt:timestamp(),updatedBy:uid,assignedAt:null,assignedBy:null
+  });
+  await privileged.doc('enfesto_jobs/'+sheetId).set({
+   sheetId,oc:'758',status:'draft',rows:[{cor:'PRETO',expected:30,layers:'10',weightPerLayer:'1',cutPieces:'30',stockId:'',consumption:'',checked:true}],
+   notes:'',stockConfirmed:false,
+   createdAt:timestamp(),createdBy:'cortador',updatedAt:timestamp(),updatedBy:'cortador'
+  });
+ });
+ const sheetRef=db.doc('production_sheets/'+sheetId),jobRef=db.doc('enfesto_jobs/'+sheetId);
+ const before=(await sheetRef.get()).data(),jobBefore=(await jobRef.get()).data();
+ await db.runTransaction(async t=>{
+  const [sh,job]=await Promise.all([t.get(sheetRef),t.get(jobRef)]);
+  assert.equal(sh.data().status,'enfesto');
+  assert.equal(job.data().status,'draft');
+  t.update(sheetRef,{
+   model:'REGATA DRYFIT',reference:before.reference,client:'MB',
+   pieceType:before.pieceType,fabric:before.fabric,
+   composition:before.composition,trims:before.trims,
+   officeInstructions:before.officeInstructions,withdrawalDate:before.withdrawalDate,
+   tailorInstructions:before.tailorInstructions,finishingInstructions:before.finishingInstructions,
+   volumes:before.volumes,
+   colors:[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],
+   updatedAt:stamp(),updatedBy:uid
+  });
+  t.update(jobRef,{rows:[
+   {cor:'PRETO',expected:30,layers:'2',weightPerLayer:'',cutPieces:'30',stockId:'',consumption:'',checked:false},
+   {cor:'AZUL',expected:5,layers:'5',weightPerLayer:'',cutPieces:'5',stockId:'',consumption:'',checked:false}
+  ],updatedAt:stamp(),updatedBy:uid});
+  t.set(db.collection('audit_log').doc(),{
+   actorUid:uid,actorEmail:'',action:'production_sheet_revision',
+   modelName:'OC 758',before:{colors:sh.data().colors,model:sh.data().model,reference:sh.data().reference},
+   after:{colors:[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],model:'REGATA DRYFIT',reference:sh.data().reference},
+   at:stamp()
+  });
+ });
+ const after=(await sheetRef.get()).data(),afterJob=(await jobRef.get()).data();
+ assert.equal(after.colors.length,2);
+ assert.equal(afterJob.rows.length,2);
+ assert.equal(afterJob.rows[0].checked,false);
+ assert.equal(afterJob.rows[1].expected,5);
+ assert.equal(afterJob.createdBy,jobBefore.createdBy);
+});
+test('OC 758: sem job salvo, criador pode corrigir ficha e manter fase enfesto',async()=>{
+ const uid='criador_758_sem_job',sheetId='ficha758';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const d=ctx.firestore();
+  await d.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await d.doc('production_sheets/'+sheetId).set({
+   model:'BERMUDA',reference:'10098',pieceType:'Bermuda',fabric:'TACTEL',volumes:'',
+   composition:'',trims:'',officeInstructions:'',oc:'758',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'enfesto',assignedTailor:'',createdAt:timestamp(),createdBy:uid,
+   updatedAt:timestamp(),updatedBy:uid,assignedAt:null,assignedBy:null
+  });
+ });
+ const sheetRef=db.doc('production_sheets/'+sheetId);
+ await db.runTransaction(async t=>{
+  const [sheet,job]=await Promise.all([t.get(sheetRef),t.get(db.doc('enfesto_jobs/'+sheetId))]);
+  assert.equal(job.exists,false);
+  t.update(sheetRef,{colors:[{cor:'MARINHO',p:'10',m:'18',g:'2',gg:'',xg:''}],updatedAt:stamp(),updatedBy:uid});
+  t.set(db.collection('audit_log').doc(),{
+   actorUid:uid,actorEmail:'',action:'production_sheet_revision',modelName:'OC 758',
+   before:{colors:sheet.data().colors,model:sheet.data().model,reference:sheet.data().reference},
+   after:{colors:[{cor:'MARINHO',p:'10',m:'18',g:'2',gg:'',xg:''}],model:sheet.data().model,reference:sheet.data().reference},
+   at:stamp()
+  });
+ });
+ assert.equal((await sheetRef.get()).data().colors[0].cor,'MARINHO');
+});
