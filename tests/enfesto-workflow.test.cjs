@@ -191,7 +191,7 @@ test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>
  for(const field of ['Camadas','Peso por folha','Peças cortadas','Tecido da cor no estoque','Consumo real','Cor cortada e conferida','Salvar progresso','Finalizar Enfesto e liberar ficha']){
   assert.ok(page.includes(field),field);
  }
- assert.match(page,/readLocal\(user\.uid,sheet\.id\)/);
+ assert.match(page,/readLocal\(user\.uid,sheet\.id,signature\)/);
  assert.match(page,/runTransaction\(db,async transaction=>/);
  assert.match(page,/confirmEnfestoConsumption/);
 });
