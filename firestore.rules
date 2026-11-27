@@ -901,9 +901,315 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.assignedTailor == resource.data.assignedTailor
-        && request.resource.data.assignedAt == resource.data.assignedAt
-        && request.resource.data.assignedBy == resource.data.assignedBy
+        && request.resource.data.get('assignedAt',null) == resource.data.get('assignedAt',null)
+        && request.resource.data.get('assignedBy',null) == resource.data.get('assignedBy',null)
+        // Dados legados podem ter campos opcionais ausentes. Valide
+        // SOMENTE os campos desta operação, sem revalidar a ficha inteira
+        // (isso ultrapassava 1000 expressões em algumas OCs antigas).
+        && request.resource.data.model is string && request.resource.data.model.size() > 0 && request.resource.data.model.size() <= 250
+        && request.resource.data.reference is string && request.resource.data.reference.size() > 0 && request.resource.data.reference.size() <= 200
+        && request.resource.data.get('client','MB') is string && request.resource.data.get('client','MB').size() <= 120
+        && request.resource.data.get('pieceType','') is string && request.resource.data.get('pieceType','').size() <= 80
+        && request.resource.data.get('fabric','') is string && request.resource.data.get('fabric','').size() <= 250
+        && request.resource.data.get('volumes','') is string && request.resource.data.get('volumes','').matches('^[0-9]{0,6}
+      ) || (
+        resource.data.status == 'enfesto'
+        && request.resource.data.status == 'pending'
+        && canWrite('enfesto')
+        // Ao finalizar, apenas estes cinco campos podem mudar.
+        // Os campos da ficha já foram validados na criação.
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status','enfestoCompletedAt','enfestoCompletedBy','updatedAt','updatedBy'])
+        && request.resource.data.enfestoCompletedAt == request.time
+        && request.resource.data.enfestoCompletedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && validEnfestoHandoff(sheetId)
+      ) || (
+        // Somente o administrador pode preparar as três OCs protegidas
+        // para Enfesto, sem alterar a ficha e sem repetir cortes concluídos.
+        isAdmin()
+        && canWrite('enfesto')
+        && resource.data.oc in ['752','753','754']
+        && resource.data.status in ['draft','pending']
+        && request.resource.data.status == 'enfesto'
+        && resource.data.get('enfestoCompletedAt',null) == null
+        && resource.data.get('assignedTailor','') == ''
+        && resource.data.get('assignedAt',null) == null
+        && (!exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
+          || get(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status != 'completed')
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status','updatedAt','updatedBy'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+      ) || (
+        resource.data.status == 'pending'
+        && request.resource.data.status == 'assigned'
+        && canWrite('sheet_distribution')
         && validSheetFields(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','assignedTailor','assignedAt','assignedBy','updatedAt','updatedBy'])
+        && request.resource.data.assignedTailor.size() > 0
+        && request.resource.data.assignedAt == request.time
+        && request.resource.data.assignedBy == request.auth.uid
+      ) || (
+        // Atualização restrita ao responsável da ficha para o dono/editor
+        // delegado. Os dados de corte/produção nunca são regravados.
+        // A aplicação sincroniza o nome financeiro no mesmo batch.
+        canReassignTailor()
+        && resource.data.status == 'assigned'
+        && request.resource.data.status == 'assigned'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['assignedTailor','reassignmentOrderId','updatedAt','updatedBy'])
+        && request.resource.data.reassignmentOrderId is string
+        && request.resource.data.reassignmentOrderId.size() > 0
+        && request.resource.data.reassignmentOrderId.size() <= 128
+        && request.resource.data.assignedTailor is string
+        && request.resource.data.assignedTailor.size() > 0
+        && request.resource.data.assignedTailor.size() <= 120
+        && (request.resource.data.assignedTailor != resource.data.assignedTailor
+          || request.resource.data.reassignmentOrderId != resource.data.get('reassignmentOrderId',''))
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+      );
+      allow delete: if isAdmin()
+        && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
+    }
+
+    // Dados e conferências por cor do Enfesto.
+    function validEnfestoJob(data, sheetId) {
+      return data.keys().hasOnly([
+          'sheetId','oc','status','rows','notes','stockConfirmed',
+          'createdAt','createdBy','updatedAt','updatedBy','completedAt','completedBy'
+        ])
+        && data.keys().hasAll([
+          'sheetId','oc','status','rows','notes','stockConfirmed',
+          'createdAt','createdBy','updatedAt','updatedBy'
+        ])
+        && data.sheetId == sheetId
+        && data.oc is string && data.oc.size() > 0 && data.oc.size() <= 80
+        && data.status in ['draft','completed']
+        && data.rows is list && data.rows.size() >= 1 && data.rows.size() <= 50
+        && data.notes is string && data.notes.size() <= 500
+        && data.stockConfirmed is bool
+        && data.createdAt is timestamp && data.createdBy is string
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid
+        && (
+          (data.status == 'draft'
+            && data.stockConfirmed == false
+            && data.get('completedAt',null) == null
+            && data.get('completedBy',null) == null)
+          ||
+          (data.status == 'completed'
+            && data.get('completedAt',null) == request.time
+            && data.get('completedBy',null) == request.auth.uid)
+        );
+    }
+    match /enfesto_jobs/{sheetId} {
+      allow get, list: if canView('enfesto') || canView('sheets') || canView('sheet_distribution');
+      allow create: if canWrite('enfesto')
+        && validEnfestoJob(request.resource.data,sheetId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
+          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
+      allow update: if (
+        canWrite('sheets')
+        && resource.data.status == 'draft'
+        && request.resource.data.status == 'draft'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rows','updatedAt','updatedBy'])
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        // Registros de Enfesto anteriores podem não ter notes ou
+        // stockConfirmed. O criador só modifica linhas e data de revisão:
+        // conclusão, baixa e metadados permanecem imutáveis.
+        && request.resource.data.rows is list
+        && request.resource.data.rows.size() >= 1
+        && request.resource.data.rows.size() <= 50
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && resource.data.get('sheetId',sheetId) == sheetId
+        && resource.data.get('oc','') == get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc
+        && get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status == 'enfesto'
+        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.createdBy == request.auth.uid)
+      ) || (
+        canWrite('enfesto')
+        && resource.data.status == 'draft'
+        && validEnfestoJob(request.resource.data,sheetId)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
+          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto')
+      );
+      // Limpeza de registros operacionais, somente administrador.
+      // As OCs protegidas não podem ser apagadas nem em limpezas gerais.
+      allow delete: if isAdmin()
+        && resource.data.oc != '752' && resource.data.oc != '753' && resource.data.oc != '754';
+    }
+
+    function currentCompany() {
+      // Projetos legados MB já existentes pertencem à empresa principal.
+      // IDs diferentes têm isolamento real por user_roles.companyId.
+      return get(rolePath()).data.get('companyId', 'mb-principal');
+    }
+    function canCompanyView(companyId) {
+      return canView('purchases') && currentCompany() == companyId;
+    }
+    function canCompanyBuy(companyId) {
+      return canWrite('purchases') && currentCompany() == companyId;
+    }
+    function canCompanyConsume(companyId) {
+      return (canWrite('purchases') || canWrite('cuts') || canWrite('enfesto')) && currentCompany() == companyId;
+    }
+    function validStock(d) {
+      return d.keys().hasOnly(['material','color','kind','unit','quantityMilli','lastMovementId','lastDeltaMilli','updatedAt','updatedBy','createdAt'])
+        && d.keys().hasAll(['material','color','kind','unit','quantityMilli','lastMovementId','lastDeltaMilli','updatedAt','updatedBy','createdAt'])
+        && d.material is string && d.material.size() > 0 && d.material.size() <= 250
+        && d.color is string && d.color.size() > 0 && d.color.size() <= 100
+        && d.kind in ['tecido', 'material'] && d.unit in ['KG','M','UN','PC','CX','L','OUT']
+        && (d.kind != 'tecido' || d.unit in ['KG','M'])
+        && d.quantityMilli is int && d.quantityMilli >= 0 && d.quantityMilli <= 1000000000000
+        && d.lastDeltaMilli is int && d.lastDeltaMilli != 0
+        && d.lastMovementId is string && d.lastMovementId.size() > 0 && d.lastMovementId.size() <= 80
+        && d.updatedBy == request.auth.uid && d.updatedAt == request.time
+        && d.createdAt is timestamp;
+    }
+    function stockMovementValid(companyId, stockId, previous) {
+      let d = request.resource.data;
+      let path = /databases/$(database)/documents/companies/$(companyId)/stock_movements/$(d.lastMovementId);
+      let movement = getAfter(path).data;
+      return existsAfter(path)
+        && movement.stockId == stockId
+        && movement.beforeMilli == previous
+        && movement.afterMilli == d.quantityMilli
+        && movement.deltaMilli == d.lastDeltaMilli
+        && movement.createdBy == request.auth.uid
+        && (
+          (movement.kind == 'purchase_in' && canCompanyBuy(companyId))
+          || (movement.kind == 'enfesto_out' && canCompanyConsume(companyId))
+        );
+    }
+    function validMovement(companyId, movementId) {
+      let d = request.resource.data;
+      let balancePath = /databases/$(database)/documents/companies/$(companyId)/inventory/$(d.stockId);
+      return d.keys().hasOnly(['stockId','kind','sourceId','oc','beforeMilli','deltaMilli','afterMilli','material','color','unit','createdAt','createdBy'])
+        && d.keys().hasAll(['stockId','kind','sourceId','oc','beforeMilli','deltaMilli','afterMilli','material','color','unit','createdAt','createdBy'])
+        && d.stockId is string && d.stockId.size() > 0 && d.stockId.size() <= 80
+        && d.sourceId is string && d.sourceId.size() > 0 && d.sourceId.size() <= 100
+        && d.kind in ['purchase_in','enfesto_out']
+        && d.oc is string && d.oc.size() <= 80
+        && d.material is string && d.material.size() <= 250
+        && d.color is string && d.color.size() <= 100
+        && d.unit in ['KG','M','UN','PC','CX','L','OUT']
+        && d.beforeMilli is int && d.beforeMilli >= 0
+        && d.deltaMilli is int && d.deltaMilli != 0
+        && d.afterMilli is int && d.afterMilli >= 0 && d.afterMilli == d.beforeMilli + d.deltaMilli
+        && d.createdAt == request.time && d.createdBy == request.auth.uid
+        && existsAfter(balancePath)
+        && getAfter(balancePath).data.lastMovementId == movementId
+        && getAfter(balancePath).data.quantityMilli == d.afterMilli
+        && (
+          (d.kind == 'purchase_in'
+            && d.deltaMilli > 0 && canCompanyBuy(companyId)
+            && existsAfter(/databases/$(database)/documents/companies/$(companyId)/purchases/$(d.sourceId))
+            && getAfter(/databases/$(database)/documents/companies/$(companyId)/purchases/$(d.sourceId)).data.status == 'confirmed')
+          || (d.kind == 'enfesto_out'
+            && d.deltaMilli < 0 && canCompanyConsume(companyId)
+            && existsAfter(/databases/$(database)/documents/companies/$(companyId)/enfesto_confirmations/$(d.sourceId))
+            && getAfter(/databases/$(database)/documents/companies/$(companyId)/enfesto_confirmations/$(d.sourceId)).data.status == 'confirmed')
+        );
+    }
+
+    match /companies/{companyId} {
+      allow read, write: if false;
+
+      match /purchases/{purchaseId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyBuy(companyId)
+          && request.resource.data.keys().hasOnly(['accessKey','xmlHash','supplier','supplierTaxId','number','date','totalCents','source','status','lines','pdfData','pdfName','createdAt','createdBy'])
+          && request.resource.data.supplier is string && request.resource.data.supplier.size() > 0 && request.resource.data.supplier.size() <= 250
+          && request.resource.data.supplierTaxId is string && request.resource.data.supplierTaxId.size() <= 40
+          && request.resource.data.number is string && request.resource.data.number.size() <= 80
+          && request.resource.data.date is string && request.resource.data.date.size() <= 30
+          && request.resource.data.accessKey is string && request.resource.data.accessKey.size() <= 44
+          && request.resource.data.xmlHash is string && request.resource.data.xmlHash.size() <= 100
+          && request.resource.data.totalCents is int && request.resource.data.totalCents >= 0
+          && request.resource.data.source in ['xml','pdf','manual']
+          && request.resource.data.status == 'confirmed'
+          && request.resource.data.lines is list && request.resource.data.lines.size() >= 1 && request.resource.data.lines.size() <= 25
+          && request.resource.data.get('pdfData','') is string && request.resource.data.get('pdfData','').size() <= 560000
+          && request.resource.data.get('pdfName','') is string && request.resource.data.get('pdfName','').size() <= 200
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /inventory/{stockId} {
+        allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
+        allow create: if canCompanyConsume(companyId)
+          && validStock(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.quantityMilli == request.resource.data.lastDeltaMilli
+          && stockMovementValid(companyId, stockId, 0);
+        allow update: if canCompanyConsume(companyId)
+          && validStock(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.material == resource.data.material
+          && request.resource.data.color == resource.data.color
+          && request.resource.data.unit == resource.data.unit
+          && request.resource.data.kind == resource.data.kind
+          && request.resource.data.quantityMilli == resource.data.quantityMilli + request.resource.data.lastDeltaMilli
+          && stockMovementValid(companyId, stockId, resource.data.quantityMilli);
+        allow delete: if false;
+      }
+
+      match /stock_movements/{movementId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyConsume(companyId) && validMovement(companyId, movementId);
+        allow update, delete: if false;
+      }
+
+      match /enfesto_confirmations/{confirmationId} {
+        allow get, list: if canCompanyView(companyId) || canCompanyConsume(companyId);
+        allow create: if canCompanyConsume(companyId)
+          && request.resource.data.keys().hasOnly(['oc','notes','status','lines','createdAt','createdBy'])
+          && request.resource.data.oc is string && request.resource.data.oc.size() > 0 && request.resource.data.oc.size() <= 80
+          && request.resource.data.notes is string && request.resource.data.notes.size() <= 500
+          && request.resource.data.lines is list && request.resource.data.lines.size() >= 1 && request.resource.data.lines.size() <= 20
+          && request.resource.data.status == 'confirmed'
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /bills/{billId} {
+        allow get, list: if canCompanyView(companyId);
+        allow create: if canCompanyBuy(companyId)
+          && request.resource.data.keys().hasOnly(['supplier','amountCents','dueDate','barcode','purchaseId','status','pdfName','pdfData','createdAt','createdBy'])
+          && request.resource.data.supplier is string && request.resource.data.supplier.size() > 0 && request.resource.data.supplier.size() <= 250
+          && request.resource.data.amountCents is int && request.resource.data.amountCents > 0
+          && request.resource.data.dueDate is string && request.resource.data.dueDate.size() == 10
+          && request.resource.data.barcode is string && request.resource.data.barcode.size() <= 100
+          && request.resource.data.purchaseId is string && request.resource.data.purchaseId.size() <= 100
+          && request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 560000
+          && request.resource.data.pdfData.matches('data:application/pdf;base64,.*')
+          && request.resource.data.pdfName is string && request.resource.data.pdfName.size() <= 200
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
+        && request.resource.data.colors is list && request.resource.data.colors.size() > 0 && request.resource.data.colors.size() <= 50
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
       ) || (
         resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
