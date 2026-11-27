@@ -360,3 +360,68 @@ test('Distribuição: editor não criador não pode modificar ficha de outro usu
  }),e=>e.code==='permission-denied');
  assert.equal((await db.doc('production_sheets/'+sheetId).get()).data().colors[0].cor,'PRETO');
 });
+
+test('criador pode corrigir ficha já com costureiro e OC entregue sem alterar pagamento',async()=>{
+ const uid='criador_pos_distribuicao',sheetId='ficha_oc_999';
+ const {db}=await setup(uid);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  await privileged.doc('user_roles/'+uid).update({role:'editor',permissions:['sheets'],disabled:false});
+  await privileged.doc('production_sheets/'+sheetId).set({
+   model:'BERMUDA',reference:'10098',client:'MB',pieceType:'Bermuda',fabric:'TACTEL',
+   volumes:'2',composition:'',trims:'',officeInstructions:'',oc:'999',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'assigned',assignedTailor:'RAMIRO',assignedAt:timestamp(),assignedBy:'distribuidor',
+   createdAt:timestamp(),createdBy:uid,updatedAt:timestamp(),updatedBy:'distribuidor'
+  });
+  await privileged.doc('enfesto_jobs/'+sheetId).set({
+   sheetId,oc:'999',status:'completed',
+   rows:[{cor:'PRETO',expected:30,layers:'3',weightPerLayer:'',cutPieces:'30',stockId:'',consumption:'',checked:true}],
+   notes:'',stockConfirmed:false,createdAt:timestamp(),createdBy:'cortador',
+   updatedAt:timestamp(),updatedBy:'cortador',completedAt:timestamp(),completedBy:'cortador'
+  });
+  await privileged.doc('cut_orders/'+sheetId).set({oc:'999',ref:'10098',model:'BERMUDA',office:'RAMIRO',qty:'30',
+   total:'R$ 300,00',paymentDone:'OK',status:'ENTREGUE',paidAt:'26/11/2026'});
+ });
+ const ref=db.doc('production_sheets/'+sheetId);
+ const orderBefore=(await db.doc('cut_orders/'+sheetId).get()).data();
+ const jobBefore=(await db.doc('enfesto_jobs/'+sheetId).get()).data();
+ await db.runTransaction(async t=>{
+  const existing=await t.get(ref);
+  assert.equal(existing.data().status,'assigned');
+  t.update(ref,{model:'BERMUDA NOVA',reference:'10098',client:'MB',pieceType:'Bermuda',fabric:'TACTEL',
+   composition:'',trims:'',officeInstructions:'',withdrawalDate:'',tailorInstructions:'',finishingInstructions:'',
+   volumes:'2',colors:[{cor:'PRETO',p:'10',m:'18',g:'2',gg:'',xg:''},{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],
+   updatedAt:stamp(),updatedBy:uid});
+  t.set(db.collection('audit_log').doc(),{actorUid:uid,actorEmail:'',action:'production_sheet_revision',modelName:'OC 999',
+   before:{colors:existing.data().colors,model:existing.data().model,reference:existing.data().reference},
+   after:{colors:[{cor:'AZUL',p:'5',m:'',g:'',gg:'',xg:''}],model:'BERMUDA NOVA',reference:'10098'},at:stamp()});
+ });
+ const after=(await ref.get()).data();
+ assert.equal(after.status,'assigned');
+ assert.equal(after.assignedTailor,'RAMIRO');
+ assert.equal(after.colors.length,2);
+ assert.deepEqual((await db.doc('cut_orders/'+sheetId).get()).data(),orderBefore);
+ assert.deepEqual((await db.doc('enfesto_jobs/'+sheetId).get()).data(),jobBefore);
+});
+test('editor não criador não pode corrigir ficha atribuída',async()=>{
+ const owner='criador_com_ficha',other='outro_editor_atribuida',sheetId='ficha_oc_900';
+ const {db}=await setup(owner);
+ await env.withSecurityRulesDisabled(async ctx=>{
+  const privileged=ctx.firestore();
+  await privileged.doc('user_roles/'+other).set({role:'editor',permissions:['sheets'],disabled:false,companyId:'mb-principal'});
+  await privileged.doc('production_sheets/'+sheetId).set({
+   model:'CAMISETA',reference:'10088',pieceType:'Camiseta',fabric:'DRYFIT',volumes:'',
+   composition:'',trims:'',officeInstructions:'',oc:'900',withdrawalDate:'',
+   tailorInstructions:'',finishingInstructions:'',
+   colors:[{cor:'PRETO',p:'10',m:'20',g:'',gg:'',xg:''}],
+   status:'assigned',assignedTailor:'MAURO',assignedAt:timestamp(),assignedBy:'distribuidor',
+   createdAt:timestamp(),createdBy:owner,updatedAt:timestamp(),updatedBy:owner
+  });
+ });
+ const denied=env.authenticatedContext(other).firestore();
+ await assert.rejects(denied.doc('production_sheets/'+sheetId).update({
+  colors:[{cor:'VERDE',p:'5',m:'',g:'',gg:'',xg:''}],updatedAt:stamp(),updatedBy:other
+ }),e=>e.code==='permission-denied');
+});
