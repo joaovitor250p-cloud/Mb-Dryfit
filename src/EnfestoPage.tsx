@@ -122,7 +122,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
     const colors=Array.isArray(currentSheet.data().colors)?currentSheet.data().colors.map((r:FichaCor)=>({...r})):[];
     const source=colors.map((row:FichaCor,index:number)=>({row,index})).filter(({row}:{row:FichaCor})=>row.cor?.trim()||['p','m','g','gg','xg'].some(k=>Number(row[k as keyof FichaCor])>0));
     const item=source[editingColor.index];
-    if(!item||normalizeColor(item.row.cor)!==normalizeColor(editingColor.original))
+    if(!item||normalizeColor(item.row.cor||'COR NÃO INFORMADA '+(editingColor.index+1))!==normalizeColor(editingColor.original))
       throw Error('A cor foi alterada em outro aparelho. Atualize a ficha e tente novamente.');
     if(colors.some((row:FichaCor,index:number)=>index!==item.index&&normalizeColor(row.cor)===normalizeColor(nextColor)))
       throw Error('A nova cor já existe nesta ficha. Confira as quantidades antes de corrigir.');
