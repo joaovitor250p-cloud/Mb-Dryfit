@@ -2226,7 +2226,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     margin:0 0 1.2mm!important;
     padding:0!important;
   }
-  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field span:not(.sheet-volumes span){
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field:not(.sheet-volumes)>span{
     display:block!important;
     flex:0 0 auto!important;
     height:auto!important;
