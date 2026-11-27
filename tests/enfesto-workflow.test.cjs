@@ -135,7 +135,9 @@ test('enfesto corrige nome da cor na ficha e progresso sem alterar quantidades',
  assert.match(page,/action:'correcao_cor_enfesto'/);
  assert.match(page,/setSuccess\('Cor corrigida na ficha/);
  assert.match(page,/stockId:'',consumption:'',checked:false/);
- assert.match(page,/\{sheet\.status==='enfesto'&&canEdit&&<button/);
+ assert.match(page,/disabled=\{busy\|\|!canEdit\|\|sheet\.status!=='enfesto'\}/);
+ assert.match(page,/Editar cores da ficha/);
+ assert.match(page,/enfesto-color-access/);
  assert.match(page,/Corrigir cor/);
  assert.match(page,/Salvar cor na ficha e no sistema/);
  assert.match(page,/status==='completed'/);
