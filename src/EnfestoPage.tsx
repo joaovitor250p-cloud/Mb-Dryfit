@@ -26,6 +26,11 @@ function readLocal(uid:string,id:string,signature:string):EnfestoDetails|null{
   // Rascunhos antigos sem assinatura só podem ser reaproveitados se a
   // composição das cores ainda bater; após revisão, versões divergentes caem.
   if(typeof data.sheetSignature==='string'&&data.sheetSignature!==signature)return null;
+  if(!data.sheetSignature){
+   // Cache de versões antigas não prova que a ficha continua igual:
+   // mantém anotações e preenchimento, mas exige reconfirmar o corte.
+   return {...data,rows:data.rows.map((row:EnfestoColor)=>({...row,checked:false,stockId:'',consumption:''}))} as EnfestoDetails;
+  }
   return data as EnfestoDetails;
  }catch{return null}
 }
