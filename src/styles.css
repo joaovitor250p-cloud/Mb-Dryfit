@@ -2138,11 +2138,11 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field input{
   min-height:24px;
   height:auto;
-  font-size:17px;
+  font-size:18px;
   line-height:1.3;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-field textarea{
-  font-size:17px;
+  font-size:18px;
   line-height:1.35;
 }
 /* Campos de preenchimento NÃO podem receber flex-basis:0:
@@ -2189,8 +2189,8 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
   height:34px;
   padding:4px 2px;
   margin:4px 0 0;
-  font-size:17px;
-  line-height:1.3;
+  font-size:18px;
+  line-height:1.25;
   box-sizing:border-box;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-top>div>.sheet-field textarea{
@@ -2238,12 +2238,12 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-table input{
   min-height:25px;
   height:auto;
-  font-size:16px;
+  font-size:17px;
   line-height:1.25;
 }
 .sheets-page .sheet-paper:not(.sheet-paper-a4) .sheet-detail-input{
   min-height:32px;
-  font-size:15px;
+  font-size:16px;
   line-height:1.3;
 }
 @media(max-width:700px){
@@ -2349,6 +2349,18 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     -webkit-text-fill-color:#111!important;
     text-transform:uppercase!important;
   }
+  /* Quatro linhas do topo ocupam 34mm: tipografia maior com margens
+     compactas evita que letras atravessem bordas sem ampliar as caixas. */
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top .sheet-field{
+    padding:.45mm 1mm!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top .sheet-field strong{
+    font:800 10.3px/1.08 Arial,Helvetica,sans-serif!important;
+    margin:0 0 .15mm!important;
+  }
+  .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-top .sheet-field>span{
+    font:700 14px/1.08 Arial,Helvetica,sans-serif!important;
+  }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-field:not(.sheet-volumes)>span{
     display:block!important;
     min-height:0!important;
@@ -2356,7 +2368,7 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     height:auto!important;
     margin:0!important;
     padding:0!important;
-    font:700 13.5px/1.17 Arial,Helvetica,sans-serif!important;
+    font:700 14px/1.08 Arial,Helvetica,sans-serif!important;
     letter-spacing:0!important;
     color:#b00000!important;
     -webkit-text-fill-color:#b00000!important;
@@ -2403,14 +2415,14 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
     background:#fff!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td{
-    font:700 13px/1.15 Arial,Helvetica,sans-serif!important;
+    font:700 13.5px/1.1 Arial,Helvetica,sans-serif!important;
     text-align:center!important;
     color:#b00000!important;
     -webkit-text-fill-color:#b00000!important;
     background:#fff!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-color-table tbody td:last-child{
-    font:700 12px/1.15 Arial,Helvetica,sans-serif!important;
+    font:700 12.5px/1.1 Arial,Helvetica,sans-serif!important;
     text-align:left!important;
   }
   .sheet-print-only .sheet-paper.sheet-paper-a4 .sheet-finishing{

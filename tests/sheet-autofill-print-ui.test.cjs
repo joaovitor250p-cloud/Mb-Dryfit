@@ -124,8 +124,8 @@ test('ficha preserva medidas A4 e oito linhas vazias, aumentando só a fonte',()
  assert.match(print,/height:6mm!important/);
  assert.match(print,/position:absolute!important/);
  assert.match(print,/bottom:0!important/);
- assert.match(print,/font:700 13\.5px\/1\.17/);
- assert.match(print,/font:700 13px\/1\.15/);
+ assert.match(print,/font:700 14px\/1\.08/);
+ assert.match(print,/font:700 13\.5px\/1\.1/);
  assert.match(print,/font:800 20px\/1\.1/);
  assert.match(print,/border:1px solid #111!important/);
  assert.match(print,/background:#fff!important/);
@@ -145,12 +145,35 @@ test('aumento de fonte usa Arial sem alterar altura dos quadrados',()=>{
  const block=css.slice(start,end);
  assert.match(block,/font-family:Arial,Helvetica,sans-serif/);
  assert.match(block,/font-size:17px/);
- assert.match(block,/font:700 13\.5px\/1\.17 Arial/);
- assert.match(block,/font:700 13px\/1\.15 Arial/);
+ assert.match(block,/font:700 14px\/1\.08 Arial/);
+ assert.match(block,/font:700 13\.5px\/1\.1 Arial/);
  assert.match(block,/height:34mm!important/);
  assert.match(block,/height:70mm!important/);
  assert.match(block,/height:35mm!important/);
  assert.match(block,/height:12mm!important/);
+});
+test('OC 758: reordenar chaves de cor no Firestore não cria falso conflito',()=>{
+ const sheets=read('src/ProductionSheets.tsx');
+ assert.match(sheets,/const colorSignature=\(rows:/);
+ assert.match(sheets,/editingColorsBaseline\?\?colorSignature\(original.colors\)/);
+ assert.doesNotMatch(sheets,/JSON\.stringify\(current\.data\(\)\.colors\|\|\[\]\)!==JSON\.stringify/);
+ const start=sheets.indexOf('const colorSignature='),end=sheets.indexOf('const paddedColors=',start);
+ assert.ok(start>=0&&end>start);
+ const code=ts.transpileModule(sheets.slice(start,end),{fileName:'snippet.ts',compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
+ const scope={exports:{},upperField};
+ vm.runInNewContext(code+'\nexports.colorSignature=colorSignature;',scope);
+ const key=scope.exports.colorSignature;
+ const a=[{cor:'PRETO',p:'',m:'120',g:'120',gg:'70',xg:'',detalhes:''}];
+ const b=[{detalhes:'',xg:'',gg:'70',g:120,m:'120',p:'',cor:'PRETO'},{cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''}];
+ assert.equal(key(a),key(b),'mesmas quantidades em ordem diferente devem comparar iguais');
+ const changed=[{...a[0],m:'121'}];
+ assert.notEqual(key(a),key(changed),'alteração verdadeira deve continuar bloqueada');
+});
+test('ao editar ficha antiga, grade mantém oito quadrados ainda sem cor ou quantidade',()=>{
+ const sheets=read('src/ProductionSheets.tsx'),print=read('src/SheetPrint.tsx');
+ assert.match(sheets,/while\(result\.length<8\)result\.push\(blankRow\(\)\)/);
+ assert.match(sheets,/colors:paddedColors\(s\.colors\)/);
+ assert.match(print,/while\(rows\.length<8\)rows\.push\(emptyRow\(\)\)/);
 });
 test('formulário Nova ficha nunca esmaga os quatro campos de cima',()=>{
  const css=read('src/styles.css');
