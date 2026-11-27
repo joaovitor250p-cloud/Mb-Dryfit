@@ -138,6 +138,22 @@ test('ficha preserva medidas A4 e oito linhas vazias, aumentando só a fonte',()
  assert.match(sheet,/className="sheet-field sheet-finishing"/);
  assert.match(sheet,/className="sheet-field sheet-volumes"/);
 });
+test('formulário Nova ficha nunca esmaga os quatro campos de cima',()=>{
+ const css=read('src/styles.css');
+ const start=css.indexOf('/* Ficha A4 compacta: caixas fixas como no modelo impresso.');
+ const end=css.indexOf('/* Revisão de ficha já enviada:',start);
+ const screen=css.slice(start,css.indexOf('@media print{',start));
+ const pdf=css.slice(css.indexOf('@media print{',start),end);
+ assert.match(screen,/\.sheet-top>div\{[\s\S]*?grid-template-rows:repeat\(4,minmax\(78px,auto\)\)/);
+ assert.match(screen,/\.sheet-top>div:last-child\{[\s\S]*?grid-template-rows:repeat\(2,minmax\(156px,auto\)\)/);
+ assert.match(screen,/\.sheet-top>div>\.sheet-field\{[\s\S]*?flex:none;[\s\S]*?min-height:78px/);
+ assert.match(screen,/\.sheet-top>div>\.sheet-field input\{[\s\S]*?height:34px/);
+ assert.doesNotMatch(screen,/flex:1 1 0;/);
+ assert.match(pdf,/height:275mm!important/);
+ assert.match(pdf,/height:34mm!important/);
+ assert.match(pdf,/height:70mm!important/);
+ assert.match(pdf,/position:absolute!important/);
+});
 test('arquivos TSX editados não têm erros de sintaxe',()=>{
  for(const f of ['src/App.tsx','src/ProductionSheets.tsx','src/EnfestoPage.tsx','src/CutOrders.tsx']){
   const out=ts.transpileModule(read(f),{fileName:f,reportDiagnostics:true,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}});
