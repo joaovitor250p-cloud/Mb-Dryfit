@@ -9,13 +9,14 @@ const unaccented = (text: string): string => text.normalize('NFD').replace(/[\u0
 
 const ALIASES: Record<string, string> = {
   VIGILIO: 'VIRGILIO',
+  JONY: 'JHONY',
 };
 
 const DISPLAY_NAMES: Record<string, string> = {
   VIRGILIO: 'VIRGÍLIO',
   MAURO: 'MAURO',
   'DARIO MEDINA': 'DARIO MEDINA',
-  JONY: 'JONY',
+  JHONY: 'JHONY',
   RODRIGO: 'RODRIGO',
   'DONA FRANCISCA': 'DONA FRANCISCA',
   RAMIRO: 'RAMIRO',
