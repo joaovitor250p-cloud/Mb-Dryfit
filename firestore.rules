@@ -1035,9 +1035,9 @@ service cloud.firestore {
         && request.resource.data.rows.size() <= 50
         && request.resource.data.updatedAt == request.time
         && request.resource.data.updatedBy == request.auth.uid
-        // Operação restrita ao job ainda em rascunho. O criador com
-        // canWrite('sheets') só muda as linhas e a auditoria técnica;
-        // status, corte concluído, baixa e estoque seguem protegidos.
+        // Somente administrador ou criador da ficha, com permissão sheets.
+        // Status, conclusão, estoque e pagamentos ficam imutáveis.
+        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.get('createdBy','') == request.auth.uid)
       ) || (
         canWrite('enfesto')
         && resource.data.status == 'draft'
