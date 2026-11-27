@@ -2524,3 +2524,8 @@ html,body,#root,.app-shell{touch-action:pan-x pan-y}
 .creator-confirm-buttons button{min-height:43px}
 @media(max-width:900px){.creator-stage-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:550px){.creator-stage-tiles{gap:8px}.creator-stage-tile{padding:12px;min-height:110px;gap:4px 7px}.creator-stage-tile.selected{padding:11px}.creator-stage-icon{width:35px;height:35px}.creator-stage-icon svg{width:19px}.creator-stage-tile strong{font-size:12px}.creator-stage-tile b{font-size:23px}.creator-stage-tile small{font-size:11px}.creator-sheet-card{padding:12px}.creator-sheet-details{min-width:0}.creator-sheet-actions{width:100%}.creator-sheet-actions button{flex:1 1 100%}.creator-confirm-dialog{padding:20px}.creator-confirm-buttons button{flex:1 1 100%}}
+
+/* Quatro etapas substituem o resumo antigo e continuam clicáveis no topo. */
+.sheets-page .creator-stage-tiles-top{width:100%;margin:15px auto 22px;max-width:1440px}
+.sheets-page .creator-stage-tiles-top .creator-stage-tile{min-height:134px}
+@media(max-width:550px){.sheets-page .creator-stage-tiles-top{margin:12px auto 16px}.sheets-page .creator-stage-tiles-top .creator-stage-tile{min-height:116px}}
