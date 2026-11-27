@@ -127,33 +127,25 @@ test('permissão de Enfesto é independente e transição é protegida por docum
  assert.match(admin,/value: 'enfesto'/);
  assert.match(app,/item==='enfesto' \? <EnfestoPage/);
 });
-test('atalho editar cor e versão visíveis no cabeçalho do Enfesto',()=>{
+test('correção de ficha enviada é feita pelo criador ou dono, não na tela do Enfesto',()=>{
+ const creator=read('src/ProductionSheets.tsx');
  const page=read('src/EnfestoPage.tsx');
- const css=read('src/enfesto.css');
- assert.match(page,/EDITAR COR DA FICHA/);
- assert.match(page,/Correção de cor disponível · versão 27\/11/);
- assert.match(page,/enfesto-header-edit-color/);
- assert.match(css,/\.enfesto-header-edit-color/);
- assert.match(page,/newColor\.trim\(\)\.replace\(\/\\s\+\/g/);
-});
-test('enfesto corrige nome da cor na ficha e progresso sem alterar quantidades',()=>{
- const page=read('src/EnfestoPage.tsx'),rules=read('firestore.rules'),style=read('src/enfesto.css');
- assert.match(page,/const correctSheetColor=async\(\)=>/);
- assert.match(page,/transaction\.update\(sheetRef,\{colors,colorCorrectionIndex:item\.index,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
- assert.match(page,/transaction\.update\(jobRef,\{rows:savedRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
- assert.match(page,/action:'correcao_cor_enfesto'/);
- assert.match(page,/setSuccess\('Cor corrigida na ficha/);
- assert.match(page,/stockId:'',consumption:'',checked:false/);
- assert.match(page,/disabled=\{busy\|\|!canEdit\|\|sheet\.status!=='enfesto'\}/);
- assert.match(page,/Editar cores da ficha/);
- assert.match(page,/enfesto-color-access/);
- assert.match(page,/Corrigir cor/);
- assert.match(page,/Salvar cor na ficha e no sistema/);
- assert.match(page,/status==='completed'/);
- assert.match(rules,/\.hasOnly\(\['colors','colorCorrectionIndex','updatedAt','updatedBy'\]\)/);
- assert.match(rules,/\.diff\(resource\.data\.colors\[request\.resource\.data\.colorCorrectionIndex\]\)\.affectedKeys\(\)\.hasOnly\(\['cor'\]\)/);
- assert.match(rules,/resource\.data\.colors\.removeAll/);
- assert.match(style,/\.enfesto-color-correction/);
+ const rules=read('firestore.rules');
+ assert.match(creator,/const sentToEnfesto=sheets\.filter\(s=>s\.status==='enfesto'/);
+ assert.match(creator,/const editEnfestoSheet=\(s:Sheet\)=>/);
+ assert.match(creator,/const saveEditedEnfesto=async\(\)=>/);
+ assert.match(creator,/EDITAR FICHA ENVIADA/);
+ assert.match(creator,/Salvar alterações na ficha e no Enfesto/);
+ assert.match(creator,/transaction\.update\(sheetRef,updates\)/);
+ assert.match(creator,/transaction\.update\(jobRef,\{rows:nextRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(creator,/makeEnfestoRows\(colors,oldRows\)/);
+ assert.match(creator,/action:'production_sheet_revision'/);
+ assert.match(page,/sheetColorVersions=useRef/);
+ assert.doesNotMatch(page,/EDITAR COR DA FICHA|Editar cores da ficha|Corrigir cor|correctSheetColor/);
+ assert.match(rules,/resource\.data\.createdBy == request\.auth\.uid/);
+ assert.match(rules,/\.hasOnly\(\['rows','updatedAt','updatedBy'\]\)/);
+ assert.match(rules,/request\.resource\.data\.oc == resource\.data\.oc/);
+ assert.match(rules,/resource\.data\.status == 'enfesto'/);
 });
 test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>{
  const page=read('src/EnfestoPage.tsx');

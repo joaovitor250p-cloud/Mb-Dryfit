@@ -884,33 +884,26 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
       ) || (
-        // Correção autorizada SOMENTE do nome de uma cor enquanto a ficha
-        // aguarda Enfesto. Não permite alterar tamanhos, quantidades, nem
-        // demais cores. Índice registrado para auditar a linha corrigida.
-        canWrite('enfesto')
+        // O criador ou o dono pode corrigir a ficha que já foi ENVIADA ao
+        // Enfesto. Não permite mudar OC, fase, responsável, nem financeiro.
+        // A correção não é aceita após finalização/corte concluído.
+        canWrite('sheets')
+        && (isAdmin() || resource.data.createdBy == request.auth.uid)
         && resource.data.status == 'enfesto'
         && request.resource.data.status == 'enfesto'
+        && (!exists(/databases/$(database)/documents/enfesto_jobs/$(sheetId))
+          || get(/databases/$(database)/documents/enfesto_jobs/$(sheetId)).data.status == 'draft')
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['colors','colorCorrectionIndex','updatedAt','updatedBy'])
-        && request.resource.data.colorCorrectionIndex is int
-        && request.resource.data.colorCorrectionIndex >= 0
-        && resource.data.colors is list
-        && request.resource.data.colors is list
-        && request.resource.data.colors.size() == resource.data.colors.size()
-        && request.resource.data.colorCorrectionIndex < resource.data.colors.size()
-        && resource.data.colors[request.resource.data.colorCorrectionIndex] is map
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex] is map
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex]
-          .diff(resource.data.colors[request.resource.data.colorCorrectionIndex]).affectedKeys().hasOnly(['cor'])
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor is string
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor.size() > 0
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor.size() <= 90
-        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor
-          != resource.data.colors[request.resource.data.colorCorrectionIndex].cor
-        && resource.data.colors.removeAll([resource.data.colors[request.resource.data.colorCorrectionIndex]])
-          == request.resource.data.colors.removeAll([request.resource.data.colors[request.resource.data.colorCorrectionIndex]])
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.updatedBy == request.auth.uid
+          .hasOnly(['model','reference','client','pieceType','fabric','composition',
+            'trims','officeInstructions','withdrawalDate','tailorInstructions',
+            'finishingInstructions','volumes','colors','updatedAt','updatedBy'])
+        && request.resource.data.oc == resource.data.oc
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.assignedTailor == resource.data.assignedTailor
+        && request.resource.data.assignedAt == resource.data.assignedAt
+        && request.resource.data.assignedBy == resource.data.assignedBy
+        && validSheetFields(request.resource.data)
       ) || (
         resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
@@ -1013,7 +1006,21 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
           (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
-      allow update: if canWrite('enfesto')
+      allow update: if (
+        canWrite('sheets')
+        && resource.data.status == 'draft'
+        && request.resource.data.status == 'draft'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rows','updatedAt','updatedBy'])
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validEnfestoJob(request.resource.data,sheetId)
+        && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status == 'enfesto'
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.updatedBy == request.auth.uid
+        && (isAdmin() || get(/databases/$(database)/documents/production_sheets/$(sheetId)).data.createdBy == request.auth.uid)
+      ) || (
+        canWrite('enfesto')
         && resource.data.status == 'draft'
         && validEnfestoJob(request.resource.data,sheetId)
         && request.resource.data.createdBy == resource.data.createdBy
@@ -1021,7 +1028,8 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/production_sheets/$(sheetId))
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.oc == request.resource.data.oc
         && getAfter(/databases/$(database)/documents/production_sheets/$(sheetId)).data.status ==
-          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto');
+          (request.resource.data.status == 'completed' ? 'pending' : 'enfesto')
+      );
       // Limpeza de registros operacionais, somente administrador.
       // As OCs protegidas não podem ser apagadas nem em limpezas gerais.
       allow delete: if isAdmin()
