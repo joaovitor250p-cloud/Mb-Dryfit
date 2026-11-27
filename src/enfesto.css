@@ -166,3 +166,9 @@
 .enfesto-color-access-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-size:13px;font-weight:800}
 .enfesto-color-access-button:disabled,.enfesto-correct-color:disabled{opacity:.58;cursor:not-allowed}
 @media(max-width:550px){.enfesto-color-access-button{width:100%}}
+
+/* Indicador de compilação e atalho permanente junto ao botão PDF. */
+.enfesto-build-marker{display:inline-block;margin-top:8px;color:var(--muted);font-size:11px;font-weight:750}
+.enfesto-editor-tools .enfesto-header-edit-color{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:43px;border-radius:10px;font-size:12px;font-weight:850;text-align:center}
+.enfesto-editor-tools .enfesto-header-edit-color:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:550px){.enfesto-editor-tools .enfesto-header-edit-color{width:100%}}

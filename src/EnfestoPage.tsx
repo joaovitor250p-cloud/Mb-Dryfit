@@ -98,7 +98,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
  };
  const correctSheetColor=async()=>{
   if(!sheet||!editingColor||!canEdit||busy||sheet.status!=='enfesto'||editingColor.sheetId!==sheet.id)return;
-  const nextColor=newColor.trim().replace(/\\s+/g,' ').toLocaleUpperCase('pt-BR');
+  const nextColor=newColor.trim().replace(/\s+/g,' ').toLocaleUpperCase('pt-BR');
   if(!nextColor||nextColor.length>90){setError('Digite uma cor válida, com até 90 caracteres.');return;}
   const originalRow=draft.rows[editingColor.index];
   if(!originalRow||normalizeColor(originalRow.cor)!==normalizeColor(editingColor.original)){
@@ -108,7 +108,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   if(draft.rows.some((r,i)=>i!==editingColor.index&&normalizeColor(r.cor)===normalizeColor(nextColor))){
    setError('Esta cor já existe na ficha. Não é seguro juntar duas linhas com quantidades diferentes.');return;
   }
-  if(!window.confirm('Corrigir a cor da OC '+sheet.oc+' de '+originalRow.cor+' para '+nextColor+'?\\nA ficha, o PDF e o enfesto serão sincronizados. As quantidades não mudarão; o tecido selecionado para esta cor será desmarcado para nova conferência.'))return;
+  if(!window.confirm('Corrigir a cor da OC '+sheet.oc+' de '+originalRow.cor+' para '+nextColor+'?\nA ficha, o PDF e o enfesto serão sincronizados. As quantidades não mudarão; o tecido selecionado para esta cor será desmarcado para nova conferência.'))return;
   setBusy(true);setError('');setSuccess('');
   try{
    const sheetRef=doc(db,'production_sheets',sheet.id);
@@ -204,7 +204,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
   finally{setBusy(false)}
  };
  return <div className="enfesto-page">
-  <header className="enfesto-heading"><div><span className="eyebrow">MB REFERÊNCIAS / PRODUÇÃO</span><h1>Enfesto e Corte</h1><p>Receba as fichas, registre camadas, peso por folha e consumo de tecido. Após conferir todas as cores, libere para distribuição.</p></div><span className="enfesto-flow">Ficha → Enfesto → Distribuição → OC</span></header>
+  <header className="enfesto-heading"><div><span className="eyebrow">MB REFERÊNCIAS / PRODUÇÃO</span><h1>Enfesto e Corte</h1><p>Receba as fichas, registre camadas, peso por folha e consumo de tecido. Após conferir todas as cores, libere para distribuição.</p><small className="enfesto-build-marker">Correção de cor disponível · versão 27/11</small></div><span className="enfesto-flow">Ficha → Enfesto → Distribuição → OC</span></header>
   <div className="enfesto-kpis">
    <button type="button" className={section==='waiting'?'active':''} onClick={()=>{setSection('waiting');setSelectedId('')}}><Clock3/><span>Aguardando enfesto</span><strong>{waiting.length}</strong></button>
    <button type="button" onClick={()=>{setSection('waiting');setSelectedId('')}}><Layers3/><span>Com progresso salvo</span><strong>{completedCount}</strong></button>
@@ -229,7 +229,7 @@ export default function EnfestoPage({db,user,companyId,canEdit}:Props){
    </aside>
    <section className="enfesto-editor">
     {!sheet?<div className="enfesto-placeholder"><Scissors size={34}/><strong>Selecione uma ficha</strong><p>Escolha uma OC na lista para começar a conferência do enfesto.</p></div>:<>
-     <div className="enfesto-editor-head"><div><span className="enfesto-oc">OC {sheet.oc}</span><h2>{sheet.model}</h2><p>REF {sheet.reference} · {sheet.pieceType||'Tipo não informado'} · Tecido: {sheet.fabric||'Não informado'}</p></div><div className="enfesto-editor-tools"><span className={sheet.status==='enfesto'?'enfesto-state':'enfesto-state done'}>{sheet.status==='enfesto'?'Em enfesto':'Enfesto concluído'}</span><button type="button" className="outline-button enfesto-print-button" onClick={()=>print(sheet)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA PDF</button></div></div>
+     <div className="enfesto-editor-head"><div><span className="enfesto-oc">OC {sheet.oc}</span><h2>{sheet.model}</h2><p>REF {sheet.reference} · {sheet.pieceType||'Tipo não informado'} · Tecido: {sheet.fabric||'Não informado'}</p></div><div className="enfesto-editor-tools"><span className={sheet.status==='enfesto'?'enfesto-state':'enfesto-state done'}>{sheet.status==='enfesto'?'Em enfesto':'Enfesto concluído'}</span><button type="button" className="primary-button enfesto-header-edit-color" disabled={busy||!canEdit||sheet.status!=='enfesto'||!draft.rows.length} title={sheet.status!=='enfesto'?'Enfesto já finalizado':!canEdit?'Sua conta precisa de permissão de edição do Enfesto':'Editar as cores da ficha e atualizar o PDF'} onClick={()=>{const first=draft.rows[0];if(!first)return;setEditingColor({sheetId:sheet.id,index:0,original:first.cor});setNewColor(first.cor);setError('')}}><Pencil size={17}/> EDITAR COR DA FICHA</button><button type="button" className="outline-button enfesto-print-button" onClick={()=>print(sheet)}><Printer size={17}/> BAIXAR / IMPRIMIR FICHA PDF</button></div></div>
      <div className="enfesto-color-access"><div><strong>Correção de cores da ficha</strong><p>{sheet.status!=='enfesto'?'Este enfesto já foi finalizado. A correção está bloqueada para preservar as baixas de estoque e o histórico.':!canEdit?'Sua conta pode consultar a ficha, mas precisa da permissão de edição do Enfesto para corrigir cores.':'Encontrou alguma cor errada? Use Corrigir cor abaixo: a ficha original, o PDF e o progresso serão atualizados juntos.'}</p></div><button type="button" className="outline-button enfesto-color-access-button" disabled={busy||!canEdit||sheet.status!=='enfesto'||!draft.rows.length} onClick={()=>{const first=draft.rows[0];if(!first)return;setEditingColor({sheetId:sheet.id,index:0,original:first.cor});setNewColor(first.cor);setError('')}}><Pencil size={16}/> Editar cores da ficha</button></div>
      <div className="enfesto-totals">
       <div><small>Peças previstas</small><strong>{number(totalExpected(draft.rows))}</strong></div>
