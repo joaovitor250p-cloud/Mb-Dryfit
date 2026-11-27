@@ -385,9 +385,11 @@ test('criador pode corrigir ficha já com costureiro e OC entregue sem alterar p
    total:'R$ 300,00',paymentDone:'OK',status:'ENTREGUE',paidAt:'26/11/2026'});
  });
  const ref=db.doc('production_sheets/'+sheetId);
- const {orderBefore,jobBefore}=await env.withSecurityRulesDisabled(async ctx=>{
+ let orderBefore,jobBefore;
+ await env.withSecurityRulesDisabled(async ctx=>{
   const privileged=ctx.firestore();
-  return {orderBefore:(await privileged.doc('cut_orders/'+sheetId).get()).data(),jobBefore:(await privileged.doc('enfesto_jobs/'+sheetId).get()).data()};
+  orderBefore=(await privileged.doc('cut_orders/'+sheetId).get()).data();
+  jobBefore=(await privileged.doc('enfesto_jobs/'+sheetId).get()).data();
  });
  await db.runTransaction(async t=>{
   const existing=await t.get(ref);
