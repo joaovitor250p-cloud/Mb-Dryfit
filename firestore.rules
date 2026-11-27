@@ -911,7 +911,13 @@ service cloud.firestore {
         && request.resource.data.get('client','MB') is string && request.resource.data.get('client','MB').size() <= 120
         && request.resource.data.get('pieceType','') is string && request.resource.data.get('pieceType','').size() <= 80
         && request.resource.data.get('fabric','') is string && request.resource.data.get('fabric','').size() <= 250
-        && request.resource.data.get('volumes','') is string && request.resource.data.get('volumes','').matches('^[0-9]{0,6}
+        && request.resource.data.get('volumes','') is string
+        && request.resource.data.get('volumes','').matches('[0-9]{0,6}')
+        && request.resource.data.colors is list
+        && request.resource.data.colors.size() > 0
+        && request.resource.data.colors.size() <= 50
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
       ) || (
         resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
