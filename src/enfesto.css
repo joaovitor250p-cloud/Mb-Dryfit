@@ -157,3 +157,12 @@
 .enfesto-color-correction>div{display:flex;flex-wrap:wrap;gap:9px}
 .enfesto-color-correction button{min-height:42px}
 @media(max-width:550px){.enfesto-color-title{flex-wrap:wrap}.enfesto-color-title .enfesto-correct-color{width:100%;margin-left:0}.enfesto-color-correction>div button{flex:1 1 100%}}
+
+/* Ação evidente de editar cores, mesmo quando a permissão bloqueia a alteração. */
+.enfesto-color-access{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 16px;border:1.5px solid #9383eb;border-radius:13px;background:var(--panel2)}
+.enfesto-color-access>div{flex:1 1 260px;min-width:0;display:grid;gap:6px}
+.enfesto-color-access strong{font-size:15px;font-weight:850;color:var(--text)}
+.enfesto-color-access p{font-size:12px;line-height:1.55;color:var(--muted);margin:0}
+.enfesto-color-access-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-size:13px;font-weight:800}
+.enfesto-color-access-button:disabled,.enfesto-correct-color:disabled{opacity:.58;cursor:not-allowed}
+@media(max-width:550px){.enfesto-color-access-button{width:100%}}
