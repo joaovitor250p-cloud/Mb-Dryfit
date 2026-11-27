@@ -819,7 +819,7 @@ service cloud.firestore {
     // Fichas de produção: a atribuição é exclusiva de editores autorizados
     // individualmente pelo administrador para sheet_distribution.
     function validSheetFields(d) {
-      return d.keys().hasOnly(['model','reference','client','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy','reassignmentOrderId'])
+      return d.keys().hasOnly(['model','reference','client','pieceType','fabric','volumes','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy','enfestoCompletedAt','enfestoCompletedBy','reassignmentOrderId','colorCorrectionIndex'])
         && d.keys().hasAll(['model','reference','composition','trims','officeInstructions','oc','withdrawalDate','tailorInstructions','finishingInstructions','colors','status','assignedTailor','createdAt','createdBy','updatedAt','updatedBy','assignedAt','assignedBy'])
         && d.model is string && (d.status == 'draft' || d.model.size() > 0) && d.model.size() <= 250
         && d.reference is string && (d.status == 'draft' || d.reference.size() > 0) && d.reference.size() <= 200
@@ -838,6 +838,7 @@ service cloud.firestore {
         && d.status in ['draft','enfesto','pending','assigned']
         && d.assignedTailor is string && d.assignedTailor.size() <= 120
         && (!('reassignmentOrderId' in d) || (d.reassignmentOrderId is string && d.reassignmentOrderId.size() > 0 && d.reassignmentOrderId.size() <= 128))
+        && (!('colorCorrectionIndex' in d) || (d.colorCorrectionIndex is int && d.colorCorrectionIndex >= 0 && d.colorCorrectionIndex < d.colors.size()))
         && d.createdBy is string && d.updatedBy == request.auth.uid
         && d.updatedAt == request.time
         && (d.assignedAt == null || d.assignedAt is timestamp)
@@ -882,6 +883,34 @@ service cloud.firestore {
         && request.resource.data.assignedBy == null
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
+      ) || (
+        // Correção autorizada SOMENTE do nome de uma cor enquanto a ficha
+        // aguarda Enfesto. Não permite alterar tamanhos, quantidades, nem
+        // demais cores. Índice registrado para auditar a linha corrigida.
+        canWrite('enfesto')
+        && resource.data.status == 'enfesto'
+        && request.resource.data.status == 'enfesto'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['colors','colorCorrectionIndex','updatedAt','updatedBy'])
+        && request.resource.data.colorCorrectionIndex is int
+        && request.resource.data.colorCorrectionIndex >= 0
+        && resource.data.colors is list
+        && request.resource.data.colors is list
+        && request.resource.data.colors.size() == resource.data.colors.size()
+        && request.resource.data.colorCorrectionIndex < resource.data.colors.size()
+        && resource.data.colors[request.resource.data.colorCorrectionIndex] is map
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex] is map
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex]
+          .diff(resource.data.colors[request.resource.data.colorCorrectionIndex]).affectedKeys().hasOnly(['cor'])
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor is string
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor.size() > 0
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor.size() <= 90
+        && request.resource.data.colors[request.resource.data.colorCorrectionIndex].cor
+          != resource.data.colors[request.resource.data.colorCorrectionIndex].cor
+        && resource.data.colors.removeAll([resource.data.colors[request.resource.data.colorCorrectionIndex]])
+          == request.resource.data.colors.removeAll([request.resource.data.colors[request.resource.data.colorCorrectionIndex]])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
       ) || (
         resource.data.status == 'enfesto'
         && request.resource.data.status == 'pending'
