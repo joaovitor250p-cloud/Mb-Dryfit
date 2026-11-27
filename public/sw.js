@@ -1,5 +1,5 @@
 /* MB REFERÊNCIAS — apenas arquivos estáticos; nunca guarda respostas do Firebase. */
-const VERSION = 'mb-referencias-shell-2026-11-27-corrigir-cor-visible';
+const VERSION = 'mb-referencias-shell-2026-11-27-corrigir-cor-v2';
 const BASE = new URL(self.registration.scope);
 const SHELL = [BASE.href, new URL('index.html', BASE).href, new URL('instalar.html',BASE).href];
 self.addEventListener('install', event => {
