@@ -62,9 +62,11 @@ test('a ficha imprime linhas vazias sem omitir o quadro de cores e tamanhos',()=
  assert.match(print,/CORES/);
  assert.match(print,/GERAL:/);
 });
-test('três cartões clicáveis mostram Enfesto, Oficina e Finalizadas',()=>{
+test('quatro cartões novos substituem os três antigos acima das fichas',()=>{
  const page=read('src/ProductionSheets.tsx');
- for(const title of ['FICHAS EM ENFESTO','FICHAS NA OFICINA','FICHAS FINALIZADAS'])assert.ok(page.includes(title));
+ for(const title of ['Em Enfesto','Acabamento / Distribuição','Costureiros','Finalizadas'])assert.ok(page.includes(title));
+ assert.match(page,/creator-stage-tiles creator-stage-tiles-top/);
+ assert.doesNotMatch(page,/FICHAS EM ENFESTO|FICHAS NA OFICINA|FICHAS FINALIZADAS/);
  assert.match(page,/const statusForSheet=\(s:Sheet\)=>orderStatuses\[s\.id\]\|\|orderStatusByOc\[normalizeOcNumber\(s\.oc\)\]/);
  assert.match(page,/const completedSheets=assigned\.filter\(s=>statusForSheet\(s\)==='ENTREGUE'\)/);
  assert.match(page,/const atOffice=assigned\.filter\(s=>statusForSheet\(s\)!=='ENTREGUE'\)/);
