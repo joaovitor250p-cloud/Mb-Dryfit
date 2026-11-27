@@ -127,6 +127,23 @@ test('permissão de Enfesto é independente e transição é protegida por docum
  assert.match(admin,/value: 'enfesto'/);
  assert.match(app,/item==='enfesto' \? <EnfestoPage/);
 });
+test('enfesto corrige nome da cor na ficha e progresso sem alterar quantidades',()=>{
+ const page=read('src/EnfestoPage.tsx'),rules=read('firestore.rules'),style=read('src/enfesto.css');
+ assert.match(page,/const correctSheetColor=async\(\)=>/);
+ assert.match(page,/transaction\.update\(sheetRef,\{colors,colorCorrectionIndex:item\.index,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(page,/transaction\.update\(jobRef,\{rows:savedRows,updatedAt:serverTimestamp\(\),updatedBy:user\.uid\}\)/);
+ assert.match(page,/action:'correcao_cor_enfesto'/);
+ assert.match(page,/setSuccess\('Cor corrigida na ficha/);
+ assert.match(page,/stockId:'',consumption:'',checked:false/);
+ assert.match(page,/\{sheet\.status==='enfesto'&&canEdit&&<button/);
+ assert.match(page,/Corrigir cor/);
+ assert.match(page,/Salvar cor na ficha e no sistema/);
+ assert.match(page,/status==='completed'/);
+ assert.match(rules,/\.hasOnly\(\['colors','colorCorrectionIndex','updatedAt','updatedBy'\]\)/);
+ assert.match(rules,/\.diff\(resource\.data\.colors\[request\.resource\.data\.colorCorrectionIndex\]\)\.affectedKeys\(\)\.hasOnly\(\['cor'\]\)/);
+ assert.match(rules,/resource\.data\.colors\.removeAll/);
+ assert.match(style,/\.enfesto-color-correction/);
+});
 test('Enfesto e Corte tem progresso, cards por cor e conclusão explícita',()=>{
  const page=read('src/EnfestoPage.tsx');
  for(const field of ['Camadas','Peso por folha','Peças cortadas','Tecido da cor no estoque','Consumo real','Cor cortada e conferida','Salvar progresso','Finalizar Enfesto e liberar ficha']){
