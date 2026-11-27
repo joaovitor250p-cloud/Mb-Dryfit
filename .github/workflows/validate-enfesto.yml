@@ -41,6 +41,8 @@ jobs:
         with:
           node-version: '20'
       - run: npm install
+      - name: Instalar dependência de teste das regras Firestore
+        run: npm install --no-save --no-package-lock @firebase/rules-unit-testing@4.0.1
       - name: Preparar Java para validar regras Firestore
         uses: actions/setup-java@v4
         with:
