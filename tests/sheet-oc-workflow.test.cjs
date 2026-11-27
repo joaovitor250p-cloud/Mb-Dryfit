@@ -77,7 +77,9 @@ test('quatro cartões novos substituem os três antigos acima das fichas',()=>{
 test('botão ENTREGAR usa salvamento com amostra sem mexer no pagamento',()=>{
  const order=read('src/CutOrders.tsx');
  assert.match(order,/const markDelivered=async\(order:Order\)/);
- assert.match(order,/await save\(\{\.\.\.order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:/);
+ assert.match(order,/setDeliveryTarget\(order\)/);
+ assert.match(order,/void save\(\{\.\.\.order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:/);
+ assert.match(order,/paymentEligibleFrom:nextMonday\(/);
  assert.match(order,/const save=async\(override\?:Order\)/);
  assert.match(order,/const needsSample = row\.status === 'ENTREGUE'/);
  assert.match(order,/transaction\.set\(sampleRef,/);
