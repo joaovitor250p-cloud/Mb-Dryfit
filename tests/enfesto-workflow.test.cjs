@@ -127,6 +127,15 @@ test('permissão de Enfesto é independente e transição é protegida por docum
  assert.match(admin,/value: 'enfesto'/);
  assert.match(app,/item==='enfesto' \? <EnfestoPage/);
 });
+test('atalho editar cor e versão visíveis no cabeçalho do Enfesto',()=>{
+ const page=read('src/EnfestoPage.tsx');
+ const css=read('src/enfesto.css');
+ assert.match(page,/EDITAR COR DA FICHA/);
+ assert.match(page,/Correção de cor disponível · versão 27\/11/);
+ assert.match(page,/enfesto-header-edit-color/);
+ assert.match(css,/\.enfesto-header-edit-color/);
+ assert.match(page,/newColor\.trim\(\)\.replace\(\/\\s\+\/g/);
+});
 test('enfesto corrige nome da cor na ficha e progresso sem alterar quantidades',()=>{
  const page=read('src/EnfestoPage.tsx'),rules=read('firestore.rules'),style=read('src/enfesto.css');
  assert.match(page,/const correctSheetColor=async\(\)=>/);
