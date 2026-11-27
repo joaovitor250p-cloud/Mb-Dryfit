@@ -230,7 +230,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    });
    setEditingId(null);setEditingSent(false);setEditingColorsBaseline(null);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts');
    setMessage('OC '+original.oc+' · REF '+normalized.reference+' · '+normalized.model+': ficha e PDF atualizados para todos, mantendo a etapa. '+(original.status==='enfesto'?'Enfesto sincronizado.':'Enfesto concluído, estoque e pagamentos preservados.'));
-  }catch(e){setError('Não foi possível atualizar a ficha OC '+original.oc+': '+safeProviderMessage(e)+'. Nenhuma alteração parcial foi gravada.');}
+  }catch(e){const code=(e as {code?:string})?.code||'';setError('Não foi possível atualizar a ficha OC '+original.oc+': '+(code==='permission-denied'?'o Firebase recusou a edição (permissão insuficiente ou regras de correção ainda não publicadas) — nenhuma alteração foi gravada':safeProviderMessage(e)+'. Nenhuma alteração parcial foi gravada.'));}
   finally{setBusy(false)}
  };
  const quantity=(v:string)=>{const n=Number(v.trim());return Number.isSafeInteger(n)&&n>=0?n:0;};
@@ -352,10 +352,13 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
    .map(([key,name])=>({name,items:sentFiltered.filter(s=>workshopKey(s.assignedTailor)===key)}));
  return <section className="sheets-page">
  <div className="sheet-page-heading"><div><span className="sheet-eyebrow">MB REFERÊNCIAS · PRODUÇÃO</span><h1>Fichas de Produção</h1><p>Criação, distribuição por oficina e consulta das fichas enviadas.</p></div></div>
- {initialTab==='create'&&<div className="sheet-phase-cards" role="group" aria-label="Acompanhar fichas de produção">
-  <button type="button" className={phaseFilter==='enfesto'&&tab==='all'?'selected phase-enfesto':'phase-enfesto'} onClick={()=>{setTab('all');setPhaseFilter('enfesto');setHistoryOffice('all');setHistoryLimit(50)}}><Clock3 size={20}/><span>FICHAS EM ENFESTO</span><strong>{inEnfesto.length}</strong><small>Ver e baixar fichas aguardando corte</small></button>
-  <button type="button" className={phaseFilter==='office'&&tab==='all'?'selected phase-office':'phase-office'} onClick={()=>{setTab('all');setPhaseFilter('office');setHistoryOffice('all');setHistoryLimit(50)}}><Building2 size={20}/><span>FICHAS NA OFICINA</span><strong>{atOffice.length}</strong><small>Ver e baixar fichas enviadas</small></button>
-  <button type="button" className={phaseFilter==='done'&&tab==='all'?'selected phase-done':'phase-done'} onClick={()=>{setTab('all');setPhaseFilter('done');setHistoryOffice('all');setHistoryLimit(50)}}><CheckCircle2 size={20}/><span>FICHAS FINALIZADAS</span><strong>{completedSheets.length}</strong><small>OCs marcadas como entregues</small></button>
+ {initialTab==='create'&&canEdit&&<div className="creator-stage-tiles creator-stage-tiles-top" role="group" aria-label="Acompanhar fichas por etapa">
+  {([
+   {id:'enfesto',title:'Em Enfesto',count:ownEnfesto.length,icon:<Layers size={22}/>,note:'Corte e conferência'},
+   {id:'pending',title:'Acabamento / Distribuição',count:ownPending.length,icon:<PackageCheck size={22}/>,note:'Aguardando costureiro'},
+   {id:'office',title:'Costureiros',count:ownOffice.length,icon:<Building2 size={22}/>,note:'Fichas por nome da oficina'},
+   {id:'done',title:'Finalizadas',count:ownFinished.length,icon:<ClipboardCheck size={22}/>,note:'OCs marcadas ENTREGUE'}
+  ] as const).map(stage=><button type="button" key={stage.id} className={tab==='drafts'&&creatorStage===stage.id?'creator-stage-tile selected':'creator-stage-tile'} onClick={()=>{setCreatorStage(stage.id);setCreatorSearch('');setTab('drafts')}} aria-pressed={tab==='drafts'&&creatorStage===stage.id}><span className="creator-stage-icon">{stage.icon}</span><strong>{stage.title}</strong><b>{stage.count}</b><small>{stage.note}</small></button>)}
  </div>}
  <div className="sheet-tabs">
   {canEdit&&initialTab==='create'&&<button type="button" className={tab==='create'?'active':''} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('create')}}>Nova ficha</button>}
@@ -364,7 +367,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   {canDistribute&&initialTab==='distribution'&&<button type="button" className={tab==='sent'?'active':''} onClick={()=>setTab('sent')}>Costureiros ({atOffice.length})</button>}
   <button type="button" className={tab==='all'?'active':''} onClick={()=>{setPhaseFilter('all');setTab('all');setHistoryOffice('all')}}>Todas as fichas ({completedSheets.length})</button>
  </div>
- {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>Verifique se as regras publicadas do Firestore autorizam a distribuição de fichas.</p>}</div>}
+ {error&&<div className="production-alert" role="alert">{error}{error.toLowerCase().includes('permission')&&<p>{error.includes('atualizar a ficha')?'A correção foi recusada pelas regras ativas do Firebase. Confira se as regras de edição de fichas foram PUBLICADAS no projeto mb-referencias e se este usuário tem permissão para editar fichas. Não é uma falha na Distribuição.':'Verifique as permissões desta operação e as regras ativas no Firebase.'}</p>}</div>}
  {message&&<div className="production-ok" role="status"><CheckCircle2 size={17}/>{message}</div>}
  {tab==='create'&&canEdit&&<><div className="sheet-edit-heading"><strong>{editingSent?'CORRIGIR FICHA ENVIADA — OC '+form.oc:editingId?'EDITAR RASCUNHO':'NOVA FICHA'}</strong>{editingSent&&<p>Revise as cores e quantidades. O PDF e todas as telas que consultam a ficha serão atualizados. Após o Enfesto, estoque e financeiro não são reprocessados automaticamente.</p>}</div><div className="sheet-paper"><div className="sheet-top"><div>{field('client','CLIENTE:')}{field('model','Nome da peça:')}{field('reference','REF:')}
  <datalist id="sheet-reference-options">{referenceOptions.map(ref=><option key={ref} value={ref}/>)}</datalist>
@@ -375,14 +378,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  <button className="outline-button" disabled={form.colors.length>=50} onClick={()=>setForm(v=>({...v,colors:[...v.colors,blankRow()]}))}>+ Adicionar cor</button>{field('finishingInstructions','Informações acabamento:',true)}<label className="sheet-field sheet-volumes"><strong>VOL</strong><input type="number" min={0} step={1} max={999999} value={form.volumes||''} onChange={e=>setForm(v=>({...v,volumes:e.target.value}))}/></label><div className="sheet-actions"><button className="outline-button" type="button" onClick={()=>print({...uppercaseSheetForm(form),assignedTailor:''})}><Printer size={16}/> BAIXAR / IMPRIMIR PDF</button>{editingSent?<><button className="outline-button" disabled={busy} onClick={()=>{setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts')}}>Cancelar edição</button><button className="primary-button" disabled={busy} onClick={()=>void saveEditedEnfesto(false)}>{busy?'Salvando...':'Salvar correção da ficha'}</button></>:<><button className="outline-button" disabled={busy} onClick={()=>void save('draft')}>Salvar rascunho</button><button className="primary-button" disabled={busy} onClick={()=>void save('enfesto')}>{busy?'Salvando...':'Enviar para Enfesto'}</button></>}</div></div></>}
  {tab==='drafts'&&canEdit&&initialTab==='create'&&<section className="sheet-list creator-stage-panel">
   <div className="creator-stage-heading"><div><span className="sheet-eyebrow">CONTROLE DE PRODUÇÃO</span><h2>Acompanhar minhas fichas</h2><p>Escolha a etapa para consultar OC, REF, modelo, imprimir a ficha ou corrigi-la.</p></div><span className="creator-stage-live"><CheckCircle2 size={16}/> Atualização automática</span></div>
-  <div className="creator-stage-tiles" role="group" aria-label="Etapas das fichas">
-   {([
-     {id:'enfesto',title:'Em Enfesto',count:ownEnfesto.length,icon:<Layers size={22}/>,note:'Corte e conferência'},
-     {id:'pending',title:'Acabamento / Distribuição',count:ownPending.length,icon:<PackageCheck size={22}/>,note:'Aguardando costureiro'},
-     {id:'office',title:'Costureiros',count:ownOffice.length,icon:<Building2 size={22}/>,note:'Em produção nas oficinas'},
-     {id:'done',title:'Finalizadas',count:ownFinished.length,icon:<ClipboardCheck size={22}/>,note:'OCs marcadas ENTREGUE'}
-   ] as const).map(stage=><button type="button" key={stage.id} className={creatorStage===stage.id?'creator-stage-tile selected':'creator-stage-tile'} onClick={()=>setCreatorStage(stage.id)} aria-pressed={creatorStage===stage.id}><span className="creator-stage-icon">{stage.icon}</span><strong>{stage.title}</strong><b>{stage.count}</b><small>{stage.note}</small></button>)}
-  </div>
+
   <label className="sheet-quick-search creator-stage-search"><Search size={17}/><input type="search" value={creatorSearch} onChange={e=>setCreatorSearch(e.target.value)} placeholder="Pesquisar OC, REF, modelo ou costureiro" aria-label="Pesquisar minhas fichas"/></label>
   {creatorStage==='done'&&!canViewOrders&&<p className="sheet-price-warning">Para identificar as OCs marcadas como ENTREGUE, o criador precisa ter permissão de consulta a OCs. Peça ao dono para habilitar essa consulta.</p>}
   {!creatorStageSheets.length&&<div className="sheet-no-results"><FileText size={24}/><strong>Nenhuma ficha nesta etapa</strong><span>As fichas aparecem automaticamente quando mudam de fase.</span></div>}
