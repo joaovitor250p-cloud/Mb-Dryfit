@@ -111,28 +111,32 @@ test('alinhamento da ficha e maiúsculas continuam no CSS de tela e PDF',()=>{
  assert.match(css,/text-align:center/);
  assert.match(css,/\.sheet-print-only \.sheet-paper,\s*\.sheet-print-only \.sheet-paper \*/);
 });
-test('ficha impressa aumenta letras, números, escurece linhas e evita sobreposição',()=>{
+test('ficha preserva medidas A4 e oito linhas vazias, aumentando só a fonte',()=>{
  const css=read('src/styles.css');
- const marker=css.lastIndexOf('/* FICHA A4 2026-11-27:');
- assert.ok(marker>0,'deve existir revisão A4 de legibilidade');
+ const marker=css.lastIndexOf('/* Ficha A4 compacta: caixas fixas como no modelo impresso.');
+ assert.ok(marker>0,'deve existir bloco final com as medidas do A4 original');
  const print=css.slice(marker);
- assert.match(print,/font:800 16px\/1\.4 Arial/);
- assert.match(print,/font:800 15px\/1\.4 Arial/);
- assert.match(print,/font:800 20px\/1\.35 Arial/);
+ assert.match(print,/height:275mm!important/);
+ assert.match(print,/height:34mm!important/);
+ assert.match(print,/height:70mm!important/);
+ assert.match(print,/height:35mm!important/);
+ assert.match(print,/height:12mm!important/);
+ assert.match(print,/height:6mm!important/);
+ assert.match(print,/position:absolute!important/);
+ assert.match(print,/bottom:0!important/);
+ assert.match(print,/font:700 12\.5px\/1\.17/);
+ assert.match(print,/font:700 12px\/1\.15/);
+ assert.match(print,/font:800 19px\/1\.1/);
  assert.match(print,/border:1px solid #111!important/);
  assert.match(print,/background:#fff!important/);
- assert.match(print,/height:auto!important/);
- assert.match(print,/max-height:none!important/);
- assert.match(print,/position:static!important/);
- assert.match(print,/break-inside:auto!important/);
- assert.match(print,/page-break-inside:auto!important/);
- assert.match(print,/page-break-inside:avoid!important/);
- assert.match(print,/\.sheet-color-table tbody td:last-child/);
- assert.match(print,/\.sheet-finishing/);
- assert.match(print,/\.sheet-volumes/);
+ assert.match(print,/line-height:1\.2/);
+ assert.match(print,/\.sheet-right>.sheet-field textarea/);
  const sheet=read('src/SheetPrint.tsx');
  assert.match(sheet,/className="sheet-paper sheet-paper-a4"/);
  assert.match(sheet,/className="sheet-table sheet-color-table"/);
+ assert.match(sheet,/while\(rows\.length<8\)rows\.push\(emptyRow\(\)\)/);
+ assert.match(sheet,/className="sheet-field sheet-finishing"/);
+ assert.match(sheet,/className="sheet-field sheet-volumes"/);
 });
 test('arquivos TSX editados não têm erros de sintaxe',()=>{
  for(const f of ['src/App.tsx','src/ProductionSheets.tsx','src/EnfestoPage.tsx','src/CutOrders.tsx']){
