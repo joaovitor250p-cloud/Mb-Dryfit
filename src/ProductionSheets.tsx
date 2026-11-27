@@ -18,6 +18,23 @@ type ColorRow = {cor:string;p:string;m:string;g:string;gg:string;xg:string;detal
 type Sheet = {id:string;createdBy:string;model:string;reference:string;client?:string;pieceType?:string;fabric?:string;composition:string;trims:string;officeInstructions:string;oc:string;withdrawalDate:string;volumes?:string;tailorInstructions:string;finishingInstructions:string;colors:ColorRow[];status:'draft'|'enfesto'|'pending'|'assigned';assignedTailor:string};
 type FormData = Omit<Sheet,'id'|'status'|'assignedTailor'|'createdBy'>;
 const blankRow=():ColorRow=>({cor:'',p:'',m:'',g:'',gg:'',xg:'',detalhes:''});
+// Firestore pode devolver propriedades do mapa em ordem diferente daquela usada
+// para criar a ficha; uma diferença de serialização NÃO é uma alteração real.
+const colorSignature=(rows:Partial<ColorRow>[]|null|undefined)=>{
+ const keys=['cor','p','m','g','gg','xg','detalhes'] as const;
+ const normalized=(Array.isArray(rows)?rows:[]).map(row=>keys.map(key=>{
+  const value=String(row?.[key]??'').trim();
+  return key==='cor'||key==='detalhes'?upperField(value):value;
+ }));
+ // Campos vazios no fim são apenas a grade impressa, não dados de produção.
+ while(normalized.length&&normalized[normalized.length-1].every(value=>!value))normalized.pop();
+ return JSON.stringify(normalized);
+};
+const paddedColors=(rows:ColorRow[]|null|undefined):ColorRow[]=>{
+ const result=(Array.isArray(rows)?rows:[]).map(row=>({...blankRow(),...row}));
+ while(result.length<8)result.push(blankRow());
+ return result;
+};
 const validQuantities=(rows:ColorRow[])=>rows.every(r=>(['p','m','g','gg','xg'] as const).every(k=>!r[k].trim()||(/^\d+$/.test(r[k].trim())&&Number.isSafeInteger(Number(r[k])))));
 const todayInputFromDate=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todayInput=()=>todayInputFromDate(new Date());
@@ -79,6 +96,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
  const [lastAssigned,setLastAssigned]=useState<(FormData & {assignedTailor:string;sentLabel:string})|null>(null);
  const [editingId,setEditingId]=useState<string|null>(null);
  const [editingSent,setEditingSent]=useState(false);
+ const [editingColorsBaseline,setEditingColorsBaseline]=useState<string|null>(null);
  useEffect(()=>{
   if(!canEdit||editingId||!ocAuto)return;
   setForm(current=>current.oc===nextOc?current:{...current,oc:nextOc});
@@ -153,10 +171,10 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
   }
  }
  const normalized=uppercaseSheetForm(form);const {client:clientName,...sheetFields}=normalized;const savedHasClient=!!editingId&&sheets.some(item=>item.id===editingId&&item.client!==undefined);const payload={...sheetFields,...(clientName!=='MB'||savedHasClient?{client:clientName}:{ }),model:normalized.model.trim(),reference:normalized.reference.trim(),pieceType:normalized.pieceType||'',fabric:normalized.fabric?.trim()||'',volumes:normalized.volumes?.trim()||'',oc:normalized.oc.trim(),colors:normalized.colors.filter(r=>Object.values(r).some(v=>v.trim())).slice(0,50),status,updatedAt:serverTimestamp(),updatedBy:user.uid};if(editingId){await updateDoc(doc(db,'production_sheets',editingId),payload);}else{const generated=doc(collection(db,'production_sheets'));const newSheet=doc(db,'production_sheets',/^\d{1,12}$/.test(normalized.oc)?`ficha_oc_${Number(normalized.oc)}`:`ficha_${generated.id}`);await setDoc(newSheet,{...payload,assignedTailor:'',assignedAt:null,assignedBy:null,createdAt:serverTimestamp(),createdBy:user.uid});}setLastCreatedOc(previous=>String(Math.max(Number(previous),Number(normalized.oc)||0)));setForm({...blank(),oc:nextProductionOc(sheets,orderOcs.map(oc=>({oc})),[{oc:normalized.oc}])});setOcAuto(true);setEditingId(null);setEditingSent(false);setMessage(status==='draft'?'Rascunho salvo.':'Ficha enviada ao Enfesto e Corte. Após a conferência, ela ficará disponível para Distribuição.');if(status==='draft')setTab('drafts');}catch(e){setError((String((e as {code?:string}).code||'').includes('permission-denied')&&form.client?.trim().toUpperCase()!=='MB'?'Para salvar um CLIENTE diferente de MB, é necessário publicar as novas regras do Firebase. ':'')+safeProviderMessage(e));}finally{setBusy(false);}};
- const editDraft=(s:Sheet)=>{setEditingSent(false);setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:s.colors.length?s.colors:[blankRow()],client:s.client||'MB'}));setOcAuto(false);setEditingId(s.id);setTab('create');setError('');};
+ const editDraft=(s:Sheet)=>{setEditingSent(false);setEditingColorsBaseline(null);setForm(uppercaseSheetForm({model:s.model,reference:s.reference,pieceType:s.pieceType||'',fabric:s.fabric||'',composition:s.composition,trims:s.trims,officeInstructions:s.officeInstructions,oc:s.oc,withdrawalDate:s.withdrawalDate||'',volumes:s.volumes||'',tailorInstructions:s.tailorInstructions,finishingInstructions:s.finishingInstructions,colors:paddedColors(s.colors),client:s.client||'MB'}));setOcAuto(false);setEditingId(s.id);setTab('create');setError('');};
  const editEnfestoSheet=(s:Sheet)=>{
   if(!canEdit||s.status!=='enfesto'||(!isAdmin&&s.createdBy!==user.uid))return;
-  editDraft(s);setEditingSent(true);setTab('create');
+  editDraft(s);setEditingColorsBaseline(colorSignature(s.colors));setEditingSent(true);setTab('create');
   setMessage('Editando ficha enviada ao Enfesto — OC '+s.oc+'. Corrija as cores e quantidades, depois salve sem recriar a ficha.');
  };
  const saveEditedEnfesto=async()=>{
@@ -182,8 +200,8 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     if(!isAdmin&&current.data().createdBy!==user.uid)throw Error('Somente o criador ou o dono pode editar esta ficha.');
     if(job.exists()&&job.data().status==='completed')throw Error('O Enfesto já foi concluído. Alteração bloqueada para preservar o estoque.');
     // Evita gravar sobre alterações realizadas em outro aparelho.
-    if(JSON.stringify(current.data().colors||[])!==JSON.stringify(original.colors||[]))
-      throw Error('Cores ou quantidades foram modificadas em outro aparelho. Atualize a ficha antes de salvar.');
+    if(colorSignature(current.data().colors as ColorRow[]|undefined)!==(editingColorsBaseline??colorSignature(original.colors)))
+      throw Error('As cores ou quantidades desta ficha foram realmente alteradas depois que você abriu a edição. Atualize a ficha para não sobrescrever essa mudança.');
     const updates={
      model:normalized.model,reference:normalized.reference,client:normalized.client||'MB',
      pieceType:normalized.pieceType||'',fabric:normalized.fabric||'',
@@ -200,7 +218,7 @@ export default function ProductionSheets({db,user,catalogModels,canEdit,canDistr
     }
     transaction.set(doc(collection(db,'audit_log')),{actorUid:user.uid,actorEmail:user.email||'',action:'production_sheet_revision',modelName:'OC '+original.oc,before:{colors:current.data().colors,model:current.data().model,reference:current.data().reference},after:{colors,model:normalized.model,reference:normalized.reference},at:serverTimestamp()});
    });
-   setEditingId(null);setEditingSent(false);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts');
+   setEditingId(null);setEditingSent(false);setEditingColorsBaseline(null);setForm({...blank(),oc:nextOc});setOcAuto(true);setTab('drafts');
    setMessage('Ficha OC '+original.oc+' corrigida e sincronizada com o Enfesto e PDF. Confira as linhas modificadas antes de finalizar.');
   }catch(e){setError('Não foi possível atualizar a ficha OC '+original.oc+': '+safeProviderMessage(e)+'. Nenhuma alteração parcial foi gravada.');}
   finally{setBusy(false)}
