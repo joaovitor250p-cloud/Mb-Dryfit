@@ -27,7 +27,7 @@ function paymentView(rows,fridayDate,paymentQueue={}){
  }).outputText;
  const ctx={exports:{},rows,fridayDate,paymentQueue,paymentSearch:'',
   useMemo:fn=>fn(),done:o=>o.status==='ENTREGUE',paid:o=>o.paymentDone==='OK',
-  num:value=>Number(String(value).replace(',','.')),norm:String,toISO};
+  num:value=>Number(String(value).replace(',','.')),norm:String,toISO,paymentAvailable:(o,date)=>!o.paymentEligibleFrom||o.paymentEligibleFrom<=date};
  vm.runInNewContext(code,ctx);
  return Object.fromEntries(Object.entries(ctx.exports).map(([key,value])=>[key,key==='selection'?Array.from(value):Array.from(value,o=>o.id)]));
 }
@@ -85,10 +85,17 @@ test('busca manual e histórico continuam, mas a seleção local não oculta ent
  assert.match(source,/setPaymentPickerOpen\(false\)/);
 });
 test('entregar não marca PAGO; pagamento exige confirmação e validação da data',()=>{
- assert.match(source,/await save\(\{\.\.\.order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:/);
+ assert.match(source,/void save\(\{\.\.\.order,status:'ENTREGUE',deliveredFlag:'OK',deliveredAt:/);
+ assert.match(source,/paymentEligibleFrom:nextMonday\(/);
  assert.match(source,/const markPaid=async\(items:Order\[\]\)/);
  assert.match(source,/Confirmar pagamento de/);
- assert.match(source,/!toISO\(o\.deliveredAt\)\|\|toISO\(o\.deliveredAt\)>fridayDate/);
+ assert.match(source,/!paymentAvailable\(o,fridayDate\)\|\|!toISO\(o\.deliveredAt\)/);
  assert.match(source,/paymentDone:'OK',paidAt:paymentDate/);
  assert.match(source,/const awaitingPayment=useMemo\(\(\)=>rows\.filter\(o=>done\(o\)&&!paid\(o\)\)/);
+});
+
+test('adiamento impede aparecer na sexta anterior mas entra na próxima',()=>{
+ const deferred=order('800');deferred.paymentEligibleFrom='2026-11-30';
+ assert.deepEqual(paymentView([deferred],'2026-11-27').eligible,[]);
+ assert.deepEqual(paymentView([deferred],'2026-12-04').eligible,['800']);
 });
